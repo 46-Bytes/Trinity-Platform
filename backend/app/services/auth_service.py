@@ -82,6 +82,10 @@ class AuthService:
         """
         Get existing user or create new user from Auth0 user info.
         
+        Handles account linking: If a user with the same email exists but different auth0_id
+        (e.g., signed up with email/password, now logging in with Google), updates the auth0_id
+        to link the accounts.
+        
         Args:
             db: Database session
             user_info: User information from Auth0
@@ -95,8 +99,17 @@ class AuthService:
         # Extract role from Auth0
         role = AuthService.extract_role_from_auth0(user_info)
         
-        # Try to find existing user
+        # Try to find existing user by auth0_id first
         user = db.query(User).filter(User.auth0_id == auth0_id).first()
+        
+        # If not found by auth0_id, check by email (for account linking)
+        if not user and email:
+            user = db.query(User).filter(User.email == email).first()
+            if user:
+                # Account linking: User exists with same email but different auth0_id
+                # Update the auth0_id to link the accounts
+                print(f"🔗 Linking accounts: {user.auth0_id} -> {auth0_id} for {email}")
+                user.auth0_id = auth0_id
         
         if user:
             # Update existing user information

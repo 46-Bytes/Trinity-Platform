@@ -1,0 +1,29 @@
+# FastAPI and ASGI server
+fastapi[standard]
+uvicorn[standard]
+python-multipart
+
+# Auth0 and OAuth
+authlib
+python-jose[cryptography]
+requests
+itsdangerous
+
+# Database
+sqlalchemy
+psycopg2-binary
+alembic
+
+# Environment variables
+python-dotenv
+
+# CORS
+fastapi-cors
+
+# Pydantic for validation
+pydantic
+pydantic-settings
+
+# Date/Time utilities
+python-dateutil
+

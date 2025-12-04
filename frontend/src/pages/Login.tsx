@@ -10,12 +10,20 @@ export default function Login() {
   const error = searchParams.get('error');
 
   const handleSignIn = () => {
-    // Redirect to backend Auth0 login endpoint
-    // This will redirect to Auth0 Universal Login page
-    window.location.href = 'http://localhost:8000/api/auth/login';
+    // Clear any existing tokens/session data before redirecting to Auth0
+    // This ensures a fresh login with no previous user data
+    localStorage.removeItem('auth_token');
+    
+    // ALWAYS redirect to Auth0 Universal Login
+    // This ensures we get fresh credentials and proper email verification
+    window.location.href = '/api/auth/login';
   };
 
   useEffect(() => {
+    // Clear any existing authentication data when landing on login page
+    // This ensures a fresh start with no previous user data
+    localStorage.removeItem('auth_token');
+    
     // Show error message if authentication failed
     if (error === 'authentication_failed') {
       console.error('Authentication failed. Please try again.');

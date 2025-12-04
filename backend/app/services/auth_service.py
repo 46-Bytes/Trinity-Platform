@@ -106,7 +106,15 @@ class AuthService:
             user.family_name = user_info.get('family_name')
             user.nickname = user_info.get('nickname')
             user.picture = user_info.get('picture')
-            user.email_verified = user_info.get('email_verified', False)
+            
+            # IMPORTANT: Only update email_verified if it's True (don't unverify)
+            # If user already has verified email, keep it verified
+            # Only update if Auth0 says it's verified (prevents unverifying)
+            auth0_email_verified = user_info.get('email_verified', False)
+            if auth0_email_verified:
+                user.email_verified = True  # Update to verified
+            # If False, don't change existing verified status (preserve verified state)
+            
             user.role = role  # Update role from Auth0
             user.last_login = datetime.utcnow()
             user.updated_at = datetime.utcnow()

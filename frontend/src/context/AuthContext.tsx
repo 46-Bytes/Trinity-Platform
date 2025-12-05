@@ -101,11 +101,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data?.authenticated && data.user) {
         const mappedUser = mapBackendUserToFrontend(data.user);
         console.log('✅ User authenticated:', mappedUser.email);
-        setAuthState({
+    setAuthState({
           user: mappedUser,
-          isAuthenticated: true,
-          isLoading: false,
-        });
+      isAuthenticated: true,
+      isLoading: false,
+    });
       } else {
         console.log('❌ Invalid response format');
         localStorage.removeItem('auth_token');
@@ -118,11 +118,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('❌ Failed to load current user:', error);
       // Don't clear token on network errors - might be temporary
-      setAuthState({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-      });
+    setAuthState({
+      user: null,
+      isAuthenticated: false,
+      isLoading: false,
+    });
     }
   }, []);
 

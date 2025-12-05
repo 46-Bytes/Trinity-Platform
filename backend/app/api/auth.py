@@ -36,11 +36,12 @@ async def login(request: Request):
     redirect_uri = request.url_for('callback')
     
     # Redirect to Auth0 Universal Login
-    # prompt=login forces fresh login (no SSO session reuse)
+    # Explicitly skip consent screen and don't request API access
     return await oauth.auth0.authorize_redirect(
         request,
         redirect_uri=str(redirect_uri),
-        prompt='login',  # Force fresh login, no previous user data
+        # Don't request any API audience - only user info
+        # This prevents the "Authorize App" consent screen
     )
 
 
@@ -86,28 +87,10 @@ async def callback(
         if not user_info:
             raise HTTPException(status_code=400, detail="Failed to get user information")
         
-        # Check if email is verified - MANDATORY for dashboard access
-        email_verified = user_info.get('email_verified', False)
-        user_email = user_info.get('email', '')
-        
-        print(f"🔍 Email verification check: {user_email}, verified: {email_verified}")
-        
-        # If email is NOT verified, redirect to verify-email page
-        if not email_verified:
-            print(f"⚠️ Email not verified for user: {user_email} - redirecting to verify-email page")
-            # Still create/update user in database (so we have their info)
-            user = AuthService.get_or_create_user(db, user_info)
-            # Redirect to verify email page
-            return RedirectResponse(
-                url=f"{settings.FRONTEND_URL}/verify-email?email={user_email}",
-                status_code=302
-            )
-        
-        # Email is verified - proceed to dashboard
         # Create or update user in database (THIS SAVES USER DATA TO DATABASE)
         user = AuthService.get_or_create_user(db, user_info)
         
-        print(f"✅ User authenticated: {user.email}, auth0_id: {user.auth0_id}, role: {user.role}, email_verified: {email_verified}")
+        print(f"✅ User authenticated: {user.email}, auth0_id: {user.auth0_id}, role: {user.role}")
         
         # Get the ID token (JWT) from Auth0 - frontend will use this
         id_token = token.get('id_token')
@@ -140,43 +123,6 @@ async def callback(
             url=f"{settings.FRONTEND_URL}/login?error=authentication_failed",
             status_code=302
         )
-
-
-@router.post("/resend-verification")
-async def resend_verification(
-    request: Request,
-    db: Session = Depends(get_db)
-):
-    """
-    Resend email verification for a user.
-    
-    Note: Auth0 automatically resends verification emails when users
-    attempt to log in with unverified accounts. This endpoint provides
-    a message to guide users.
-    """
-    email = request.query_params.get('email')
-    
-    if not email:
-        raise HTTPException(status_code=400, detail="Email parameter required")
-    
-    # Find user in database
-    user = db.query(User).filter(User.email == email).first()
-    
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    if user.email_verified:
-        return {
-            "message": "Email is already verified",
-            "email_verified": True
-        }
-    
-    # Auth0 automatically handles verification email resending
-    # when users try to log in with unverified email
-    return {
-        "message": "Please check your email inbox. If you didn't receive the verification email, try logging in again - Auth0 will resend it automatically.",
-        "email": email
-    }
 
 
 @router.get("/logout")

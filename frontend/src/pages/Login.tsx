@@ -40,11 +40,13 @@ export default function Login() {
         </div>
         
         <div className="relative z-10 flex flex-col justify-center px-16 text-primary-foreground">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 rounded-xl bg-accent flex items-center justify-center">
-              <span className="font-heading font-bold text-xl text-accent-foreground">T</span>
-            </div>
-            <span className="font-heading font-bold text-2xl">Trinity</span>
+          <div className="flex items-center">
+            <img 
+              src="/logo.png" 
+              alt="Trinity Logo" 
+              className="w-96 object-contain"
+            />
+            <span className="font-heading font-bold text-5xl"></span>
           </div>
           
           <h1 className="font-heading text-5xl font-bold mb-6 leading-tight animate-slide-up">
@@ -84,11 +86,13 @@ export default function Login() {
       <div className="flex-1 flex items-center justify-center p-8 bg-background">
         <div className="w-full max-w-md animate-scale-in">
           {/* Mobile Logo */}
-          <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-              <span className="font-heading font-bold text-lg text-primary-foreground">T</span>
-            </div>
-            <span className="font-heading font-bold text-xl">Trinity</span>
+          <div className="flex items-center gap-4 mb-8 lg:hidden justify-center">
+            <img 
+              src="/logo.png" 
+              alt="Trinity Logo" 
+              className="w-24 h-24 object-contain"
+            />
+            <span className="font-heading font-bold text-3xl">Trinity</span>
           </div>
 
           <div className="mb-8">
@@ -116,9 +120,9 @@ export default function Login() {
               </span>
             </Button>
 
-            <p className="text-center text-sm text-muted-foreground">
+            {/* <p className="text-center text-sm text-muted-foreground">
               You'll be redirected to Auth0 to sign in securely
-            </p>
+            </p> */}
           </div>
 
           <p className="mt-8 text-center text-sm text-muted-foreground">

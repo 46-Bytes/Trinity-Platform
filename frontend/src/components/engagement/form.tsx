@@ -13,17 +13,34 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { createEngagement, updateEngagement } from "@/store/slices/engagementReducer";
+import { createEngagement, updateEngagement, fetchUserRoleData } from "@/store/slices/engagementReducer";
 import type { Engagement } from "@/store/slices/engagementReducer";
 
 // Zod validation schema
 const engagementFormSchema = z.object({
+  businessName: z.string().min(2, {
+    message: "Business name must be at least 2 characters.",
+  }),
   industryName: z.string().min(2, {
     message: "Industry name must be at least 2 characters.",
   }),
   engagementName: z.string().min(3, {
     message: "Engagement name must be at least 3 characters.",
+  }),
+  description: z.string().min(10, {
+    message: "Description must be at least 10 characters.",
+  }),
+  clientOrAdvisorId: z.string().min(1, {
+    message: "Please select a client or advisor.",
   }),
 });
 
@@ -43,7 +60,7 @@ export function EngagementForm({
   mode = 'create'
 }: EngagementFormProps) {
   const dispatch = useAppDispatch();
-  const { isLoading } = useAppSelector((state) => state.engagement);
+  const { isLoading, userRoleData } = useAppSelector((state) => state.engagement);
   
   // Determine if we're in edit mode
   const isEditMode = mode === 'edit' || !!engagement;
@@ -51,17 +68,30 @@ export function EngagementForm({
   const form = useForm<EngagementFormValues>({
     resolver: zodResolver(engagementFormSchema),
     defaultValues: {
+      businessName: "",
       industryName: "",
       engagementName: "",
+      description: "",
+      clientOrAdvisorId: "",
     },
   });
+
+  // Fetch user role data on mount
+  useEffect(() => {
+    if (!userRoleData) {
+      dispatch(fetchUserRoleData());
+    }
+  }, [dispatch, userRoleData]);
 
   // Pre-fill form when in edit mode
   useEffect(() => {
     if (engagement && isEditMode) {
       form.reset({
-        industryName: engagement.description || "", // Map description to industryName
+        businessName: engagement.businessName || "",
+        industryName: engagement.industryName || "",
         engagementName: engagement.title || "",
+        description: engagement.description || "",
+        clientOrAdvisorId: engagement.clientId || "",
       });
     }
   }, [engagement, isEditMode, form]);
@@ -74,22 +104,40 @@ export function EngagementForm({
     }
 
     try {
+      // Get client/advisor name from the selected ID
+      let clientName = "Unknown";
+      if (userRoleData) {
+        if (userRoleData.user_role === 'advisor' && userRoleData.clients) {
+          const selectedClient = userRoleData.clients.find(c => c.id === values.clientOrAdvisorId);
+          clientName = selectedClient?.name || "Unknown Client";
+        } else if (userRoleData.advisors) {
+          const selectedAdvisor = userRoleData.advisors.find(a => a.id === values.clientOrAdvisorId);
+          clientName = selectedAdvisor?.name || "Unknown Advisor";
+        }
+      }
+
       if (isEditMode && engagement) {
         // Edit mode - update existing engagement
         await dispatch(updateEngagement({
           id: engagement.id,
           updates: {
+            businessName: values.businessName,
             title: values.engagementName,
-            description: values.industryName,
+            description: values.description,
+            industryName: values.industryName,
+            clientId: values.clientOrAdvisorId,
+            clientName: clientName,
           }
         })).unwrap();
       } else {
         // Create mode - create new engagement
         await dispatch(createEngagement({
-          clientId: "temp-client-id", // TODO: Get from client selection
-          clientName: "Temporary Client", // TODO: Get from client selection
+          clientId: values.clientOrAdvisorId,
+          clientName: clientName,
+          businessName: values.businessName,
           title: values.engagementName,
-          description: values.industryName,
+          description: values.description,
+          industryName: values.industryName,
           status: 'draft',
           startDate: new Date().toISOString(),
           assignedUsers: [],
@@ -114,40 +162,130 @@ export function EngagementForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
-        <FormField
-          control={form.control}
-          name="industryName"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Industry Name</FormLabel>
-              <FormControl>
-                <Input 
-                  placeholder="e.g., Technology, Healthcare, Finance" 
-                  {...field} 
-                />
-              </FormControl>
-              <FormDescription>
-                Enter the industry sector for this engagement.
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {/* Two column grid for form fields */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="businessName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Business Name</FormLabel>
+                <FormControl>
+                  <Input 
+                    placeholder="e.g., Acme Corporation" 
+                    {...field} 
+                  />
+                </FormControl>
+                <FormDescription>
+                  Enter the business name.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
+          <FormField
+            control={form.control}
+            name="industryName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Industry Name</FormLabel>
+                <FormControl>
+                  <Input 
+                    placeholder="e.g., Technology, Healthcare" 
+                    {...field} 
+                  />
+                </FormControl>
+                <FormDescription>
+                  Enter the industry sector.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Dynamic Client/Advisor Dropdown */}
+          {userRoleData && (
+            <FormField
+              control={form.control}
+              name="clientOrAdvisorId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    {userRoleData.user_role === 'advisor' ? 'Select Client' : 'Select Advisor'}
+                  </FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder={`Select a ${userRoleData.user_role === 'advisor' ? 'client' : 'advisor'}`} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {userRoleData.user_role === 'advisor' && userRoleData.clients ? (
+                        userRoleData.clients.map((client) => (
+                          <SelectItem key={client.id} value={client.id}>
+                            {client.name}
+                          </SelectItem>
+                        ))
+                      ) : userRoleData.advisors ? (
+                        userRoleData.advisors.map((advisor) => (
+                          <SelectItem key={advisor.id} value={advisor.id}>
+                            {advisor.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="none" disabled>No options available</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    {userRoleData.user_role === 'advisor' 
+                      ? 'Choose the client.' 
+                      : 'Choose the advisor.'}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          <FormField
+            control={form.control}
+            name="engagementName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Engagement Name</FormLabel>
+                <FormControl>
+                  <Input 
+                    placeholder="e.g., Q4 2024 Financial Audit" 
+                    {...field} 
+                  />
+                </FormControl>
+                <FormDescription>
+                  Provide engagement name.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* Description field - full width */}
         <FormField
           control={form.control}
-          name="engagementName"
+          name="description"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Engagement Name</FormLabel>
+              <FormLabel>Description</FormLabel>
               <FormControl>
-                <Input 
-                  placeholder="e.g., Q4 2024 Financial Audit" 
+                <Textarea 
+                  placeholder="Describe the scope and objectives of this engagement..."
+                  className="min-h-[100px]"
                   {...field} 
                 />
               </FormControl>
               <FormDescription>
-                Provide a descriptive name for this engagement.
+                Provide details about the engagement scope, objectives, and deliverables.
               </FormDescription>
               <FormMessage />
             </FormItem>

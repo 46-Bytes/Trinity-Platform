@@ -205,7 +205,7 @@ export default function EngagementsPage() {
 
       {/* New Engagement Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[800px]">
           <DialogHeader>
             <DialogTitle>Create New Engagement</DialogTitle>
             <DialogDescription>

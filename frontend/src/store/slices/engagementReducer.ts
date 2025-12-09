@@ -5,8 +5,10 @@ export interface Engagement {
   id: string;
   clientId: string;
   clientName: string;
+  businessName: string;
   title: string;
   description: string;
+  industryName: string;
   status: 'draft' | 'active' | 'on-hold' | 'completed' | 'cancelled';
   startDate: string;
   endDate?: string;
@@ -16,11 +18,28 @@ export interface Engagement {
   updatedAt: string;
 }
 
+export interface Advisor {
+  id: string;
+  name: string;
+}
+
+export interface Client {
+  id: string;
+  name: string;
+}
+
+export interface UserRoleData {
+  user_role: 'advisor' | 'client' | 'admin';
+  advisors?: Advisor[];
+  clients?: Client[];
+}
+
 interface EngagementState {
   engagements: Engagement[];
   selectedEngagement: Engagement | null;
   isLoading: boolean;
   error: string | null;
+  userRoleData: UserRoleData | null;
   filters: {
     status?: string;
     clientId?: string;
@@ -31,6 +50,29 @@ interface EngagementState {
 const API_BASE_URL = '';
 
 // Async thunks
+export const fetchUserRoleData = createAsyncThunk(
+  'engagement/fetchUserRoleData',
+  async (_, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${API_BASE_URL}/api/engagements/user-role-data`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch user role data');
+      }
+
+      const data = await response.json();
+      return data as UserRoleData;
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to fetch user role data');
+    }
+  }
+);
+
 export const fetchEngagements = createAsyncThunk(
   'engagement/fetchEngagements',
   async (_, { rejectWithValue }) => {
@@ -158,6 +200,7 @@ const initialState: EngagementState = {
   selectedEngagement: null,
   isLoading: false,
   error: null,
+  userRoleData: null,
   filters: {},
 };
 
@@ -181,6 +224,19 @@ const engagementSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // Fetch user role data
+      .addCase(fetchUserRoleData.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchUserRoleData.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.userRoleData = action.payload;
+      })
+      .addCase(fetchUserRoleData.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
       // Fetch all engagements
       .addCase(fetchEngagements.pending, (state) => {
         state.isLoading = true;

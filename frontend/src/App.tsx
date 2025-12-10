@@ -19,7 +19,8 @@ import { DashboardLayout } from "./components/layout/DashboardLayout";
 import DashboardHome from "./pages/dashboard/DashboardHome";
 import UsersPage from "./pages/dashboard/UsersPage";
 import ClientsPage from "./pages/dashboard/ClientsPage";
-import EngagementsPage from "./pages/dashboard/EngagementsPage";
+import EngagementsPage from "./pages/dashboard/Engagement/EngagementsPage";
+import EngagementDetailPage from "./pages/dashboard/Engagement/EngagementDetailPage";
 import TasksPage from "./pages/dashboard/TasksPage";
 import DocumentsPage from "./pages/dashboard/DocumentsPage";
 import AIToolsPage from "./pages/dashboard/AIToolsPage";
@@ -59,6 +60,7 @@ function AppRoutes() {
         <Route path="users" element={<UsersPage />} />
         <Route path="clients" element={<ClientsPage />} />
         <Route path="engagements" element={<EngagementsPage />} />
+        <Route path="engagements/:engagementId" element={<EngagementDetailPage />} />
         <Route path="tasks" element={<TasksPage />} />
         <Route path="documents" element={<DocumentsPage />} />
         <Route path="ai-tools" element={<AIToolsPage />} />

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Filter, ArrowRight, FileText, CheckSquare, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -70,6 +71,7 @@ const mockEngagements = [
 ];
 
 export default function EngagementsPage() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -127,6 +129,7 @@ export default function EngagementsPage() {
           {filteredEngagements.map((engagement) => (
             <div 
               key={engagement.id} 
+              onClick={() => navigate(`/dashboard/engagements/${engagement.id}`)}
               className="p-5 rounded-xl border border-border hover:border-accent/50 hover:shadow-trinity-md transition-all cursor-pointer group"
             >
               <div className="flex flex-col lg:flex-row lg:items-center gap-4">

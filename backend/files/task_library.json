@@ -1,0 +1,63 @@
+{
+  "Financial Clarity & Reporting": [
+    "Request access to accounting platform and export financial reports",
+    "Review three years of profit & loss and balance sheets for inconsistencies",
+    "Work with bookkeeper to clean up key accounts (drawings, inter-company, assets)",
+    "Identify and document all add‑backs using the Add‑back Tracker",
+    "Create a normalized EBITDA view using the template",
+    "Confirm BAS and income‑tax lodgements are current",
+    "Separate personal and business expenses clearly",
+    "Finalize reconciled financials (three years) and store in client file"
+  ],
+  "Legal, Compliance & Property": [
+    "Collect all legal‑structure documents (constitutions, trusts, shareholder agreements)",
+    "Verify ASIC records, share registers and director details",
+    "Confirm registrations (ABN, ACN, GST, business name) are current",
+    "Gather and review supplier, customer and contractor contracts",
+    "Highlight missing, expired or non‑transferable contracts",
+    "Review lease terms, rent‑review schedule and assignment clauses",
+    "Document insurance cover (liability, PI, workers' comp, cyber) and expiry dates",
+    "Prepare legal‑risk summary with recommended actions"
+  ],
+  "Owner Dependency & Operations": [
+    "Document owners' daily and periodic duties",
+    "Map critical processes and identify single‑person dependency points",
+    "Draft succession plan and assign backups for key roles",
+    "Institute weekly management‑meeting cadence with agenda & minutes template",
+    "Assess ERP/tech stack for automation opportunities",
+    "Prepare SOPs for top‑10 revenue‑generating processes"
+  ],
+  "People": [
+    "Compile full staff list with roles, status, start dates and key‑employee flag",
+    "Review and update all position descriptions",
+    "Audit HR policies (leave, WHS, performance) for completeness",
+    "Implement quarterly one-to‑one performance‑review schedule",
+    "Create 12‑month workforce‑planning forecast"
+  ],
+  "Customer, Product & Revenue Quality": [
+    "Segment customer database into existing, lapsed and prospects",
+    "Analyse product/service margin by SKU or service line",
+    "Identify top‑10 customers by revenue and review contract status",
+    "Benchmark pricing strategy against competitors and cost base",
+    "Draft product/market‑fit improvement plan"
+  ],
+  "Brand, IP & Intangibles": [
+    "Audit brand assets (logos, style guide, website) for consistency",
+    "Confirm trademark registrations and renewal dates",
+    "Catalogue proprietary content, software and patents",
+    "Recommend brand refresh if premises or collateral outdated"
+  ],
+  "Tax, Compliance & Regulatory": [
+    "Verify BAS, IAS and income‑tax lodgements have been lodged and paid",
+    "Download ATO integrated‑client account to check balances",
+    "Confirm payroll‑tax status/registrations for each state",
+    "Compile register of licences, permits and certificates with expiry dates"
+  ],
+  "Due Diligence Preparation": [
+    "Create secure data‑room folder structure (financial, legal, operations, HR, IP)",
+    "Populate data room with five‑year financials, contracts, leases and licences",
+    "Draft vendor DDQ covering finance, legal, operational and HR areas",
+    "Prepare add‑backs and normalisations schedule with evidence",
+    "Draft high‑level information‑memorandum outline"
+  ]
+}

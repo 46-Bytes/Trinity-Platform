@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from .config import settings
 from .api import auth_router
+from .api.diagnostics import router as diagnostics_router
 from .database import engine, Base
 
 # Create database tables
@@ -39,6 +40,7 @@ app.add_middleware(
         "http://localhost:5173",
         "http://localhost:3000",
         "http://localhost:8080",
+        "*",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -47,6 +49,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth_router)
+app.include_router(diagnostics_router, prefix="/api")
 
 
 @app.get("/")

@@ -1,6 +1,16 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Filter, ArrowRight, FileText, CheckSquare, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { EngagementForm } from "@/components/engagement/form";
+import { toast } from "sonner";
 
 const mockEngagements = [
   { 
@@ -61,8 +71,10 @@ const mockEngagements = [
 ];
 
 export default function EngagementsPage() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const filteredEngagements = mockEngagements.filter(e => {
     const matchesSearch = e.client.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -71,6 +83,11 @@ export default function EngagementsPage() {
     return matchesSearch && matchesStatus;
   });
 
+  const handleFormSuccess = () => {
+    toast.success("Engagement created successfully!");
+    setIsDialogOpen(false);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -78,7 +95,7 @@ export default function EngagementsPage() {
           <h1 className="font-heading text-2xl font-bold text-foreground">Engagements</h1>
           <p className="text-muted-foreground mt-1">Manage client engagement workspaces</p>
         </div>
-        <button className="btn-primary">
+        <button className="btn-primary" onClick={() => setIsDialogOpen(true)}>
           <Plus className="w-4 h-4" />
           New Engagement
         </button>
@@ -112,6 +129,7 @@ export default function EngagementsPage() {
           {filteredEngagements.map((engagement) => (
             <div 
               key={engagement.id} 
+              onClick={() => navigate(`/dashboard/engagements/${engagement.id}`)}
               className="p-5 rounded-xl border border-border hover:border-accent/50 hover:shadow-trinity-md transition-all cursor-pointer group"
             >
               <div className="flex flex-col lg:flex-row lg:items-center gap-4">
@@ -187,6 +205,19 @@ export default function EngagementsPage() {
           </div>
         )}
       </div>
+
+      {/* New Engagement Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[800px]">
+          <DialogHeader>
+            <DialogTitle>Create New Engagement</DialogTitle>
+            <DialogDescription>
+              Fill in the details to create a new client engagement.
+            </DialogDescription>
+          </DialogHeader>
+          <EngagementForm onSuccess={handleFormSuccess} mode="create" />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

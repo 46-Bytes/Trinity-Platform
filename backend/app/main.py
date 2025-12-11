@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from .config import settings
-from .api import auth_router
+from .api import auth_router, engagements_router, notes_router, tasks_router
 from .database import engine, Base
 
 # Create database tables
@@ -47,6 +47,9 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth_router)
+app.include_router(engagements_router)
+app.include_router(notes_router)
+app.include_router(tasks_router)
 
 
 @app.get("/")

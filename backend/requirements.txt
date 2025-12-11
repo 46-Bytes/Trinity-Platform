@@ -27,3 +27,6 @@ pydantic-settings
 # Date/Time utilities
 python-dateutil
 
+# OpenAI for AI processing
+openai
+

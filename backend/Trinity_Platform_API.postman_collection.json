@@ -1,0 +1,420 @@
+{
+  "info": {
+    "name": "Trinity Platform - AI Diagnostic API",
+    "description": "Complete API collection for testing the Trinity Platform AI Diagnostic system.\n\n**Authentication Required:**\n- Set 'auth_token' variable with your Auth0 ID token\n- Get token from: http://localhost:8000/api/auth/login (browser)\n- See POSTMAN_AUTHENTICATION_GUIDE.md for details",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "engagement_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "diagnostic_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "00000000-0000-0000-0000-000000000001",
+      "type": "string",
+      "description": "Replace with actual user UUID from authentication"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string",
+      "description": "Auth0 ID token (Bearer token) - Get this from /api/auth/login OAuth flow or frontend localStorage"
+    }
+  ],
+  "auth": {
+    "type": "noauth"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Automatically add Authorization header if auth_token is set",
+          "const authToken = pm.collectionVariables.get('auth_token');",
+          "if (authToken && authToken.trim() !== '') {",
+          "    pm.request.headers.add({",
+          "        key: 'Authorization',",
+          "        value: 'Bearer ' + authToken",
+          "    });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "Get Current User (With Token)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/user",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "user"]
+            },
+            "description": "Get the currently authenticated user. Requires Bearer token in Authorization header. Set auth_token variable with your Auth0 ID token."
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Redirect to Microsoft OAuth login"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Engagements",
+      "item": [
+        {
+          "name": "Create Engagement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('engagement_id', jsonData.id);",
+                  "    console.log('Engagement ID saved: ' + jsonData.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_id\": 1,\n  \"advisor_id\": 1,\n  \"name\": \"AI Diagnostic Test Engagement\",\n  \"description\": \"Test engagement for AI diagnostic workflow\",\n  \"tool\": \"AI Diagnostic\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/engagements",
+              "host": ["{{base_url}}"],
+              "path": ["api", "engagements"]
+            },
+            "description": "Create a new engagement for testing the diagnostic workflow"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Engagement by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/engagements/{{engagement_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "engagements", "{{engagement_id}}"]
+            },
+            "description": "Get engagement details"
+          },
+          "response": []
+        },
+        {
+          "name": "List All Engagements",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/engagements?skip=0&limit=100",
+              "host": ["{{base_url}}"],
+              "path": ["api", "engagements"],
+              "query": [
+                {
+                  "key": "skip",
+                  "value": "0"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            },
+            "description": "List all engagements"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. AI Diagnostic",
+      "item": [
+        {
+          "name": "Create Diagnostic",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('diagnostic_id', jsonData.id);",
+                  "    console.log('Diagnostic ID saved: ' + jsonData.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"engagement_id\": \"{{engagement_id}}\",\n  \"created_by_user_id\": \"{{user_id}}\",\n  \"diagnostic_type\": \"business_health_assessment\",\n  \"diagnostic_version\": \"1.0\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/diagnostics/create",
+              "host": ["{{base_url}}"],
+              "path": ["api", "diagnostics", "create"]
+            },
+            "description": "Create a new diagnostic for an engagement. This automatically loads the diagnostic questions structure from the JSON file. Questions are included in the response.\n\n**Prerequisites:**\n1. Set 'auth_token' variable with your Auth0 token (get from /api/auth/login)\n2. Create an engagement first to get a valid engagement_id UUID\n3. Update 'user_id' variable with your authenticated user UUID\n\n**Note:** Both engagement_id and created_by_user_id must be valid UUIDs (not integers like '1234')"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Diagnostic Responses (Incremental Save)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_responses\": {{test_diagnostic_responses}},\n  \"status\": \"in_progress\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/diagnostics/{{diagnostic_id}}/responses",
+              "host": ["{{base_url}}"],
+              "path": ["api", "diagnostics", "{{diagnostic_id}}", "responses"]
+            },
+            "description": "Update diagnostic responses incrementally (autosave). Use partial or full responses from test_diagnostic_responses.json"
+          },
+          "response": []
+        },
+        {
+          "name": "Submit Diagnostic (Trigger AI Processing)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('diagnostic_id', jsonData.id);",
+                  "    console.log('Diagnostic submitted and processed. ID: ' + jsonData.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"completed_by_user_id\": \"{{user_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/diagnostics/{{diagnostic_id}}/submit",
+              "host": ["{{base_url}}"],
+              "path": ["api", "diagnostics", "{{diagnostic_id}}", "submit"]
+            },
+            "description": "Submit diagnostic and trigger complete AI processing pipeline: JSON extract → Summary → Scoring → Advice → Tasks. This may take 30-60 seconds. Ensure diagnostic has responses before submitting. Update user_id variable with actual authenticated user UUID."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Diagnostic by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/diagnostics/{{diagnostic_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "diagnostics", "{{diagnostic_id}}"]
+            },
+            "description": "Get complete diagnostic details including all AI-generated data"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Diagnostic Results",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/diagnostics/{{diagnostic_id}}/results",
+              "host": ["{{base_url}}"],
+              "path": ["api", "diagnostics", "{{diagnostic_id}}", "results"]
+            },
+            "description": "Get formatted diagnostic results including summary, advice, scoring data, and roadmap"
+          },
+          "response": []
+        },
+        {
+          "name": "List Diagnostics for Engagement",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/diagnostics/engagement/{{engagement_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "diagnostics", "engagement", "{{engagement_id}}"]
+            },
+            "description": "List all diagnostics for a specific engagement"
+          },
+          "response": []
+        },
+        {
+          "name": "Regenerate Advisor Report",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/diagnostics/{{diagnostic_id}}/regenerate-report",
+              "host": ["{{base_url}}"],
+              "path": ["api", "diagnostics", "{{diagnostic_id}}", "regenerate-report"]
+            },
+            "description": "Regenerate the advisor report for a completed diagnostic without reprocessing all scores"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Tasks",
+      "item": [
+        {
+          "name": "Get Tasks for Diagnostic",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/tasks/diagnostic/{{diagnostic_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "tasks", "diagnostic", "{{diagnostic_id}}"]
+            },
+            "description": "Get all tasks generated for this diagnostic"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Task by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/tasks/{task_id}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "tasks", "{task_id}"]
+            },
+            "description": "Get a specific task by ID (replace {task_id} with actual ID)"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Task Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"in_progress\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/tasks/{task_id}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "tasks", "{task_id}"]
+            },
+            "description": "Update task status (pending, in_progress, completed, cancelled)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Health Check",
+      "item": [
+        {
+          "name": "API Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Check if the API is running"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
+

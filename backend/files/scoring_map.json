@@ -1,0 +1,889 @@
+{
+  "financial_performance_since_acquisition": {
+    "module": "M1",
+    "values": {
+      "Better": 5,
+      "Same": 3,
+      "Worse": 1
+    }
+  },
+  "turnaround_possibility": {
+    "module": "M1",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "key_reports_review_frequency": {
+    "module": "M1",
+    "values": {
+      "Never": 1,
+      "Daily": 5,
+      "Weekly": 5,
+      "Monthly": 3,
+      "Bi-Monthly": 1,
+      "Quarterly": 1,
+      "Every Six Months": 1,
+      "Once Per Year": 1,
+      "Ad-Hoc (no set regularity)": 1
+    }
+  },
+  "do_you_have_any_debts_in_the_business": {
+    "module": "M1",
+    "values": {
+      "Yes": 1,
+      "No": 5
+    }
+  },
+  "debt_repayment_consistency": {
+    "module": "M1",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "do_you_have_a_bookkeeper": {
+    "module": "M1",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "accountant_meeting_freq": {
+    "module": "M1",
+    "values": {
+      "weekly": 5,
+      "monthly": 5,
+      "bi-monthly": 5,
+      "quarterly": 5,
+      "every six months": 4,
+      "once per year": 2,
+      "never": 1
+    }
+  },
+  "profit_or_loss_last_year": {
+    "module": "M1",
+    "values": {
+      "Profit": 5,
+      "Loss": 1
+    }
+  },
+  "reliance_on_financing_for_cash_flow": {
+    "module": "M1",
+    "values": {
+      "Yes": 1,
+      "No": 5
+    }
+  },
+  "are_your_activity_statements_up_to_date": {
+    "module": "M7",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "are_your_business_tax_returns_up_to_date": {
+    "module": "M7",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "strategic_business_plan": {
+    "module": "M8",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "strategic_plan_last_review": {
+    "module": "M8",
+    "values": {
+      "1 month ago": 5,
+      "in the past 6 months": 4,
+      "in the past 12 months": 3,
+      "in the past 2 years": 2,
+      "I don't recall": 1
+    }
+  },
+  "has_intl_trading_plan": {
+    "module": "M8",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "family_members_operating": {
+    "module": "M3",
+    "values": {
+      "Yes": 1,
+      "No": 5
+    }
+  },
+  "directors_share_vision": {
+    "module": "M3",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "next_2_years_invest_more": {
+    "module": "M3",
+    "values": {
+      "Yes": 1,
+      "No": 5
+    }
+  },
+  "can_the_business_operate_without_you": {
+    "module": "M3",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "business_operate_completely_without_guidance": {
+    "module": "M3",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "how_much_is_the_business_reliant_on_you": {
+    "module": "M3",
+    "values": {
+      "1-10": 5,
+      "11-20": 4,
+      "21-40": 3,
+      "41-60": 2,
+      "61-100": 1
+    }
+  },
+  "when_you_are_not_around": {
+    "module": "M3",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "percentage_chance_of_losing_key_customers": {
+    "module": "M3",
+    "values": {
+      "1-10": 5,
+      "11-20": 4,
+      "21-40": 3,
+      "41-60": 2,
+      "61-100": 1
+    }
+  },
+  "business_has_board": {
+    "module": "M3",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "business_has_divisional_structure": {
+    "module": "M3",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "do_you_run_internal_management_meetings": {
+    "module": "M3",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "internal_mgmt_meetings_frequency": {
+    "module": "M3",
+    "values": {
+      "weekly": 5,
+      "monthly": 4,
+      "bi-monthly": 3,
+      "quarterly": 2,
+      "every six months": 2,
+      "once per year": 1,
+      "ad-hoc (no set regularity)": 1
+    }
+  },
+  "do_you_run_internal_team_meetings": {
+    "module": "M3",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "team_meetings_frequency": {
+    "module": "M3",
+    "values": {
+      "weekly": 5,
+      "monthly": 4,
+      "bi-monthly": 3,
+      "quarterly": 2,
+      "every six months": 2,
+      "once per year": 1,
+      "ad-hoc (no set regularity)": 1
+    }
+  },
+  "run_divisional_mgmt_meetings": {
+    "module": "M3",
+    "values": {
+      "Yes in every division": 5,
+      "Yes for some divisions": 3,
+      "We don't run management meetings at all": 1
+    }
+  },
+  "mgmt_meetings_frequency": {
+    "module": "M3",
+    "values": {
+      "Weekly": 5,
+      "Fortnightly": 4,
+      "Monthly": 3,
+      "Every Quarter": 2,
+      "Every Six Months": 2,
+      "Annually": 1,
+      "Ad Hoc at random times": 1,
+      "Never": 1
+    }
+  },
+  "runs_divisional_team_meetings": {
+    "module": "M3",
+    "values": {
+      "Yes in every division": 5,
+      "Yes for some divisions": 3,
+      "We don't run team meetings at all": 1
+    }
+  },
+  "team_meetings_frequency": {
+    "module": "M3",
+    "values": {
+      "Weekly": 5,
+      "Fortnightly": 4,
+      "Monthly": 3,
+      "Every Quarter": 2,
+      "Every Six Months": 2,
+      "Annually": 1,
+      "Ad Hoc at random times": 1,
+      "Never": 1
+    }
+  },
+  "senior_mgmt_strategy_review_frequency": {
+    "module": "M3",
+    "values": {
+      "Weekly": 5,
+      "Fortnightly": 5,
+      "Monthly": 4,
+      "Every Quarter": 3,
+      "Every Six Months": 2,
+      "Annually": 1,
+      "Ad Hoc at random times": 1,
+      "Never": 1
+    }
+  },
+  "processes_documented": {
+    "module": "M3",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "business_process_review_date": {
+    "module": "M3",
+    "values": {
+      "1 month ago": 5,
+      "in the past 6 months": 4,
+      "in the past 12 months": 3,
+      "in the past 2 years": 2,
+      "I don't recall": 1
+    }
+  },  "processes_and_systems_effectiveness_rating": {
+    "module": "M3",
+    "values": {
+      "1": 1,
+      "2": 1,
+      "3": 2,
+      "4": 2,
+      "5": 3,
+      "6": 3,
+      "7": 4,
+      "8": 4,
+      "9": 5,
+      "10": 5
+    }
+  },
+
+  "business_automation_tools": {
+    "module": "M3",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "operational_reports_review": {
+    "module": "M3",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "uses_erp_system": {
+    "module": "M3",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+"erp_system_effectiveness": {
+    "module": "M3",
+    "values": {
+      "1": 1,
+      "2": 1,
+      "3": 2,
+      "4": 2,
+      "5": 3,
+      "6": 3,
+      "7": 4,
+      "8": 4,
+      "9": 5,
+      "10": 5
+    }
+  },
+  "stores_connected_with_digital_technology": {
+    "module": "M3",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "warehouse_connected_with_stores_digitally": {
+    "module": "M3",
+    "values": {
+      "Yes": 5,
+      "Some Stores": 3,
+      "No": 1
+    }
+  },
+  "has_succession_plan_in_place": {
+    "module": "M3",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "succession_plan_proactive_implementation": {
+    "module": "M3",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "succession_plan_effectiveness": {
+    "module": "M3",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "succession_plan_for_business_continuity": {
+    "module": "M3",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "tech_sync_efficiency": {
+    "module": "M3",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "tech_support_access": {
+    "module": "M3",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "tech_rating_vs_competitors": {
+    "module": "M3",
+    "values": {
+      "1": 1,
+      "2": 1,
+      "3": 2,
+      "4": 2,
+      "5": 3,
+      "6": 3,
+      "7": 4,
+      "8": 4,
+      "9": 5,
+      "10": 5
+    }
+  },
+  "keyEmployee": {
+    "module": "M4",
+    "values": {
+      "Yes": 1,
+      "No": 5
+    }
+  },
+  "team_position_descriptions": {
+    "module": "M4",
+    "values": {
+      "Everyone": 5,
+      "Some team members": 3,
+      "No one": 1
+    }
+  },
+  "last_time_team_position_descriptions_reviewed": {
+    "module": "M4",
+    "values": {
+      "1 month ago": 5,
+      "in the past 6 months": 4,
+      "in the past 12 months": 3,
+      "in the past 2 years": 2,
+      "I don't recall": 1
+    }
+  },
+  "has_hr_policies_and_procs": {
+    "module": "M4",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "performance_review_freq": {
+    "module": "M4",
+    "values": {
+      "weekly": 5,
+      "monthly": 5,
+      "bi-monthly": 5,
+      "quarterly": 5,
+      "every six months": 4,
+      "once per year": 2,
+      "never": 1
+    }
+  },
+  "underperforming_staff_identification": {
+    "module": "M4",
+    "values": {
+      "Yes": 1,
+      "No": 5
+    }
+  },
+  "staff_recruitment_need": {
+    "module": "M4",
+    "values": {
+      "Yes": 1,
+      "No": 5
+    }
+  },
+  "staff_retention_threat_six_months": {
+    "module": "M4",
+    "values": {
+      "Yes": 1,
+      "No": 5
+    }
+  },
+  "staffing_and_hr_challenges": {
+    "module": "M4",
+    "values": {
+      "Yes": 1,
+      "No": 5
+    }
+  },
+  "team_cohesion_satisfaction": {
+    "module": "M4",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "hr_metrics_tracking": {
+    "module": "M4",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "service_type_standard_or_custom": {
+    "module": "M5",
+    "values": {
+      "Standard Services": 1,
+      "Custom Solutions": 4,
+      "Both": 3
+    }
+  },
+  "last_time_reviewed_products_services": {
+    "module": "M5",
+    "values": {
+      "1 month ago": 5,
+      "3 months ago": 5,
+      "6 months ago": 4,
+      "1 year ago": 3,
+      "over one year ago": 2,
+      "Never": 1
+    }
+  },
+  "last_time_updated_prices": {
+    "module": "M5",
+    "values": {
+      "1 month ago": 5,
+      "3 months ago": 5,
+      "6 months ago": 4,
+      "1 year ago": 3,
+      "over one year ago": 2,
+      "Never": 1
+    }
+  },
+  "rating_product_service_right_for_market": {
+    "module": "M5",
+    "values": {
+      "1": 1,
+      "2": 1,
+      "3": 2,
+      "4": 2,
+      "5": 3,
+      "6": 3,
+      "7": 4,
+      "8": 4,
+      "9": 5,
+      "10": 5
+    }
+  },
+  "our_prices_are_the_same_as_that_of_competitors": {
+    "module": "M5",
+    "values": {
+      "Yes": 3,
+      "Higher": 3,
+      "Lower": 3,
+      "I don't know": 1
+    }
+  },
+  "our_productservice_mix_needs_to_change": {
+    "module": "M5",
+    "values": {
+      "Yes": 1,
+      "No": 5
+    }
+  },
+  "our_customers_understand_our_productsservices": {
+    "module": "M5",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "products_services_still_relevant_in_2_yrs": {
+    "module": "M5",
+    "values": {
+      "Yes": 5,
+      "Some won't be": 3,
+      "No": 1
+    }
+  },
+  "different_products_services_in_2_yrs": {
+    "module": "M5",
+    "values": {
+      "Yes": 1,
+      "Some changes are expected": 3,
+      "No": 5
+    }
+  },
+  "easy_supplier_access": {
+    "module": "M5",
+    "values": {
+      "Yes": 1,
+      "Certain Suppliers Yes": 2,
+      "No": 5
+    }
+  },
+"current_suppliers_appropriateness": {
+    "module": "M5",
+    "values": {
+      "Yes": 5,
+      "Some": 3,
+      "No": 1
+    }
+  },
+"supplier_contracts_in_place": {
+    "module": "M5",
+    "values": {
+      "Yes": 5,
+      "Some": 3,
+      "No": 1
+    }
+  },
+"exclusivity_agreements": {
+    "module": "M5",
+    "values": {
+      "Yes": 5,
+      "Some": 3,
+      "No": 1
+    }
+  },
+
+  "our_margins_are_higher_than_industry_standard": {
+    "module": "M5",
+    "values": {
+      "Yes": 5,
+      "No - our margins are the same as others": 3,
+      "No - our margins are lower than others": 1,
+      "I don't know": 1
+    }
+  },
+  "has_sales_marketing_strategy": {
+    "module": "M5",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "sales_marketing_strategy_review_date": {
+    "module": "M5",
+    "values": {
+      "1 month ago": 5,
+      "in the past 6 months": 4,
+      "in the past 12 months": 3,
+      "in the past 2 years": 2,
+      "I don't recall": 1
+    }
+  },
+  "has_sales_marketing_plan": {
+    "module": "M5",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "sales_marketing_plan_review_date": {
+    "module": "M5",
+    "values": {
+      "1 month ago": 5,
+      "in the past 6 months": 4,
+      "in the past 12 months": 3,
+      "in the past 2 years": 2,
+      "I don't recall": 1
+    }
+  },
+  "sales_marketing_plan_implementation": {
+    "module": "M5",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "growth_areas_in_sales_marketing_plan": {
+    "module": "M5",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "do_you_have_a_clearly_articulated_sales_process": {
+    "module": "M5",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "segmented_customer_list": {
+    "module": "M5",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "know_roi_for_all_money_spent_on_marketing": {
+    "module": "M5",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "do_you_track_and_monitor_sales_and_marketing_data": {
+    "module": "M5",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "understands_captured_sales_data": {
+    "module": "M5",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "sales_marketing_satisfaction": {
+    "module": "M5",
+    "values": {
+      "1": 1,
+      "2": 1,
+      "3": 2,
+      "4": 2,
+      "5": 3,
+      "6": 3,
+      "7": 4,
+      "8": 4,
+      "9": 5,
+      "10": 5
+    }
+  },
+  "has_crm": {
+    "module": "M5",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "crm_system_effectiveness": {
+    "module": "M5",
+    "values": {
+      "1": 1,
+      "2": 2,
+      "3": 3,
+      "4": 4,
+      "5": 5
+    }
+  },
+  "customer_data_utilization": {
+    "module": "M5",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "percentage_of_revenue_from_largest_customer": {
+    "module": "M5",
+    "values": {
+      "1-10": 5,
+      "11-20": 3,
+      "21-40": 2,
+      "41-60": 1,
+      "61-100": 1
+    }
+  },
+  "percentage_of_revenue_from_top_3_customers": {
+    "module": "M5",
+    "values": {
+      "1-10": 5,
+      "11-20": 4,
+      "21-40": 3,
+      "41-60": 2,
+      "61-100": 1
+    }
+  },
+  "percentage_of_customers_on_service_contracts": {
+    "module": "M5",
+    "values": {
+      "1-20": 1,
+      "21-40": 2,
+      "41-60": 3,
+      "61-80": 4,
+      "81-100": 5
+    }
+  },
+  "has_dedicated_customer_service_person_or_team": {
+    "module": "M5",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "customer_service_team_training": {
+    "module": "M5",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "has_customer_service_procedures_in_place": {
+    "module": "M5",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "does_the_business_have_a_website": {
+    "module": "M6",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "website_last_updated_date": {
+    "module": "M6",
+    "values": {
+      "1 month ago": 5,
+      "in the past 6 months": 4,
+      "in the past 12 months": 3,
+      "in the past 2 years": 2,
+      "I don't recall": 1
+    }
+  },
+  "does_your_business_have_a_style_guide": {
+    "module": "M6",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "style_guide_last_updated": {
+    "module": "M6",
+    "values": {
+      "1 month ago": 5,
+      "in the past 6 months": 4,
+      "in the past 12 months": 3,
+      "in the past 2 years": 2,
+      "I don't recall": 1
+    }
+  },
+  "premises_update_needed": {
+    "module": "M6",
+    "values": {
+      "Yes": 1,
+      "No": 5
+    }
+  },
+  "brand_consistency_rating": {
+    "module": "M6",
+    "values": {
+      "1": 1,
+      "2": 2,
+      "3": 3,
+      "4": 4,
+      "5": 5
+    }
+  },
+  "license_compliance_status": {
+    "module": "M2",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "currently_facing_legal_actions": {
+    "module": "M2",
+    "values": {
+      "Yes": 1,
+      "No": 5
+    }
+  },
+  "has_3rd_party_service_level_agreements": {
+    "module": "M2",
+    "values": {
+      "Yes": 5,
+      "No": 1
+    }
+  },
+  "property_upgrades_needed": {
+    "module": "M2",
+    "values": {
+      "Yes": 1,
+      "No": 5
+    }
+  }
+}

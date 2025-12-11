@@ -1,6 +1,7 @@
 """
 Authentication API routes using Auth0 Universal Login.
 """
+from dotenv.main import logger
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -64,7 +65,8 @@ async def callback(
     try:
         # Get the access token from Auth0
         token = await oauth.auth0.authorize_access_token(request)
-        
+        logger.info(f"Token: {token}")
+        print(f"Token: {token}")
         # Get user information from the token
         user_info = token.get('userinfo')
         

@@ -18,48 +18,79 @@ def get_current_user(
     """
     Dependency to get the current authenticated user.
     
-    This checks:
-    1. Session exists
-    2. Token exists in session
-    3. Token is not expired
-    4. User exists in database
+    Supports two authentication methods:
+    1. Bearer token (Authorization header) - for API clients like Postman
+    2. Session-based (cookies) - for web frontend
+    
+    Priority: Bearer token is checked first, then session.
     
     Raises:
-        HTTPException: If user is not authenticated or token is expired
+        HTTPException: If user is not authenticated
     """
-    user_session = request.session.get('user')
+    auth0_id = None
     
-    # Debug: Print session info
-    print(f"Session keys in get_current_user: {list(request.session.keys())}")
-    print(f"User session exists: {user_session is not None}")
+    # Method 1: Check for Bearer token in Authorization header
+    auth_header = request.headers.get('Authorization')
+    if auth_header and auth_header.startswith('Bearer '):
+        token = auth_header.split(' ')[1]
+        print(f"🔑 Bearer token found, length: {len(token)}")
+        
+        try:
+            # Decode the ID token to get user info (no signature verification for simplicity)
+            payload = jwt.get_unverified_claims(token)
+            auth0_id = payload.get('sub')
+            print(f"✅ Token decoded, auth0_id: {auth0_id}")
+            
+            if not auth0_id:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid token: missing 'sub' claim"
+                )
+        except JWTError as e:
+            print(f"❌ Token decode error: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token"
+            )
     
-    if not user_session:
+    # Method 2: Check for session-based authentication
+    if not auth0_id:
+        user_session = request.session.get('user')
+        print(f"🍪 Session check - keys: {list(request.session.keys())}")
+        print(f"🍪 User session exists: {user_session is not None}")
+        
+        if user_session:
+            auth0_id = user_session.get('auth0_id')
+            print(f"✅ Session auth0_id: {auth0_id}")
+    
+    # If no authentication method worked
+    if not auth0_id:
+        print("❌ No valid authentication found (neither Bearer token nor session)")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated"
         )
     
-    # NOTE: For now we are **not** enforcing token presence/expiry here.
-    # We only rely on the existence of the session. This keeps the flow simple
-    # while we're setting things up. Later we can re-enable token checks.
-
-    # Get user from database based on Auth0 ID stored in session
-    auth0_id = user_session.get('auth0_id')
+    # Get user from database
     user = db.query(User).filter(User.auth0_id == auth0_id).first()
     
     if not user:
-        request.session.clear()
+        print(f"❌ User not found in database for auth0_id: {auth0_id}")
+        if request.session.get('user'):
+            request.session.clear()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found"
         )
     
     if not user.is_active:
+        print(f"❌ User account inactive: {user.email}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is inactive"
         )
     
+    print(f"✅ User authenticated: {user.email}, role: {user.role}")
     return user
 
 

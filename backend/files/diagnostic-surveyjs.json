@@ -1,0 +1,3848 @@
+{
+  "pages": [
+    {
+      "name": "general",
+      "title": "General/Contextual",
+      "elements": [
+        {
+          "type": "dropdown",
+          "name": "industry_type",
+          "title": "What industry are you in?",
+          "choices": [
+            "Aged care industry",
+            "Agricultural industry",
+            "Amusement, events and recreation industry",
+            "Animal care and veterinary services",
+            "Banking, finance and insurance industry",
+            "Broadcasting and recorded entertainment industry",
+            "Building services",
+            "Building and civil construction industries",
+            "Business broking",
+            "Business consulting",
+            "Cafes and Restaurants",
+            "Children's services",
+            "Cleaning services",
+            "Clothing industry",
+            "Coal industry",
+            "Commercial property sales",
+            "Dry cleaning and laundry services",
+            "Educational services",
+            "Electrical contracting industry",
+            "Fast food industry",
+            "Food manufacturing industry",
+            "Gardening services",
+            "Hair and beauty",
+            "Health and welfare services",
+            "Hospitality industry",
+            "Licensed and registered clubs",
+            "Local government administration",
+            "Manufacturing and associated industries",
+            "Meat industry",
+            "Mining industry",
+            "Miscellaneous",
+            "Nursery industry",
+            "Pharmaceutical industry",
+            "Plumbing industry",
+            "Professional services",
+            "Racing industry",
+            "Rail industry",
+            "Real estate industry",
+            "Retail industry",
+            "Road transport industry",
+            "Scientific services",
+            "Security services",
+            "Social, community, home care and disability services",
+            "Sporting organisations",
+            "State and Territory government administration",
+            "Technical services",
+            "Telecommunications services",
+            "Tourism industry",
+            "Waste management industry",
+            "Wine industry"
+          ],
+          "showOtherItem": true
+        },
+        {
+          "type": "text",
+          "name": "primary_contact_person_name",
+          "title": "Primary Contact Person Name"
+        },
+        {
+          "type": "text",
+          "name": "primary_contact_person_email",
+          "title": "Primary Contact Person Personal Email"
+        },
+        {
+          "type": "text",
+          "name": "primary_contact_person_mobile_phone",
+          "title": "Primary Contact Person Mobile Phone"
+        },
+        {
+          "type": "text",
+          "name": "primary_contact_person_role_or_title",
+          "title": "Primary Contact Person Role/Title"
+        },
+        {
+          "type": "matrixdynamic",
+          "name": "business_details",
+          "title": "Business Details - Please complete this table for each involved entity",
+          "columns": [
+            {
+              "name": "companyName",
+              "title": "Company Name"
+            },
+            {
+              "name": "tradingName",
+              "title": "Trading Name"
+            },
+            {
+              "name": "abn",
+              "title": "ABN"
+            },
+            {
+              "name": "directors",
+              "title": "List the Directors"
+            }
+          ],
+          "choices": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "cellType": "text",
+          "keyName": "id"
+        },
+        {
+          "type": "text",
+          "name": "headquarter_business_address",
+          "title": "Headquarter Business Address"
+        },
+        {
+          "type": "matrixdynamic",
+          "name": "other_office_addresses",
+          "title": "Please list all other office/location addresses",
+          "columns": [
+            {
+              "name": "addresses",
+              "title": "Addresses"
+            }
+          ],
+          "choices": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "cellType": "text",
+          "keyName": "id"
+        },
+        {
+          "type": "text",
+          "name": "business_email",
+          "title": "Business Email"
+        },
+        {
+          "type": "text",
+          "name": "business_phone",
+          "title": "Business Phone"
+        },
+        {
+          "type": "text",
+          "name": "business_websites",
+          "title": "Business Website(s)"
+        },
+        {
+          "type": "text",
+          "name": "accountant_company_name",
+          "title": "Accountant Company Name"
+        },
+        {
+          "type": "text",
+          "name": "accountant_contact_person",
+          "title": "Accountant Contact Person"
+        },
+        {
+          "type": "text",
+          "name": "accountant_address",
+          "title": "Accountant Address"
+        },
+        {
+          "type": "text",
+          "name": "accountant_phone",
+          "title": "Accountant Phone"
+        },
+        {
+          "type": "text",
+          "name": "accountant_email",
+          "title": "Accountant Email"
+        },
+        {
+          "type": "text",
+          "name": "reason_for_sale",
+          "title": "Why is the business for sale?"
+        },
+        {
+          "type": "text",
+          "name": "business_description",
+          "title": "What does the business do?"
+        },
+        {
+          "type": "radiogroup",
+          "name": "business_founded_by_you",
+          "title": "Did you start the business?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "business_acquisition_method",
+          "visibleIf": "{business_founded_by_you} == 'No'",
+          "title": "How did you acquire the business?",
+          "choices": [
+            "Purchased",
+            "Inherited",
+            "Management Buy Out"
+          ]
+        },
+        {
+          "type": "text",
+          "name": "years_owning_business",
+          "visibleIf": "{business_founded_by_you} == 'No'",
+          "title": "How many years have you had this business?",
+          "description": "Please enter a number between 1 and 50",
+          "inputType": "number",
+          "min": 1,
+          "max": 50,
+          "step": 1
+        },
+        {
+          "type": "text",
+          "name": "business_age",
+          "title": "How old is the business?",
+          "description": "Please enter a number between 1 and 250",
+          "inputType": "number",
+          "min": 1,
+          "max": 250,
+          "step": 1
+        },
+        {
+          "type": "radiogroup",
+          "name": "last_year_turnover",
+          "title": "What was your turnover last financial year?",
+          "choices": [
+            "Under $250,000",
+            "$250,001 - $500,000",
+            "$500,001 - $1,000,000",
+            "$1,000,001 - $5,000,000",
+            "$5,000,001 - $10,000,000",
+            "$10,000,001+"
+          ]
+        },
+        {
+          "type": "matrixdynamic",
+          "name": "intend_to_do_post_sale",
+          "title": "What do you intend to do after selling the business?",
+          "columns": [
+            {
+              "name": "sellerName",
+              "title": "Owner Name"
+            },
+            {
+              "name": "sellerIntent",
+              "title": "Response - please provide a response for each owner"
+            }
+          ],
+          "choices": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "cellType": "text"
+        }
+      ]
+    },
+    {
+      "name": "legal-licensing",
+      "title": "Legal, Compliance & Property",
+      "elements": [
+        {
+          "type": "text",
+          "name": "business_structure",
+          "title": "What is the business structure?"
+        },
+        {
+          "type": "text",
+          "name": "other_shareholders_count",
+          "title": "How many shareholders are there?"
+        },
+        {
+          "type": "text",
+          "name": "directors_total_count",
+          "title": "How many directors are there in total?"
+        },
+        {
+          "type": "radiogroup",
+          "name": "operational_licenses_needed",
+          "title": "Does your business require any licences in order to operate?",
+          "description": "eg. licence to serve alcohol, forklift ticket, real estate agency licence etc",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "matrixdynamic",
+          "name": "business_licenses",
+          "visibleIf": "{operational_licenses_needed} == 'Yes'",
+          "title": "Please complete this table",
+          "columns": [
+            {
+              "name": "type",
+              "title": "License, permit or certificate type",
+              "cellType": "text"
+            },
+            {
+              "name": "expiry",
+              "title": "License, permit or certificate expiry",
+              "cellType": "text"
+            },
+            {
+              "name": "cost",
+              "title": "License, permit or certificate renewal cost",
+              "cellType": "text"
+            },
+            {
+              "name": "date",
+              "title": "License, permit or certificate renewal date",
+              "cellType": "text"
+            }
+          ],
+          "choices": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "cellType": "text",
+          "keyName": "id"
+        },
+        {
+          "type": "radiogroup",
+          "name": "license_compliance_status",
+          "visibleIf": "{operational_licenses_needed} == 'Yes'",
+          "title": "Are your licences up to date?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "currently_facing_legal_actions",
+          "title": "Is your business currently facing any legal actions?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "regulatory_compliance",
+          "title": "Are there any regulations that your business must comply with?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "comment",
+          "name": "business_regulations_compliance_details",
+          "visibleIf": "{regulatory_compliance} == 'Yes'",
+          "title": "Please advise",
+          "maxLength": 500
+        },
+        {
+          "type": "radiogroup",
+          "name": "business_location_count",
+          "title": "How many locations does your business operate out of?",
+          "choices": [
+            "1-10",
+            "11-20",
+            "21-30",
+            "30+"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "does_the_business_own_any_properties",
+          "title": "Does the business own any properties?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "leases_properties",
+          "title": "How many properties does the business lease?",
+          "choices": [
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9",
+            "10"
+          ],
+          "showNoneItem": true
+        },
+        {
+          "type": "multipletext",
+          "name": "business_property_1",
+          "visibleIf": "{leases_properties} >= 1",
+          "title": "Please complete this for PROPERTY 1",
+          "items": [
+            {
+              "name": "business_property_address",
+              "title": "Business property address"
+            },
+            {
+              "name": "premise_type",
+              "title": "What type of property is it? (e.g. warehouse, manufacturing facility, office etc.)"
+            },
+            {
+              "name": "lease_terms",
+              "title": "Lease Terms"
+            },
+            {
+              "name": "options",
+              "title": "Options"
+            },
+            {
+              "name": "current_term_expiry_date",
+              "title": "Current term expiry date"
+            },
+            {
+              "name": "rent",
+              "title": "Rent"
+            },
+            {
+              "name": "rent_include_outgoings",
+              "title": "Rent including outgoings"
+            },
+            {
+              "name": "rent_review_method",
+              "title": "Rent review method"
+            },
+            {
+              "name": "next_review_date",
+              "title": "Next review date"
+            },
+            {
+              "name": "council_rates_per_quarter",
+              "title": "Council rates per quarter"
+            },
+            {
+              "name": "water_rates_per_quarter",
+              "title": "Water rates per quarter"
+            },
+            {
+              "name": "body_corporate_per_quarter",
+              "title": "Body corporate per quarter"
+            },
+            {
+              "name": "property_ownership_entity_name",
+              "title": "Property ownership entity name"
+            },
+            {
+              "name": "real_property_description",
+              "title": "Real property description"
+            },
+            {
+              "name": "strata_or_torrens_title",
+              "title": "Strata or Torrens title"
+            },
+            {
+              "name": "annual_rates",
+              "title": "Annual rates"
+            },
+            {
+              "name": "annual_corporate_fees",
+              "title": "Annual corporate fees"
+            },
+            {
+              "name": "zoning",
+              "title": "Zoning"
+            },
+            {
+              "name": "land_area",
+              "title": "Land area"
+            },
+            {
+              "name": "construction_type",
+              "title": "Construction type"
+            },
+            {
+              "name": "estimated_age_of_building",
+              "title": "Estimated age of building"
+            },
+            {
+              "name": "number_of_parking_spaces",
+              "title": "Number of parking spaces"
+            },
+            {
+              "name": "proposed_annual_rental",
+              "title": "Proposed annual rental"
+            },
+            {
+              "name": "total_annual_outgoings",
+              "title": "Total annual outgoings"
+            }
+          ]
+        },
+        {
+          "type": "multipletext",
+          "name": "business_property_2",
+          "visibleIf": "{leases_properties} >= 2",
+          "title": "Please complete this for PROPERTY 2",
+          "items": [
+            {
+              "name": "business_property_address",
+              "title": "Business property address"
+            },
+            {
+              "name": "premise_type",
+              "title": "What type of property is it? (e.g. warehouse, manufacturing facility, office etc.)"
+            },
+            {
+              "name": "lease_terms",
+              "title": "Lease Terms"
+            },
+            {
+              "name": "options",
+              "title": "Options"
+            },
+            {
+              "name": "current_term_expiry_date",
+              "title": "Current term expiry date"
+            },
+            {
+              "name": "rent",
+              "title": "Rent"
+            },
+            {
+              "name": "rent_include_outgoings",
+              "title": "Rent including outgoings"
+            },
+            {
+              "name": "rent_review_method",
+              "title": "Rent review method"
+            },
+            {
+              "name": "next_review_date",
+              "title": "Next review date"
+            },
+            {
+              "name": "council_rates_per_quarter",
+              "title": "Council rates per quarter"
+            },
+            {
+              "name": "water_rates_per_quarter",
+              "title": "Water rates per quarter"
+            },
+            {
+              "name": "body_corporate_per_quarter",
+              "title": "Body corporate per quarter"
+            },
+            {
+              "name": "property_ownership_entity_name",
+              "title": "Property ownership entity name"
+            },
+            {
+              "name": "real_property_description",
+              "title": "Real property description"
+            },
+            {
+              "name": "strata_or_torrens_title",
+              "title": "Strata or Torrens title"
+            },
+            {
+              "name": "annual_rates",
+              "title": "Annual rates"
+            },
+            {
+              "name": "annual_corporate_fees",
+              "title": "Annual corporate fees"
+            },
+            {
+              "name": "zoning",
+              "title": "Zoning"
+            },
+            {
+              "name": "land_area",
+              "title": "Land area"
+            },
+            {
+              "name": "construction_type",
+              "title": "Construction type"
+            },
+            {
+              "name": "estimated_age_of_building",
+              "title": "Estimated age of building"
+            },
+            {
+              "name": "number_of_parking_spaces",
+              "title": "Number of parking spaces"
+            },
+            {
+              "name": "proposed_annual_rental",
+              "title": "Proposed annual rental"
+            },
+            {
+              "name": "total_annual_outgoings",
+              "title": "Total annual outgoings"
+            }
+          ]
+        },
+        {
+          "type": "multipletext",
+          "name": "business_property_3",
+          "visibleIf": "{leases_properties} >= 3",
+          "title": "Please complete this for PROPERTY 3",
+          "items": [
+            {
+              "name": "business_property_address",
+              "title": "Business property address"
+            },
+            {
+              "name": "premise_type",
+              "title": "What type of property is it? (e.g. warehouse, manufacturing facility, office etc.)"
+            },
+            {
+              "name": "lease_terms",
+              "title": "Lease Terms"
+            },
+            {
+              "name": "options",
+              "title": "Options"
+            },
+            {
+              "name": "current_term_expiry_date",
+              "title": "Current term expiry date"
+            },
+            {
+              "name": "rent",
+              "title": "Rent"
+            },
+            {
+              "name": "rent_include_outgoings",
+              "title": "Rent including outgoings"
+            },
+            {
+              "name": "rent_review_method",
+              "title": "Rent review method"
+            },
+            {
+              "name": "next_review_date",
+              "title": "Next review date"
+            },
+            {
+              "name": "council_rates_per_quarter",
+              "title": "Council rates per quarter"
+            },
+            {
+              "name": "water_rates_per_quarter",
+              "title": "Water rates per quarter"
+            },
+            {
+              "name": "body_corporate_per_quarter",
+              "title": "Body corporate per quarter"
+            },
+            {
+              "name": "property_ownership_entity_name",
+              "title": "Property ownership entity name"
+            },
+            {
+              "name": "real_property_description",
+              "title": "Real property description"
+            },
+            {
+              "name": "strata_or_torrens_title",
+              "title": "Strata or Torrens title"
+            },
+            {
+              "name": "annual_rates",
+              "title": "Annual rates"
+            },
+            {
+              "name": "annual_corporate_fees",
+              "title": "Annual corporate fees"
+            },
+            {
+              "name": "zoning",
+              "title": "Zoning"
+            },
+            {
+              "name": "land_area",
+              "title": "Land area"
+            },
+            {
+              "name": "construction_type",
+              "title": "Construction type"
+            },
+            {
+              "name": "estimated_age_of_building",
+              "title": "Estimated age of building"
+            },
+            {
+              "name": "number_of_parking_spaces",
+              "title": "Number of parking spaces"
+            },
+            {
+              "name": "proposed_annual_rental",
+              "title": "Proposed annual rental"
+            },
+            {
+              "name": "total_annual_outgoings",
+              "title": "Total annual outgoings"
+            }
+          ]
+        },
+        {
+          "type": "multipletext",
+          "name": "business_property_4",
+          "visibleIf": "{leases_properties} >= 4",
+          "title": "Please complete this for PROPERTY 4",
+          "items": [
+            {
+              "name": "business_property_address",
+              "title": "Business property address"
+            },
+            {
+              "name": "premise_type",
+              "title": "What type of property is it? (e.g. warehouse, manufacturing facility, office etc.)"
+            },
+            {
+              "name": "lease_terms",
+              "title": "Lease Terms"
+            },
+            {
+              "name": "options",
+              "title": "Options"
+            },
+            {
+              "name": "current_term_expiry_date",
+              "title": "Current term expiry date"
+            },
+            {
+              "name": "rent",
+              "title": "Rent"
+            },
+            {
+              "name": "rent_include_outgoings",
+              "title": "Rent including outgoings"
+            },
+            {
+              "name": "rent_review_method",
+              "title": "Rent review method"
+            },
+            {
+              "name": "next_review_date",
+              "title": "Next review date"
+            },
+            {
+              "name": "council_rates_per_quarter",
+              "title": "Council rates per quarter"
+            },
+            {
+              "name": "water_rates_per_quarter",
+              "title": "Water rates per quarter"
+            },
+            {
+              "name": "body_corporate_per_quarter",
+              "title": "Body corporate per quarter"
+            },
+            {
+              "name": "property_ownership_entity_name",
+              "title": "Property ownership entity name"
+            },
+            {
+              "name": "real_property_description",
+              "title": "Real property description"
+            },
+            {
+              "name": "strata_or_torrens_title",
+              "title": "Strata or Torrens title"
+            },
+            {
+              "name": "annual_rates",
+              "title": "Annual rates"
+            },
+            {
+              "name": "annual_corporate_fees",
+              "title": "Annual corporate fees"
+            },
+            {
+              "name": "zoning",
+              "title": "Zoning"
+            },
+            {
+              "name": "land_area",
+              "title": "Land area"
+            },
+            {
+              "name": "construction_type",
+              "title": "Construction type"
+            },
+            {
+              "name": "estimated_age_of_building",
+              "title": "Estimated age of building"
+            },
+            {
+              "name": "number_of_parking_spaces",
+              "title": "Number of parking spaces"
+            },
+            {
+              "name": "proposed_annual_rental",
+              "title": "Proposed annual rental"
+            },
+            {
+              "name": "total_annual_outgoings",
+              "title": "Total annual outgoings"
+            }
+          ]
+        },
+        {
+          "type": "multipletext",
+          "name": "business_property_5",
+          "visibleIf": "{leases_properties} >= 5",
+          "title": "Please complete this for PROPERTY 5",
+          "items": [
+            {
+              "name": "business_property_address",
+              "title": "Business property address"
+            },
+            {
+              "name": "premise_type",
+              "title": "What type of property is it? (e.g. warehouse, manufacturing facility, office etc.)"
+            },
+            {
+              "name": "lease_terms",
+              "title": "Lease Terms"
+            },
+            {
+              "name": "options",
+              "title": "Options"
+            },
+            {
+              "name": "current_term_expiry_date",
+              "title": "Current term expiry date"
+            },
+            {
+              "name": "rent",
+              "title": "Rent"
+            },
+            {
+              "name": "rent_include_outgoings",
+              "title": "Rent including outgoings"
+            },
+            {
+              "name": "rent_review_method",
+              "title": "Rent review method"
+            },
+            {
+              "name": "next_review_date",
+              "title": "Next review date"
+            },
+            {
+              "name": "council_rates_per_quarter",
+              "title": "Council rates per quarter"
+            },
+            {
+              "name": "water_rates_per_quarter",
+              "title": "Water rates per quarter"
+            },
+            {
+              "name": "body_corporate_per_quarter",
+              "title": "Body corporate per quarter"
+            },
+            {
+              "name": "property_ownership_entity_name",
+              "title": "Property ownership entity name"
+            },
+            {
+              "name": "real_property_description",
+              "title": "Real property description"
+            },
+            {
+              "name": "strata_or_torrens_title",
+              "title": "Strata or Torrens title"
+            },
+            {
+              "name": "annual_rates",
+              "title": "Annual rates"
+            },
+            {
+              "name": "annual_corporate_fees",
+              "title": "Annual corporate fees"
+            },
+            {
+              "name": "zoning",
+              "title": "Zoning"
+            },
+            {
+              "name": "land_area",
+              "title": "Land area"
+            },
+            {
+              "name": "construction_type",
+              "title": "Construction type"
+            },
+            {
+              "name": "estimated_age_of_building",
+              "title": "Estimated age of building"
+            },
+            {
+              "name": "number_of_parking_spaces",
+              "title": "Number of parking spaces"
+            },
+            {
+              "name": "proposed_annual_rental",
+              "title": "Proposed annual rental"
+            },
+            {
+              "name": "total_annual_outgoings",
+              "title": "Total annual outgoings"
+            }
+          ]
+        },
+        {
+          "type": "multipletext",
+          "name": "business_property_6",
+          "visibleIf": "{leases_properties} >= 6",
+          "title": "Please complete this for PROPERTY 6",
+          "items": [
+            {
+              "name": "business_property_address",
+              "title": "Business property address"
+            },
+            {
+              "name": "premise_type",
+              "title": "What type of property is it? (e.g. warehouse, manufacturing facility, office etc.)"
+            },
+            {
+              "name": "lease_terms",
+              "title": "Lease Terms"
+            },
+            {
+              "name": "options",
+              "title": "Options"
+            },
+            {
+              "name": "current_term_expiry_date",
+              "title": "Current term expiry date"
+            },
+            {
+              "name": "rent",
+              "title": "Rent"
+            },
+            {
+              "name": "rent_include_outgoings",
+              "title": "Rent including outgoings"
+            },
+            {
+              "name": "rent_review_method",
+              "title": "Rent review method"
+            },
+            {
+              "name": "next_review_date",
+              "title": "Next review date"
+            },
+            {
+              "name": "council_rates_per_quarter",
+              "title": "Council rates per quarter"
+            },
+            {
+              "name": "water_rates_per_quarter",
+              "title": "Water rates per quarter"
+            },
+            {
+              "name": "body_corporate_per_quarter",
+              "title": "Body corporate per quarter"
+            },
+            {
+              "name": "property_ownership_entity_name",
+              "title": "Property ownership entity name"
+            },
+            {
+              "name": "real_property_description",
+              "title": "Real property description"
+            },
+            {
+              "name": "strata_or_torrens_title",
+              "title": "Strata or Torrens title"
+            },
+            {
+              "name": "annual_rates",
+              "title": "Annual rates"
+            },
+            {
+              "name": "annual_corporate_fees",
+              "title": "Annual corporate fees"
+            },
+            {
+              "name": "zoning",
+              "title": "Zoning"
+            },
+            {
+              "name": "land_area",
+              "title": "Land area"
+            },
+            {
+              "name": "construction_type",
+              "title": "Construction type"
+            },
+            {
+              "name": "estimated_age_of_building",
+              "title": "Estimated age of building"
+            },
+            {
+              "name": "number_of_parking_spaces",
+              "title": "Number of parking spaces"
+            },
+            {
+              "name": "proposed_annual_rental",
+              "title": "Proposed annual rental"
+            },
+            {
+              "name": "total_annual_outgoings",
+              "title": "Total annual outgoings"
+            }
+          ]
+        },
+        {
+          "type": "multipletext",
+          "name": "business_property_7",
+          "visibleIf": "{leases_properties} >= 7",
+          "title": "Please complete this for PROPERTY 7",
+          "items": [
+            {
+              "name": "business_property_address",
+              "title": "Business property address"
+            },
+            {
+              "name": "premise_type",
+              "title": "What type of property is it? (e.g. warehouse, manufacturing facility, office etc.)"
+            },
+            {
+              "name": "lease_terms",
+              "title": "Lease Terms"
+            },
+            {
+              "name": "options",
+              "title": "Options"
+            },
+            {
+              "name": "current_term_expiry_date",
+              "title": "Current term expiry date"
+            },
+            {
+              "name": "rent",
+              "title": "Rent"
+            },
+            {
+              "name": "rent_include_outgoings",
+              "title": "Rent including outgoings"
+            },
+            {
+              "name": "rent_review_method",
+              "title": "Rent review method"
+            },
+            {
+              "name": "next_review_date",
+              "title": "Next review date"
+            },
+            {
+              "name": "council_rates_per_quarter",
+              "title": "Council rates per quarter"
+            },
+            {
+              "name": "water_rates_per_quarter",
+              "title": "Water rates per quarter"
+            },
+            {
+              "name": "body_corporate_per_quarter",
+              "title": "Body corporate per quarter"
+            },
+            {
+              "name": "property_ownership_entity_name",
+              "title": "Property ownership entity name"
+            },
+            {
+              "name": "real_property_description",
+              "title": "Real property description"
+            },
+            {
+              "name": "strata_or_torrens_title",
+              "title": "Strata or Torrens title"
+            },
+            {
+              "name": "annual_rates",
+              "title": "Annual rates"
+            },
+            {
+              "name": "annual_corporate_fees",
+              "title": "Annual corporate fees"
+            },
+            {
+              "name": "zoning",
+              "title": "Zoning"
+            },
+            {
+              "name": "land_area",
+              "title": "Land area"
+            },
+            {
+              "name": "construction_type",
+              "title": "Construction type"
+            },
+            {
+              "name": "estimated_age_of_building",
+              "title": "Estimated age of building"
+            },
+            {
+              "name": "number_of_parking_spaces",
+              "title": "Number of parking spaces"
+            },
+            {
+              "name": "proposed_annual_rental",
+              "title": "Proposed annual rental"
+            },
+            {
+              "name": "total_annual_outgoings",
+              "title": "Total annual outgoings"
+            }
+          ]
+        },
+        {
+          "type": "multipletext",
+          "name": "business_property_8",
+          "visibleIf": "{leases_properties} >= 8",
+          "title": "Please complete this for PROPERTY 8",
+          "items": [
+            {
+              "name": "business_property_address",
+              "title": "Business property address"
+            },
+            {
+              "name": "premise_type",
+              "title": "What type of property is it? (e.g. warehouse, manufacturing facility, office etc.)"
+            },
+            {
+              "name": "lease_terms",
+              "title": "Lease Terms"
+            },
+            {
+              "name": "options",
+              "title": "Options"
+            },
+            {
+              "name": "current_term_expiry_date",
+              "title": "Current term expiry date"
+            },
+            {
+              "name": "rent",
+              "title": "Rent"
+            },
+            {
+              "name": "rent_include_outgoings",
+              "title": "Rent including outgoings"
+            },
+            {
+              "name": "rent_review_method",
+              "title": "Rent review method"
+            },
+            {
+              "name": "next_review_date",
+              "title": "Next review date"
+            },
+            {
+              "name": "council_rates_per_quarter",
+              "title": "Council rates per quarter"
+            },
+            {
+              "name": "water_rates_per_quarter",
+              "title": "Water rates per quarter"
+            },
+            {
+              "name": "body_corporate_per_quarter",
+              "title": "Body corporate per quarter"
+            },
+            {
+              "name": "property_ownership_entity_name",
+              "title": "Property ownership entity name"
+            },
+            {
+              "name": "real_property_description",
+              "title": "Real property description"
+            },
+            {
+              "name": "strata_or_torrens_title",
+              "title": "Strata or Torrens title"
+            },
+            {
+              "name": "annual_rates",
+              "title": "Annual rates"
+            },
+            {
+              "name": "annual_corporate_fees",
+              "title": "Annual corporate fees"
+            },
+            {
+              "name": "zoning",
+              "title": "Zoning"
+            },
+            {
+              "name": "land_area",
+              "title": "Land area"
+            },
+            {
+              "name": "construction_type",
+              "title": "Construction type"
+            },
+            {
+              "name": "estimated_age_of_building",
+              "title": "Estimated age of building"
+            },
+            {
+              "name": "number_of_parking_spaces",
+              "title": "Number of parking spaces"
+            },
+            {
+              "name": "proposed_annual_rental",
+              "title": "Proposed annual rental"
+            },
+            {
+              "name": "total_annual_outgoings",
+              "title": "Total annual outgoings"
+            }
+          ]
+        },
+        {
+          "type": "multipletext",
+          "name": "business_property_9",
+          "visibleIf": "{leases_properties} >= 9",
+          "title": "Please complete this for PROPERTY 9",
+          "items": [
+            {
+              "name": "business_property_address",
+              "title": "Business property address"
+            },
+            {
+              "name": "premise_type",
+              "title": "What type of property is it? (e.g. warehouse, manufacturing facility, office etc.)"
+            },
+            {
+              "name": "lease_terms",
+              "title": "Lease Terms"
+            },
+            {
+              "name": "options",
+              "title": "Options"
+            },
+            {
+              "name": "current_term_expiry_date",
+              "title": "Current term expiry date"
+            },
+            {
+              "name": "rent",
+              "title": "Rent"
+            },
+            {
+              "name": "rent_include_outgoings",
+              "title": "Rent including outgoings"
+            },
+            {
+              "name": "rent_review_method",
+              "title": "Rent review method"
+            },
+            {
+              "name": "next_review_date",
+              "title": "Next review date"
+            },
+            {
+              "name": "council_rates_per_quarter",
+              "title": "Council rates per quarter"
+            },
+            {
+              "name": "water_rates_per_quarter",
+              "title": "Water rates per quarter"
+            },
+            {
+              "name": "body_corporate_per_quarter",
+              "title": "Body corporate per quarter"
+            },
+            {
+              "name": "property_ownership_entity_name",
+              "title": "Property ownership entity name"
+            },
+            {
+              "name": "real_property_description",
+              "title": "Real property description"
+            },
+            {
+              "name": "strata_or_torrens_title",
+              "title": "Strata or Torrens title"
+            },
+            {
+              "name": "annual_rates",
+              "title": "Annual rates"
+            },
+            {
+              "name": "annual_corporate_fees",
+              "title": "Annual corporate fees"
+            },
+            {
+              "name": "zoning",
+              "title": "Zoning"
+            },
+            {
+              "name": "land_area",
+              "title": "Land area"
+            },
+            {
+              "name": "construction_type",
+              "title": "Construction type"
+            },
+            {
+              "name": "estimated_age_of_building",
+              "title": "Estimated age of building"
+            },
+            {
+              "name": "number_of_parking_spaces",
+              "title": "Number of parking spaces"
+            },
+            {
+              "name": "proposed_annual_rental",
+              "title": "Proposed annual rental"
+            },
+            {
+              "name": "total_annual_outgoings",
+              "title": "Total annual outgoings"
+            }
+          ]
+        },
+        {
+          "type": "multipletext",
+          "name": "business_property_10",
+          "visibleIf": "{leases_properties} >= 10",
+          "title": "Please complete this for PROPERTY 10",
+          "items": [
+            {
+              "name": "business_property_address",
+              "title": "Business property address"
+            },
+            {
+              "name": "premise_type",
+              "title": "What type of property is it? (e.g. warehouse, manufacturing facility, office etc.)"
+            },
+            {
+              "name": "lease_terms",
+              "title": "Lease Terms"
+            },
+            {
+              "name": "options",
+              "title": "Options"
+            },
+            {
+              "name": "current_term_expiry_date",
+              "title": "Current term expiry date"
+            },
+            {
+              "name": "rent",
+              "title": "Rent"
+            },
+            {
+              "name": "rent_include_outgoings",
+              "title": "Rent including outgoings"
+            },
+            {
+              "name": "rent_review_method",
+              "title": "Rent review method"
+            },
+            {
+              "name": "next_review_date",
+              "title": "Next review date"
+            },
+            {
+              "name": "council_rates_per_quarter",
+              "title": "Council rates per quarter"
+            },
+            {
+              "name": "water_rates_per_quarter",
+              "title": "Water rates per quarter"
+            },
+            {
+              "name": "body_corporate_per_quarter",
+              "title": "Body corporate per quarter"
+            },
+            {
+              "name": "property_ownership_entity_name",
+              "title": "Property ownership entity name"
+            },
+            {
+              "name": "real_property_description",
+              "title": "Real property description"
+            },
+            {
+              "name": "strata_or_torrens_title",
+              "title": "Strata or Torrens title"
+            },
+            {
+              "name": "annual_rates",
+              "title": "Annual rates"
+            },
+            {
+              "name": "annual_corporate_fees",
+              "title": "Annual corporate fees"
+            },
+            {
+              "name": "zoning",
+              "title": "Zoning"
+            },
+            {
+              "name": "land_area",
+              "title": "Land area"
+            },
+            {
+              "name": "construction_type",
+              "title": "Construction type"
+            },
+            {
+              "name": "estimated_age_of_building",
+              "title": "Estimated age of building"
+            },
+            {
+              "name": "number_of_parking_spaces",
+              "title": "Number of parking spaces"
+            },
+            {
+              "name": "proposed_annual_rental",
+              "title": "Proposed annual rental"
+            },
+            {
+              "name": "total_annual_outgoings",
+              "title": "Total annual outgoings"
+            }
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "property_upgrades_needed",
+          "title": "Do any of the properties (owned or leased) require any form of upgrade in the next 12 months (eg. New wall paint in the boardroom or fix a leaking roof)?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "financial",
+      "title": "Financial Clarity & Reporting",
+      "elements": [
+        {
+          "type": "radiogroup",
+          "name": "financial_performance_since_acquisition",
+          "visibleIf": "{business_founded_by_you} == 'No'",
+          "title": "How is the business performing financially, compared to when you took over?",
+          "choices": [
+            "Better",
+            "Worse",
+            "Same"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "performance_issues_description",
+          "visibleIf": "{financial_performance_since_acquisition} allof ['Same','Worse']",
+          "title": "What are the reasons for this performance?",
+          "choices": [
+            "Market conditions have affected the business",
+            "Products/services becoming less relevant or sought after",
+            "Competition is strong",
+            "We made mistakes"
+          ]
+        },
+        {
+          "type": "comment",
+          "name": "detailed_explanation_performance_issues",
+          "visibleIf": "{performance_issues_description} notempty",
+          "title": "Please explain in more detail.",
+          "maxLength": 500
+        },
+        {
+          "type": "radiogroup",
+          "name": "turnaround_possibility",
+          "visibleIf": "{financial_performance_since_acquisition} == 'Worse'",
+          "title": "Do you think the performance can be turned around?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "turnaround_impossibility_reason",
+          "visibleIf": "{turnaround_possibility} == 'No'",
+          "title": "Why not?",
+          "choices": [
+            "The industry or market has changed and the business isn't viable in this current form",
+            "There are too many problems internally within this business"
+          ],
+          "showOtherItem": true
+        },
+        {
+          "type": "radiogroup",
+          "name": "do_you_have_any_debts_in_the_business",
+          "title": "Do you have any debts in the business?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "matrixdynamic",
+          "name": "list_business_debts",
+          "visibleIf": "{do_you_have_any_debts_in_the_business} == 'Yes'",
+          "title": "Please list each debt along with the amount and term remaining.",
+          "columns": [
+            {
+              "name": "debt",
+              "title": "Debt"
+            },
+            {
+              "name": "amount",
+              "title": "Amount Remaining"
+            },
+            {
+              "name": "term",
+              "title": "Term Remaining"
+            }
+          ],
+          "choices": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "cellType": "text",
+          "keyName": "id"
+        },
+        {
+          "type": "radiogroup",
+          "name": "debt_repayment_consistency",
+          "visibleIf": "{do_you_have_any_debts_in_the_business} == 'Yes'",
+          "title": "Are you always able to meet your repayment obligations?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "are_your_activity_statements_up_to_date",
+          "title": "Are your Activity Statements up to date?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "are_your_business_tax_returns_up_to_date",
+          "title": "Are your business tax returns up to date?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "do_you_have_a_bookkeeper",
+          "title": "Do you have a Bookkeeper?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "bookkeeper_internal_or_external",
+          "visibleIf": "{do_you_have_a_bookkeeper} == 'Yes'",
+          "title": "Are they internal or external?",
+          "choices": [
+            "Internal",
+            "External"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "accountant_meeting_freq",
+          "title": "How often do you meet with your accountant to discuss the financials of the business?",
+          "choices": [
+            "never",
+            "weekly",
+            "monthly",
+            "bi-monthly",
+            "quarterly",
+            "every six months",
+            "once per year"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "key_reports_review_frequency",
+          "title": "How often do you review key reports such as financial profit and loss statements, absenteeism reports, inventory reports etc.",
+          "choices": [
+            "Never",
+            "Daily",
+            "Weekly",
+            "Monthly",
+            "Bi-Monthly",
+            "Quarterly",
+            "Every Six Months",
+            "Once Per Year",
+            "Ad-Hoc (no set regularity)"
+          ]
+        },
+        {
+          "type": "checkbox",
+          "name": "which_reports_do_you_review",
+          "visibleIf": "{key_reports_review_frequency} <> 'Never'",
+          "title": "Further to the previous question, which reports do you review?",
+          "description": "Please select any from this list that are relevant.",
+          "choices": [
+            "P&L",
+            "Balance Sheet",
+            "Bank Statements",
+            "Cash flow Forecast",
+            "Budget",
+            "Debtors",
+            "Absenteeism",
+            "Incidents/WHS Issues",
+            "Customer Complaints Register",
+            "Inventory Levels",
+            "Stock Turnover Days",
+            "Sales and Marketing Data Report",
+            "Others"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "profit_or_loss_last_year",
+          "title": "Did your business generate an overall profit or loss for the last financial year?",
+          "choices": [
+            "Profit",
+            "Loss"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "net_profit_amount_if_profitable",
+          "visibleIf": "{profit_or_loss_last_year} == 'Profit'",
+          "title": "What was the net profit?",
+          "choices": [
+            "$0 - $25,000",
+            "$25,001 - $50,000",
+            "$50,001 - $100,000",
+            "$100,001- $250,000",
+            "$250,001 - $500,000",
+            "$500,001 - $1,000,000",
+            "$1mill - $2mill",
+            "$2mill+"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "net_loss_amount_if_loss",
+          "visibleIf": "{profit_or_loss_last_year}  == 'Loss'",
+          "title": "What was the net loss?",
+          "choices": [
+            "$0 - $25,000",
+            "$25,001 - $50,000",
+            "$50,001 - $100,000",
+            "$100,001- $250,000",
+            "$250,001 - $500,000",
+            "$500,001 - $1,000,000",
+            "$1mill - $2mill",
+            "$2mill+"
+          ]
+        },
+        {
+          "type": "comment",
+          "name": "profitability_concerns",
+          "title": "Are you aware of any circumstances likely to adversely affect the business’s profitability?",
+          "description": " (For example: Cessation of contracts, new competitors, loss of major customers, changes in wages legislation). If yes, please explain below."
+        },
+        {
+          "type": "radiogroup",
+          "name": "reliance_on_financing_for_cash_flow",
+          "visibleIf": "{profit_or_loss_last_year}  == 'Loss'",
+          "title": "Are you relying on financing to manage the cash flow within your business - such as overdraft facility?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "checkbox",
+          "name": "financing_options_used_for_cash_flow",
+          "visibleIf": "{reliance_on_financing_for_cash_flow} == 'Yes'",
+          "title": "Which of these financing options do you use to fund cash flow?",
+          "choices": [
+            "ATO",
+            "Credit Cards",
+            "General Loans",
+            "Overdraft",
+            "I put money into the business",
+            "invoice financing"
+          ]
+        },
+        {
+          "type": "checkbox",
+          "name": "top_3_business_expenses",
+          "title": "What are the 3 biggest expenses in your business?",
+          "description": "Please select at least 3.",
+          "choices": [
+            "Permanent staff",
+            "Casual Staff",
+            "Contractors",
+            "Utilities",
+            "Stock or inputs",
+            "Property mortgage or lease",
+            "Vehicle expenses",
+            "Equipment leases or repayments",
+            "Equipment maintenance",
+            "Marketing",
+            "Travel"
+          ]
+        },
+        {
+          "type": "comment",
+          "name": "other_expenses_specification",
+          "visibleIf": "{top_3_business_expenses} == 'Other not listed here'",
+          "title": "Please advise what these other expenses are",
+          "maxLength": 500
+        },
+        {
+          "type": "text",
+          "name": "stock_current_estimate",
+          "title": "Your estimate of stock currently held is $"
+        },
+        {
+          "type": "text",
+          "name": "lowest_manageable_stock_level",
+          "title": "The lowest level of manageable stock to operate the business is"
+        },
+        {
+          "type": "text",
+          "name": "minimum_stock_value_to_sell",
+          "title": "The minimum value of stock to sell with the business is"
+        },
+        {
+          "type": "radiogroup",
+          "name": "unfinished_work_over_three_days",
+          "title": "Does your business regularly do unfinished work over three days or more?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "text",
+          "name": "wip_value_if_sold_tomorrow",
+          "title": "If yes – If your business was being sold tomorrow, what would your estimate be of the value of work that would be in progress?"
+        },
+        {
+          "type": "matrixdynamic",
+          "name": "forward_orders_list",
+          "title": "Tell us about your forward orders - complete the below table, listing all forward orders",
+          "columns": [
+            {
+              "name": "forwardOrders",
+              "title": "Description of forward orders"
+            },
+            {
+              "name": "daysRequired",
+              "title": "Total days required to complete order"
+            },
+            {
+              "name": "dollarValue",
+              "title": "Value $"
+            }
+          ],
+          "choices": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "cellType": "text",
+          "keyName": "id"
+        },
+        {
+          "type": "text",
+          "name": "wc_debtors_capital_required",
+          "title": "Working Capital Estimation - Debtors Capital Required"
+        },
+        {
+          "type": "text",
+          "name": "wc_creditors_capital_required",
+          "title": "Working Capital Estimation - Creditors Capital Required"
+        },
+        {
+          "type": "text",
+          "name": "wc_stock_capital_required",
+          "title": "Working Capital Estimation - Stock Capital Required"
+        },
+        {
+          "type": "text",
+          "name": "wc_inventory_capital_required",
+          "title": "Working Capital Estimation - Inventory Capital Required"
+        },
+        {
+          "type": "text",
+          "name": "wc_wip_capital_required",
+          "title": "Working Capital Estimation - Work in Progress Capital Required"
+        },
+        {
+          "type": "text",
+          "name": "wc_bonds_capital_required",
+          "title": "Working Capital Estimation - Bonds Capital Required"
+        },
+        {
+          "type": "text",
+          "name": "wc_other_item",
+          "title": "Any other working capital item? If yes, please specify."
+        },
+        {
+          "type": "matrixdynamic",
+          "name": "encumbrances_list",
+          "title": "Tell us about your encumbrances - complete the below table, listing all encumbrances",
+          "columns": [
+            {
+              "name": "item",
+              "title": "Encumbrances - Item"
+            },
+            {
+              "name": "type",
+              "title": "Encumbrances - Type of loan"
+            },
+            {
+              "name": "financier",
+              "title": "Encumbrances - Financier"
+            },
+            {
+              "name": "monthly",
+              "title": "Encumbrances - Monthly payment"
+            },
+            {
+              "name": "finalDue",
+              "title": "Encumbrances - Final payment due"
+            }
+          ],
+          "choices": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "cellType": "text",
+          "keyName": "id"
+        }
+      ]
+    },
+    {
+      "name": "financial_docs",
+      "title": "Financial Clarity & Reporting  - DOCUMENTATION",
+      "elements": [
+        {
+          "type": "file",
+          "name": "docs_profit_loss_statements",
+          "title": "Please upload: Profit and Loss Statements (3-5 years)",
+          "allowMultiple": true,
+          "waitForUpload": true
+        },
+        {
+          "type": "file",
+          "name": "docs_balance_sheets",
+          "title": "Please upload: Balance Sheets (3-5 years)",
+          "allowMultiple": true,
+          "waitForUpload": true
+        },
+        {
+          "type": "file",
+          "name": "docs_plant_equipment_lists",
+          "title": "Please upload: Plant & Equipment Lists Unencumbered, Leased, Rented)",
+          "allowMultiple": true,
+          "waitForUpload": true
+        },
+        {
+          "type": "file",
+          "name": "docs_additional_staff_list",
+          "title": "Please upload: Additional Staff List (if required)",
+          "allowMultiple": true,
+          "waitForUpload": true
+        },
+        {
+          "type": "file",
+          "name": "docs_last_3_years_fin_statements",
+          "title": "Please upload: Copies of the last 3 years’ financial statements ",
+          "allowMultiple": true,
+          "waitForUpload": true
+        },
+        {
+          "type": "radiogroup",
+          "name": "docs_last_3_years_fin_statements_by_ca",
+          "title": "Have these been completed by a Chartered Accountant?",
+          "choices": [
+            {
+              "value": "Item 1",
+              "text": "YES"
+            },
+            {
+              "value": "Item 2",
+              "text": "NO"
+            }
+          ]
+        },
+        {
+          "type": "file",
+          "name": "docs_mgt_accts_last_fin_statements",
+          "title": "Please upload: Management accounts for periods covering date last financial statements were completed",
+          "allowMultiple": true,
+          "waitForUpload": true
+        },
+        {
+          "type": "radiogroup",
+          "name": "docs_mgt_accts_last_fin_statements_by_ca",
+          "title": "Have these been completed by a Chartered Accountant?",
+          "choices": [
+            {
+              "value": "Item 1",
+              "text": "YES"
+            },
+            {
+              "value": "Item 2",
+              "text": "NO"
+            }
+          ]
+        },
+        {
+          "type": "file",
+          "name": "docs_forecast_vs_actual",
+          "title": "If you have it - please upload: Any analysis of variances between actual and forecast figures for those management reports?",
+          "allowMultiple": true,
+          "waitForUpload": true
+        },
+        {
+          "type": "file",
+          "name": "docs_profit_cashflow_forecast",
+          "title": "If you have it - please upload: Copies of any profit and cash flow forecasts for the current and future years",
+          "allowMultiple": true,
+          "waitForUpload": true
+        },
+        {
+          "type": "file",
+          "name": "docs_last_3_yrs_tax_returns",
+          "title": "Please upload: Copies of personal and business income tax returns for the last 3 years",
+          "allowMultiple": true,
+          "waitForUpload": true
+        }
+      ]
+    },
+    {
+      "name": "operations",
+      "title": "Owner Dependency & Operations",
+      "elements": [
+        {
+          "type": "matrixdynamic",
+          "name": "trading_days",
+          "title": "Trading Days - Please advise your open hours by entering them into the table below",
+          "columns": [
+            {
+              "name": "mon",
+              "title": "Monday"
+            },
+            {
+              "name": "tues",
+              "title": "Tuesday"
+            },
+            {
+              "name": "wed",
+              "title": "Wednesday"
+            },
+            {
+              "name": "thurs",
+              "title": "Thursday"
+            },
+            {
+              "name": "fri",
+              "title": "Friday"
+            },
+            {
+              "name": "sat",
+              "title": "Saturday"
+            },
+            {
+              "name": "sun",
+              "title": "Sunday"
+            }
+          ],
+          "choices": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "cellType": "text",
+          "rowCount": 1,
+          "keyName": "id"
+        },
+        {
+          "type": "text",
+          "name": "public_holiday_trading",
+          "title": "Do you trade on public holidays? If yes, please advise"
+        },
+        {
+          "type": "text",
+          "name": "additional_business_operations_info",
+          "title": "Provide any additional information about the business operations"
+        },
+        {
+          "type": "matrixdynamic",
+          "name": "owners_duties",
+          "title": "Tell us about the owners duties",
+          "columns": [
+            {
+              "name": "owner",
+              "title": "Owner Name"
+            },
+            {
+              "name": "hoursWeekly",
+              "title": "Approximate hours per week\r\n"
+            },
+            {
+              "name": "dailyDuties",
+              "title": "Day to day duties"
+            },
+            {
+              "name": "periodicDuties",
+              "title": "Periodic duties"
+            }
+          ],
+          "choices": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "cellType": "text",
+          "keyName": "id"
+        },
+        {
+          "type": "radiogroup",
+          "name": "has_succession_plan_in_place",
+          "title": "Do you have a succession plan in place?",
+          "description": "Succession planning is about future proofing your business. Whether you are seeking to remove yourself from the day-to-day running of the business, considering selling at some point in the future, or just planning long term for your retirement, succession planning is critical to your continuity of your business.",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "succession_plan_proactive_implementation",
+          "visibleIf": "{has_succession_plan_in_place} == 'Yes'",
+          "title": "Is the plan being proactively implemented?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "succession_plan_effectiveness",
+          "visibleIf": "{has_succession_plan_in_place} == 'Yes'",
+          "title": "Is the plan working?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "succession_plan_for_business_continuity",
+          "title": "In the interests of business continuity and risk planning, is there someone on your current team who could take over your role in the event of death, illness or incapacity to continue.",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "family_members_operating",
+          "title": "Are any family members operating a similar business in close proximity to this business\r\n",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "directors_share_vision",
+          "title": "Do you believe all directors share the business's goals and vision?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "is_ceo_and_gm_same_or_diff_people",
+          "title": "Are the CEO and General Manager roles held by the same person or different people?",
+          "choices": [
+            "Same",
+            "Different"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "is_ceo_another_shareholder",
+          "title": "Is the CEO role held by another shareholder?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "can_the_business_operate_without_you",
+          "title": "Can the business operate without the input of any of the owners?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "business_operate_completely_without_guidance",
+          "visibleIf": "{can_the_business_operate_without_you} == 'Yes'",
+          "title": "Can the business operate completely without the owners guidance?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "text",
+          "name": "how_much_is_the_business_reliant_on_you",
+          "visibleIf": "{can_the_business_operate_without_you} == 'No'",
+          "title": "How much (%) is the business reliant on the owners?",
+          "inputType": "number",
+          "min": 1,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "type": "radiogroup",
+          "name": "when_you_are_not_around",
+          "visibleIf": "{can_the_business_operate_without_you} == 'No'",
+          "title": "What happens in your business when the owners are not around, is there someone in charge?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "business_has_board",
+          "visibleIf": "{can_the_business_operate_without_you} == 'No'",
+          "title": "Does your business have a board?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "business_has_divisional_structure",
+          "title": "Does your business have a divisional structure?",
+          "description": "Such a structure has clear divisions, such as sales and marketing, production, etc, with each division consisting of its own team, including team leader or manager",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "dropdown",
+          "name": "how_many_divisions_do_you_have",
+          "visibleIf": "{business_has_divisional_structure} == 'Yes'",
+          "title": "How many divisions do you have?",
+          "choicesMin": 2,
+          "choicesMax": 10
+        },
+        {
+          "type": "radiogroup",
+          "name": "do_you_run_internal_management_meetings",
+          "visibleIf": "{business_has_divisional_structure} == 'No'",
+          "title": "Do you run internal management meetings?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "comment",
+          "name": "mgmt_meeting_process",
+          "visibleIf": "{do_you_run_internal_management_meetings} == 'Yes'",
+          "title": "Describe your management meeting process",
+          "maxLength": 500
+        },
+        {
+          "type": "radiogroup",
+          "name": "internal_mgmt_meetings_frequency",
+          "visibleIf": "{do_you_run_internal_management_meetings} == 'Yes'",
+          "title": "How often do you run internal management meetings?",
+          "choices": [
+            "weekly",
+            "monthly",
+            "bi-monthly",
+            "quarterly",
+            "every six months",
+            "once per year",
+            "ad-hoc (no set regularity)"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "do_you_run_internal_team_meetings",
+          "visibleIf": "{business_has_divisional_structure} == 'No'",
+          "title": "Do you run internal team meetings?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "internal_team_meetings_frequency",
+          "visibleIf": "{do_you_run_internal_team_meetings} == 'Yes'",
+          "title": "How often do you run internal team meetings?",
+          "choices": [
+            "weekly",
+            "monthly",
+            "bi-monthly",
+            "quarterly",
+            "every six months",
+            "once per year",
+            "ad-hoc (no set regularity)"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "run_divisional_mgmt_meetings",
+          "visibleIf": "{business_has_divisional_structure} == 'Yes'",
+          "title": "Do you run management meetings within your divisions?",
+          "choices": [
+            "Yes in every division",
+            "Yes for some divisions",
+            "We don't run management meetings at all"
+          ]
+        },
+        {
+          "type": "checkbox",
+          "name": "mgmt_meetings_frequency",
+          "visibleIf": "{run_divisional_mgmt_meetings} allof ['Yes in every division', 'Yes for some divisions']",
+          "title": "How often do you run management meetings?",
+          "description": "Please select as many as relevant. As an example, you may run meetings monthly in one division, while another runs them weekly. In such a case you would select both the weekly and the monthly options.",
+          "choices": [
+            "Weekly",
+            "Fortnightly",
+            "Monthly",
+            "Every Quarter",
+            "Every Six Months",
+            "Annually",
+            "Ad Hoc at random times",
+            "Never"
+          ]
+        },
+        {
+          "type": "checkbox",
+          "name": "mgmt_meetings_tools",
+          "visibleIf": "{run_divisional_mgmt_meetings} allof ['Yes in every division', 'Yes for some divisions']",
+          "title": "Which of the following do you use as part of managing these meetings?",
+          "description": "Select as many as are relevant.",
+          "choices": [
+            "Agenda",
+            "Meeting Minutes",
+            "Action/tasking sheet",
+            "None"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "runs_divisional_team_meetings",
+          "visibleIf": "{business_has_divisional_structure} == 'Yes'",
+          "title": "Do you run team meetings within these divisions?",
+          "choices": [
+            "Yes in every division",
+            "Yes for some divisions",
+            "We don't run team meetings at all"
+          ]
+        },
+        {
+          "type": "checkbox",
+          "name": "team_meetings_frequency",
+          "visibleIf": "{runs_divisional_team_meetings} allof ['Yes in every division', 'Yes for some divisions']",
+          "title": "How often do you run team meetings?",
+          "description": "Please select as many as relevant. As an example, you may run meetings monthly in one division, while another runs them weekly. In such a case you would select both the weekly and the monthly options.",
+          "choices": [
+            "Weekly",
+            "Fortnightly",
+            "Monthly",
+            "Every Quarter",
+            "Every Six Months",
+            "Annually",
+            "Ad Hoc at random times",
+            "Never"
+          ]
+        },
+        {
+          "type": "checkbox",
+          "name": "team_meetings_tools",
+          "visibleIf": "{runs_divisional_team_meetings} allof ['Yes in every division', 'Yes for some divisions']",
+          "title": "Which of the following do you use as part of managing these meetings? Select as many as are relevant.",
+          "choices": [
+            "Agenda",
+            "Meeting Minutes",
+            "Action/tasking sheet",
+            "None"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "senior_mgmt_strategy_review_frequency",
+          "visibleIf": "{business_has_divisional_structure} == 'Yes'",
+          "title": "How often does your senior management from all divisions get together to review business reports, business information, talk big picture strategy etc. with the senior executives/owners of the business?",
+          "choices": [
+            "Weekly",
+            "Fortnightly",
+            "Monthly",
+            "Every Quarter",
+            "Every Six Months",
+            "Annually",
+            "Ad Hoc at random times",
+            "Never"
+          ]
+        },
+        {
+          "type": "checkbox",
+          "name": "sr_mgmt_strategy_review_tools",
+          "visibleIf": "{senior_mgmt_strategy_review_frequency} != 'Never'",
+          "title": "Which of the following do you use as part of managing these meetings? Select as many as are relevant.",
+          "choices": [
+            "Agenda",
+            "Meeting Minutes",
+            "Action/tasking sheet",
+            "None"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "next_2_years_invest_more",
+          "visibleIf": "{manufactures_in_house} == 'Yes'",
+          "title": "In the next 2 years we will need to invest more resources (money, people, time, machinery, equipment, space m2 etc.) into our manufacturing or production capacity",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "text",
+          "name": "util_production_equip",
+          "visibleIf": "{manufactures_in_house} == 'Yes'",
+          "title": "What is the utilisation of your current production equipment? Meaning of 'Utilisation' in this instance:  The amount of time that equipment are being used for productive work. 100% is full capacity, fully utilised. 50% for example refers to equipment being used half the available time allocated to productive work, and in theory then have more capacity to produce.",
+          "inputType": "number",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "type": "text",
+          "name": "util_manufacturing_facility",
+          "visibleIf": "{manufactures_in_house} == 'Yes'",
+          "title": "What is the utilisation of your current manufacturing facility? Meaning of 'Utilisation' in this instance:  The amount of space that is being used in your manufacturing facility for productive work. 100% is full capacity, fully utilised. 50% for example refers to only half the space being used for productive work, and in theory  there is more space to expand into.",
+          "inputType": "number",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "type": "text",
+          "name": "util_manufacturing_team",
+          "visibleIf": "{manufactures_in_house} == 'Yes'",
+          "title": "What is the utilisation of your current manufacturing team? Meaning of 'Utilisation' in this instance:  The amount of time that the team's available hours are being used for productive work. 100% is full capacity, fully utilised. 50% for example refers to the team being used half the available time allocated to productive work and in theory they have more capacity to produce.",
+          "inputType": "number",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "type": "radiogroup",
+          "name": "processes_documented",
+          "title": "Do you have all of the business processes and procedures documented?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "business_process_review_date",
+          "visibleIf": "{processes_documented} == 'Yes'",
+          "title": "When was the last time these were reviewed and updated?",
+          "choices": [
+            "1 month ago",
+            "in the past 6 months",
+            "in the past 12 months",
+            "in the past 2 years",
+            "I don't recall"
+          ]
+        },
+        {
+          "type": "dropdown",
+          "name": "processes_and_systems_effectiveness_rating",
+          "title": "Rate the effectiveness of your processes and systems out of 10, with 10 being the highest score and 1 being the lowest score.",
+          "choicesMin": 1,
+          "choicesMax": 10
+        },
+        {
+          "type": "radiogroup",
+          "name": "business_automation_tools",
+          "title": "Do you use any systems, software or tools to automate parts of your business?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "operational_reports_review",
+          "title": "Do you review any operational reports on a regular basis?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "comment",
+          "name": "types_of_operational_reports_reviewed",
+          "visibleIf": "{operational_reports_review} == 'Yes'",
+          "title": "Which operational reports do you review on a regular basis?",
+          "description": "Please provide the report type and frequency",
+          "maxLength": 500
+        },
+        {
+          "type": "radiogroup",
+          "name": "do_you_sell_online_via_your_own_ecommerce_store",
+          "title": "Do you sell online via your own ecommerce store?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "online_selling_duration",
+          "visibleIf": "{do_you_sell_online_via_your_own_ecommerce_store} == 'Yes'",
+          "title": "How long have you been selling online?",
+          "choices": [
+            "Under 12 months",
+            "Under 2 years",
+            "2 years +"
+          ]
+        },
+        {
+          "type": "text",
+          "name": "sales_percentage_from_online_store",
+          "visibleIf": "{do_you_sell_online_via_your_own_ecommerce_store} == 'Yes'",
+          "title": "What percentage (%) of your sales comes from your online store?",
+          "inputType": "number",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "type": "radiogroup",
+          "name": "sell_on_marketplaces",
+          "title": "Do you sell online via a marketplace such as ebay, Facebook marketplace, Amazon, etc?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "text",
+          "name": "sales_percentage_from_marketplaces",
+          "visibleIf": "{sell_on_marketplaces} == 'Yes'",
+          "title": "What percentage (%) of your sales comes from marketplaces?",
+          "inputType": "number",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "type": "radiogroup",
+          "name": "warehousing_and_logistics_mgmt_type",
+          "visibleIf": "{sells_physical_products} == 'Yes' and ({do_you_sell_online_via_your_own_ecommerce_store} == 'Yes' or {sell_on_marketplaces} == 'Yes')",
+          "title": "Does your business internalise warehousing, picking and packing or do you use an external provider?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "logistics_model_used_with_external_partner",
+          "visibleIf": "{warehousing_and_logistics_mgmt_type} contains 'external'",
+          "title": "Select the model you use",
+          "choices": [
+            "Drop shipping",
+            "3PL"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "uses_erp_system",
+          "visibleIf": "{manufactures_in_house} == 'Yes'",
+          "title": "Does the business use an Enterprise Resource Planning (ERP) system?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "comment",
+          "name": "production_management_without_erp",
+          "visibleIf": "{uses_erp_system} == 'No'",
+          "title": "How do you manage and coordinate production?",
+          "maxLength": 500
+        },
+        {
+          "type": "dropdown",
+          "name": "erp_system_effectiveness",
+          "visibleIf": "{uses_erp_system} == 'Yes'",
+          "title": "How effective is the ERP system?",
+          "choicesMin": 1,
+          "choicesMax": 10
+        },
+        {
+          "type": "dropdown",
+          "name": "manufacturing_locations_count",
+          "visibleIf": "{manufactures_in_house} == 'Yes'",
+          "title": "How many manufacturing locations does the business operate?",
+          "choices": [
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9",
+            "10",
+            "10+"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "has_retail_stores",
+          "visibleIf": "{sells_physical_products} == 'Yes'",
+          "title": "Do you have any retail stores?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "text",
+          "name": "retail_store_count",
+          "visibleIf": "{has_retail_stores} == 'Yes'",
+          "title": "How many retail stores do you operate?",
+          "inputType": "number",
+          "min": 1,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "type": "radiogroup",
+          "name": "stores_connected_with_digital_technology",
+          "visibleIf": "{retail_store_count} > 1",
+          "title": "Are your stores connected to each other using digital technology?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "centralized_warehouse_for_stores",
+          "visibleIf": "{has_retail_stores} == 'Yes'",
+          "title": "Does your business have a centralised warehouse or storage facility from which you supply the store's?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "warehouse_connected_with_stores_digitally",
+          "visibleIf": "{centralized_warehouse_for_stores} == 'Yes'",
+          "title": "Is your warehouse digitally connected to your retail stores?",
+          "choices": [
+            "Yes",
+            "No",
+            "Some Stores"
+          ]
+        },
+        {
+          "type": "comment",
+          "name": "business_tech_stack",
+          "title": "Provide a list of technologies your business uses - example: gmail, accounting platform, crm type etc.",
+          "maxLength": 500
+        },
+        {
+          "type": "radiogroup",
+          "name": "process_reengineering_done",
+          "title": "Has the business ever gone through a Business Process Remodelling or Re-Engineering exercise?",
+          "choices": [
+            "Yes",
+            "No",
+            "I have no idea what that is"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "tech_sync_efficiency",
+          "title": "Does your technology sync with each other and help drive business processes?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "tech_support_access",
+          "title": "Do you have access to technology support service providers, such as an IT team?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "dropdown",
+          "name": "tech_rating_vs_competitors",
+          "title": "In terms of technology, rate your business out of 10 compared to your competitors",
+          "choicesMin": 1,
+          "choicesMax": 10
+        }
+      ]
+    },
+    {
+      "name": "human-resources",
+      "title": "People",
+      "elements": [
+        {
+          "type": "text",
+          "name": "fte_count",
+          "title": "How many permanent full time employees do you have, NOT including yourself?",
+          "inputType": "number",
+          "min": 0,
+          "step": 1
+        },
+        {
+          "type": "text",
+          "name": "pte_count",
+          "title": "How many permanent part time employees do you have?",
+          "inputType": "number",
+          "min": 0,
+          "step": 1
+        },
+        {
+          "type": "text",
+          "name": "casual_emp_count",
+          "title": "How many casual employees do you have?",
+          "inputType": "number",
+          "min": 0,
+          "step": 1
+        },
+        {
+          "type": "text",
+          "name": "contractor_count",
+          "title": "How many contractors do you have?",
+          "inputType": "number",
+          "min": 0,
+          "step": 1
+        },
+        {
+          "type": "matrixdynamic",
+          "name": "staff_details",
+          "title": "Staff Details - Please complete the below table for each staff member. ",
+          "description": "If you  already have this exact information ready to send to us in a spreadsheet then please type 'sending as attachment' into the first cell. Otherwise, please fill in this table below.",
+          "columns": [
+            {
+              "name": "staff",
+              "title": "Staff Name"
+            },
+            {
+              "name": "type",
+              "title": "Position type (e.g. full time)"
+            },
+            {
+              "name": "title",
+              "title": "Job Title/Position"
+            },
+            {
+              "name": "jobDescription",
+              "title": "Brief job description"
+            },
+            {
+              "name": "hoursWeekly",
+              "title": "Hours per week"
+            },
+            {
+              "name": "grossWeekly",
+              "title": "GROSS wages per week (ex super and bonuses)"
+            },
+            {
+              "name": "keyEmployee",
+              "title": "Key employee - Yes/No?"
+            },
+            {
+              "name": "payrollTax",
+              "title": "Does payroll tax apply?"
+            }
+          ],
+          "choices": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "cellType": "text",
+          "keyName": "id"
+        },
+        {
+          "type": "boolean",
+          "name": "workplace_agreements",
+          "title": "Are there workplace agreements in place?"
+        },
+        {
+          "type": "text",
+          "name": "workplace_agreements_details",
+          "title": "If yes - Please provide details"
+        },
+        {
+          "type": "comment",
+          "name": "qualified_staff_availability",
+          "title": "How would you describe the availability of qualified staff and the effort require to attract them?"
+        },
+        {
+          "type": "radiogroup",
+          "name": "outsources_work",
+          "title": "Does the business outsource any work to third parties?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "text",
+          "name": "percent_work_complete_3rd_parties",
+          "visibleIf": "{outsources_work} == 'Yes'",
+          "title": "What percentage (%) of the work is completed by third parties you outsource work to?",
+          "inputType": "number",
+          "min": 1,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "type": "radiogroup",
+          "name": "has_3rd_party_service_level_agreements",
+          "visibleIf": "{outsources_work} == 'Yes'",
+          "title": "Do you have service level agreements in place with these third parties?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "team_position_descriptions",
+          "title": "Who do you have position descriptions for on your team?",
+          "choices": [
+            "Everyone",
+            "Some team members",
+            "No one"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "last_time_team_position_descriptions_reviewed",
+          "visibleIf": "{team_position_descriptions} <> 'No one'",
+          "title": "When was the last time positions descriptions were reviewed and updated?",
+          "choices": [
+            "1 month ago",
+            "in the past 6 months",
+            "in the past 12 months",
+            "in the past 2 years",
+            "I don't recall"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "has_hr_policies_and_procs",
+          "title": "Do you have HR policies and procedures in place?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "performance_review_freq",
+          "title": "How often do you conduct 1:1 performance reviews with your staff and contractors?",
+          "choices": [
+            "weekly",
+            "monthly",
+            "bi-monthly",
+            "quarterly",
+            "every six months",
+            "once per year",
+            "never"
+          ]
+        },
+        {
+          "type": "text",
+          "name": "busy_rating",
+          "title": "Out of 100%, please rate how busy your staff are. A higher value indicates the more busy they are, and vice versa.",
+          "inputType": "number",
+          "min": 1,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "type": "radiogroup",
+          "name": "low_staff_busy_percentage_reason",
+          "visibleIf": "{busy_rating} < 86",
+          "title": "Why is this percentage so low?",
+          "choices": [
+            "We don't have enough work",
+            "We have anticipated staff numbers to meet an upcoming period of growth",
+            "Our staff are not performing well"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "underperforming_staff_identification",
+          "title": "Do you have any under-performing staff?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "staff_recruitment_need",
+          "title": "Does the business need to recruit any/more staff in the coming 6 months?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "staff_retention_threat_six_months",
+          "title": "Is the business at threat of losing at least one staff member in the coming 6 months?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "staffing_and_hr_challenges",
+          "title": "Does the business struggle with sourcing and selecting suitable staff, properly inducting them, recognising internal talent, identifying training requirements or exit procedures?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "team_cohesion_satisfaction",
+          "title": "Are you happy that your team is cohesive, interdependent, supportive of each other and functioning at the optimum level?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "hr_metrics_tracking",
+          "title": "Do you measure HR related data such as absenteeism, annual leave etc.?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "checkbox",
+          "name": "measured_hr_data_types",
+          "visibleIf": "{hr_metrics_tracking} == 'Yes'",
+          "title": "Which data do you measure?",
+          "choices": [
+            "Absenteeism",
+            "Annual leave",
+            "Sick leave",
+            "Maternity leave",
+            "Paternity leave",
+            "Other"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "customers",
+      "title": "Customer, Product & Revenue Quality",
+      "elements": [
+        {
+          "type": "text",
+          "name": "percentage_chance_of_losing_key_customers",
+          "title": "If one or more owners were to leave the business, what is the estimated risk (%) that the business would lose key customers?",
+          "description": "Please provide the percentage (%) that applies, with 0% indicating absolutely no chance of any customers leaving, and 100% indicating that the business will with 100% certainty lose key customers should you leave the business.",
+          "inputType": "number",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "type": "radiogroup",
+          "name": "has_crm",
+          "title": "Does the business have a Customer Relationship Management (CRM) system?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "dropdown",
+          "name": "crm_system_effectiveness",
+          "visibleIf": "{has_crm} == 'Yes'",
+          "title": "Does the business use this CRM system proactively and effectively? Please rate out of 10",
+          "choicesMin": 1,
+          "choicesMax": 10
+        },
+        {
+          "type": "radiogroup",
+          "name": "customer_data_utilization",
+          "title": "Do you capture and use data on customers to make informed business decisions and for future marketing activities?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "text",
+          "name": "percentage_of_revenue_from_largest_customer",
+          "title": "What percentage (%) of your total revenue does your largest customer account for?",
+          "inputType": "number",
+          "min": 1,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "type": "text",
+          "name": "percentage_of_revenue_from_top_3_customers",
+          "title": "What percentage (%) of your total revenue do your top 3 customers account for?",
+          "inputType": "number",
+          "min": 1,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "type": "text",
+          "name": "major_customers_count",
+          "title": "The number of major customers (A major customer means any customer whose combined custom accounts for 5% or more of the total annual sales revenue of the business)"
+        },
+        {
+          "type": "text",
+          "name": "major_customers_total_annual_sales",
+          "title": "What is the estimated total annual sales of these major customers?"
+        },
+        {
+          "type": "text",
+          "name": "repeat_customer_sales_percentage",
+          "title": "What is your estimate of the percentage of your annual sales income from repeat customers?"
+        },
+        {
+          "type": "text",
+          "name": "new_customer_sales_percentage",
+          "title": "What is your estimate of the percentage of your annual sales income from new customers?"
+        },
+        {
+          "type": "text",
+          "name": "new_customer_monthly_sales_value",
+          "title": "What is your estimate of the sales value of these new customers each month?"
+        },
+        {
+          "type": "radiogroup",
+          "name": "sales_seasonal",
+          "title": "Are your sales seasonal?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "text",
+          "name": "best_sales_months",
+          "title": "If yes, what months are the best sales months?"
+        },
+        {
+          "type": "text",
+          "name": "twelve_month_sales_change_reason",
+          "title": "During the last twelve-month period before the date of this document, did your business circumstances contribute to an improvement or decline in sales?"
+        },
+        {
+          "type": "text",
+          "name": "active_customers_count",
+          "title": "Approximately how many active customers do you have (these are customers who purchased from you in the last 12 month period)?",
+          "inputType": "number",
+          "min": 1,
+          "max": 2000,
+          "step": 10
+        },
+        {
+          "type": "radiogroup",
+          "name": "have_customers_on_service_or_supply_contracts",
+          "title": "Do you have customers on service or supply contracts that lock in their business with you?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "text",
+          "name": "percentage_of_customers_on_service_contracts",
+          "visibleIf": "{have_customers_on_service_or_supply_contracts} == 'Yes'",
+          "title": "What percentage (%) of your customers are on service or supply contracts?",
+          "inputType": "number",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "type": "radiogroup",
+          "name": "has_dedicated_customer_service_person_or_team",
+          "title": "Do you have a dedicated customer service person or customer service team?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "customer_service_team_training",
+          "visibleIf": "{has_dedicated_customer_service_person_or_team} == 'Yes'",
+          "title": "Has this person or team been trained in how to interact with customers or resolve customer issues?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "has_customer_service_procedures_in_place",
+          "title": "Do you have customer service procedures in place - for example to handle things such as customer complaints, late payment problems etc?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "sells_physical_products",
+          "title": "Does your business sell physical products?",
+          "description": "For example, food sold by a restaurant, products you manufacture as a manufacturer etc.",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "manufactures_in_house",
+          "visibleIf": "{sells_physical_products} == 'Yes'",
+          "title": "Does your business manufacture or produce products in-house?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "custom_manufactured_by_another",
+          "visibleIf": "{sells_physical_products} == 'Yes'",
+          "title": "Does your business have anything custom manufactured or produced for it by another business?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "consider_in_house_manufacturing",
+          "visibleIf": "{manufactures_in_house} == 'No' or {custom_manufactured_by_another} == 'Yes'",
+          "title": "We need to consider manufacturing in house those products that are manufactured or produced for us by another business.",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "consider_external_manufacturing",
+          "visibleIf": "{custom_manufactured_by_another} == 'No'",
+          "title": "We need to consider having products manufactured for us by another business.",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "current_suppliers_appropriateness",
+          "visibleIf": "{sells_physical_products} == 'Yes'",
+          "title": "Our current suppliers are the right suppliers",
+          "choices": [
+            "Yes",
+            "No",
+            "Some"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "supplier_contracts_in_place",
+          "visibleIf": "{sells_physical_products} == 'Yes'",
+          "title": "We have supplier contracts in place",
+          "choices": [
+            "Yes",
+            "No",
+            "Some"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "exclusivity_agreements",
+          "visibleIf": "{sells_physical_products} == 'Yes'",
+          "title": "We have exclusivity agreements in place",
+          "choices": [
+            "Yes",
+            "No",
+            "Some"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "imports_products",
+          "visibleIf": "{custom_manufactured_by_another} == 'Yes'",
+          "title": "Does your business import products?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "exports_products",
+          "visibleIf": "{custom_manufactured_by_another} == 'Yes'",
+          "title": "Does your business export products?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "has_intl_trading_plan",
+          "visibleIf": "{imports_products} == 'Yes' or {exports_products} == 'Yes'",
+          "title": "Do you have an international trading plan in place?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "sell_deliver_provide_services_any_type",
+          "visibleIf": "{sells_physical_products} == 'Yes'",
+          "title": "Does your business sell/deliver/provide services of any type?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "checkbox",
+          "name": "types_of_services",
+          "visibleIf": "{sell_deliver_provide_services_any_type} == 'Yes'",
+          "title": "Select the type(s) of service(s) that your business provides.",
+          "choices": [
+            "Intellectual service (example: accounting)",
+            "Physical service (example: dry cleaning, gardening)",
+            "Rental service (example: equipment hire)",
+            "Health service (example: dentist)",
+            "Human service (example: childcare, home nursing)",
+            "Logistics service (example: food delivery)",
+            "Wellness service (example: massage clinics)",
+            "Other services - not listed"
+          ]
+        },
+        {
+          "type": "text",
+          "name": "physical_product_revenue_percentage",
+          "visibleIf": "{sells_physical_products} == 'Yes' and {sell_deliver_provide_services_any_type} == 'Yes'",
+          "title": "What percentage (%) of revenue comes from selling physical products (includes manufactured products)?",
+          "inputType": "number",
+          "min": 1,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "type": "radiogroup",
+          "name": "service_type_standard_or_custom",
+          "visibleIf": "{sell_deliver_provide_services_any_type} == 'Yes'",
+          "title": "Does your business provide standard services that can be easily cloned, or, do you provide custom solutions?",
+          "choices": [
+            "Standard Services",
+            "Custom Solutions",
+            "Both"
+          ]
+        },
+        {
+          "type": "text",
+          "name": "revenue_from_custom_services",
+          "visibleIf": "{service_type_standard_or_custom} == 'Both'",
+          "title": "What percentage (%) of revenue comes from providing custom services?",
+          "inputType": "number",
+          "min": 1,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "type": "radiogroup",
+          "name": "last_time_reviewed_products_services",
+          "title": "When was the last time you completed a full review of your products/services?",
+          "choices": [
+            "1 month ago",
+            "3 months ago",
+            "6 months ago",
+            "1 year ago",
+            "over one year ago",
+            "Never"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "why_reviewed_products_services_now",
+          "visibleIf": "{last_time_reviewed_products_services} <> 'Never'",
+          "title": "What prompted you to undertake this review?",
+          "choices": [
+            "Following market research",
+            "Following competitor research",
+            "We just felt we needed to",
+            "Feedback from customers"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "last_time_updated_prices",
+          "title": "When was the last time you updated your prices?",
+          "choices": [
+            "1 month ago",
+            "3 months ago",
+            "6 months ago",
+            "1 year ago",
+            "over one year ago",
+            "Never"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "why_update_prices_now",
+          "visibleIf": "{last_time_updated_prices} <> 'Never'",
+          "title": "What prompted you to undertake this review?",
+          "choices": [
+            "Following market research",
+            "Following competitor research",
+            "We just felt we needed to",
+            "Feedback from customers"
+          ]
+        },
+        {
+          "type": "dropdown",
+          "name": "rating_product_service_right_for_market",
+          "title": "Our products/services are the right ones for the market.",
+          "description": "Please indicate by selecting a score out of 10, where 1 is the lowest score (least likely) and 10 being the highest score (most likely).",
+          "choicesMin": 1,
+          "choicesMax": 10
+        },
+        {
+          "type": "radiogroup",
+          "name": "our_prices_are_the_same_as_that_of_competitors",
+          "title": "Our prices are the same as that of competitors",
+          "choices": [
+            "Yes",
+            "Higher",
+            "Lower",
+            "I don't know"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "our_productservice_mix_needs_to_change",
+          "title": "Our product/service mix needs to change",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "our_customers_understand_our_productsservices",
+          "title": "Our customers understand our products/services",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "products_services_still_relevant_in_2_yrs",
+          "title": "In 2 years time, our current products/services will still be relevant",
+          "choices": [
+            "Yes",
+            "No",
+            "Some won't be"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "different_products_services_in_2_yrs",
+          "title": "In 2 years time we will be selling different products/services",
+          "choices": [
+            "Yes",
+            "No",
+            "Some changes are expected"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "easy_supplier_access",
+          "title": "Anyone can easily access the suppliers of our products and become a reseller",
+          "choices": [
+            "Yes",
+            "No",
+            "Certain Suppliers Yes"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "our_margins_are_higher_than_industry_standard",
+          "title": "Our margins are higher than industry standard",
+          "choices": [
+            "Yes",
+            "No - our margins are the same as others",
+            "No - our margins are lower than others",
+            "I don't know"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "has_sales_marketing_strategy",
+          "title": "Do you have a sales and marketing strategy for the business?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "sales_marketing_strategy_review_date",
+          "visibleIf": "{has_sales_marketing_strategy} == 'Yes'",
+          "title": "When was this last reviewed and updated?",
+          "choices": [
+            "1 month ago",
+            "in the past 6 months",
+            "in the past 12 months",
+            "in the past 2 years",
+            "I don't recall"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "has_sales_marketing_plan",
+          "title": "Do you have a sales and marketing plan for the business?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "sales_marketing_plan_review_date",
+          "visibleIf": "{has_sales_marketing_plan} == 'Yes'",
+          "title": "When was this last reviewed and updated?",
+          "choices": [
+            "1 month ago",
+            "in the past 6 months",
+            "in the past 12 months",
+            "in the past 2 years",
+            "I don't recall"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "sales_marketing_plan_implementation",
+          "visibleIf": "{has_sales_marketing_plan} == 'Yes'",
+          "title": "Is the plan actually being used to drive activities and implemented as set out in the plan?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "growth_areas_in_sales_marketing_plan",
+          "visibleIf": "{has_sales_marketing_plan} == 'Yes'",
+          "title": "Has your plan clearly identified those areas where you should pursue growth?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "do_you_have_a_clearly_articulated_sales_process",
+          "title": "Do you have a clearly articulated sales process?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "segmented_customer_list",
+          "title": "Do you have a clearly segmented customer list (including existing customers, lapsed customers and target prospects)?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "total_marketing_budget",
+          "title": "How much do you spend per year, in total, on Sales and Marketing activities - offline and online (not including any employee wages)",
+          "choices": [
+            "$0",
+            "$1 - $10,000",
+            "$10,001 - $25,000",
+            "$25,001 - $50,000",
+            "$50,001 - $100,000",
+            "$100,001 - $150,000",
+            "$150,001+"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "online_marketing_budget",
+          "title": "How much do you spend per year on online (digital) sales and marketing activities?",
+          "choices": [
+            "$0",
+            "$1 - $10,000",
+            "$10,001 - $25,000",
+            "$25,001 - $50,000",
+            "$50,001 - $100,000",
+            "$100,001 - $150,000",
+            "$150,001+"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "offline_marketing_budget",
+          "title": "How much do you spend per year on offline sales and marketing activities?",
+          "choices": [
+            "$0",
+            "$1 - $10,000",
+            "$10,001 - $25,000",
+            "$25,001 - $50,000",
+            "$50,001 - $100,000",
+            "$100,001 - $150,000",
+            "$150,001+"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "know_roi_for_all_money_spent_on_marketing",
+          "title": "Do you know the return on investment for every $ you spend on marketing?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "text",
+          "name": "roi_per_dollar_spent_on_marketing",
+          "visibleIf": "{know_roi_for_all_money_spent_on_marketing} == 'Yes'",
+          "title": "What is the dollar return per dollar spent?",
+          "inputType": "number",
+          "min": 1,
+          "step": 5
+        },
+        {
+          "type": "radiogroup",
+          "name": "do_you_track_and_monitor_sales_and_marketing_data",
+          "title": "Do you track and monitor sales and marketing data?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "checkbox",
+          "name": "method_for_capturing_sales_data",
+          "visibleIf": "{do_you_track_and_monitor_sales_and_marketing_data} == 'Yes'",
+          "title": "How do you capture such data?",
+          "choices": [
+            "Google Analytics",
+            "Google AdWords",
+            "Social Media",
+            "Your website",
+            "Email marketing",
+            "Online surveys",
+            "Phone surveys",
+            "Customer market research",
+            "Other"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "understands_captured_sales_data",
+          "visibleIf": "{do_you_track_and_monitor_sales_and_marketing_data} == 'Yes'",
+          "title": "Do you know what to do with the data you capture?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "checkbox",
+          "name": "sales_data_utilization_method",
+          "visibleIf": "{understands_captured_sales_data} == 'Yes'",
+          "title": "What do you do with the data you collect?",
+          "choices": [
+            "Make strategic decisions",
+            "Make sales and marketing decisions",
+            "Make product or service decisions",
+            "Develop sales and marketing plans",
+            "Nothing"
+          ]
+        },
+        {
+          "type": "dropdown",
+          "name": "sales_marketing_satisfaction",
+          "title": "How happy are you with the results generated from your sales and marketing activities - rate out of 10 please.",
+          "choicesMin": 1,
+          "choicesMax": 10
+        },
+        {
+          "type": "comment",
+          "name": "low_sales_results_reason",
+          "visibleIf": "{sales_marketing_satisfaction} < 6",
+          "title": "Is there a specific reason why you gave the previous question such a low score?",
+          "maxLength": 500
+        }
+      ]
+    },
+    {
+      "name": "competitive-forces",
+      "title": "Brand, IP & Intangibles",
+      "elements": [
+        {
+          "type": "radiogroup",
+          "name": "strategic_business_plan",
+          "title": "Do you have a strategic business plan?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "strategic_plan_last_review",
+          "visibleIf": "{strategic_business_plan} == 'Yes'",
+          "title": "When was this last reviewed and updated?",
+          "choices": [
+            "1 month ago",
+            "in the past 6 months",
+            "in the past 12 months",
+            "in the past 2 years",
+            "I don't recall"
+          ]
+        },
+        {
+          "type": "matrixdynamic",
+          "name": "intellectual_property_excluded",
+          "title": "What Intellectual Property items will be excluded from the sale? Please list all in the table below.",
+          "columns": [
+            {
+              "name": "item",
+              "title": "Item"
+            },
+            {
+              "name": "comments",
+              "title": "Comments around this item"
+            }
+          ],
+          "choices": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "cellType": "text",
+          "keyName": "id"
+        },
+        {
+          "type": "radiogroup",
+          "name": "does_your_business_have_a_style_guide",
+          "title": "Does your business have a style guide?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "style_guide_last_updated",
+          "visibleIf": "{does_your_business_have_a_style_guide} == 'Yes'",
+          "title": "When was it last updated?",
+          "choices": [
+            "1 month ago",
+            "in the past 6 months",
+            "in the past 12 months",
+            "in the past 2 years",
+            "I don't recall"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "does_the_business_have_a_website",
+          "title": "Does the business have a website?",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "website_last_updated_date",
+          "visibleIf": "{does_the_business_have_a_website} == 'Yes'",
+          "title": "When was it last updated (this could be in the form of a blog article or facelift for example)?",
+          "choices": [
+            "1 month ago",
+            "in the past 6 months",
+            "in the past 12 months",
+            "in the past 2 years",
+            "I don't recall"
+          ]
+        },
+        {
+          "type": "dropdown",
+          "name": "brand_consistency_rating",
+          "title": "On a scale from 1 to 10 how consistent is your branding across all marketing materials and communication channels (eg. the logo is the same everywhere, colours are all the same, fonts are the same etc.)?",
+          "choicesMin": 1,
+          "choicesMax": 10
+        },
+        {
+          "type": "radiogroup",
+          "name": "premises_update_needed",
+          "title": "Do your physical premises, be it office, warehouse etc require any updating in terms of external appeal (such as new paint or logo refreshment etc.)?",
+          "description": "The reality is the people do 'judge the book by its cover',meaning that if your office or retail premise for example looks outdated, perhaps your logo is peeling off the sign or is faded, then those in themselves will affect the perception people will have of your business.",
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "type": "comment",
+          "name": "strongest_advantage",
+          "title": "What do you believe is the single strongest (sustainable) advantage that you have over your competitors?",
+          "maxLength": 500
+        },
+        {
+          "type": "matrixdynamic",
+          "name": "main_competitor_analysis",
+          "title": "List your four main direct competitors",
+          "description": "Qualify them using these as the guide: Size (Bigger, Smaller, Same). Prices (More Expensive, Less Expensive, Same). Quality (Better, Worse, Same). Strengths (e.g. part of buying group, good sales team, great reputation, very active marketing, well established etc). Weaknesses (e.g. poor reputation, poor range, no sales team, fail to adapt to market etc).",
+          "columns": [
+            {
+              "name": "name",
+              "title": "Name"
+            },
+            {
+              "name": "size",
+              "title": "Size"
+            },
+            {
+              "name": "price",
+              "title": "Price"
+            },
+            {
+              "name": "strengths",
+              "title": "Strengths"
+            },
+            {
+              "name": "weaknesses",
+              "title": "Weaknesses"
+            }
+          ],
+          "choices": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "cellType": "text",
+          "keyName": "id"
+        },
+        {
+          "type": "comment",
+          "name": "entry_barriers",
+          "title": "What are the barriers to entry?"
+        },
+        {
+          "type": "comment",
+          "name": "what_new_threats_could_impact_your_business",
+          "title": "What new threats could impact your business?",
+          "maxLength": 500
+        },
+        {
+          "type": "comment",
+          "name": "customer_alternative_options",
+          "title": "What other products/services could your customers use instead of the ones you sell/provide?",
+          "maxLength": 500
+        },
+        {
+          "type": "comment",
+          "name": "supplier_threats",
+          "title": "What threats do your suppliers pose to the business?",
+          "maxLength": 500
+        },
+        {
+          "type": "comment",
+          "name": "buyer_threats",
+          "title": "What threats do your buyers pose to the business?",
+          "maxLength": 500
+        },
+        {
+          "type": "comment",
+          "name": "industry_challenges_2yr",
+          "title": "List the challenges you see within the industry over the coming two years.",
+          "maxLength": 500
+        },
+        {
+          "type": "comment",
+          "name": "industry_opportunities_2yr",
+          "title": "List the opportunities you see within the industry over the coming two years.",
+          "maxLength": 500
+        },
+        {
+          "type": "comment",
+          "name": "list_the_strengths_within_your_business",
+          "title": "List the strengths within your business.",
+          "maxLength": 500
+        },
+        {
+          "type": "comment",
+          "name": "list_the_weaknesses_within_your_business",
+          "title": "List the weaknesses within your business.",
+          "maxLength": 500
+        },
+        {
+          "type": "comment",
+          "name": "list_the_opportunities_available_to_your_business",
+          "title": "List the opportunities available to your business.",
+          "maxLength": 500
+        },
+        {
+          "type": "comment",
+          "name": "list_the_threats_within_your_business",
+          "title": "List the threats within your business.",
+          "maxLength": 500
+        }
+      ]
+    },
+    {
+      "name": "page1",
+      "title": "Anything Else?",
+      "elements": [
+        {
+          "type": "comment",
+          "name": "is_there_anything_else_youd_like_to_share",
+          "title": "Is there anything else you'd like to share?\r \r Detail any other information, areas of focus, concerns, etc. that you like.",
+          "maxLength": 500
+        }
+      ]
+    }
+  ],
+  "showProgressBar": true,
+  "progressBarLocation": "top",
+  "progressBarShowPageNumbers": true,
+  "showTOC": true,
+  "autoAdvanceEnabled": true,
+  "autoAdvanceAllowComplete": false
+}

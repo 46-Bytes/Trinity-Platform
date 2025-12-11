@@ -54,6 +54,7 @@ class Task(Base):
     # Relationships
     engagement = relationship("Engagement", back_populates="tasks")
     diagnostic = relationship("Diagnostic", back_populates="tasks")
+    notes = relationship("Note", back_populates="task", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Task(id={self.id}, title='{self.title}', status='{self.status}', priority='{self.priority}')>"

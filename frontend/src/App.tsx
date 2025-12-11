@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Provider } from "react-redux";
+import { store } from "@/store";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 
 // Pages
@@ -17,7 +19,8 @@ import { DashboardLayout } from "./components/layout/DashboardLayout";
 import DashboardHome from "./pages/dashboard/DashboardHome";
 import UsersPage from "./pages/dashboard/UsersPage";
 import ClientsPage from "./pages/dashboard/ClientsPage";
-import EngagementsPage from "./pages/dashboard/EngagementsPage";
+import EngagementsPage from "./pages/dashboard/Engagement/EngagementsPage";
+import EngagementDetailPage from "./pages/dashboard/Engagement/EngagementDetailPage";
 import TasksPage from "./pages/dashboard/TasksPage";
 import DocumentsPage from "./pages/dashboard/DocumentsPage";
 import AIToolsPage from "./pages/dashboard/AIToolsPage";
@@ -57,6 +60,7 @@ function AppRoutes() {
         <Route path="users" element={<UsersPage />} />
         <Route path="clients" element={<ClientsPage />} />
         <Route path="engagements" element={<EngagementsPage />} />
+        <Route path="engagements/:engagementId" element={<EngagementDetailPage />} />
         <Route path="tasks" element={<TasksPage />} />
         <Route path="documents" element={<DocumentsPage />} />
         <Route path="ai-tools" element={<AIToolsPage />} />
@@ -74,17 +78,19 @@ function AppRoutes() {
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
+  <Provider store={store}>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  </Provider>
 );
 
 export default App;

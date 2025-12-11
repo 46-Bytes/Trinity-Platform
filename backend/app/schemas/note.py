@@ -23,8 +23,8 @@ class NoteBase(BaseModel):
 class NoteCreate(NoteBase):
     """Schema for creating a new note"""
     engagement_id: UUID = Field(..., description="The engagement this note belongs to")
-    author_id: UUID = Field(..., description="Who wrote this note")
     diagnostic_id: Optional[UUID] = Field(None, description="Optional: If note references a diagnostic")
+    task_id: Optional[UUID] = Field(None, description="Optional: If note references a task")
 
 
 # Schema for updating a note
@@ -47,9 +47,11 @@ class NoteResponse(NoteBase):
     id: UUID
     engagement_id: UUID
     diagnostic_id: Optional[UUID] = None
+    task_id: Optional[UUID] = None
     author_id: UUID
     created_at: datetime
     updated_at: datetime
+
 
 
 # Schema for note list item (with author info)

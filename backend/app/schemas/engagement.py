@@ -1,7 +1,7 @@
 """
 Pydantic schemas for Engagement model
 """
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, computed_field
 from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
@@ -48,11 +48,43 @@ class EngagementResponse(EngagementBase):
     id: UUID
     firm_id: Optional[UUID] = None
     client_id: UUID
+    client_name: Optional[str] = Field(None, description="Client's name (populated from user)")
     primary_advisor_id: UUID
     secondary_advisor_ids: Optional[List[UUID]] = []
     created_at: datetime
     updated_at: datetime
     completed_at: Optional[datetime] = None
+    
+    # Frontend-compatible field mappings
+    @computed_field
+    @property
+    def title(self) -> str:
+        """Map engagement_name to title for frontend compatibility"""
+        return self.engagement_name
+    
+    @computed_field
+    @property
+    def industry_name(self) -> Optional[str]:
+        """Map industry to industry_name for frontend compatibility"""
+        return self.industry
+    
+    @computed_field
+    @property
+    def start_date(self) -> str:
+        """Map created_at to start_date for frontend compatibility"""
+        return self.created_at.isoformat() if self.created_at else ""
+    
+    @computed_field
+    @property
+    def end_date(self) -> Optional[str]:
+        """Map completed_at to end_date for frontend compatibility"""
+        return self.completed_at.isoformat() if self.completed_at else None
+    
+    @computed_field
+    @property
+    def assigned_users(self) -> List[str]:
+        """Map secondary_advisor_ids to assigned_users for frontend compatibility"""
+        return [str(uid) for uid in (self.secondary_advisor_ids or [])]
 
 
 # Schema for engagement list (with counts)

@@ -26,7 +26,7 @@ router = APIRouter(prefix="/diagnostics", tags=["diagnostics"])
 
 # ==================== CREATE DIAGNOSTIC ====================
 
-@router.post("/", response_model=DiagnosticResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/create", response_model=DiagnosticResponse, status_code=status.HTTP_201_CREATED)
 async def create_diagnostic(
     diagnostic_data: DiagnosticCreate,
     db: Session = Depends(get_db),

@@ -281,7 +281,7 @@ class DiagnosticService:
             tasks_count = await self._generate_tasks(
                 diagnostic=diagnostic,
                 summary=summary,
-                user_responses=user_responses,
+                json_extract=json_extract,
                 roadmap=roadmap
             )
         except Exception as e:
@@ -374,7 +374,7 @@ class DiagnosticService:
         self,
         diagnostic: Diagnostic,
         summary: str,
-        user_responses: Dict[str, Any],
+        json_extract: Dict[str, Any],
         roadmap: List[Dict[str, Any]]
     ) -> int:
         """
@@ -383,8 +383,8 @@ class DiagnosticService:
         Args:
             diagnostic: Diagnostic model
             summary: Diagnostic summary
-            user_responses: User's responses
-            roadmap: Priority roadmap
+            json_extract: Q&A extract (question text → answer pairs)
+            roadmap: Priority roadmap with module rankings
             
         Returns:
             Number of tasks created
@@ -396,7 +396,8 @@ class DiagnosticService:
         task_result = await openai_service.generate_tasks(
             task_prompt=task_prompt,
             diagnostic_summary=summary,
-            user_responses=user_responses
+            json_extract=json_extract,
+            roadmap=roadmap
         )
         
         # Parse tasks

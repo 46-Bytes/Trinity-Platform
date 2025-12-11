@@ -1,7 +1,7 @@
 """
 Scoring service for calculating module scores and RAG status
 """
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 from decimal import Decimal, ROUND_HALF_UP
 
 

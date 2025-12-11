@@ -24,6 +24,7 @@ class Note(Base):
     diagnostic_id = Column(UUID(as_uuid=True), ForeignKey('diagnostics.id', ondelete='SET NULL'), nullable=True, index=True,
                           comment="Optional: if note references a specific diagnostic")
     author_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    task_id = Column(UUID(as_uuid=True), ForeignKey('tasks.id', ondelete='SET NULL'), nullable=True, index=True)
     
     # Note content
     title = Column(String(255), nullable=True, comment="Optional note title")
@@ -49,7 +50,8 @@ class Note(Base):
     # Relationships
     engagement = relationship("Engagement", back_populates="notes")
     diagnostic = relationship("Diagnostic", back_populates="notes")
+    task = relationship("Task", back_populates="notes")
     
     def __repr__(self):
-        return f"<Note(id={self.id}, engagement_id={self.engagement_id}, type='{self.note_type}', author_id={self.author_id})>"
+        return f"<Note(id={self.id}, engagement_id={self.engagement_id}, diagnostic_id={self.diagnostic_id}, task_id={self.task_id}, type='{self.note_type}', author_id={self.author_id})>"
 

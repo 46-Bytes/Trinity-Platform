@@ -4,6 +4,7 @@ import { ToolSurvey } from '@/components/engagement/tools/ToolSurvey';
 import { EngagementChatbot } from '@/components/engagement/chatbot';
 import { GeneratedFilesList } from '@/components/engagement/overview';
 import type { GeneratedFileProps } from '@/components/engagement/overview';
+import { TasksList } from '@/components/engagement/tasks';
 
 export default function EngagementDetailPage() {
   const { engagementId } = useParams<{ engagementId: string }>();
@@ -70,8 +71,9 @@ export default function EngagementDetailPage() {
       </div>
       
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-fit grid-cols-3">
+        <TabsList className="grid w-fit grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="diagnostic">Diagnostic</TabsTrigger>
           <TabsTrigger value="chatbot">Chat Bot</TabsTrigger>
         </TabsList>
@@ -97,6 +99,12 @@ export default function EngagementDetailPage() {
               </div>
               <GeneratedFilesList files={dummyFiles} onDownload={handleDownload} />
             </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="tasks" className="mt-6">
+          <div className="card-trinity p-6">
+            <TasksList engagementId={engagementId} />
           </div>
         </TabsContent>
 

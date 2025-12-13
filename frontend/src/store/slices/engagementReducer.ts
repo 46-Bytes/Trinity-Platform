@@ -9,6 +9,7 @@ export interface Engagement {
   title: string;
   description: string;
   industryName: string;
+  tool?: 'diagnostic' | 'kpi_builder';
   status: 'draft' | 'active' | 'on-hold' | 'completed' | 'cancelled';
   startDate: string;
   endDate?: string;
@@ -121,6 +122,7 @@ export const fetchEngagements = createAsyncThunk(
         title: item.title || item.engagement_name || '',
         description: item.description || '',
         industryName: item.industry_name || item.industry || '',
+        tool: item.tool || undefined,
         status: mapBackendStatusToFrontend(item.status),
         startDate: item.start_date || item.created_at || new Date().toISOString(),
         endDate: item.end_date || item.completed_at || undefined,
@@ -186,6 +188,7 @@ export const createEngagement = createAsyncThunk(
     title: string;
     description: string;
     industryName: string;
+    tool: 'diagnostic' | 'kpi_builder';
     status: 'draft' | 'active' | 'on-hold' | 'completed' | 'cancelled';
     primaryAdvisorId?: string; // Optional: will be fetched from current user if not provided
   }, { rejectWithValue }) => {
@@ -225,6 +228,7 @@ export const createEngagement = createAsyncThunk(
         business_name: engagement.businessName,
         industry: engagement.industryName,
         description: engagement.description,
+        tool: engagement.tool,
         client_id: engagement.clientId,
         primary_advisor_id: primaryAdvisorId,
         status: mapFrontendStatusToBackend(engagement.status),
@@ -286,7 +290,7 @@ export const updateEngagement = createAsyncThunk(
     try {
       const token = localStorage.getItem('auth_token');
       const response = await fetch(`${API_BASE_URL}/api/engagements/${id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',

@@ -79,7 +79,7 @@ async def create_diagnostic(
 
 # ==================== UPDATE RESPONSES ====================
 
-@router.patch("/{diagnostic_id}/responses", response_model=DiagnosticResponse)
+@router.patch("/{diagnostic_id}/responses", response_model=DiagnosticDetail)
 async def update_diagnostic_responses(
     diagnostic_id: UUID,
     update_data: DiagnosticResponseUpdate,
@@ -96,7 +96,7 @@ async def update_diagnostic_responses(
         update_data: Response updates
         
     Returns:
-        Updated diagnostic
+        Updated diagnostic with full details including user_responses
         
     Example:
         ```json
@@ -118,6 +118,7 @@ async def update_diagnostic_responses(
             status=update_data.status
         )
         
+        # Return full diagnostic detail (includes user_responses)
         return diagnostic
         
     except ValueError as e:

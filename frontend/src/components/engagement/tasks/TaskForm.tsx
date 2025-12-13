@@ -38,12 +38,13 @@ export function TaskForm({ task, engagementId, onSubmit, onCancel }: TaskFormPro
   const [engagement, setEngagement] = useState<{ clientId?: string; primaryAdvisorId?: string } | null>(null);
   const [isLoadingEngagement, setIsLoadingEngagement] = useState(false);
 
-  // Fetch engagement details if engagementId is provided (for create mode)
+  // Fetch engagement details for both create and edit modes
   useEffect(() => {
-    if (engagementId && !isEditMode) {
+    const engagementIdToFetch = engagementId || task?.engagementId;
+    if (engagementIdToFetch) {
       setIsLoadingEngagement(true);
       const token = localStorage.getItem('auth_token');
-      fetch(`${API_BASE_URL}/api/engagements/${engagementId}`, {
+      fetch(`${API_BASE_URL}/api/engagements/${engagementIdToFetch}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -62,7 +63,7 @@ export function TaskForm({ task, engagementId, onSubmit, onCancel }: TaskFormPro
           setIsLoadingEngagement(false);
         });
     }
-  }, [engagementId, isEditMode]);
+  }, [engagementId, task?.engagementId]);
 
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
@@ -79,7 +80,7 @@ export function TaskForm({ task, engagementId, onSubmit, onCancel }: TaskFormPro
 
   // Determine which buttons to show based on user role
   const getAssignmentButtons = () => {
-    if (!user || isEditMode) return null;
+    if (!user) return null;
 
     const userRole = user.role;
     const buttons: Array<{ label: string; userId: string }> = [];
@@ -237,7 +238,7 @@ export function TaskForm({ task, engagementId, onSubmit, onCancel }: TaskFormPro
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Assigned To</FormLabel>
-                {!isEditMode && assignmentButtons && assignmentButtons.length > 0 && (
+                {assignmentButtons && assignmentButtons.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
                     {assignmentButtons.map((button) => (
                       <Button

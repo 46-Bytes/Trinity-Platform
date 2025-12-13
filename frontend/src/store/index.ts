@@ -3,6 +3,7 @@ import engagementReducer from './slices/engagementReducer';
 import toolReducer from './slices/toolReducer';
 import taskReducer from './slices/tasksReducer';
 import noteReducer from './slices/notesReducer';
+import diagnosticReducer from './slices/diagnosticReducer';
 // Import other reducers as you create them
 // import appReducer from './slices/appSlice';
 
@@ -12,6 +13,7 @@ export const store = configureStore({
     tool: toolReducer,
     task: taskReducer,
     note: noteReducer,
+    diagnostic: diagnosticReducer,
     // Add other reducers here
     // app: appReducer,
   },

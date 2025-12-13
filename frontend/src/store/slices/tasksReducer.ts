@@ -253,7 +253,7 @@ export const updateTask = createAsyncThunk(
       if (updates.dueDate !== undefined) backendUpdates.due_date = updates.dueDate || null;
 
       const response = await fetch(`${API_BASE_URL}/api/tasks/${id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',

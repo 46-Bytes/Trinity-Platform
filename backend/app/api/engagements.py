@@ -95,11 +95,34 @@ async def create_engagement(
     db.commit()
     db.refresh(engagement)
     
-    # Populate client_name for response
-    engagement_dict = engagement.__dict__.copy()
-    engagement_dict["client_name"] = client.name or client.email
+    # Create tool for engagement if tool is specified
+    if engagement_data.tool:
+        import sys
+        from pathlib import Path
+        # Add backend directory to path to import tool_service
+        backend_path = Path(__file__).parent.parent.parent
+        if str(backend_path) not in sys.path:
+            sys.path.insert(0, str(backend_path))
+        
+        from tool_service.tool_selector import create_tool_for_engagement
+        try:
+            await create_tool_for_engagement(
+                db=db,
+                engagement_id=engagement.id,
+                tool_type=engagement_data.tool,
+                created_by_user_id=current_user.id
+            )
+            db.commit()  # Commit tool creation
+        except Exception as e:
+            # Log error but don't fail engagement creation
+            print(f"Warning: Failed to create tool for engagement: {str(e)}")
     
-    return EngagementResponse(**engagement_dict)
+    # Create response using Pydantic model_validate (handles SQLAlchemy models properly)
+    response = EngagementResponse.model_validate(engagement)
+    # Add client_name (not in model, but needed for response)
+    response.client_name = client.name or client.email
+    
+    return response
 
 
 @router.get("", response_model=List[EngagementListItem])

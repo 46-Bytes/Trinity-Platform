@@ -219,6 +219,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
               value={value}
               onChange={(value) => handleResponseChange(element.name, value)}
               allResponses={responses}
+              diagnosticId={diagnostic?.id}
             />
           );
         })}

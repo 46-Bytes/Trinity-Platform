@@ -3,6 +3,15 @@ import { Button } from "@/components/ui/button";
 import { Upload, X, File } from "lucide-react";
 import { useState } from "react";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
+interface FileMetadata {
+  file_name: string;
+  file_type: string;
+  file_size?: number;
+  relative_path?: string;
+}
+
 interface FileQuestionProps {
   question: {
     name: string;
@@ -11,15 +20,20 @@ interface FileQuestionProps {
     allowMultiple?: boolean;
     waitForUpload?: boolean;
   };
-  value: File[] | File | null;
-  onChange: (files: File[] | File | null) => void;
+  /**
+   * Value stored in user_responses.
+   * This should be an array of file metadata objects, NOT raw File objects.
+   */
+  value: FileMetadata[] | FileMetadata | null;
+  onChange: (value: FileMetadata[] | FileMetadata | null) => void;
+  diagnosticId?: string;
 }
 
-export function FileQuestion({ question, value, onChange }: FileQuestionProps) {
+export function FileQuestion({ question, value, onChange, diagnosticId }: FileQuestionProps) {
   const [uploading, setUploading] = useState(false);
   
-  // Normalize value to always be an array for easier handling
-  const files = value 
+  // Normalize value from user_responses to an array of metadata
+  const files: FileMetadata[] = value
     ? (Array.isArray(value) ? value : [value])
     : [];
 
@@ -28,53 +42,107 @@ export function FileQuestion({ question, value, onChange }: FileQuestionProps) {
     
     if (selectedFiles.length === 0) return;
 
-    if (question.allowMultiple) {
-      // Add to existing files
-      const newFiles = [...files, ...selectedFiles];
-      onChange(newFiles);
-    } else {
-      // Replace with single file
-      onChange(selectedFiles[0]);
-    }
-
-    // If waitForUpload is true, upload immediately
-    if (question.waitForUpload) {
+    // We always upload immediately when waitForUpload is true
+    if (question.waitForUpload && diagnosticId) {
       setUploading(true);
       try {
-        // TODO: Implement actual file upload to backend
-        await uploadFiles(selectedFiles);
-        setUploading(false);
+        const uploadedMetadata = await uploadFiles(diagnosticId, selectedFiles);
+
+        // Build new metadata array to store in user_responses
+        const existingMetadata: FileMetadata[] = files || [];
+        const newMetadata = question.allowMultiple
+          ? [...existingMetadata, ...uploadedMetadata]
+          : uploadedMetadata.slice(-1); // last uploaded file only
+
+        // Update local/Redux state via onChange with metadata only
+        onChange(question.allowMultiple ? newMetadata : newMetadata[0] || null);
+
+        // Immediately PATCH diagnostic responses with file metadata
+        await saveFileResponse(diagnosticId, question.name, newMetadata);
       } catch (error) {
-        console.error('File upload failed:', error);
+        console.error("File upload failed:", error);
+      } finally {
         setUploading(false);
       }
     }
 
     // Reset input
-    e.target.value = '';
+    e.target.value = "";
   };
 
-  const uploadFiles = async (filesToUpload: File[]) => {
-    // TODO: Replace with actual API call
-    const formData = new FormData();
-    filesToUpload.forEach((file) => {
-      formData.append('files', file);
-    });
-
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch('/api/tools/upload', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      throw new Error('Upload failed');
+  const uploadFiles = async (diagnosticId: string, filesToUpload: File[]): Promise<FileMetadata[]> => {
+    const token = localStorage.getItem("auth_token");
+    if (!token) {
+      throw new Error("No authentication token found");
     }
 
-    return response.json();
+    const results: FileMetadata[] = [];
+
+    for (const file of filesToUpload) {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/diagnostics/${diagnosticId}/upload-file`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: "Upload failed" }));
+        throw new Error(errorData.detail || `HTTP ${response.status}: Upload failed`);
+      }
+
+      const data = await response.json();
+      results.push({
+        file_name: data.file_name,
+        file_type: data.file_type,
+        file_size: data.file_size,
+        relative_path: data.relative_path,
+      });
+    }
+
+    return results;
+  };
+
+  const saveFileResponse = async (
+    diagnosticId: string,
+    fieldName: string,
+    metadataArray: FileMetadata[]
+  ) => {
+    const token = localStorage.getItem("auth_token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    const payload = {
+      user_responses: {
+        [fieldName]: metadataArray,
+      },
+      status: "in_progress" as const,
+    };
+
+    const response = await fetch(
+      `${API_BASE_URL}/api/diagnostics/${diagnosticId}/responses`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: "Failed to save file response" }));
+      throw new Error(errorData.detail || `HTTP ${response.status}: Failed to save file response`);
+    }
   };
 
   const removeFile = (index: number) => {
@@ -145,9 +213,13 @@ export function FileQuestion({ question, value, onChange }: FileQuestionProps) {
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <File className="w-5 h-5 text-muted-foreground flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{file.name}</p>
+                    <p className="text-sm font-medium truncate">
+                      {"file_name" in file ? file.file_name : (file as any).name}
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      {formatFileSize(file.size)}
+                      {"file_size" in file && typeof file.file_size === "number"
+                        ? formatFileSize(file.file_size)
+                        : ""}
                     </p>
                   </div>
                 </div>

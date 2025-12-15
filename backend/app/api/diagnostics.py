@@ -1,10 +1,13 @@
 """
 Diagnostic API endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
+from pathlib import Path
+import os
+import shutil
 
 from app.database import get_db
 from app.schemas.diagnostic import (
@@ -131,6 +134,63 @@ async def update_diagnostic_responses(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update responses: {str(e)}"
         )
+
+
+# ==================== UPLOAD SUPPORTING FILES ====================
+
+@router.post("/{diagnostic_id}/upload-file")
+async def upload_diagnostic_file(
+    diagnostic_id: UUID,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Upload a supporting file for a diagnostic.
+
+    The file is stored under the backend ``files/uploads/diagnostics`` folder and
+    the API returns metadata that can be saved into ``user_responses`` instead of
+    the raw file content.
+
+    This endpoint **does not** modify user_responses itself – the frontend will
+    call the normal ``/{diagnostic_id}/responses`` PATCH endpoint with the
+    returned metadata.
+    """
+    service = get_diagnostic_service(db)
+
+    # Ensure diagnostic exists and the user has access (service will raise if not)
+    diagnostic = service.get_diagnostic(diagnostic_id)
+    if not diagnostic:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Diagnostic {diagnostic_id} not found"
+        )
+
+    # Base files directory (backend/files)
+    base_dir = Path(__file__).resolve().parents[2] / "files"
+    uploads_dir = base_dir / "uploads" / "diagnostics" / str(diagnostic_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+
+    # Sanitize file name
+    original_name = os.path.basename(file.filename or "uploaded-file")
+    safe_name = original_name.replace("..", "_").replace("/", "_").replace("\\", "_")
+    destination = uploads_dir / safe_name
+
+    # Save file to disk
+    try:
+        with destination.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    finally:
+        await file.close()
+
+    rel_path = destination.relative_to(base_dir).as_posix()
+
+    return {
+        "file_name": safe_name,
+        "file_type": file.content_type,
+        "file_size": destination.stat().st_size,
+        "relative_path": rel_path,
+    }
 
 
 # ==================== SUBMIT DIAGNOSTIC ====================

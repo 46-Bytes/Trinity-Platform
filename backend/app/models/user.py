@@ -3,6 +3,7 @@ User model for PostgreSQL database.
 """
 from sqlalchemy import Column, String, DateTime, Boolean, Text, Enum
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
 import enum
@@ -128,6 +129,9 @@ class User(Base):
         nullable=True,
         comment="When the user last logged in"
     )
+    
+    # Relationships
+    media = relationship("Media", back_populates="user")
     
     def __repr__(self):
         return f"<User {self.email}>"

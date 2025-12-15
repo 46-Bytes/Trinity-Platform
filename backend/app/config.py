@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     OPENAI_TEMPERATURE: float = float(os.getenv("OPENAI_TEMPERATURE", "1.0"))
     # OPENAI_MAX_TOKENS: int = int(os.getenv("OPENAI_MAX_TOKENS", "16000"))
     
+    # File Uploads
+    UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "uploads")
+    
     class Config:
         env_file = ".env"
         case_sensitive = True

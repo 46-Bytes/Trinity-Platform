@@ -18,28 +18,65 @@ class OpenAIService:
     
     def _convert_messages_to_input(
         self, 
-        messages: List[Dict[str, str]]
-    ) -> List[Dict[str, str]]:
+        messages: List[Dict[str, str]],
+        file_ids: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
         """
         Convert chat completion messages to Responses API input format.
         Changes 'system' role to 'developer' role.
+        Supports file attachments in the last user message.
         
         Args:
             messages: List of message objects with 'role' and 'content'
+            file_ids: Optional list of OpenAI file IDs to attach to the last user message
             
         Returns:
-            List of input messages with converted roles
+            List of input messages with converted roles and file attachments
         """
         input_messages = []
-        for msg in messages:
+        
+        for idx, msg in enumerate(messages):
             role = msg["role"]
             # Convert 'system' role to 'developer' for Responses API
             if role == "system":
                 role = "developer"
-            input_messages.append({
-                "role": role,
-                "content": msg["content"]
-            })
+            
+            # For the last user message, attach files if provided
+            is_last_user_message = (
+                idx == len(messages) - 1 and 
+                msg["role"] == "user" and 
+                file_ids and 
+                len(file_ids) > 0
+            )
+            
+            if is_last_user_message:
+                # Build content array with files and text
+                content_array = []
+                
+                # Add files first
+                for file_id in file_ids:
+                    content_array.append({
+                        "type": "input_file",
+                        "file_id": file_id
+                    })
+                
+                # Add text content
+                content_array.append({
+                    "type": "input_text",
+                    "text": msg["content"]
+                })
+                
+                input_messages.append({
+                    "role": role,
+                    "content": content_array
+                })
+            else:
+                # Regular message without files
+                input_messages.append({
+                    "role": role,
+                    "content": msg["content"]
+                })
+        
         return input_messages
     
     async def generate_completion(
@@ -47,7 +84,8 @@ class OpenAIService:
         messages: List[Dict[str, str]],
         temperature: Optional[float] = None,
         json_mode: bool = False,
-        reasoning_effort: Optional[str] = None
+        reasoning_effort: Optional[str] = None,
+        file_ids: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
         Generate completion from OpenAI using Responses API.
@@ -58,13 +96,14 @@ class OpenAIService:
             temperature: Override default temperature
             json_mode: Enable JSON mode output
             reasoning_effort: Reasoning effort level ("low", "medium", "high")
+            file_ids: Optional list of OpenAI file IDs to attach to the last user message
             
         Returns:
             Dictionary containing response and metadata
         """
         try:
-            # Convert messages to input format
-            input_messages = self._convert_messages_to_input(messages)
+            # Convert messages to input format (with files if provided)
+            input_messages = self._convert_messages_to_input(messages, file_ids=file_ids)
             
             # Prepare parameters
             params = {
@@ -109,7 +148,8 @@ class OpenAIService:
         self,
         messages: List[Dict[str, str]],
         temperature: Optional[float] = None,
-        reasoning_effort: Optional[str] = None
+        reasoning_effort: Optional[str] = None,
+        file_ids: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
         Generate JSON completion from OpenAI using Responses API.
@@ -119,6 +159,7 @@ class OpenAIService:
             messages: List of message objects with 'role' and 'content'
             temperature: Override default temperature
             reasoning_effort: Reasoning effort level ("low", "medium", "high")
+            file_ids: Optional list of OpenAI file IDs to attach to the last user message
             
         Returns:
             Dictionary containing parsed JSON response and metadata
@@ -127,7 +168,8 @@ class OpenAIService:
             messages=messages,
             temperature=temperature,
             json_mode=True,
-            reasoning_effort=reasoning_effort
+            reasoning_effort=reasoning_effort,
+            file_ids=file_ids
         )
         
         # Parse JSON content
@@ -187,6 +229,8 @@ class OpenAIService:
         task_library: Dict[str, Any],
         diagnostic_questions: Dict[str, Any],
         user_responses: Dict[str, Any],
+        file_context: Optional[str] = None,
+        file_ids: Optional[List[str]] = None,
         reasoning_effort: str = "high"
     ) -> Dict[str, Any]:
         """
@@ -199,11 +243,18 @@ class OpenAIService:
             task_library: Library of predefined tasks
             diagnostic_questions: Full diagnostic survey structure
             user_responses: User's answers
+            file_context: Context about uploaded files (Balance Sheets, P&L, etc.)
+            file_ids: List of OpenAI file IDs to attach for AI analysis
             reasoning_effort: Reasoning effort level ("low", "medium", "high")
             
         Returns:
             Dictionary containing scoring results, roadmap, and advisor report
         """
+        # Build file context message if files are present
+        file_context_msg = ""
+        if file_context:
+            file_context_msg = f"\n\n{file_context}"
+        
         messages = [
             {
                 "role": "system",
@@ -214,6 +265,7 @@ class OpenAIService:
                     f"Join scored_rows array with roadmap array in the same json structure.\n\n"
                     f"Task Library: {json.dumps(task_library)}\n\n"
                     f"IMPORTANT: Respond with valid JSON only. No markdown, no explanations."
+                    f"{file_context_msg}"
                 )
             },
             {
@@ -226,9 +278,11 @@ class OpenAIService:
             }
         ]
         
+        # Pass file IDs to be attached to the user message
         return await self.generate_json_completion(
             messages=messages,
-            reasoning_effort=reasoning_effort
+            reasoning_effort=reasoning_effort,
+            file_ids=file_ids if file_ids else None
         )
     
     async def generate_advice(
@@ -318,6 +372,40 @@ class OpenAIService:
             messages=messages,
             reasoning_effort=reasoning_effort
         )
+    
+    async def upload_file(
+        self,
+        file_path: str,
+        purpose: str = "assistants"
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Upload a file to OpenAI for analysis.
+        
+        Args:
+            file_path: Path to the file to upload
+            purpose: Purpose of the file ("assistants", "vision", etc.)
+            
+        Returns:
+            Dictionary with file information including 'id', or None if failed
+        """
+        try:
+            with open(file_path, 'rb') as file:
+                response = self.client.files.create(
+                    file=file,
+                    purpose=purpose
+                )
+            
+            return {
+                "id": response.id,
+                "filename": response.filename,
+                "bytes": response.bytes,
+                "purpose": response.purpose,
+                "created_at": response.created_at
+            }
+            
+        except Exception as e:
+            print(f"❌ OpenAI file upload error: {str(e)}")
+            return None
 
 
 # Singleton instance

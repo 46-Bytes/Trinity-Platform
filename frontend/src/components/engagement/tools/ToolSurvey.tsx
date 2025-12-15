@@ -63,6 +63,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
       dispatch(updateLocalResponses(currentPageResponses));
 
       // PATCH to backend with chunk of responses
+      // Backend will merge these with existing responses
       const updatedDiagnostic = await dispatch(updateDiagnosticResponses({
         diagnosticId: diagnostic.id,
         updates: {
@@ -71,9 +72,19 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
         },
       })).unwrap();
       
-      // Clear local responses since they're now saved in Redux
-      // The responses will come from Redux via useMemo
-      setLocalResponses({});
+      // Clear only the current page's responses from localResponses
+      // The backend has merged and saved them, so they're now in Redux state
+      // Keep responses from other pages that might not be saved yet
+      setLocalResponses((prev) => {
+        const updated = { ...prev };
+        currentPageData.elements.forEach((element) => {
+          // Only clear if the response is now in the backend (saved)
+          if (updatedDiagnostic?.userResponses?.[element.name] !== undefined) {
+            delete updated[element.name];
+          }
+        });
+        return updated;
+      });
       
       toast.success('Progress saved');
     } catch (error) {

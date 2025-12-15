@@ -117,9 +117,14 @@ class DiagnosticService:
             raise ValueError(f"Diagnostic {diagnostic_id} not found")
         
         # Merge responses (preserve existing responses)
-        current_responses = diagnostic.user_responses or {}
+        # Create a new dict to ensure SQLAlchemy detects the change
+        current_responses = dict(diagnostic.user_responses or {})
         current_responses.update(user_responses)
         diagnostic.user_responses = current_responses
+        
+        # Explicitly flag the JSONB field as modified so SQLAlchemy detects the change
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(diagnostic, "user_responses")
         
         # Update status if provided
         if status:

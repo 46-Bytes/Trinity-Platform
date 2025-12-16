@@ -3,6 +3,8 @@ import { useAuth } from '@/context/AuthContext';
 import { User, Lock, Bell, Palette, Globe, Shield, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
 const tabs = [
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'security', label: 'Security', icon: Lock },
@@ -72,7 +74,7 @@ export default function SettingsPage() {
         formData.append('profile_picture', file);
       }
 
-      const response = await fetch('/api/settings/profile', {
+      const response = await fetch(`${API_BASE_URL}/api/settings/profile`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,

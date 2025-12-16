@@ -6,7 +6,9 @@ import {
   fetchDiagnosticByEngagement,
   updateDiagnosticResponses,
   updateLocalResponses,
+  submitDiagnostic,
 } from '@/store/slices/diagnosticReducer';
+import { useAuth } from '@/context/AuthContext';
 import surveyData from '@/questions/diagnostic-survey.json';
 import { toast } from 'sonner';
 
@@ -17,7 +19,8 @@ interface ToolSurveyProps {
 
 export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurveyProps) {
   const dispatch = useAppDispatch();
-  const { diagnostic, isSaving, isLoading, error } = useAppSelector((state) => state.diagnostic);
+  const { user } = useAuth();
+  const { diagnostic, isSaving, isLoading, isSubmitting, error } = useAppSelector((state) => state.diagnostic);
   
   const [currentPage, setCurrentPage] = useState(0);
   const [localResponses, setLocalResponses] = useState<Record<string, any>>({});
@@ -99,20 +102,37 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
       return;
     }
 
+    if (!user?.id) {
+      toast.error('User not authenticated');
+      return;
+    }
+
     try {
-      // Save all responses before submitting
+      // Step 1: Save all responses first (complete user_responses)
+      toast.info('Saving all responses...');
       await dispatch(updateDiagnosticResponses({
         diagnosticId: diagnostic.id,
         updates: {
           userResponses: responses,
-          status: 'completed',
+          status: 'in_progress', // Keep as in_progress until submit completes
         },
+      })).unwrap();
+
+      // Step 2: Submit diagnostic to trigger LLM processing
+      toast.info('Submitting diagnostic for AI analysis... This may take 30-60 seconds.');
+      await dispatch(submitDiagnostic({
+        diagnosticId: diagnostic.id,
+        completedByUserId: user.id,
       })).unwrap();
       
       toast.success('Diagnostic submitted successfully! AI is analyzing your responses...');
+      
+      // Clear local responses since everything is now saved and submitted
+      setLocalResponses({});
     } catch (error) {
-      toast.error('Failed to submit diagnostic');
-      console.error(error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to submit diagnostic';
+      toast.error(errorMessage);
+      console.error('Submit error:', error);
     }
   };
 
@@ -235,8 +255,14 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
           Previous
         </Button>
         
-        <Button onClick={handleNextPage} disabled={isSaving || isLoading || !diagnostic?.id}>
-          {isSaving ? 'Saving...' : currentPage === totalPages - 1 ? 'Submit' : 'Next'}
+        <Button onClick={handleNextPage} disabled={isSaving || isLoading || isSubmitting || !diagnostic?.id}>
+          {isSubmitting 
+            ? 'Submitting...' 
+            : isSaving 
+            ? 'Saving...' 
+            : currentPage === totalPages - 1 
+            ? 'Submit' 
+            : 'Next'}
         </Button>
       </div>
     </div>

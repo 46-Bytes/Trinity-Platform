@@ -72,11 +72,8 @@ class OpenAIService:
                 "input": input_messages,
             }
             
-            # Add temperature if specified
-            if temperature is not None:
-                params["temperature"] = temperature
-            else:
-                params["temperature"] = self.temperature
+            # Note: OpenAI Responses API does not support temperature parameter
+            # Temperature is not included in the API call
             
             # Add JSON mode if specified
             if json_mode:

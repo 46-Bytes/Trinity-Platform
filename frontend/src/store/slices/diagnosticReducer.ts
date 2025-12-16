@@ -35,6 +35,7 @@ interface DiagnosticState {
   diagnostic: Diagnostic | null;
   isLoading: boolean;
   isSaving: boolean;
+  isSubmitting: boolean;
   error: string | null;
 }
 
@@ -196,11 +197,48 @@ export const updateDiagnosticResponses = createAsyncThunk(
   }
 );
 
+export const submitDiagnostic = createAsyncThunk(
+  'diagnostic/submit',
+  async (
+    { diagnosticId, completedByUserId }: { diagnosticId: string; completedByUserId: string },
+    { rejectWithValue }
+  ) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/diagnostics/${diagnosticId}/submit`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          completed_by_user_id: completedByUserId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to submit diagnostic' }));
+        throw new Error(errorData.detail || `HTTP ${response.status}: Failed to submit diagnostic`);
+      }
+
+      const data = await response.json();
+      return mapBackendDiagnosticToFrontend(data);
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to submit diagnostic');
+    }
+  }
+);
+
 // Initial state
 const initialState: DiagnosticState = {
   diagnostic: null,
   isLoading: false,
   isSaving: false,
+  isSubmitting: false,
   error: null,
 };
 
@@ -265,6 +303,19 @@ const diagnosticSlice = createSlice({
       })
       .addCase(updateDiagnosticResponses.rejected, (state, action) => {
         state.isSaving = false;
+        state.error = action.payload as string;
+      })
+      // Submit diagnostic
+      .addCase(submitDiagnostic.pending, (state) => {
+        state.isSubmitting = true;
+        state.error = null;
+      })
+      .addCase(submitDiagnostic.fulfilled, (state, action) => {
+        state.isSubmitting = false;
+        state.diagnostic = action.payload;
+      })
+      .addCase(submitDiagnostic.rejected, (state, action) => {
+        state.isSubmitting = false;
         state.error = action.payload as string;
       });
   },

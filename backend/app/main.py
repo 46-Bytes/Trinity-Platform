@@ -3,12 +3,14 @@ FastAPI application entry point with Auth0 integration.
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
+from pathlib import Path
 import logging
 from .config import settings
 
 from .api.diagnostics import router as diagnostics_router
-from .api import auth_router, engagements_router, notes_router, tasks_router
+from .api import auth_router, engagements_router, notes_router, tasks_router, settings_router
 from .database import engine, Base
 
 # Configure logging
@@ -62,6 +64,15 @@ app.include_router(diagnostics_router, prefix="/api")
 app.include_router(engagements_router)
 app.include_router(notes_router)
 app.include_router(tasks_router)
+app.include_router(settings_router)
+
+# Mount static files directory for serving uploaded files
+# This allows /files/... URLs to be served directly
+base_dir = Path(__file__).resolve().parents[1]  # Go up to backend/
+files_dir = base_dir / "files"
+files_dir.mkdir(exist_ok=True)  # Create directory if it doesn't exist
+
+app.mount("/files", StaticFiles(directory=str(files_dir)), name="files")
 
 
 

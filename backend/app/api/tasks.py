@@ -245,21 +245,33 @@ async def list_tasks(
             )
         query = query.filter(Task.engagement_id == engagement_id)
     else:
-        # Filter by accessible engagements
+        # Filter by accessible engagements and user's tasks
         if current_user.role in [UserRole.SUPER_ADMIN, UserRole.ADMIN]:
-            # Admins see all engagements
+            # Admins see all tasks
             pass
         elif current_user.role == UserRole.ADVISOR:
-            # Advisors see tasks from their engagements
+            # Advisors see:
+            # 1. Tasks they created (created_by_user_id = advisor)
+            # 2. Tasks assigned to them (assigned_to_user_id = advisor)
+            # 3. Tasks from their engagements (primary or secondary advisor)
             query = query.join(Engagement).filter(
                 or_(
+                    Task.created_by_user_id == current_user.id,
+                    Task.assigned_to_user_id == current_user.id,
                     Engagement.primary_advisor_id == current_user.id,
                     text("secondary_advisor_ids @> ARRAY[:user_id]::uuid[]").bindparams(user_id=current_user.id)
                 )
             )
         elif current_user.role == UserRole.CLIENT:
-            # Clients see tasks from their engagements
-            query = query.join(Engagement).filter(Engagement.client_id == current_user.id)
+            # Clients see:
+            # 1. Tasks they created (created_by_user_id = client)
+            # 2. Tasks assigned to them (assigned_to_user_id = client)
+            query = query.filter(
+                or_(
+                    Task.created_by_user_id == current_user.id,
+                    Task.assigned_to_user_id == current_user.id
+                )
+            )
         else:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

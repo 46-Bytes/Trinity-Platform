@@ -145,12 +145,59 @@ export function FileQuestion({ question, value, onChange, diagnosticId }: FileQu
     }
   };
 
-  const removeFile = (index: number) => {
-    if (question.allowMultiple) {
-      const newFiles = files.filter((_, i) => i !== index);
-      onChange(newFiles.length > 0 ? newFiles : null);
-    } else {
-      onChange(null);
+  const removeFile = async (index: number) => {
+    if (!diagnosticId) {
+      console.error("Cannot remove file: diagnosticId is required");
+      return;
+    }
+
+    const fileToRemove = files[index];
+    if (!fileToRemove || !fileToRemove.file_name) {
+      console.error("Cannot remove file: file metadata is missing");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("auth_token");
+      if (!token) {
+        throw new Error("No authentication token found");
+      }
+
+      // Call DELETE endpoint to remove file from disk and update user_responses
+      const response = await fetch(
+        `${API_BASE_URL}/api/diagnostics/${diagnosticId}/delete-file?field_name=${encodeURIComponent(question.name)}&file_name=${encodeURIComponent(fileToRemove.file_name)}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: "Failed to delete file" }));
+        throw new Error(errorData.detail || `HTTP ${response.status}: Failed to delete file`);
+      }
+
+      // Get updated diagnostic from response
+      const updatedDiagnostic = await response.json();
+      
+      // Extract updated file list from user_responses
+      const updatedFieldValue = updatedDiagnostic.user_responses?.[question.name];
+      
+      // Update local state with the new value from backend
+      if (question.allowMultiple) {
+        const newFiles = updatedFieldValue 
+          ? (Array.isArray(updatedFieldValue) ? updatedFieldValue : [updatedFieldValue])
+          : [];
+        onChange(newFiles.length > 0 ? newFiles : null);
+      } else {
+        onChange(updatedFieldValue || null);
+      }
+    } catch (error) {
+      console.error("File deletion failed:", error);
+      // Optionally show error toast to user
+      // toast.error("Failed to delete file. Please try again.");
     }
   };
 

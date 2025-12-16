@@ -4,11 +4,18 @@ FastAPI application entry point with Auth0 integration.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+import logging
 from .config import settings
 
 from .api.diagnostics import router as diagnostics_router
 from .api import auth_router, engagements_router, notes_router, tasks_router
 from .database import engine, Base
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 # Create database tables
 Base.metadata.create_all(bind=engine)

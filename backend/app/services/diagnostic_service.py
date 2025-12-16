@@ -120,6 +120,12 @@ class DiagnosticService:
         # Create a new dict to ensure SQLAlchemy detects the change
         current_responses = dict(diagnostic.user_responses or {})
         current_responses.update(user_responses)
+        
+        # Remove any fields that are explicitly set to None (deletion marker)
+        for key, value in list(current_responses.items()):
+            if value is None:
+                current_responses.pop(key, None)
+        
         diagnostic.user_responses = current_responses
         
         # Explicitly flag the JSONB field as modified so SQLAlchemy detects the change

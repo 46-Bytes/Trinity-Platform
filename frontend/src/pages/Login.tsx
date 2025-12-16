@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
 export default function Login() {
   const { login } = useAuth();
   const [searchParams] = useSearchParams();
@@ -14,9 +16,9 @@ export default function Login() {
     // This ensures a fresh login with no previous user data
     localStorage.removeItem('auth_token');
     
-    // ALWAYS redirect to Auth0 Universal Login
+    // ALWAYS redirect to Auth0 Universal Login via backend
     // This ensures we get fresh credentials and proper email verification
-    window.location.href = '/api/auth/login';
+    window.location.href = `${API_BASE_URL}/api/auth/login`;
   };
 
   useEffect(() => {

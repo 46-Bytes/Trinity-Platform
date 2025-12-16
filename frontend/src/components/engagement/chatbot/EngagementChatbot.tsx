@@ -5,6 +5,8 @@ import { ChatMessage } from './ChatMessage';
 import { Send, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -55,7 +57,7 @@ export function EngagementChatbot({ engagementId }: EngagementChatbotProps) {
 
     try {
       // TODO: Replace with actual API call to your AI backend
-      const response = await fetch('/api/ai/chat', {
+      const response = await fetch(`${API_BASE_URL}/api/ai/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

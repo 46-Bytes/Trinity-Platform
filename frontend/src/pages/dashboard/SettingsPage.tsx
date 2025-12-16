@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { User, Lock, Bell, Palette, Globe, Shield, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -13,6 +13,89 @@ const tabs = [
 export default function SettingsPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [bio, setBio] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Initialize form fields from current user
+  useEffect(() => {
+    if (user) {
+      const nameParts = (user.name || '').split(' ');
+      setFirstName(nameParts[0] || '');
+      setLastName(nameParts.slice(1).join(' ') || '');
+      setEmail(user.email || '');
+      // bio is optional and may not exist on the typed User object
+      const anyUser: any = user;
+      setBio(anyUser.bio || '');
+      setPreviewUrl(user.avatar || null);
+    }
+  }, [user]);
+
+  const handlePhotoClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+
+      const formData = new FormData();
+      formData.append('first_name', firstName);
+      formData.append('last_name', lastName);
+      formData.append('email', email);
+      formData.append('bio', bio);
+
+      const file = fileInputRef.current?.files?.[0];
+      if (file) {
+        formData.append('profile_picture', file);
+      }
+
+      const response = await fetch('/api/settings/profile', {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to save profile');
+      }
+
+      const data = await response.json();
+      // For now, simplest is to refresh user data by reloading
+      setSuccess('Profile updated successfully');
+      // Optional: window.location.reload();
+    } catch (err) {
+      console.error('Failed to save profile', err);
+      setError(err instanceof Error ? err.message : 'Failed to save profile');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -46,18 +129,49 @@ export default function SettingsPage() {
         {/* Content */}
         <div className="flex-1">
           {activeTab === 'profile' && (
-            <div className="card-trinity p-6 space-y-6">
+            <form className="card-trinity p-6 space-y-6" onSubmit={handleSaveProfile}>
               <div>
                 <h2 className="font-heading text-lg font-semibold mb-1">Profile Information</h2>
                 <p className="text-sm text-muted-foreground">Update your personal details</p>
               </div>
 
               <div className="flex items-center gap-6">
-                <div className="w-20 h-20 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-2xl font-semibold">
-                  {user?.name.charAt(0)}
+                <div className="w-20 h-20 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-2xl font-semibold overflow-hidden">
+                  {previewUrl || user?.avatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={previewUrl || user?.avatar}
+                      alt="Profile"
+                      className="w-20 h-20 rounded-full object-cover"
+                      onError={(e) => {
+                        // Fallback to initial if image fails to load
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          parent.textContent = user?.name.charAt(0) || '';
+                        }
+                      }}
+                    />
+                  ) : (
+                    user?.name.charAt(0)
+                  )}
                 </div>
                 <div>
-                  <button className="btn-secondary text-sm">Change Photo</button>
+                  <button
+                    type="button"
+                    className="btn-secondary text-sm"
+                    onClick={handlePhotoClick}
+                  >
+                    Change Photo
+                  </button>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={handleFileChange}
+                  />
                   <p className="text-xs text-muted-foreground mt-2">JPG, PNG or GIF. Max 2MB.</p>
                 </div>
               </div>
@@ -67,7 +181,8 @@ export default function SettingsPage() {
                   <label className="text-sm font-medium">First Name</label>
                   <input 
                     type="text" 
-                    defaultValue={user?.name.split(' ')[0]}
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
                     className="input-trinity" 
                   />
                 </div>
@@ -75,7 +190,8 @@ export default function SettingsPage() {
                   <label className="text-sm font-medium">Last Name</label>
                   <input 
                     type="text" 
-                    defaultValue={user?.name.split(' ')[1]}
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
                     className="input-trinity" 
                   />
                 </div>
@@ -83,7 +199,8 @@ export default function SettingsPage() {
                   <label className="text-sm font-medium">Email Address</label>
                   <input 
                     type="email" 
-                    defaultValue={user?.email}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="input-trinity" 
                   />
                 </div>
@@ -92,18 +209,27 @@ export default function SettingsPage() {
                   <textarea 
                     rows={3}
                     placeholder="Tell us about yourself..."
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
                     className="input-trinity resize-none"
                   />
                 </div>
               </div>
 
+              {(error || success) && (
+                <div className="md:col-span-2 text-sm">
+                  {error && <p className="text-red-500">{error}</p>}
+                  {success && <p className="text-green-600">{success}</p>}
+                </div>
+              )}
+
               <div className="flex justify-end pt-4 border-t border-border">
-                <button className="btn-primary">
+                <button className="btn-primary" type="submit" disabled={isSaving}>
                   <Save className="w-4 h-4" />
-                  Save Changes
+                  {isSaving ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
-            </div>
+            </form>
           )}
 
           {activeTab === 'security' && (

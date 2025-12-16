@@ -83,6 +83,12 @@ class User(Base):
         nullable=True,
         comment="URL to user's profile picture"
     )
+
+    bio = Column(
+        Text,
+        nullable=True,
+        comment="Short biography or profile description"
+    )
     
     # Account Status
     email_verified = Column(
@@ -143,6 +149,7 @@ class User(Base):
             "family_name": self.family_name,
             "nickname": self.nickname,
             "picture": self.picture,
+            "bio": self.bio,
             "email_verified": self.email_verified,
             "is_active": self.is_active,
             "role": self.role.value if self.role else None,

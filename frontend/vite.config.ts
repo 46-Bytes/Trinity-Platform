@@ -19,6 +19,11 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
         },
+          '/files': {
+        target: apiTarget,
+        changeOrigin: true,
+        secure: false,
+      }
       },
     },
     plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),

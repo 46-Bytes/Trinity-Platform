@@ -301,14 +301,30 @@ class DiagnosticService:
             extra={"diagnostic_id": str(diagnostic.id), "tokens_used": summary_result.get("tokens_used", 0)},
         )
         
-        # ===== STEP 3: Process Scores with GPT =====
+        # ===== STEP 3: Process Scores with GPT (including uploaded files) =====
+        # Get files attached to this diagnostic
+        attached_files = list(diagnostic.media)
+        file_context = self._build_file_context(attached_files)
+        
+        # Extract OpenAI file IDs (only files that have been uploaded to OpenAI)
+        file_ids = [
+            file.openai_file_id 
+            for file in attached_files 
+            if file.openai_file_id
+        ]
+        
+        print(f"📎 Found {len(attached_files)} attached files for scoring")
+        print(f"📤 {len(file_ids)} files uploaded to OpenAI and ready for AI analysis")
+        
         scoring_prompt = load_prompt("scoring_prompt")
         scoring_result = await openai_service.process_scoring(
             scoring_prompt=scoring_prompt,
             scoring_map=scoring_map,
             task_library=task_library,
             diagnostic_questions=diagnostic_questions,
-            user_responses=user_responses
+            user_responses=user_responses,
+            file_context=file_context,  # Context about files (text description)
+            file_ids=file_ids if file_ids else None  # Actual file IDs for GPT to read
         )
         
         # Extract scoring data
@@ -494,6 +510,65 @@ class DiagnosticService:
             qa_extract[question_text] = value
         
         return qa_extract
+    
+    def _build_file_context(self, files: list) -> Optional[str]:
+        """
+        Build file context string for GPT analysis.
+        Includes information about uploaded files (Balance Sheets, P&L, etc.)
+        
+        Args:
+            files: List of Media objects
+            
+        Returns:
+            Formatted string with file information for GPT context
+        """
+        if not files:
+            return None
+        
+        file_info_list = []
+        files_with_ids = 0
+        
+        for file in files:
+            file_info = {
+                "filename": file.file_name,
+                "type": file.file_type or file.file_extension,
+                "question": file.question_field_name or "general",
+                "openai_file_id": file.openai_file_id
+            }
+            file_info_list.append(file_info)
+            if file.openai_file_id:
+                files_with_ids += 1
+        
+        # Build context string
+        context = "\n\n=== UPLOADED DOCUMENTS ===\n"
+        context += f"The user has uploaded {len(files)} document(s) for this diagnostic.\n"
+        
+        if files_with_ids > 0:
+            context += f"✅ {files_with_ids} document(s) are attached to this request and available for you to read directly.\n\n"
+        
+        context += "Documents uploaded:\n\n"
+        
+        for idx, file_info in enumerate(file_info_list, 1):
+            context += f"{idx}. {file_info['filename']}\n"
+            context += f"   Type: {file_info['type']}\n"
+            context += f"   Question: {file_info['question']}\n"
+            if file_info['openai_file_id']:
+                context += f"   Status: ✅ Attached for analysis\n"
+            else:
+                context += f"   Status: ⚠️ Metadata only (not attached)\n"
+            context += "\n"
+        
+        if files_with_ids > 0:
+            context += "IMPORTANT INSTRUCTIONS:\n"
+            context += "- The attached documents (financial statements, reports, etc.) are available for you to read.\n"
+            context += "- When scoring, analyze the actual data from these documents.\n"
+            context += "- For financial questions (M1), review P&L statements, balance sheets, and financial reports.\n"
+            context += "- Use document data to validate and enrich scores beyond just survey responses.\n"
+            context += "- Extract key metrics, trends, and insights from the documents.\n"
+        
+        context += "=== END UPLOADED DOCUMENTS ===\n\n"
+        
+        return context
     
     async def _generate_tasks(
         self,

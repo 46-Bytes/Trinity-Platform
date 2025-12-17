@@ -62,6 +62,7 @@ class Diagnostic(Base):
     engagement = relationship("Engagement", back_populates="diagnostics")
     tasks = relationship("Task", back_populates="diagnostic", cascade="all, delete-orphan")
     notes = relationship("Note", back_populates="diagnostic")
+    media = relationship("Media", secondary="diagnostic_media", back_populates="diagnostics")
     
     def __repr__(self):
         return f"<Diagnostic(id={self.id}, engagement_id={self.engagement_id}, status='{self.status}', score={self.overall_score})>"

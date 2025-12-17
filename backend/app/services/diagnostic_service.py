@@ -117,9 +117,20 @@ class DiagnosticService:
             raise ValueError(f"Diagnostic {diagnostic_id} not found")
         
         # Merge responses (preserve existing responses)
-        current_responses = diagnostic.user_responses or {}
+        # Create a new dict to ensure SQLAlchemy detects the change
+        current_responses = dict(diagnostic.user_responses or {})
         current_responses.update(user_responses)
+        
+        # Remove any fields that are explicitly set to None (deletion marker)
+        for key, value in list(current_responses.items()):
+            if value is None:
+                current_responses.pop(key, None)
+        
         diagnostic.user_responses = current_responses
+        
+        # Explicitly flag the JSONB field as modified so SQLAlchemy detects the change
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(diagnostic, "user_responses")
         
         # Update status if provided
         if status:
@@ -313,34 +324,47 @@ class DiagnosticService:
         # Note: If you want to store summary separately, add a column
         # For now, it's included in ai_analysis
         
-        # Store scoring data
-        diagnostic.scoring_data = {
+        # Import flag_modified for JSONB fields
+        from sqlalchemy.orm.attributes import flag_modified
+        
+        # Store scoring data (ensure it's a dict, not a string)
+        scoring_data_dict = {
             "scored_rows": scored_rows,
             "validation": validation,
             "tokens_used": scoring_result.get("tokens_used", 0)
         }
+        diagnostic.scoring_data = scoring_data_dict
+        flag_modified(diagnostic, "scoring_data")
         
-        # Store module scores
-        diagnostic.module_scores = {
+        # Store module scores (ensure it's a dict, not a string)
+        module_scores_dict = {
             "modules": {m["module"]: m for m in ranked_modules},
             "ranked": ranked_modules
         }
+        diagnostic.module_scores = module_scores_dict
+        flag_modified(diagnostic, "module_scores")
         
         # Store overall score
         diagnostic.overall_score = overall_score
         
         # Store AI analysis (roadmap, advisor report, summary, advice)
-        diagnostic.ai_analysis = {
+        # Ensure advisor_report is a string, not a dict
+        advisor_report_str = advisor_report if isinstance(advisor_report, str) else str(advisor_report)
+        
+        ai_analysis_dict = {
             "clientSummary": client_summary,
             "summary": summary,
             "roadmap": roadmap,
-            "advisorReport": advisor_report,
+            "advisorReport": advisor_report_str,
             "advice": advice,
             "validation": validation
         }
+        diagnostic.ai_analysis = ai_analysis_dict
+        flag_modified(diagnostic, "ai_analysis")
         
-        # Store report HTML
-        diagnostic.report_html = advisor_report
+        # Store report HTML (ensure it's a string)
+        report_html_str = advisor_report_str if isinstance(advisor_report_str, str) else str(advisor_report_str)
+        diagnostic.report_html = report_html_str
         
         # Store AI metadata
         diagnostic.ai_model_used = scoring_result.get("model", "gpt-4o")

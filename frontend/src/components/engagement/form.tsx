@@ -42,6 +42,9 @@ const engagementFormSchema = z.object({
   clientOrAdvisorId: z.string().min(1, {
     message: "Please select a client or advisor.",
   }),
+  tool: z.enum(['diagnostic', 'kpi_builder'], {
+    message: "Please select a tool.",
+  }),
 });
 
 type EngagementFormValues = z.infer<typeof engagementFormSchema>;
@@ -73,6 +76,7 @@ export function EngagementForm({
       engagementName: "",
       description: "",
       clientOrAdvisorId: "",
+      tool: "diagnostic" as const,
     },
   });
 
@@ -92,6 +96,7 @@ export function EngagementForm({
         engagementName: engagement.title || "",
         description: engagement.description || "",
         clientOrAdvisorId: engagement.clientId || "",
+        tool: (engagement.tool as 'diagnostic' | 'kpi_builder') || "diagnostic",
       });
     }
   }, [engagement, isEditMode, form]);
@@ -138,9 +143,8 @@ export function EngagementForm({
           title: values.engagementName,
           description: values.description,
           industryName: values.industryName,
+          tool: values.tool,
           status: 'draft',
-          startDate: new Date().toISOString(),
-          assignedUsers: [],
         })).unwrap();
       }
       
@@ -263,6 +267,31 @@ export function EngagementForm({
                 </FormControl>
                 <FormDescription>
                   Provide engagement name.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="tool"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Tool</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a tool" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="diagnostic">Diagnostic</SelectItem>
+                    <SelectItem value="kpi_builder">KPI Builder</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  Select the tool for this engagement.
                 </FormDescription>
                 <FormMessage />
               </FormItem>

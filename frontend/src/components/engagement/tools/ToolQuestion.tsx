@@ -15,6 +15,7 @@ interface ToolQuestionProps {
   value: any;
   onChange: (value: any) => void;
   allResponses: Record<string, any>;
+  diagnosticId?: string;
 }
 
 // Helper to evaluate conditional visibility
@@ -38,7 +39,7 @@ function evaluateCondition(condition: string, responses: Record<string, any>): b
   return true;
 }
 
-export function ToolQuestion({ question, value, onChange, allResponses }: ToolQuestionProps) {
+export function ToolQuestion({ question, value, onChange, allResponses, diagnosticId }: ToolQuestionProps) {
   // Check conditional visibility
   if (question.visibleIf) {
     const isVisible = evaluateCondition(question.visibleIf, allResponses);
@@ -66,7 +67,14 @@ export function ToolQuestion({ question, value, onChange, allResponses }: ToolQu
       return <MultipleTextQuestion question={question} value={value} onChange={onChange} />;
     
     case 'file':
-      return <FileQuestion question={question} value={value} onChange={onChange} />;
+      return (
+        <FileQuestion
+          question={question}
+          value={value}
+          onChange={onChange}
+          diagnosticId={diagnosticId}
+        />
+      );
     
     case 'boolean':
       return <BooleanQuestion question={question} value={value} onChange={onChange} />;

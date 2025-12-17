@@ -8,6 +8,7 @@ export interface User {
   avatar?: string;
   firmId?: string;
   createdAt: string;
+  bio?: string;
 }
 
 export interface AuthState {

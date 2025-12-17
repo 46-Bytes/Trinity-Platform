@@ -9,8 +9,8 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Backend API base URL - empty string uses the same origin (Vite proxy handles /api routes)
-const API_BASE_URL = '';
+// Backend API base URL - use env variable
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 // Map backend user shape to frontend User type
 function mapBackendUserToFrontend(backendUser: any): User {
@@ -23,6 +23,7 @@ function mapBackendUserToFrontend(backendUser: any): User {
     name: backendUser.name || backendUser.email,
     role: role,
     avatar: backendUser.picture || undefined,
+    bio: backendUser.bio || undefined,
     createdAt: backendUser.created_at || new Date().toISOString(),
   };
 }

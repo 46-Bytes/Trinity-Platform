@@ -3,6 +3,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Mail, ArrowRight } from 'lucide-react';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
 export default function VerifyEmail() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -16,7 +18,7 @@ export default function VerifyEmail() {
     setIsResending(true);
     try {
       // Call backend to resend verification email
-      const response = await fetch(`/api/auth/resend-verification?email=${encodeURIComponent(email)}`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/resend-verification?email=${encodeURIComponent(email)}`, {
         method: 'POST',
       });
       

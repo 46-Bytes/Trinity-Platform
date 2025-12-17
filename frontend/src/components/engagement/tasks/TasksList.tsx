@@ -27,22 +27,36 @@ export function TasksList({ engagementId }: TasksListProps) {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
 
-  // Filter tasks for this engagement
+  // Filter tasks for this engagement (unfiltered - all tasks for this engagement)
   const engagementTasks = tasks.filter((task) => task.engagementId === engagementId);
 
-  // Filter tasks by search query
+  // Apply all filters client-side (search, status, priority)
   const filteredTasks = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return engagementTasks;
+    let result = engagementTasks;
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter((task) => {
+        const titleMatch = task.title?.toLowerCase().includes(query);
+        const descriptionMatch = task.description?.toLowerCase().includes(query);
+        const assignedToMatch = task.assignedToName?.toLowerCase().includes(query);
+        return titleMatch || descriptionMatch || assignedToMatch;
+      });
     }
-    const query = searchQuery.toLowerCase();
-    return engagementTasks.filter((task) => {
-      const titleMatch = task.title?.toLowerCase().includes(query);
-      const descriptionMatch = task.description?.toLowerCase().includes(query);
-      const assignedToMatch = task.assignedToName?.toLowerCase().includes(query);
-      return titleMatch || descriptionMatch || assignedToMatch;
-    });
-  }, [engagementTasks, searchQuery]);
+
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      result = result.filter((task) => task.status === statusFilter);
+    }
+
+    // Apply priority filter
+    if (priorityFilter !== 'all') {
+      result = result.filter((task) => task.priority === priorityFilter);
+    }
+
+    return result;
+  }, [engagementTasks, searchQuery, statusFilter, priorityFilter]);
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredTasks.length / TASKS_PER_PAGE);
@@ -55,15 +69,14 @@ export function TasksList({ engagementId }: TasksListProps) {
     setCurrentPage(1);
   }, [searchQuery, statusFilter, priorityFilter]);
 
+  // Always fetch ALL tasks for this engagement (no status/priority filters)
+  // Filters are applied client-side so stats cards show correct totals
   useEffect(() => {
-    // Fetch tasks for this engagement
     dispatch(fetchTasks({ 
       engagementId, 
-      status: statusFilter !== 'all' ? statusFilter : undefined, 
-      priority: priorityFilter !== 'all' ? priorityFilter : undefined,
-      limit: 1000 // Fetch all tasks for this engagement to enable client-side search
+      limit: 1000 // Fetch all tasks for this engagement
     }));
-  }, [dispatch, engagementId, statusFilter, priorityFilter]);
+  }, [dispatch, engagementId]);
 
   const handleCreateTask = async (taskData: TaskCreatePayload) => {
     try {
@@ -99,9 +112,10 @@ export function TasksList({ engagementId }: TasksListProps) {
     }
   };
 
-  const pendingTasks = filteredTasks.filter((t) => t.status === 'pending').length;
-  const inProgressTasks = filteredTasks.filter((t) => t.status === 'in_progress').length;
-  const completedTasks = filteredTasks.filter((t) => t.status === 'completed').length;
+  // Calculate stats from unfiltered tasks (engagementTasks) so they don't change with filters
+  const pendingTasks = engagementTasks.filter((t) => t.status === 'pending').length;
+  const inProgressTasks = engagementTasks.filter((t) => t.status === 'in_progress').length;
+  const completedTasks = engagementTasks.filter((t) => t.status === 'completed').length;
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);

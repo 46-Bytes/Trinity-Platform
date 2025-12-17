@@ -10,7 +10,10 @@ import logging
 from .config import settings
 
 from .api.diagnostics import router as diagnostics_router
+
+from .api.files import router as files_router
 from .api import auth_router, engagements_router, notes_router, tasks_router, settings_router
+
 from .database import engine, Base
 
 # Configure logging
@@ -61,6 +64,7 @@ app.add_middleware(
 app.include_router(auth_router)
 
 app.include_router(diagnostics_router, prefix="/api")
+app.include_router(files_router, prefix="/api")
 app.include_router(engagements_router)
 app.include_router(notes_router)
 app.include_router(tasks_router)

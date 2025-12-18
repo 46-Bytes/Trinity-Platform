@@ -13,5 +13,5 @@ Use the following template:
 }
 ```
 
-The description should be detailed with any necessary step-by-step instructions.
+The description should be detailed with any necessary step-by-step instructions. Every step must be in a new line and must have follow 1. 2. 3. Numbering.
 

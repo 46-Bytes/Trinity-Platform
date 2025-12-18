@@ -10,7 +10,7 @@ from .config import settings
 engine = create_engine(
     settings.DATABASE_URL,
     pool_pre_ping=True,  # Verify connections before using them
-    echo=settings.DEBUG,  # Log SQL queries in debug mode
+    echo=False,  # Disable SQL query logging (too verbose)
 )
 
 # Create session factory

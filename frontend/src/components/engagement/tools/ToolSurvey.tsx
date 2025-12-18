@@ -121,7 +121,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
       })).unwrap();
 
       // Step 2: Submit diagnostic to trigger LLM processing
-      toast.info('Submitting diagnostic for AI analysis... This may take 30-60 seconds.');
+      toast.info('Submitting diagnostic for AI analysis... This may take 5-7 minutes.');
       await dispatch(submitDiagnostic({
         diagnosticId: diagnostic.id,
         completedByUserId: user.id,

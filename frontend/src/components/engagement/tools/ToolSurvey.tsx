@@ -209,7 +209,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="relative max-w-4xl mx-auto p-6">
       {/* Progress Bar */}
       <div className="mb-8">
         <div className="flex justify-between items-center mb-2">
@@ -226,45 +226,55 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
         </div>
       </div>
 
-      {/* Questions */}
-      <div className="space-y-6">
-        {currentPageData.elements.map((element) => {
-          // Get value from merged responses (includes both saved and local changes)
-          const value = responses[element.name];
-          
-          return (
-            <ToolQuestion
-              key={element.name}
-              question={element}
-              value={value}
-              onChange={(value) => handleResponseChange(element.name, value)}
-              allResponses={responses}
-              diagnosticId={diagnostic?.id}
-            />
-          );
-        })}
-      </div>
+      {isSubmitting ? (
+        // Loading screen shown while submitting (replaces questions + buttons)
+        <div className="flex flex-col items-center justify-center py-24 gap-4">
+          <div className="h-12 w-12 rounded-full border-4 border-accent border-t-transparent animate-spin" />
+          <p className="text-sm text-muted-foreground text-center max-w-md">
+            Generating your AI report. This can take 5–7 minutes. You can safely keep this tab open while we process your results.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Questions */}
+          <div className="space-y-6">
+            {currentPageData.elements.map((element) => {
+              // Get value from merged responses (includes both saved and local changes)
+              const value = responses[element.name];
+              
+              return (
+                <ToolQuestion
+                  key={element.name}
+                  question={element}
+                  value={value}
+                  onChange={(value) => handleResponseChange(element.name, value)}
+                  allResponses={responses}
+                  diagnosticId={diagnostic?.id}
+                />
+              );
+            })}
+          </div>
 
-      {/* Navigation */}
-      <div className="flex justify-between mt-8">
-        <Button
-          variant="outline"
-          onClick={handlePrevPage}
-          disabled={currentPage === 0 || isSaving || isLoading}
-        >
-          Previous
-        </Button>
-        
-        <Button onClick={handleNextPage} disabled={isSaving || isLoading || isSubmitting || !diagnostic?.id}>
-          {isSubmitting 
-            ? 'Submitting...' 
-            : isSaving 
-            ? 'Saving...' 
-            : currentPage === totalPages - 1 
-            ? 'Submit' 
-            : 'Next'}
-        </Button>
-      </div>
+          {/* Navigation */}
+          <div className="flex justify-between mt-8">
+            <Button
+              variant="outline"
+              onClick={handlePrevPage}
+              disabled={currentPage === 0 || isSaving || isLoading}
+            >
+              Previous
+            </Button>
+            
+            <Button onClick={handleNextPage} disabled={isSaving || isLoading || !diagnostic?.id}>
+              {isSaving 
+                ? 'Saving...' 
+                : currentPage === totalPages - 1 
+                ? 'Submit' 
+                : 'Next'}
+            </Button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

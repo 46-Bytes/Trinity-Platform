@@ -25,7 +25,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { createEngagement, updateEngagement, fetchUserRoleData } from "@/store/slices/engagementReducer";
 import type { Engagement } from "@/store/slices/engagementReducer";
 
-// Zod validation schema
+// Zod validation schema with optional fields for both admin and non-admin
 const engagementFormSchema = z.object({
   businessName: z.string().min(2, {
     message: "Business name must be at least 2 characters.",
@@ -39,12 +39,19 @@ const engagementFormSchema = z.object({
   description: z.string().min(10, {
     message: "Description must be at least 10 characters.",
   }),
-  clientOrAdvisorId: z.string().min(1, {
-    message: "Please select a client or advisor.",
-  }),
   tool: z.enum(['diagnostic', 'kpi_builder'], {
     message: "Please select a tool.",
   }),
+  // Admin fields (optional, validated conditionally)
+  clientId: z.string().optional(),
+  advisorId: z.string().optional(),
+  // Non-admin field (optional, validated conditionally)
+  clientOrAdvisorId: z.string().optional(),
+}).refine((data) => {
+  // This will be validated in the component based on user role
+  return true;
+}, {
+  message: "Please select required fields.",
 });
 
 type EngagementFormValues = z.infer<typeof engagementFormSchema>;
@@ -68,6 +75,9 @@ export function EngagementForm({
   // Determine if we're in edit mode
   const isEditMode = mode === 'edit' || !!engagement;
 
+  // Determine if user is admin
+  const isAdmin = userRoleData?.user_role === 'admin';
+
   const form = useForm<EngagementFormValues>({
     resolver: zodResolver(engagementFormSchema),
     defaultValues: {
@@ -75,6 +85,8 @@ export function EngagementForm({
       industryName: "",
       engagementName: "",
       description: "",
+      clientId: "",
+      advisorId: "",
       clientOrAdvisorId: "",
       tool: "diagnostic" as const,
     },
@@ -95,6 +107,8 @@ export function EngagementForm({
         industryName: engagement.industryName || "",
         engagementName: engagement.title || "",
         description: engagement.description || "",
+        clientId: engagement.clientId || "",
+        advisorId: "", // Will need to fetch from engagement if available
         clientOrAdvisorId: engagement.clientId || "",
         tool: (engagement.tool as 'diagnostic' | 'kpi_builder') || "diagnostic",
       });
@@ -102,6 +116,20 @@ export function EngagementForm({
   }, [engagement, isEditMode, form]);
 
   const handleFormSubmit = async (values: EngagementFormValues) => {
+    // Validate required fields based on user role
+    if (isAdmin) {
+      if (!values.clientId || !values.advisorId) {
+        form.setError("clientId", { message: "Please select a client." });
+        form.setError("advisorId", { message: "Please select an advisor." });
+        return;
+      }
+    } else {
+      if (!values.clientOrAdvisorId) {
+        form.setError("clientOrAdvisorId", { message: "Please select a client or advisor." });
+        return;
+      }
+    }
+
     // Call custom onSubmit if provided (for additional logic)
     if (onSubmit) {
       onSubmit(values);
@@ -109,15 +137,30 @@ export function EngagementForm({
     }
 
     try {
-      // Get client/advisor name from the selected ID
-      let clientName = "Unknown";
-      if (userRoleData) {
-        if (userRoleData.user_role === 'advisor' && userRoleData.clients) {
-          const selectedClient = userRoleData.clients.find(c => c.id === values.clientOrAdvisorId);
+      let clientId: string;
+      let clientName: string;
+      let primaryAdvisorId: string | undefined;
+
+      if (isAdmin) {
+        // Admin mode: use separate clientId and advisorId
+        clientId = values.clientId!;
+        primaryAdvisorId = values.advisorId;
+        
+        // Get client name
+        const selectedClient = userRoleData?.clients?.find(c => c.id === clientId);
+        clientName = selectedClient?.name || "Unknown Client";
+      } else {
+        // Non-admin mode: use clientOrAdvisorId
+        clientId = values.clientOrAdvisorId!;
+        
+        if (userRoleData?.user_role === 'advisor' && userRoleData.clients) {
+          const selectedClient = userRoleData.clients.find(c => c.id === clientId);
           clientName = selectedClient?.name || "Unknown Client";
-        } else if (userRoleData.advisors) {
-          const selectedAdvisor = userRoleData.advisors.find(a => a.id === values.clientOrAdvisorId);
+        } else if (userRoleData?.advisors) {
+          const selectedAdvisor = userRoleData.advisors.find(a => a.id === clientId);
           clientName = selectedAdvisor?.name || "Unknown Advisor";
+        } else {
+          clientName = "Unknown";
         }
       }
 
@@ -130,14 +173,14 @@ export function EngagementForm({
             title: values.engagementName,
             description: values.description,
             industryName: values.industryName,
-            clientId: values.clientOrAdvisorId,
+            clientId: clientId,
             clientName: clientName,
           }
         })).unwrap();
       } else {
         // Create mode - create new engagement
         await dispatch(createEngagement({
-          clientId: values.clientOrAdvisorId,
+          clientId: clientId,
           clientName: clientName,
           businessName: values.businessName,
           title: values.engagementName,
@@ -145,6 +188,7 @@ export function EngagementForm({
           industryName: values.industryName,
           tool: values.tool,
           status: 'draft',
+          primaryAdvisorId: primaryAdvisorId, // Pass advisor ID for admin users
         })).unwrap();
       }
       
@@ -208,8 +252,77 @@ export function EngagementForm({
             )}
           />
 
-          {/* Dynamic Client/Advisor Dropdown */}
-          {userRoleData && (
+          {/* Admin: Show both Client and Advisor dropdowns */}
+          {userRoleData && isAdmin && (
+            <>
+              <FormField
+                control={form.control}
+                name="clientId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Select Client</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a client" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {userRoleData.clients && userRoleData.clients.length > 0 ? (
+                          userRoleData.clients.map((client) => (
+                            <SelectItem key={client.id} value={client.id}>
+                              {client.name}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="none" disabled>No clients available</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Choose the client for this engagement.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="advisorId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Select Advisor</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an advisor" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {userRoleData.advisors && userRoleData.advisors.length > 0 ? (
+                          userRoleData.advisors.map((advisor) => (
+                            <SelectItem key={advisor.id} value={advisor.id}>
+                              {advisor.name}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="none" disabled>No advisors available</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Choose the advisor for this engagement.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </>
+          )}
+
+          {/* Non-Admin: Show single Client/Advisor Dropdown */}
+          {userRoleData && !isAdmin && (
             <FormField
               control={form.control}
               name="clientOrAdvisorId"
@@ -218,7 +331,7 @@ export function EngagementForm({
                   <FormLabel>
                     {userRoleData.user_role === 'advisor' ? 'Select Client' : 'Select Advisor'}
                   </FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder={`Select a ${userRoleData.user_role === 'advisor' ? 'client' : 'advisor'}`} />

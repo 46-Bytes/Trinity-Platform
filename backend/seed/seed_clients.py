@@ -12,7 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.database import SessionLocal
-from app.models.user import User, UserRole
+from app.models import User, UserRole, Media  # Import from package to ensure all models are loaded
 from datetime import datetime
 
 

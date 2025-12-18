@@ -160,6 +160,27 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
     }
   };
 
+  const handlePageJump = async (pageIndex: number) => {
+    // Don't jump if already on that page
+    if (pageIndex === currentPage) {
+      return;
+    }
+    
+    // Auto-save before jumping to a different page
+    if (diagnostic?.id) {
+      await handleSaveProgress();
+    }
+    
+    if (pageIndex >= 0 && pageIndex < totalPages) {
+      // Mark current page as visited
+      if (!completedPages.includes(currentPage)) {
+        setCompletedPages([...completedPages, currentPage]);
+      }
+      setCurrentPage(pageIndex);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   const handleResponseChange = (fieldName: string, value: any) => {
     // Update local state for immediate UI feedback
     setLocalResponses((prev) => ({
@@ -246,7 +267,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
       </div>
 
       {/* Navigation */}
-      <div className="flex justify-between mt-8">
+      <div className="flex items-center justify-between mt-8">
         <Button
           variant="outline"
           onClick={handlePrevPage}
@@ -254,6 +275,75 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
         >
           Previous
         </Button>
+        
+        {/* Page Numbers */}
+        {totalPages > 1 && (
+          <div className="flex items-center gap-1">
+            {(() => {
+              const pages: (number | 'ellipsis')[] = [];
+              
+              if (totalPages <= 7) {
+                // Show all pages if 7 or fewer
+                for (let i = 0; i < totalPages; i++) {
+                  pages.push(i);
+                }
+              } else {
+                // Always show first page
+                pages.push(0);
+                
+                if (currentPage <= 2) {
+                  // Show first 5 pages, then ellipsis, then last
+                  for (let i = 1; i <= 4; i++) {
+                    pages.push(i);
+                  }
+                  pages.push('ellipsis');
+                  pages.push(totalPages - 1);
+                } else if (currentPage >= totalPages - 3) {
+                  // Show first, ellipsis, then last 5 pages
+                  pages.push('ellipsis');
+                  for (let i = totalPages - 5; i < totalPages; i++) {
+                    pages.push(i);
+                  }
+                } else {
+                  // Show first, ellipsis, current-1, current, current+1, ellipsis, last
+                  pages.push('ellipsis');
+                  pages.push(currentPage - 1);
+                  pages.push(currentPage);
+                  pages.push(currentPage + 1);
+                  pages.push('ellipsis');
+                  pages.push(totalPages - 1);
+                }
+              }
+              
+              return pages.map((page, index) => {
+                if (page === 'ellipsis') {
+                  return (
+                    <span key={`ellipsis-${index}`} className="px-2 text-muted-foreground">
+                      ...
+                    </span>
+                  );
+                }
+                const pageNumber = page + 1; // Display as 1-indexed
+                const isCompleted = completedPages.includes(page);
+                const pageTitle = surveyData.pages[page]?.title || `Page ${pageNumber}`;
+                return (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => handlePageJump(page)}
+                    className={`min-w-[2.5rem] ${
+                      isCompleted && currentPage !== page ? 'bg-green-100 hover:bg-green-200 border-green-300' : ''
+                    }`}
+                    title={pageTitle}
+                  >
+                    {pageNumber}
+                  </Button>
+                );
+              });
+            })()}
+          </div>
+        )}
         
         <Button onClick={handleNextPage} disabled={isSaving || isLoading || isSubmitting || !diagnostic?.id}>
           {isSubmitting 

@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { CheckCircle2, Circle } from 'lucide-react';
 import { ToolQuestion } from './ToolQuestion';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
@@ -230,130 +232,127 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      {/* Progress Bar */}
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="text-2xl font-bold">{currentPageData.title}</h2>
-          <span className="text-sm text-muted-foreground">
-            Page {currentPage + 1} of {totalPages}
-          </span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div 
-            className="bg-accent h-2 rounded-full transition-all"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Questions */}
-      <div className="space-y-6">
-        {currentPageData.elements.map((element) => {
-          // Get value from merged responses (includes both saved and local changes)
-          const value = responses[element.name];
-          
-          return (
-            <ToolQuestion
-              key={element.name}
-              question={element}
-              value={value}
-              onChange={(value) => handleResponseChange(element.name, value)}
-              allResponses={responses}
-              diagnosticId={diagnostic?.id}
-            />
-          );
-        })}
-      </div>
-
-      {/* Navigation */}
-      <div className="flex items-center justify-between mt-8">
-        <Button
-          variant="outline"
-          onClick={handlePrevPage}
-          disabled={currentPage === 0 || isSaving || isLoading}
-        >
-          Previous
-        </Button>
-        
-        {/* Page Numbers */}
-        {totalPages > 1 && (
-          <div className="flex items-center gap-1">
-            {(() => {
-              const pages: (number | 'ellipsis')[] = [];
-              
-              if (totalPages <= 7) {
-                // Show all pages if 7 or fewer
-                for (let i = 0; i < totalPages; i++) {
-                  pages.push(i);
-                }
-              } else {
-                // Always show first page
-                pages.push(0);
+    <div className="flex gap-8 min-h-screen">
+      {/* Vertical Stepper - Left Sidebar */}
+      <div className="w-64 flex-shrink-0 border-r border-border pr-6 py-6 sticky top-0 h-fit max-h-screen overflow-y-auto">
+        <div className="space-y-2">
+          {pages.map((page, index) => {
+            const isActive = index === currentPage;
+            const isCompleted = completedPages.includes(index);
+            const isPast = index < currentPage;
+            
+            return (
+              <div key={index} className="relative">
+                {/* Connector Line */}
+                {index < totalPages - 1 && (
+                  <div
+                    className={cn(
+                      "absolute left-4 top-8 w-0.5 h-full",
+                      isPast || isCompleted ? "bg-primary" : "bg-border"
+                    )}
+                    style={{ height: 'calc(100% + 0.5rem)' }}
+                  />
+                )}
                 
-                if (currentPage <= 2) {
-                  // Show first 5 pages, then ellipsis, then last
-                  for (let i = 1; i <= 4; i++) {
-                    pages.push(i);
-                  }
-                  pages.push('ellipsis');
-                  pages.push(totalPages - 1);
-                } else if (currentPage >= totalPages - 3) {
-                  // Show first, ellipsis, then last 5 pages
-                  pages.push('ellipsis');
-                  for (let i = totalPages - 5; i < totalPages; i++) {
-                    pages.push(i);
-                  }
-                } else {
-                  // Show first, ellipsis, current-1, current, current+1, ellipsis, last
-                  pages.push('ellipsis');
-                  pages.push(currentPage - 1);
-                  pages.push(currentPage);
-                  pages.push(currentPage + 1);
-                  pages.push('ellipsis');
-                  pages.push(totalPages - 1);
-                }
-              }
-              
-              return pages.map((page, index) => {
-                if (page === 'ellipsis') {
-                  return (
-                    <span key={`ellipsis-${index}`} className="px-2 text-muted-foreground">
-                      ...
-                    </span>
-                  );
-                }
-                const pageNumber = page + 1; // Display as 1-indexed
-                const isCompleted = completedPages.includes(page);
-                const pageTitle = surveyData.pages[page]?.title || `Page ${pageNumber}`;
-                return (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => handlePageJump(page)}
-                    className={`min-w-[2.5rem] ${
-                      isCompleted && currentPage !== page ? 'bg-green-100 hover:bg-green-200 border-green-300' : ''
-                    }`}
-                    title={pageTitle}
-                  >
-                    {pageNumber}
-                  </Button>
-                );
-              });
-            })()}
+                {/* Step Content */}
+                <button
+                  onClick={() => handlePageJump(index)}
+                  className={cn(
+                    "relative flex items-start gap-3 w-full text-left p-3 rounded-lg transition-colors",
+                    "hover:bg-accent/50",
+                    isActive && "bg-accent",
+                    !isActive && "cursor-pointer"
+                  )}
+                  disabled={isSaving || isLoading}
+                >
+                  {/* Step Icon */}
+                  <div className={cn(
+                    "flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center border-2 transition-colors",
+                    isCompleted && "bg-primary border-primary text-primary-foreground",
+                    isActive && !isCompleted && "border-primary bg-primary/10 text-primary",
+                    !isActive && !isCompleted && "border-border bg-background"
+                  )}>
+                    {isCompleted ? (
+                      <CheckCircle2 className="w-3 h-3" />
+                    ) : (
+                      <Circle className="w-3 h-3" />
+                    )}
+                  </div>
+                  
+                  {/* Step Label */}
+                  <div className="flex-1 min-w-0 pt-0.5">
+                    <div className={cn(
+                      "text-sm font-medium",
+                      isActive && "text-primary",
+                      !isActive && "text-muted-foreground"
+                    )}>
+                      {page.title}
+                    </div>
+                  </div>
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Main Content - Right Side */}
+      <div className="flex-1 max-w-4xl p-6">
+        {/* Progress Bar */}
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="text-2xl font-bold">{currentPageData.title}</h2>
+            <span className="text-sm text-muted-foreground">
+              Page {currentPage + 1} of {totalPages}
+            </span>
           </div>
-        )}
-        
-        <Button onClick={handleNextPage} disabled={isSaving || isLoading || isSubmitting || !diagnostic?.id}>
-          {isSubmitting 
-            ? 'Submitting...' 
-            : isSaving 
-            ? 'Saving...' 
-            : currentPage === totalPages - 1 
-            ? 'Submit' 
-            : 'Next'}
-        </Button>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-accent h-2 rounded-full transition-all"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Questions */}
+        <div className="space-y-6">
+          {currentPageData.elements.map((element) => {
+            // Get value from merged responses (includes both saved and local changes)
+            const value = responses[element.name];
+            
+            return (
+              <ToolQuestion
+                key={element.name}
+                question={element}
+                value={value}
+                onChange={(value) => handleResponseChange(element.name, value)}
+                allResponses={responses}
+                diagnosticId={diagnostic?.id}
+              />
+            );
+          })}
+        </div>
+
+        {/* Navigation */}
+        <div className="flex items-center justify-between mt-8">
+          <Button
+            variant="outline"
+            onClick={handlePrevPage}
+            disabled={currentPage === 0 || isSaving || isLoading}
+          >
+            Previous
+          </Button>
+          
+          <Button onClick={handleNextPage} disabled={isSaving || isLoading || isSubmitting || !diagnostic?.id}>
+            {isSubmitting 
+              ? 'Submitting...' 
+              : isSaving 
+              ? 'Saving...' 
+              : currentPage === totalPages - 1 
+              ? 'Submit' 
+              : 'Next'}
+          </Button>
+        </div>
       </div>
     </div>
   );

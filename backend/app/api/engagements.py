@@ -151,7 +151,6 @@ async def create_engagement(
     response = EngagementResponse.model_validate(engagement)
     # Add client_name and client_email (not in model, but needed for response)
     response.client_name = client.name or client.email
-    response.client_email = client.email
     # Include diagnostic_id in response if created
     response.tool_id = tool_id
     
@@ -258,12 +257,10 @@ async def list_engagements(
         # Get client name and email
         client = db.query(User).filter(User.id == engagement.client_id).first()
         client_name = client.name or client.email if client else None
-        client_email = client.email if client else None
         
         engagement_dict = {
             **engagement.__dict__,
             "client_name": client_name,
-            "client_email": client_email,
             "diagnostics_count": diagnostics_count,
             "tasks_count": tasks_count,
             "pending_tasks_count": pending_tasks_count,
@@ -428,7 +425,6 @@ async def get_engagement(
     client = db.query(User).filter(User.id == engagement.client_id).first()
     engagement_dict = engagement.__dict__.copy()
     engagement_dict["client_name"] = client.name or client.email if client else None
-    engagement_dict["client_email"] = client.email if client else None
     
     return EngagementDetail(**engagement_dict)
 
@@ -510,7 +506,6 @@ async def update_engagement(
     client = db.query(User).filter(User.id == engagement.client_id).first()
     engagement_dict = engagement.__dict__.copy()
     engagement_dict["client_name"] = client.name or client.email if client else None
-    engagement_dict["client_email"] = client.email if client else None
     
     return EngagementResponse(**engagement_dict)
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, ArrowRight, FileText, CheckSquare, Calendar, Loader2, Mail } from 'lucide-react';
+import { Search, Plus, ArrowRight, FileText, CheckSquare, Calendar, Loader2 } from 'lucide-react';
 import { fetchEngagements } from '@/store/slices/engagementReducer';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { cn } from '@/lib/utils';
@@ -201,12 +201,6 @@ export default function EngagementsPage() {
                           </span>
                           {engagement.industryName && (
                             <span>Industry: {engagement.industryName}</span>
-                          )}
-                          {engagement.clientEmail && (
-                            <span className="flex items-center gap-1.5">
-                              <Mail className="w-4 h-4" />
-                              {engagement.clientEmail}
-                            </span>
                           )}
                         </div>
                       </div>

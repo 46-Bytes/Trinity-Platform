@@ -6,6 +6,8 @@ from .engagement import Engagement
 from .diagnostic import Diagnostic
 from .task import Task
 from .note import Note
+from .firm import Firm
+from .subscription import Subscription
 
 __all__ = [
     "User",
@@ -13,6 +15,8 @@ __all__ = [
     "Diagnostic",
     "Task",
     "Note",
+    "Firm",
+    "Subscription",
 ]
 
 

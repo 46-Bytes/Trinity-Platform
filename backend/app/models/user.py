@@ -1,7 +1,7 @@
 """
 User model for PostgreSQL database.
 """
-from sqlalchemy import Column, String, DateTime, Boolean, Text, Enum
+from sqlalchemy import Column, String, DateTime, Boolean, Text, Enum, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -16,6 +16,8 @@ class UserRole(str, enum.Enum):
     CLIENT = "client"
     ADMIN = "admin"
     SUPER_ADMIN = "super_admin"
+    FIRM_ADMIN = "firm_admin"
+    FIRM_ADVISOR = "firm_advisor"
 
 
 class User(Base):
@@ -111,7 +113,16 @@ class User(Base):
         Enum(UserRole),
         default=UserRole.ADVISOR,
         nullable=False,
-        comment="User role (advisor, client, admin, super_admin)"
+        comment="User role (advisor, client, admin, super_admin, firm_admin, firm_advisor)"
+    )
+    
+    # Firm Relationship (for firm advisors and firm admin)
+    firm_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("firms.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="Foreign key to firms (NULL for solo advisors/clients)"
     )
     
     # Timestamps
@@ -138,6 +149,7 @@ class User(Base):
     
     # Relationships
     media = relationship("Media", back_populates="user")
+    firm = relationship("Firm", back_populates="advisors")
     
     def __repr__(self):
         return f"<User {self.email}>"
@@ -157,6 +169,7 @@ class User(Base):
             "email_verified": self.email_verified,
             "is_active": self.is_active,
             "role": self.role.value if self.role else None,
+            "firm_id": str(self.firm_id) if self.firm_id else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "last_login": self.last_login.isoformat() if self.last_login else None,

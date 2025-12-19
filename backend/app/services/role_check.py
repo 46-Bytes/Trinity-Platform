@@ -84,7 +84,9 @@ def check_engagement_access(
     Rules:
     - Super Admin: Access to all
     - Admin: Access to all
-    - Advisor: Access if they are primary_advisor_id or in secondary_advisor_ids
+    - Firm Admin: Access to all engagements in their firm
+    - Firm Advisor: Access if assigned to engagement AND in same firm
+    - Advisor (solo): Access if assigned to engagement
     - Client: Access if they are client_id
     
     Args:
@@ -99,7 +101,25 @@ def check_engagement_access(
     if user.role in [UserRole.SUPER_ADMIN, UserRole.ADMIN]:
         return True
     
-    # Advisor access
+    # Firm Admin: Access to all engagements in their firm
+    if user.role == UserRole.FIRM_ADMIN:
+        if engagement.firm_id and engagement.firm_id == user.firm_id:
+            return True
+        return False
+    
+    # Firm Advisor: Access if assigned AND in same firm
+    if user.role == UserRole.FIRM_ADVISOR:
+        if require_advisor and engagement.firm_id != user.firm_id:
+            return False
+        if engagement.firm_id == user.firm_id:
+            # Check if assigned as primary or secondary advisor
+            if engagement.primary_advisor_id == user.id:
+                return True
+            if engagement.secondary_advisor_ids and user.id in engagement.secondary_advisor_ids:
+                return True
+        return False
+    
+    # Solo Advisor access
     if user.role == UserRole.ADVISOR:
         if engagement.primary_advisor_id == user.id:
             return True

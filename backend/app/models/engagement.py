@@ -1,7 +1,7 @@
 """
 Engagement model for client-advisor workspaces
 """
-from sqlalchemy import Column, String, Text, DateTime, ARRAY, func
+from sqlalchemy import Column, String, Text, DateTime, ARRAY, func, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
@@ -20,7 +20,7 @@ class Engagement(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
     
     # Relationships to firms and users
-    firm_id = Column(UUID(as_uuid=True), nullable=True, index=True, comment="Foreign key to firms (NULL for solo advisors)")
+    firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id", ondelete="SET NULL"), nullable=True, index=True, comment="Foreign key to firms (NULL for solo advisors)")
     client_id = Column(UUID(as_uuid=True), nullable=False, index=True, comment="Foreign key to users (the client account)")
     primary_advisor_id = Column(UUID(as_uuid=True), nullable=False, index=True, comment="Foreign key to users (main advisor)")
     secondary_advisor_ids = Column(ARRAY(UUID(as_uuid=True)), nullable=True, comment="Array of additional advisor IDs")
@@ -42,6 +42,7 @@ class Engagement(Base):
     diagnostics = relationship("Diagnostic", back_populates="engagement", cascade="all, delete-orphan")
     tasks = relationship("Task", back_populates="engagement", cascade="all, delete-orphan")
     notes = relationship("Note", back_populates="engagement", cascade="all, delete-orphan")
+    firm = relationship("Firm", back_populates="engagements")
     
     def __repr__(self):
         return f"<Engagement(id={self.id}, name='{self.engagement_name}', client_id={self.client_id})>"

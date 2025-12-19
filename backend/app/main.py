@@ -13,6 +13,7 @@ from .api.diagnostics import router as diagnostics_router
 
 from .api.files import router as files_router
 from .api import auth_router, engagements_router, notes_router, tasks_router, settings_router
+from .api.firms import router as firms_router
 
 from .database import engine, Base
 
@@ -71,6 +72,7 @@ app.include_router(engagements_router)
 app.include_router(notes_router)
 app.include_router(tasks_router)
 app.include_router(settings_router)
+app.include_router(firms_router)
 
 # Mount static files directory for serving uploaded files
 # This allows /files/... URLs to be served directly

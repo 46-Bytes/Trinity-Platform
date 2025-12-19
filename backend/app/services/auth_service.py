@@ -73,6 +73,10 @@ class AuthService:
                 return UserRole.CLIENT
             elif role_str_lower == 'advisor':
                 return UserRole.ADVISOR
+            elif role_str_lower == 'firm_admin':
+                return UserRole.FIRM_ADMIN
+            elif role_str_lower == 'firm_advisor':
+                return UserRole.FIRM_ADVISOR
         
         # Default to advisor
         return UserRole.ADVISOR

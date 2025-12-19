@@ -19,7 +19,8 @@ from app.utils.file_loader import (
     load_task_library,
     load_prompt
 )
-
+import logging
+logger = logging.getLogger(__name__)
 
 class DiagnosticService:
     """
@@ -282,10 +283,13 @@ class DiagnosticService:
         )
         
         # ===== STEP 1: Generate Q&A Extract =====
+        logger.info(f"==========================JSON Extract Started==========================:")
+
         json_extract = self._generate_qa_extract(
             diagnostic_questions,
             user_responses
         )
+        logger.info(f"==========================JSON Extract Completed Successfully==========================: {json_extract}")
         self.logger.info("Generated Q&A extract", extra={"diagnostic_id": str(diagnostic.id)})
         
         # ===== STEP 2: Generate Summary =====
@@ -305,7 +309,7 @@ class DiagnosticService:
         # Get files attached to this diagnostic
         attached_files = list(diagnostic.media)
         file_context = self._build_file_context(attached_files)
-        
+        logger.info(f"==========================File Context Completed Successfully==========================:")
         # Extract OpenAI file IDs (only files that have been uploaded to OpenAI)
         file_ids = [
             file.openai_file_id 
@@ -317,6 +321,7 @@ class DiagnosticService:
         print(f"📤 {len(file_ids)} files uploaded to OpenAI and ready for AI analysis")
         
         scoring_prompt = load_prompt("scoring_prompt")
+        logger.info(f"==========================Scoring Started==========================:")
         scoring_result = await openai_service.process_scoring(
             scoring_prompt=scoring_prompt,
             scoring_map=scoring_map,
@@ -329,15 +334,7 @@ class DiagnosticService:
         
         # Extract scoring data
         scoring_data = scoring_result["parsed_content"]
-        self.logger.info(
-            "Processed scoring",
-            extra={
-                "diagnostic_id": str(diagnostic.id),
-                "tokens_used": scoring_result.get("tokens_used", 0),
-                "scored_rows": len(scoring_data.get("scored_rows", [])),
-            },
-        )
-        
+        logger.info(f"==========================Scoring Completed Successfully==========================:")
         # ===== STEP 4: Calculate and Validate Scores =====
         scored_rows = scoring_data.get("scored_rows", [])
         roadmap = scoring_data.get("roadmap", [])
@@ -567,7 +564,7 @@ class DiagnosticService:
             context += "- Extract key metrics, trends, and insights from the documents.\n"
         
         context += "=== END UPLOADED DOCUMENTS ===\n\n"
-        
+        logger.info(f"==========================File Context==========================: {context}")
         return context
     
     async def _generate_tasks(
@@ -637,9 +634,8 @@ class DiagnosticService:
                     status="pending",
                     priority=task_data.get("priority", "medium"),
                     # Map category to module if possible
-                    module_reference=self._map_category_to_module(
-                        task_data.get("category", "")
-                    )
+                    module_reference=task_data.get("category", "")
+                    
                 )
                 
                 self.db.add(task)

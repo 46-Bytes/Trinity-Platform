@@ -6,6 +6,7 @@ from .engagement import Engagement
 from .diagnostic import Diagnostic
 from .task import Task
 from .note import Note
+from .media import Media
 from .firm import Firm
 from .subscription import Subscription
 
@@ -15,6 +16,7 @@ __all__ = [
     "Diagnostic",
     "Task",
     "Note",
+    "Media",
     "Firm",
     "Subscription",
 ]

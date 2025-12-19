@@ -49,6 +49,7 @@ class EngagementResponse(EngagementBase):
     firm_id: Optional[UUID] = None
     client_id: UUID
     client_name: Optional[str] = Field(None, description="Client's name (populated from user)")
+    client_email: Optional[str] = Field(None, description="Client's email (populated from user)")
     primary_advisor_id: UUID
     secondary_advisor_ids: Optional[List[UUID]] = []
     tool_id: Optional[UUID] = None

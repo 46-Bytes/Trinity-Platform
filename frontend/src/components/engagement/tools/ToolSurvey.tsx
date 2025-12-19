@@ -12,6 +12,8 @@ import { useAuth } from '@/context/AuthContext';
 import surveyData from '@/questions/diagnostic-survey.json';
 import { toast } from 'sonner';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
 interface ToolSurveyProps {
   engagementId: string;
   toolType?: 'diagnostic'; // Can extend for other tools
@@ -209,7 +211,71 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
   }
 
   return (
-    <div className="relative max-w-4xl mx-auto p-6">
+    <div className="max-w-4xl mx-auto p-6">
+      {/* If diagnostic is completed, show completion message and download button */}
+      {diagnostic.status === 'completed' && (
+        <div className="mb-8 rounded-lg border border-green-200 bg-green-50 p-4">
+          <p className="font-semibold text-green-800">
+            Diagnostic completed and analyzed.
+          </p>
+          <p className="mt-1 text-sm text-green-900">
+            You can download the full diagnostic report as a PDF.
+          </p>
+          <div className="mt-4">
+            <Button
+              variant="default"
+              onClick={async () => {
+                try {
+                  const token = localStorage.getItem('auth_token');
+                  if (!token) {
+                    toast.error('Not authenticated');
+                    return;
+                  }
+
+                  const res = await fetch(
+                    `${API_BASE_URL}/api/diagnostics/${diagnostic.id}/download`,
+                    {
+                      headers: {
+                        Authorization: `Bearer ${token}`,
+                      },
+                    }
+                  );
+
+                  if (!res.ok) {
+                    const errorText = await res.text();
+                    toast.error(
+                      `Failed to download report (${res.status}): ${errorText || 'Unexpected error'}`
+                    );
+                    return;
+                  }
+
+                  const blob = await res.blob();
+                  const url = window.URL.createObjectURL(blob);
+
+                  const disposition = res.headers.get('Content-Disposition') || '';
+                  const match = disposition.match(/filename="(.+)"/);
+                  const filename =
+                    match?.[1] || `TrinityAi-diagnostic-${diagnostic.id}.pdf`;
+
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = filename;
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                  window.URL.revokeObjectURL(url);
+                } catch (err) {
+                  console.error('Download error', err);
+                  toast.error('Failed to download diagnostic report');
+                }
+              }}
+            >
+              Download Diagnostic Summary
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Progress Bar */}
       <div className="mb-8">
         <div className="flex justify-between items-center mb-2">

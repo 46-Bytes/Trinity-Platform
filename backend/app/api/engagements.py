@@ -34,10 +34,16 @@ async def create_engagement(
     """
     Create a new engagement.
     
-    Only advisors, admins, and super admins can create engagements.
+    Only advisors, firm advisors, firm admins, admins, and super admins can create engagements.
     """
     # Check permissions
-    if current_user.role not in [UserRole.ADVISOR, UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+    if current_user.role not in [
+        UserRole.ADVISOR, 
+        UserRole.FIRM_ADVISOR, 
+        UserRole.FIRM_ADMIN, 
+        UserRole.ADMIN, 
+        UserRole.SUPER_ADMIN
+    ]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only advisors and admins can create engagements."
@@ -54,10 +60,16 @@ async def create_engagement(
             detail="Client not found or invalid client ID."
         )
     
-    # Verify primary advisor exists
+    # Determine firm_id - use current user's firm if they're in a firm
+    firm_id = engagement_data.firm_id
+    if not firm_id and current_user.firm_id:
+        # Auto-set firm_id if user is in a firm
+        firm_id = current_user.firm_id
+    
+    # Verify primary advisor exists (can be solo advisor or firm advisor)
     primary_advisor = db.query(User).filter(
         User.id == engagement_data.primary_advisor_id,
-        User.role == UserRole.ADVISOR
+        User.role.in_([UserRole.ADVISOR, UserRole.FIRM_ADVISOR, UserRole.FIRM_ADMIN])
     ).first()
     if not primary_advisor:
         raise HTTPException(
@@ -65,17 +77,33 @@ async def create_engagement(
             detail="Primary advisor not found or invalid advisor ID."
         )
     
+    # If firm_id is set, verify primary advisor is in the same firm
+    if firm_id and primary_advisor.firm_id != firm_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Primary advisor must be in the same firm."
+        )
+    
     # Verify secondary advisors if provided
     if engagement_data.secondary_advisor_ids:
         secondary_advisors = db.query(User).filter(
             User.id.in_(engagement_data.secondary_advisor_ids),
-            User.role == UserRole.ADVISOR
+            User.role.in_([UserRole.ADVISOR, UserRole.FIRM_ADVISOR, UserRole.FIRM_ADMIN])
         ).all()
         if len(secondary_advisors) != len(engagement_data.secondary_advisor_ids):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="One or more secondary advisors not found or invalid."
             )
+        
+        # If firm_id is set, verify all secondary advisors are in the same firm
+        if firm_id:
+            for advisor in secondary_advisors:
+                if advisor.firm_id != firm_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"All advisors must be in the same firm. Advisor {advisor.id} is not in firm {firm_id}."
+                    )
     
     # Create engagement
     engagement = Engagement(
@@ -87,7 +115,7 @@ async def create_engagement(
         status=engagement_data.status,
         client_id=engagement_data.client_id,
         primary_advisor_id=engagement_data.primary_advisor_id,
-        firm_id=engagement_data.firm_id,
+        firm_id=firm_id,
         secondary_advisor_ids=engagement_data.secondary_advisor_ids or [],
     )
     
@@ -95,33 +123,37 @@ async def create_engagement(
     db.commit()
     db.refresh(engagement)
     
+    diagnostic_id = None
+
     # Create tool for engagement if tool is specified
     if engagement_data.tool:
         import sys
         from pathlib import Path
-        # Add backend directory to path to import tool_service
         backend_path = Path(__file__).parent.parent.parent
         if str(backend_path) not in sys.path:
             sys.path.insert(0, str(backend_path))
         
         from tool_service.tool_selector import create_tool_for_engagement
         try:
-            await create_tool_for_engagement(
+            tool = await create_tool_for_engagement(
                 db=db,
                 engagement_id=engagement.id,
                 tool_type=engagement_data.tool,
                 created_by_user_id=current_user.id
             )
+            # If diagnostic tool was created, capture its id for the response
+            tool_id = getattr(tool, "id", None)
             db.commit()  # Commit tool creation
         except Exception as e:
             # Log error but don't fail engagement creation
             print(f"Warning: Failed to create tool for engagement: {str(e)}")
     
-    # Create response using Pydantic model_validate (handles SQLAlchemy models properly)
     response = EngagementResponse.model_validate(engagement)
     # Add client_name and client_email (not in model, but needed for response)
     response.client_name = client.name or client.email
     response.client_email = client.email
+    # Include diagnostic_id in response if created
+    response.tool_id = tool_id
     
     return response
 
@@ -150,8 +182,21 @@ async def list_engagements(
     if current_user.role == UserRole.SUPER_ADMIN or current_user.role == UserRole.ADMIN:
         # Admins see all
         pass
+    elif current_user.role == UserRole.FIRM_ADMIN:
+        # Firm Admin sees all engagements in their firm
+        query = query.filter(Engagement.firm_id == current_user.firm_id)
+    elif current_user.role == UserRole.FIRM_ADVISOR:
+        # Firm Advisor sees engagements where they are involved (in their firm)
+        query = query.filter(
+            Engagement.firm_id == current_user.firm_id
+        ).filter(
+            or_(
+                Engagement.primary_advisor_id == current_user.id,
+                text("secondary_advisor_ids @> ARRAY[:user_id]::uuid[]").bindparams(user_id=current_user.id)
+            )
+        )
     elif current_user.role == UserRole.ADVISOR:
-        # Advisors see engagements where they are involved
+        # Solo Advisors see engagements where they are involved
         # Use PostgreSQL array contains operator (@>) to check if user ID is in secondary_advisor_ids array
         # Using text() with bindparam for safe parameter binding
         query = query.filter(
@@ -243,7 +288,7 @@ async def get_user_role_data(
     - For admins: Both lists
     """
     if current_user.role == UserRole.ADVISOR:
-        # Get all clients (for now - can be filtered by firm later)
+        # Solo advisors get all clients
         clients = db.query(User).filter(
             User.role == UserRole.CLIENT,
             User.is_active == True
@@ -257,10 +302,60 @@ async def get_user_role_data(
             ]
         }
     
-    elif current_user.role == UserRole.CLIENT:
-        # Get all advisors (for now - can be filtered by firm later)
+    elif current_user.role == UserRole.FIRM_ADMIN:
+        # Firm Admin gets all clients and all advisors in their firm
+        clients = db.query(User).filter(
+            User.role == UserRole.CLIENT,
+            User.is_active == True
+        ).all()
+        
         advisors = db.query(User).filter(
-            User.role == UserRole.ADVISOR,
+            User.firm_id == current_user.firm_id,
+            User.role.in_([UserRole.FIRM_ADMIN, UserRole.FIRM_ADVISOR]),
+            User.is_active == True
+        ).all()
+        
+        return {
+            "user_role": "firm_admin",
+            "clients": [
+                {"id": str(client.id), "name": client.name or client.email}
+                for client in clients
+            ],
+            "advisors": [
+                {"id": str(advisor.id), "name": advisor.name or advisor.email}
+                for advisor in advisors
+            ]
+        }
+    
+    elif current_user.role == UserRole.FIRM_ADVISOR:
+        # Firm Advisor gets all clients and advisors in their firm
+        clients = db.query(User).filter(
+            User.role == UserRole.CLIENT,
+            User.is_active == True
+        ).all()
+        
+        advisors = db.query(User).filter(
+            User.firm_id == current_user.firm_id,
+            User.role.in_([UserRole.FIRM_ADMIN, UserRole.FIRM_ADVISOR]),
+            User.is_active == True
+        ).all()
+        
+        return {
+            "user_role": "firm_advisor",
+            "clients": [
+                {"id": str(client.id), "name": client.name or client.email}
+                for client in clients
+            ],
+            "advisors": [
+                {"id": str(advisor.id), "name": advisor.name or advisor.email}
+                for advisor in advisors
+            ]
+        }
+    
+    elif current_user.role == UserRole.CLIENT:
+        # Clients get all advisors (solo and firm advisors)
+        advisors = db.query(User).filter(
+            User.role.in_([UserRole.ADVISOR, UserRole.FIRM_ADVISOR, UserRole.FIRM_ADMIN]),
             User.is_active == True
         ).all()
         
@@ -280,7 +375,7 @@ async def get_user_role_data(
         ).all()
         
         advisors = db.query(User).filter(
-            User.role == UserRole.ADVISOR,
+            User.role.in_([UserRole.ADVISOR, UserRole.FIRM_ADVISOR, UserRole.FIRM_ADMIN]),
             User.is_active == True
         ).all()
         
@@ -360,7 +455,13 @@ async def update_engagement(
         )
     
     # Check permissions
-    if current_user.role not in [UserRole.ADVISOR, UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+    if current_user.role not in [
+        UserRole.ADVISOR, 
+        UserRole.FIRM_ADVISOR, 
+        UserRole.FIRM_ADMIN, 
+        UserRole.ADMIN, 
+        UserRole.SUPER_ADMIN
+    ]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only advisors and admins can update engagements."
@@ -379,16 +480,25 @@ async def update_engagement(
     # Handle secondary_advisor_ids separately if provided
     if "secondary_advisor_ids" in update_data:
         if update_data["secondary_advisor_ids"] is not None:
-            # Verify all secondary advisors exist
+            # Verify all secondary advisors exist (can be solo or firm advisors)
             secondary_advisors = db.query(User).filter(
                 User.id.in_(update_data["secondary_advisor_ids"]),
-                User.role == UserRole.ADVISOR
+                User.role.in_([UserRole.ADVISOR, UserRole.FIRM_ADVISOR, UserRole.FIRM_ADMIN])
             ).all()
             if len(secondary_advisors) != len(update_data["secondary_advisor_ids"]):
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="One or more secondary advisors not found or invalid."
                 )
+            
+            # If engagement has firm_id, verify all secondary advisors are in the same firm
+            if engagement.firm_id:
+                for advisor in secondary_advisors:
+                    if advisor.firm_id != engagement.firm_id:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"All advisors must be in the same firm. Advisor {advisor.id} is not in firm {engagement.firm_id}."
+                        )
     
     for field, value in update_data.items():
         setattr(engagement, field, value)

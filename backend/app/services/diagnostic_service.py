@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 from datetime import datetime
 import json
+import logging
 
 from app.models.diagnostic import Diagnostic
 from app.models.task import Task
@@ -40,6 +41,7 @@ class DiagnosticService:
     
     def __init__(self, db: Session):
         self.db = db
+        self.logger = logging.getLogger(__name__)
     
     # ==================== PHASE 1: CREATE DIAGNOSTIC ====================
     
@@ -62,6 +64,15 @@ class DiagnosticService:
         Returns:
             Created Diagnostic model
         """
+        self.logger.info(
+            "Creating diagnostic",
+            extra={
+                "engagement_id": str(engagement_id),
+                "created_by_user_id": str(created_by_user_id),
+                "diagnostic_type": diagnostic_type,
+                "diagnostic_version": diagnostic_version,
+            },
+        )
         # Verify engagement exists
         engagement = self.db.query(Engagement).filter(
             Engagement.id == engagement_id
@@ -88,6 +99,10 @@ class DiagnosticService:
         self.db.add(diagnostic)
         self.db.commit()
         self.db.refresh(diagnostic)
+        self.logger.info(
+            "Diagnostic created",
+            extra={"diagnostic_id": str(diagnostic.id), "engagement_id": str(engagement_id)},
+        )
         
         return diagnostic
     
@@ -117,6 +132,14 @@ class DiagnosticService:
         if not diagnostic:
             raise ValueError(f"Diagnostic {diagnostic_id} not found")
         
+        self.logger.info(
+            "Updating diagnostic responses",
+            extra={
+                "diagnostic_id": str(diagnostic_id),
+                "status": status,
+                "keys": list(user_responses.keys()) if user_responses else [],
+            },
+        )
         # Merge responses (preserve existing responses)
         # Create a new dict to ensure SQLAlchemy detects the change
         current_responses = dict(diagnostic.user_responses or {})
@@ -143,6 +166,14 @@ class DiagnosticService:
         
         self.db.commit()
         self.db.refresh(diagnostic)
+        self.logger.info(
+            "Diagnostic responses updated",
+            extra={
+                "diagnostic_id": str(diagnostic_id),
+                "status": diagnostic.status,
+                "response_keys_count": len(current_responses.keys()),
+            },
+        )
         
         return diagnostic
     
@@ -185,6 +216,14 @@ class DiagnosticService:
         diagnostic.status = "processing"
         diagnostic.completed_by_user_id = completed_by_user_id
         self.db.commit()
+        self.logger.info(
+            "Diagnostic submission started",
+            extra={
+                "diagnostic_id": str(diagnostic_id),
+                "completed_by_user_id": str(completed_by_user_id),
+                "response_keys": list(diagnostic.user_responses.keys()),
+            },
+        )
         
         try:
             # Execute AI processing pipeline
@@ -193,10 +232,18 @@ class DiagnosticService:
             # Update status to completed
             diagnostic.status = "completed"
             diagnostic.completed_at = datetime.utcnow()
+            self.logger.info(
+                "Diagnostic submission completed",
+                extra={"diagnostic_id": str(diagnostic_id)},
+            )
             
         except Exception as e:
             # If processing fails, mark as failed
             diagnostic.status = "failed"
+            self.logger.exception(
+                "Diagnostic processing failed",
+                extra={"diagnostic_id": str(diagnostic_id)},
+            )
             raise Exception(f"Diagnostic processing failed: {str(e)}")
         
         finally:
@@ -218,11 +265,22 @@ class DiagnosticService:
         6. Auto-generate tasks
         """
         user_responses = diagnostic.user_responses
+        self.logger.info(
+            "Pipeline started",
+            extra={"diagnostic_id": str(diagnostic.id), "response_keys": list(user_responses.keys())},
+        )
         
         # Load required data files
         diagnostic_questions = load_diagnostic_questions()
         scoring_map = load_scoring_map()
         task_library = load_task_library()
+        self.logger.info(
+            "Loaded auxiliary data",
+            extra={
+                "diagnostic_id": str(diagnostic.id),
+                "questions_pages": len(diagnostic_questions.get("pages", [])) if isinstance(diagnostic_questions, dict) else "unknown",
+            },
+        )
         
         # ===== STEP 1: Generate Q&A Extract =====
         logger.info(f"==========================JSON Extract Started==========================:")
@@ -232,6 +290,8 @@ class DiagnosticService:
             user_responses
         )
         logger.info(f"==========================JSON Extract Completed Successfully==========================: {json_extract}")
+        self.logger.info("Generated Q&A extract", extra={"diagnostic_id": str(diagnostic.id)})
+        
         # ===== STEP 2: Generate Summary =====
         summary_prompt = load_prompt("diagnostic_summary")
         summary_result = await openai_service.generate_summary(
@@ -240,6 +300,10 @@ class DiagnosticService:
         )
         
         summary = summary_result["content"]
+        self.logger.info(
+            "Generated summary",
+            extra={"diagnostic_id": str(diagnostic.id), "tokens_used": summary_result.get("tokens_used", 0)},
+        )
         
         # ===== STEP 3: Process Scores with GPT (including uploaded files) =====
         # Get files attached to this diagnostic
@@ -292,6 +356,14 @@ class DiagnosticService:
             user_responses=user_responses,
             scoring_map=scoring_map
         )
+        self.logger.info(
+            "Calculated scores",
+            extra={
+                "diagnostic_id": str(diagnostic.id),
+                "modules_count": len(module_scores),
+                "overall_score": str(overall_score),
+            },
+        )
         
         # ===== STEP 5: Generate Advice (Optional) =====
         advice = None
@@ -302,9 +374,16 @@ class DiagnosticService:
                 scoring_data=scoring_data
             )
             advice = advice_result["content"]
+            self.logger.info(
+                "Generated advice",
+                extra={"diagnostic_id": str(diagnostic.id), "tokens_used": advice_result.get("tokens_used", 0)},
+            )
         except Exception as e:
             # Advice generation is optional, don't fail the whole process
-            print(f"Warning: Could not generate advice: {str(e)}")
+            self.logger.warning(
+                "Could not generate advice",
+                extra={"diagnostic_id": str(diagnostic.id), "error": str(e)},
+            )
         
         # ===== STEP 6: Auto-Generate Tasks =====
         tasks_count = 0
@@ -315,8 +394,15 @@ class DiagnosticService:
                 json_extract=json_extract,
                 roadmap=roadmap
             )
+            self.logger.info(
+                "Tasks generated",
+                extra={"diagnostic_id": str(diagnostic.id), "tasks_count": tasks_count},
+            )
         except Exception as e:
-            print(f"Warning: Could not generate tasks: {str(e)}")
+            self.logger.warning(
+                "Could not generate tasks",
+                extra={"diagnostic_id": str(diagnostic.id), "error": str(e)},
+            )
         
         # ===== Save All Data to Database =====
         # Store JSON extract
@@ -382,6 +468,14 @@ class DiagnosticService:
         diagnostic.tasks_generated_count = tasks_count
         
         self.db.commit()
+        self.logger.info(
+            "Pipeline data persisted",
+            extra={
+                "diagnostic_id": str(diagnostic.id),
+                "overall_score": str(overall_score),
+                "tasks_count": tasks_count,
+            },
+        )
     
     def _generate_qa_extract(
         self,
@@ -502,6 +596,10 @@ class DiagnosticService:
             json_extract=json_extract,
             roadmap=roadmap
         )
+        tasks_raw = task_result.get("parsed_content")
+        self.logger.info(
+            f"Generated tasks from AI | diagnostic_id={diagnostic.id} | tokens_used={task_result.get('tokens_used', 0)} | tasks_raw={tasks_raw}"
+        )
         
         # Parse tasks
         tasks_data = task_result["parsed_content"]
@@ -511,6 +609,16 @@ class DiagnosticService:
             tasks_list = tasks_data.get("tasks", [])
         else:
             tasks_list = tasks_data
+        
+        if not tasks_list:
+            self.logger.warning(
+                f"No tasks parsed from AI response | diagnostic_id={diagnostic.id} | tasks_data={tasks_data}"
+            )
+            return 0
+        
+        self.logger.info(
+            f"Parsed tasks list | diagnostic_id={diagnostic.id} | count={len(tasks_list)}"
+        )
         
         # Create Task records
         tasks_created = 0
@@ -532,12 +640,22 @@ class DiagnosticService:
                 
                 self.db.add(task)
                 tasks_created += 1
+                self.logger.info(
+                    f"Task created | diagnostic_id={diagnostic.id} | engagement_id={diagnostic.engagement_id} | "
+                    f"title={task_data.get('title')} | priority={task_data.get('priority', 'medium')} | "
+                    f"module={task_data.get('category', '')} | description={task_data.get('description')}"
+                )
                 
             except Exception as e:
-                print(f"Warning: Could not create task: {str(e)}")
+                self.logger.warning(
+                    f"Could not create task | diagnostic_id={diagnostic.id} | error={str(e)}"
+                )
                 continue
         
         self.db.commit()
+        self.logger.info(
+            f"Tasks committed | diagnostic_id={diagnostic.id} | tasks_created={tasks_created}"
+        )
         
         return tasks_created
     

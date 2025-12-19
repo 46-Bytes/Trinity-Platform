@@ -24,6 +24,7 @@ export function TasksList({ engagementId }: TasksListProps) {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
 
@@ -55,8 +56,13 @@ export function TasksList({ engagementId }: TasksListProps) {
       result = result.filter((task) => task.priority === priorityFilter);
     }
 
+    // Apply task type filter (manual vs AI-generated)
+    if (typeFilter !== 'all') {
+      result = result.filter((task) => task.taskType === typeFilter);
+    }
+
     return result;
-  }, [engagementTasks, searchQuery, statusFilter, priorityFilter]);
+  }, [engagementTasks, searchQuery, statusFilter, priorityFilter, typeFilter]);
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredTasks.length / TASKS_PER_PAGE);
@@ -67,7 +73,7 @@ export function TasksList({ engagementId }: TasksListProps) {
   // Reset to page 1 when search or filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, priorityFilter]);
+  }, [searchQuery, statusFilter, priorityFilter, typeFilter]);
 
   // Always fetch ALL tasks for this engagement (no status/priority filters)
   // Filters are applied client-side so stats cards show correct totals
@@ -196,6 +202,17 @@ export function TasksList({ engagementId }: TasksListProps) {
                     <SelectItem value="high">High</SelectItem>
                     <SelectItem value="medium">Medium</SelectItem>
                     <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger className="w-[170px]">
+                    <SelectValue placeholder="Task Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="manual">Manual</SelectItem>
+                    <SelectItem value="diagnostic_generated">AI Generated</SelectItem>
                   </SelectContent>
                 </Select>
 

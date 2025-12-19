@@ -13,14 +13,17 @@ from .api.diagnostics import router as diagnostics_router
 
 from .api.files import router as files_router
 from .api import auth_router, engagements_router, notes_router, tasks_router, settings_router
+from .api.firms import router as firms_router
 
 from .database import engine, Base
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
+# Reduce noisy SQL logs
+logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 
 # Disable verbose SQLAlchemy logging
 logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
@@ -74,6 +77,7 @@ app.include_router(engagements_router)
 app.include_router(notes_router)
 app.include_router(tasks_router)
 app.include_router(settings_router)
+app.include_router(firms_router)
 
 # Mount static files directory for serving uploaded files
 # This allows /files/... URLs to be served directly

@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { CheckCircle2, Circle } from 'lucide-react';
 import { ToolQuestion } from './ToolQuestion';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
@@ -162,6 +164,27 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
     }
   };
 
+  const handlePageJump = async (pageIndex: number) => {
+    // Don't jump if already on that page
+    if (pageIndex === currentPage) {
+      return;
+    }
+    
+    // Auto-save before jumping to a different page
+    if (diagnostic?.id) {
+      await handleSaveProgress();
+    }
+    
+    if (pageIndex >= 0 && pageIndex < totalPages) {
+      // Mark current page as visited
+      if (!completedPages.includes(currentPage)) {
+        setCompletedPages([...completedPages, currentPage]);
+      }
+      setCurrentPage(pageIndex);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   const handleResponseChange = (fieldName: string, value: any) => {
     // Update local state for immediate UI feedback
     setLocalResponses((prev) => ({
@@ -211,136 +234,128 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      {/* If diagnostic is completed, show completion message and download button */}
-      {diagnostic.status === 'completed' && (
-        <div className="mb-8 rounded-lg border border-green-200 bg-green-50 p-4">
-          <p className="font-semibold text-green-800">
-            Diagnostic completed and analyzed.
-          </p>
-          <p className="mt-1 text-sm text-green-900">
-            You can download the full diagnostic report as a PDF.
-          </p>
-          <div className="mt-4">
-            <Button
-              variant="default"
-              onClick={async () => {
-                try {
-                  const token = localStorage.getItem('auth_token');
-                  if (!token) {
-                    toast.error('Not authenticated');
-                    return;
-                  }
-
-                  const res = await fetch(
-                    `${API_BASE_URL}/api/diagnostics/${diagnostic.id}/download`,
-                    {
-                      headers: {
-                        Authorization: `Bearer ${token}`,
-                      },
-                    }
-                  );
-
-                  if (!res.ok) {
-                    const errorText = await res.text();
-                    toast.error(
-                      `Failed to download report (${res.status}): ${errorText || 'Unexpected error'}`
-                    );
-                    return;
-                  }
-
-                  const blob = await res.blob();
-                  const url = window.URL.createObjectURL(blob);
-
-                  const disposition = res.headers.get('Content-Disposition') || '';
-                  const match = disposition.match(/filename="(.+)"/);
-                  const filename =
-                    match?.[1] || `TrinityAi-diagnostic-${diagnostic.id}.pdf`;
-
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = filename;
-                  document.body.appendChild(a);
-                  a.click();
-                  a.remove();
-                  window.URL.revokeObjectURL(url);
-                } catch (err) {
-                  console.error('Download error', err);
-                  toast.error('Failed to download diagnostic report');
-                }
-              }}
-            >
-              Download Diagnostic Summary
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Progress Bar */}
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="text-2xl font-bold">{currentPageData.title}</h2>
-          <span className="text-sm text-muted-foreground">
-            Page {currentPage + 1} of {totalPages}
-          </span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div 
-            className="bg-accent h-2 rounded-full transition-all"
-            style={{ width: `${progress}%` }}
-          />
+    <div className="flex gap-8 min-h-screen">
+      {/* Vertical Stepper - Left Sidebar */}
+      <div className="w-64 flex-shrink-0 border-r border-border pr-6 py-6 sticky top-0 h-fit max-h-screen overflow-y-auto">
+        <div className="space-y-2">
+          {pages.map((page, index) => {
+            const isActive = index === currentPage;
+            const isCompleted = completedPages.includes(index);
+            const isPast = index < currentPage;
+            
+            return (
+              <div key={index} className="relative">
+                {/* Connector Line */}
+                {index < totalPages - 1 && (
+                  <div
+                    className={cn(
+                      "absolute left-4 top-8 w-0.5 h-full",
+                      isPast || isCompleted ? "bg-primary" : "bg-border"
+                    )}
+                    style={{ height: 'calc(100% + 0.5rem)' }}
+                  />
+                )}
+                
+                {/* Step Content */}
+                <button
+                  onClick={() => handlePageJump(index)}
+                  className={cn(
+                    "relative flex items-start gap-3 w-full text-left p-3 rounded-lg transition-colors",
+                    "hover:bg-accent/50",
+                    isActive && "bg-accent",
+                    !isActive && "cursor-pointer"
+                  )}
+                  disabled={isSaving || isLoading}
+                >
+                  {/* Step Icon */}
+                  <div className={cn(
+                    "flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center border-2 transition-colors",
+                    isCompleted && "bg-primary border-primary text-primary-foreground",
+                    isActive && !isCompleted && "border-primary bg-primary/10 text-primary",
+                    !isActive && !isCompleted && "border-border bg-background"
+                  )}>
+                    {isCompleted ? (
+                      <CheckCircle2 className="w-3 h-3" />
+                    ) : (
+                      <Circle className="w-3 h-3" />
+                    )}
+                  </div>
+                  
+                  {/* Step Label */}
+                  <div className="flex-1 min-w-0 pt-0.5">
+                    <div className={cn(
+                      "text-sm font-medium",
+                      isActive && "text-primary",
+                      !isActive && "text-muted-foreground"
+                    )}>
+                      {page.title}
+                    </div>
+                  </div>
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {isSubmitting ? (
-        // Loading screen shown while submitting (replaces questions + buttons)
-        <div className="flex flex-col items-center justify-center py-24 gap-4">
-          <div className="h-12 w-12 rounded-full border-4 border-accent border-t-transparent animate-spin" />
-          <p className="text-sm text-muted-foreground text-center max-w-md">
-            Generating your AI report. This can take 5–7 minutes. You can safely keep this tab open while we process your results.
-          </p>
+      {/* Main Content - Right Side */}
+      <div className="flex-1 max-w-4xl p-6">
+        {/* Progress Bar */}
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="text-2xl font-bold">{currentPageData.title}</h2>
+            <span className="text-sm text-muted-foreground">
+              Page {currentPage + 1} of {totalPages}
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-accent h-2 rounded-full transition-all"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
         </div>
-      ) : (
-        <>
-          {/* Questions */}
-          <div className="space-y-6">
-            {currentPageData.elements.map((element) => {
-              // Get value from merged responses (includes both saved and local changes)
-              const value = responses[element.name];
-              
-              return (
-                <ToolQuestion
-                  key={element.name}
-                  question={element}
-                  value={value}
-                  onChange={(value) => handleResponseChange(element.name, value)}
-                  allResponses={responses}
-                  diagnosticId={diagnostic?.id}
-                />
-              );
-            })}
-          </div>
 
-          {/* Navigation */}
-          <div className="flex justify-between mt-8">
-            <Button
-              variant="outline"
-              onClick={handlePrevPage}
-              disabled={currentPage === 0 || isSaving || isLoading}
-            >
-              Previous
-            </Button>
+        {/* Questions */}
+        <div className="space-y-6">
+          {currentPageData.elements.map((element) => {
+            // Get value from merged responses (includes both saved and local changes)
+            const value = responses[element.name];
             
-            <Button onClick={handleNextPage} disabled={isSaving || isLoading || !diagnostic?.id}>
-              {isSaving 
-                ? 'Saving...' 
-                : currentPage === totalPages - 1 
-                ? 'Submit' 
-                : 'Next'}
-            </Button>
-          </div>
-        </>
-      )}
+            return (
+              <ToolQuestion
+                key={element.name}
+                question={element}
+                value={value}
+                onChange={(value) => handleResponseChange(element.name, value)}
+                allResponses={responses}
+                diagnosticId={diagnostic?.id}
+              />
+            );
+          })}
+        </div>
+
+        {/* Navigation */}
+        <div className="flex items-center justify-between mt-8">
+          <Button
+            variant="outline"
+            onClick={handlePrevPage}
+            disabled={currentPage === 0 || isSaving || isLoading}
+          >
+            Previous
+          </Button>
+          
+          <Button onClick={handleNextPage} disabled={isSaving || isLoading || isSubmitting || !diagnostic?.id}>
+            {isSubmitting 
+              ? 'Submitting...' 
+              : isSaving 
+              ? 'Saving...' 
+              : currentPage === totalPages - 1 
+              ? 'Submit' 
+              : 'Next'}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

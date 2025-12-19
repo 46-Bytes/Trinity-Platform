@@ -5,7 +5,6 @@ export interface Engagement {
   id: string;
   clientId: string;
   clientName: string;
-  clientEmail?: string | null;
   businessName: string;
   title: string;
   description: string;
@@ -119,7 +118,6 @@ export const fetchEngagements = createAsyncThunk(
         id: item.id,
         clientId: item.client_id,
         clientName: item.client_name || 'Unknown Client',
-        clientEmail: item.client_email || null,
         businessName: item.business_name || '',
         title: item.title || item.engagement_name || '',
         description: item.description || '',

@@ -119,9 +119,8 @@ async def create_engagement(
     
     # Create response using Pydantic model_validate (handles SQLAlchemy models properly)
     response = EngagementResponse.model_validate(engagement)
-    # Add client_name and client_email (not in model, but needed for response)
+    # Add client_name (not in model, but needed for response)
     response.client_name = client.name or client.email
-    response.client_email = client.email
     
     return response
 
@@ -210,15 +209,13 @@ async def list_engagements(
             Note.engagement_id == engagement.id
         ).scalar() or 0
         
-        # Get client name and email
+        # Get client name
         client = db.query(User).filter(User.id == engagement.client_id).first()
         client_name = client.name or client.email if client else None
-        client_email = client.email if client else None
         
         engagement_dict = {
             **engagement.__dict__,
             "client_name": client_name,
-            "client_email": client_email,
             "diagnostics_count": diagnostics_count,
             "tasks_count": tasks_count,
             "pending_tasks_count": pending_tasks_count,
@@ -329,11 +326,10 @@ async def get_engagement(
             detail="You do not have access to this engagement."
         )
     
-    # Populate client_name and client_email for response
+    # Populate client_name for response
     client = db.query(User).filter(User.id == engagement.client_id).first()
     engagement_dict = engagement.__dict__.copy()
     engagement_dict["client_name"] = client.name or client.email if client else None
-    engagement_dict["client_email"] = client.email if client else None
     
     return EngagementDetail(**engagement_dict)
 
@@ -396,11 +392,10 @@ async def update_engagement(
     db.commit()
     db.refresh(engagement)
     
-    # Populate client_name and client_email for response
+    # Populate client_name for response
     client = db.query(User).filter(User.id == engagement.client_id).first()
     engagement_dict = engagement.__dict__.copy()
     engagement_dict["client_name"] = client.name or client.email if client else None
-    engagement_dict["client_email"] = client.email if client else None
     
     return EngagementResponse(**engagement_dict)
 

@@ -110,7 +110,7 @@ class User(Base):
     
     # Role
     role = Column(
-        Enum(UserRole),
+        Enum(UserRole, values_callable=lambda x: [e.value for e in x], native_enum=True, create_type=False),
         default=UserRole.ADVISOR,
         nullable=False,
         comment="User role (advisor, client, admin, super_admin, firm_admin, firm_advisor)"

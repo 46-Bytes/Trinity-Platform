@@ -210,7 +210,12 @@ export const createEngagement = createAsyncThunk(
           });
           if (userResponse.ok) {
             const userData = await userResponse.json();
-            if (userData.user?.id && (userData.user?.role === 'advisor' || userData.user?.role === 'admin')) {
+            if (userData.user?.id && (
+              userData.user?.role === 'advisor' || 
+              userData.user?.role === 'admin' ||
+              userData.user?.role === 'firm_admin' ||
+              userData.user?.role === 'firm_advisor'
+            )) {
               primaryAdvisorId = userData.user.id;
             }
           }
@@ -223,8 +228,26 @@ export const createEngagement = createAsyncThunk(
         throw new Error('Primary advisor ID is required. Please ensure you are logged in as an advisor.');
       }
 
+      // Get firm_id from current user if they're in a firm
+      let firmId = undefined;
+      try {
+        const userResponse = await fetch(`${API_BASE_URL}/api/auth/user`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          if (userData.user?.firm_id) {
+            firmId = userData.user.firm_id;
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to fetch user firm_id, continuing without it');
+      }
+
       // Map frontend format to backend format
-      const backendPayload = {
+      const backendPayload: any = {
         engagement_name: engagement.title,
         business_name: engagement.businessName,
         industry: engagement.industryName,
@@ -234,6 +257,11 @@ export const createEngagement = createAsyncThunk(
         primary_advisor_id: primaryAdvisorId,
         status: mapFrontendStatusToBackend(engagement.status),
       };
+      
+      // Include firm_id if user is in a firm
+      if (firmId) {
+        backendPayload.firm_id = firmId;
+      }
 
       const response = await fetch(`${API_BASE_URL}/api/engagements`, {
         method: 'POST',

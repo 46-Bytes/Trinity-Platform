@@ -53,6 +53,29 @@ class FirmAdvisorAdd(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Full name of the advisor")
 
 
+class FirmClientAdd(BaseModel):
+    """Schema for adding a client to a firm."""
+    email: EmailStr = Field(..., description="Email address of the client")
+    name: Optional[str] = Field(None, max_length=255, description="Full name of the client")
+    given_name: Optional[str] = Field(None, max_length=255, description="First name of the client")
+    family_name: Optional[str] = Field(None, max_length=255, description="Last name of the client")
+
+
+class FirmClientResponse(BaseModel):
+    """Schema for client response."""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: UUID
+    email: str
+    name: Optional[str] = None
+    given_name: Optional[str] = None
+    family_name: Optional[str] = None
+    role: str
+    is_active: bool
+    firm_id: Optional[UUID] = None
+    created_at: datetime
+
+
 class FirmAdvisorResponse(BaseModel):
     """Schema for advisor response."""
     model_config = ConfigDict(from_attributes=True)

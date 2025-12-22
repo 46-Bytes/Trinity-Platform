@@ -1,4 +1,7 @@
 import { useAuth } from '@/context/AuthContext';
+import { useEffect } from 'react';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { fetchFirm, fetchFirmAdvisors, fetchFirmClients } from '@/store/slices/firmReducer';
 import { StatCard } from '@/components/ui/stat-card';
 import { 
   Users, 
@@ -374,19 +377,41 @@ function AdminDashboard() {
 }
 
 function FirmAdminDashboard() {
+  const dispatch = useAppDispatch();
+  const { firm, advisors, clients, isLoading } = useAppSelector((state) => state.firm);
+
+  useEffect(() => {
+    if (!firm) {
+      dispatch(fetchFirm());
+    }
+  }, [dispatch, firm]);
+
+  useEffect(() => {
+    if (firm?.id) {
+      dispatch(fetchFirmAdvisors(firm.id));
+      dispatch(fetchFirmClients());
+    }
+  }, [dispatch, firm?.id]);
+
+  const activeAdvisors = advisors.filter((a) => a.is_active);
+  const seatsUsed = firm?.seats_used ?? activeAdvisors.length;
+  const seatCount = firm?.seat_count ?? 0;
+  const availableSeats = Math.max(seatCount - seatsUsed, 0);
+  const totalClients = clients.length;
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
           title="Firm Advisors" 
-          value="8" 
-          change="2 available seats" 
+          value={String(activeAdvisors.length)} 
+          change={`${availableSeats} available seats`} 
           changeType="neutral"
           icon={Users}
         />
         <StatCard 
           title="Total Clients" 
-          value="45" 
+          value={String(totalClients)} 
           icon={Users}
         />
         <StatCard 
@@ -405,25 +430,26 @@ function FirmAdminDashboard() {
         <div className="card-trinity p-6">
           <h3 className="font-heading font-semibold text-lg mb-4">Advisor Overview</h3>
           <div className="space-y-3">
-            {[
-              { name: 'Emma Thompson', clients: 12, status: 'Active' },
-              { name: 'James Wilson', clients: 8, status: 'Active' },
-              { name: 'Lisa Anderson', clients: 15, status: 'Active' },
-              { name: 'Mark Davis', clients: 10, status: 'On Leave' },
-            ].map((advisor, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
+            {isLoading && advisors.length === 0 && (
+              <p className="text-sm text-muted-foreground">Loading advisors...</p>
+            )}
+            {!isLoading && advisors.length === 0 && (
+              <p className="text-sm text-muted-foreground">No advisors yet. Add advisors to your firm to get started.</p>
+            )}
+            {advisors.map((advisor, i) => (
+              <div key={advisor.id || i} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
                 <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-medium">
                   {advisor.name.charAt(0)}
                 </div>
                 <div className="flex-1">
                   <p className="font-medium text-sm">{advisor.name}</p>
-                  <p className="text-xs text-muted-foreground">{advisor.clients} clients</p>
+                  <p className="text-xs text-muted-foreground">{advisor.email}</p>
                 </div>
                 <span className={cn(
                   "status-badge",
-                  advisor.status === 'Active' ? "status-success" : "status-warning"
+                  advisor.is_active ? "status-success" : "status-warning"
                 )}>
-                  {advisor.status}
+                  {advisor.is_active ? 'Active' : 'Inactive'}
                 </span>
               </div>
             ))}
@@ -439,7 +465,7 @@ function FirmAdminDashboard() {
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Seats used</span>
-              <span className="font-medium">8 / 10</span>
+              <span className="font-medium">{seatsUsed} / {seatCount || '-'}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Next billing</span>

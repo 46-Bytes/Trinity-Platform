@@ -39,9 +39,12 @@ const engagementFormSchema = z.object({
   description: z.string().min(10, {
     message: "Description must be at least 10 characters.",
   }),
-  clientOrAdvisorId: z.string().min(1, {
-    message: "Please select a client or advisor.",
+  // Client must always be selected
+  clientId: z.string().min(1, {
+    message: "Please select a client.",
   }),
+  // Primary advisor is required at runtime for firm admins, but optional in schema
+  primaryAdvisorId: z.string().optional(),
   tool: z.enum(['diagnostic', 'kpi_builder'], {
     message: "Please select a tool.",
   }),
@@ -75,7 +78,8 @@ export function EngagementForm({
       industryName: "",
       engagementName: "",
       description: "",
-      clientOrAdvisorId: "",
+      clientId: "",
+      primaryAdvisorId: "",
       tool: "diagnostic" as const,
     },
   });
@@ -95,7 +99,8 @@ export function EngagementForm({
         industryName: engagement.industryName || "",
         engagementName: engagement.title || "",
         description: engagement.description || "",
-        clientOrAdvisorId: engagement.clientId || "",
+        clientId: engagement.clientId || "",
+        primaryAdvisorId: "",
         tool: (engagement.tool as 'diagnostic' | 'kpi_builder') || "diagnostic",
       });
     }
@@ -109,15 +114,26 @@ export function EngagementForm({
     }
 
     try {
-      // Get client/advisor name from the selected ID
+      // Get client name from the selected ID
       let clientName = "Unknown";
       if (userRoleData) {
-        if (userRoleData.user_role === 'advisor' && userRoleData.clients) {
-          const selectedClient = userRoleData.clients.find(c => c.id === values.clientOrAdvisorId);
-          clientName = selectedClient?.name || "Unknown Client";
-        } else if (userRoleData.advisors) {
-          const selectedAdvisor = userRoleData.advisors.find(a => a.id === values.clientOrAdvisorId);
-          clientName = selectedAdvisor?.name || "Unknown Advisor";
+        const selectedClient = userRoleData.clients?.find(c => c.id === values.clientId);
+        clientName = selectedClient?.name || "Unknown Client";
+      }
+
+      // For firm admins/advisors/admins, require a primary advisor selection
+      if (
+        userRoleData &&
+        (userRoleData.user_role === 'firm_admin' ||
+          userRoleData.user_role === 'firm_advisor' ||
+          userRoleData.user_role === 'admin')
+      ) {
+        if (!values.primaryAdvisorId) {
+          form.setError('primaryAdvisorId', {
+            type: 'manual',
+            message: 'Please select a primary advisor.',
+          });
+          return;
         }
       }
 
@@ -130,14 +146,14 @@ export function EngagementForm({
             title: values.engagementName,
             description: values.description,
             industryName: values.industryName,
-            clientId: values.clientOrAdvisorId,
+            clientId: values.clientId,
             clientName: clientName,
           }
         })).unwrap();
       } else {
         // Create mode - create new engagement
         await dispatch(createEngagement({
-          clientId: values.clientOrAdvisorId,
+          clientId: values.clientId,
           clientName: clientName,
           businessName: values.businessName,
           title: values.engagementName,
@@ -145,6 +161,7 @@ export function EngagementForm({
           industryName: values.industryName,
           tool: values.tool,
           status: 'draft',
+          primaryAdvisorId: values.primaryAdvisorId,
         })).unwrap();
       }
       
@@ -208,44 +225,61 @@ export function EngagementForm({
             )}
           />
 
-          {/* Dynamic Client/Advisor Dropdown */}
-          {userRoleData && (
+          {/* Client Dropdown */}
+          {userRoleData && userRoleData.clients && (
             <FormField
               control={form.control}
-              name="clientOrAdvisorId"
+              name="clientId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>
-                    {userRoleData.user_role === 'advisor' ? 'Select Client' : 'Select Advisor'}
-                  </FormLabel>
+                  <FormLabel>Select Client</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder={`Select a ${userRoleData.user_role === 'advisor' ? 'client' : 'advisor'}`} />
+                        <SelectValue placeholder="Select a client" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {userRoleData.user_role === 'advisor' && userRoleData.clients ? (
-                        userRoleData.clients.map((client) => (
-                          <SelectItem key={client.id} value={client.id}>
-                            {client.name}
-                          </SelectItem>
-                        ))
-                      ) : userRoleData.advisors ? (
-                        userRoleData.advisors.map((advisor) => (
-                          <SelectItem key={advisor.id} value={advisor.id}>
-                            {advisor.name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="none" disabled>No options available</SelectItem>
-                      )}
+                      {userRoleData.clients.map((client) => (
+                        <SelectItem key={client.id} value={client.id}>
+                          {client.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormDescription>
-                    {userRoleData.user_role === 'advisor' 
-                      ? 'Choose the client.' 
-                      : 'Choose the advisor.'}
+                    Choose the client for this engagement.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          {/* Primary Advisor Dropdown - visible for firm/admin roles */}
+          {userRoleData && userRoleData.advisors && (
+            <FormField
+              control={form.control}
+              name="primaryAdvisorId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Select Primary Advisor</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a primary advisor" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {userRoleData.advisors.map((advisor) => (
+                        <SelectItem key={advisor.id} value={advisor.id}>
+                          {advisor.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    Choose the primary advisor for this engagement.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

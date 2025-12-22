@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, MoreHorizontal, Building2, Mail, User, X } from 'lucide-react';
+import { Search, Plus, MoreHorizontal, User, Mail, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { fetchFirmClients, addClientToFirm } from '@/store/slices/firmReducer';
-import { useAuth } from '@/context/AuthContext';
+import { fetchFirm, fetchFirmAdvisors, addAdvisorToFirm, removeAdvisorFromFirm } from '@/store/slices/firmReducer';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,17 +17,27 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-
-export default function ClientsPage() {
+export default function AdvisorsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [advisorToDelete, setAdvisorToDelete] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     email: '',
     name: '',
@@ -36,38 +45,32 @@ export default function ClientsPage() {
     family_name: '',
   });
   const { toast } = useToast();
-  const { user } = useAuth();
   
   const dispatch = useAppDispatch();
-  const { clients, isLoading, error } = useAppSelector((state) => state.firm);
+  const { firm, advisors, isLoading, error } = useAppSelector((state) => state.firm);
 
   useEffect(() => {
-    dispatch(fetchFirmClients());
+    // Fetch firm first to get firm ID
+    dispatch(fetchFirm()).then((result) => {
+      if (fetchFirm.fulfilled.match(result) && result.payload) {
+        dispatch(fetchFirmAdvisors(result.payload.id));
+      }
+    });
   }, [dispatch]);
 
-  const filteredClients = clients.filter((client) => {
+  const filteredAdvisors = advisors.filter((advisor) => {
     const matchesSearch = 
-      client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      client.email.toLowerCase().includes(searchQuery.toLowerCase());
+      advisor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      advisor.email.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesSearch;
   });
 
-  const handleAddClient = async (e: React.FormEvent) => {
+  const handleAddAdvisor = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!user?.firmId) {
+    if (!firm) {
       toast({
         title: 'Error',
-        description: 'Firm ID not found. Please ensure you are logged in as a firm admin.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (!formData.email) {
-      toast({
-        title: 'Error',
-        description: 'Email is required',
+        description: 'Firm not found',
         variant: 'destructive',
       });
       return;
@@ -76,29 +79,29 @@ export default function ClientsPage() {
     setIsSubmitting(true);
 
     try {
-      await dispatch(addClientToFirm({
-        firmId: user.firmId,
-        email: formData.email,
-        name: formData.name || undefined,
-        given_name: formData.given_name || undefined,
-        family_name: formData.family_name || undefined,
+      await dispatch(addAdvisorToFirm({
+        firmId: firm.id,
+        advisorData: {
+          email: formData.email,
+          name: formData.name || `${formData.given_name} ${formData.family_name}`.trim(),
+        },
       })).unwrap();
 
       toast({
         title: 'Success',
-        description: 'Client added successfully',
+        description: 'Advisor added successfully',
       });
 
       // Reset form and close dialog
       setFormData({ email: '', name: '', given_name: '', family_name: '' });
       setIsAddDialogOpen(false);
       
-      // Refresh clients list
-      dispatch(fetchFirmClients());
+      // Refresh advisors list
+      dispatch(fetchFirmAdvisors(firm.id));
     } catch (error) {
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to add client',
+        description: error instanceof Error ? error.message : 'Failed to add advisor',
         variant: 'destructive',
       });
     } finally {
@@ -106,28 +109,61 @@ export default function ClientsPage() {
     }
   };
 
+  const handleDeleteClick = (advisorId: string) => {
+    setAdvisorToDelete(advisorId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!firm || !advisorToDelete) return;
+
+    try {
+      await dispatch(removeAdvisorFromFirm({
+        firmId: firm.id,
+        advisorId: advisorToDelete,
+      })).unwrap();
+
+      toast({
+        title: 'Success',
+        description: 'Advisor removed successfully',
+      });
+
+      setDeleteDialogOpen(false);
+      setAdvisorToDelete(null);
+      
+      // Refresh advisors list
+      dispatch(fetchFirmAdvisors(firm.id));
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to remove advisor',
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="font-heading text-2xl font-bold text-foreground">Clients</h1>
-          <p className="text-muted-foreground mt-1">Manage your client relationships</p>
+          <h1 className="font-heading text-2xl font-bold text-foreground">Advisors</h1>
+          <p className="text-muted-foreground mt-1">Manage advisors in your firm</p>
         </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button className="btn-primary">
               <Plus className="w-4 h-4 mr-2" />
-              Add Client
+              Add Advisor
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add New Client</DialogTitle>
+              <DialogTitle>Add New Advisor</DialogTitle>
               <DialogDescription>
-                Add a new client to your firm. They will be able to access their engagements.
+                Add a new advisor to your firm. They will be able to manage client engagements.
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleAddClient} className="space-y-4">
+            <form onSubmit={handleAddAdvisor} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email *</Label>
                 <Input
@@ -136,7 +172,7 @@ export default function ClientsPage() {
                   required
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="client@example.com"
+                  placeholder="advisor@example.com"
                 />
               </div>
               <div className="space-y-2">
@@ -145,7 +181,7 @@ export default function ClientsPage() {
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="John Doe"
+                  placeholder="Jane Smith"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -155,7 +191,7 @@ export default function ClientsPage() {
                     id="given_name"
                     value={formData.given_name}
                     onChange={(e) => setFormData({ ...formData, given_name: e.target.value })}
-                    placeholder="John"
+                    placeholder="Jane"
                   />
                 </div>
                 <div className="space-y-2">
@@ -164,7 +200,7 @@ export default function ClientsPage() {
                     id="family_name"
                     value={formData.family_name}
                     onChange={(e) => setFormData({ ...formData, family_name: e.target.value })}
-                    placeholder="Doe"
+                    placeholder="Smith"
                   />
                 </div>
               </div>
@@ -177,7 +213,7 @@ export default function ClientsPage() {
                   Cancel
                 </Button>
                 <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? 'Adding...' : 'Add Client'}
+                  {isSubmitting ? 'Adding...' : 'Add Advisor'}
                 </Button>
               </div>
             </form>
@@ -185,18 +221,26 @@ export default function ClientsPage() {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="stat-card">
-          <p className="text-sm text-muted-foreground">Total Clients</p>
-          <p className="text-2xl font-heading font-bold mt-1">{clients.length}</p>
+      {firm && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="stat-card">
+            <p className="text-sm text-muted-foreground">Total Advisors</p>
+            <p className="text-2xl font-heading font-bold mt-1">{advisors.length}</p>
+          </div>
+          <div className="stat-card">
+            <p className="text-sm text-muted-foreground">Active Advisors</p>
+            <p className="text-2xl font-heading font-bold mt-1">
+              {advisors.filter((a) => a.is_active).length}
+            </p>
+          </div>
+          <div className="stat-card">
+            <p className="text-sm text-muted-foreground">Seats Used</p>
+            <p className="text-2xl font-heading font-bold mt-1">
+              {firm.seats_used} / {firm.seat_count}
+            </p>
+          </div>
         </div>
-        <div className="stat-card">
-          <p className="text-sm text-muted-foreground">Active Clients</p>
-          <p className="text-2xl font-heading font-bold mt-1">
-            {clients.filter((c) => c.is_active).length}
-          </p>
-        </div>
-      </div>
+      )}
 
       {error && (
         <div className="card-trinity p-4 bg-destructive/10 border border-destructive/20">
@@ -210,7 +254,7 @@ export default function ClientsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search clients..."
+              placeholder="Search advisors..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="input-trinity pl-10 w-full"
@@ -219,15 +263,15 @@ export default function ClientsPage() {
         </div>
 
         {isLoading ? (
-          <div className="text-center py-8 text-muted-foreground">Loading clients...</div>
-        ) : filteredClients.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">Loading advisors...</div>
+        ) : filteredAdvisors.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            {clients.length === 0 ? 'No clients yet. Add your first client to get started.' : 'No clients match your search.'}
+            {advisors.length === 0 ? 'No advisors yet. Add your first advisor to get started.' : 'No advisors match your search.'}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredClients.map((client) => (
-              <div key={client.id} className="card-trinity p-5 hover:shadow-trinity-md cursor-pointer group">
+            {filteredAdvisors.map((advisor) => (
+              <div key={advisor.id} className="card-trinity p-5 hover:shadow-trinity-md group">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -235,9 +279,9 @@ export default function ClientsPage() {
                     </div>
                     <div>
                       <h3 className="font-semibold text-foreground group-hover:text-accent transition-colors">
-                        {client.name || 'Unknown'}
+                        {advisor.name || 'Unknown'}
                       </h3>
-                      <p className="text-sm text-muted-foreground">{client.email}</p>
+                      <p className="text-sm text-muted-foreground">{advisor.email}</p>
                     </div>
                   </div>
                   <DropdownMenu>
@@ -248,8 +292,12 @@ export default function ClientsPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem className="cursor-pointer">View Details</DropdownMenuItem>
-                      <DropdownMenuItem className="cursor-pointer">Edit Client</DropdownMenuItem>
-                      <DropdownMenuItem className="cursor-pointer">New Engagement</DropdownMenuItem>
+                      <DropdownMenuItem 
+                        className="cursor-pointer text-destructive"
+                        onClick={() => handleDeleteClick(advisor.id)}
+                      >
+                        Remove from Firm
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -257,7 +305,7 @@ export default function ClientsPage() {
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Mail className="w-4 h-4" />
-                    <span>{client.email}</span>
+                    <span>{advisor.email}</span>
                   </div>
                 </div>
 
@@ -265,17 +313,37 @@ export default function ClientsPage() {
                   <div className="flex items-center gap-2">
                     <span className={cn(
                       "status-badge",
-                      client.is_active ? "status-success" : "status-warning"
+                      advisor.is_active ? "status-success" : "status-warning"
                     )}>
-                      {client.is_active ? 'Active' : 'Inactive'}
+                      {advisor.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </div>
+                  <span className="text-xs text-muted-foreground capitalize">
+                    {advisor.role.replace('_', ' ')}
+                  </span>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Advisor</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove this advisor from your firm? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground">
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

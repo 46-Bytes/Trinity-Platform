@@ -25,15 +25,6 @@ class Subscription(Base):
         comment="Unique identifier for the subscription"
     )
     
-    # Firm Relationship
-    firm_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("firms.id", ondelete="CASCADE"),
-        nullable=False,
-        unique=True,
-        index=True,
-        comment="Foreign key to firms (one subscription per firm)"
-    )
     
     # Subscription Details
     plan_name = Column(
@@ -122,7 +113,8 @@ class Subscription(Base):
     )
     
     # Relationships
-    firm = relationship("Firm", back_populates="subscription")
+    # Note: Firm.subscription uses subscription_id, so we don't need back_populates here
+    # Access firm via firm_id directly or through query
     
     def __repr__(self):
         return f"<Subscription(id={self.id}, firm_id={self.firm_id}, plan={self.plan_name}, status={self.status})>"

@@ -325,24 +325,6 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-sm font-medium mb-3 block">Sidebar</label>
-                  <div className="flex gap-3">
-                    {['Expanded', 'Collapsed'].map((mode) => (
-                      <button
-                        key={mode}
-                        className={cn(
-                          "px-6 py-3 rounded-lg border transition-colors",
-                          mode === 'Expanded' 
-                            ? "border-accent bg-accent/5 text-accent" 
-                            : "border-border hover:border-accent/50"
-                        )}
-                      >
-                        {mode}
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </div>
             </div>
           )}

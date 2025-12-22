@@ -143,6 +143,86 @@ export const removeAdvisorFromFirm = createAsyncThunk(
   }
 );
 
+export const getAdvisorEngagements = createAsyncThunk(
+  'firm/getAdvisorEngagements',
+  async ({ firmId, advisorId }: { firmId: string; advisorId: string }, { rejectWithValue }) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/firms/${firmId}/advisors/${advisorId}/engagements`, {
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to fetch advisor engagements' }));
+        throw new Error(errorData.detail || 'Failed to fetch advisor engagements');
+      }
+
+      const data = await response.json();
+      return data as { primary: any[]; secondary: any[] };
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to fetch advisor engagements');
+    }
+  }
+);
+
+export const suspendAdvisor = createAsyncThunk(
+  'firm/suspendAdvisor',
+  async ({ 
+    firmId, 
+    advisorId, 
+    reassignments 
+  }: { 
+    firmId: string; 
+    advisorId: string; 
+    reassignments?: Record<string, string> 
+  }, { rejectWithValue }) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/firms/${firmId}/advisors/${advisorId}/suspend`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ reassignments: reassignments || {} }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to suspend advisor' }));
+        throw new Error(errorData.detail || 'Failed to suspend advisor');
+      }
+
+      const data = await response.json();
+      return data as Advisor;
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to suspend advisor');
+    }
+  }
+);
+
+export const reactivateAdvisor = createAsyncThunk(
+  'firm/reactivateAdvisor',
+  async ({ 
+    firmId, 
+    advisorId 
+  }: { 
+    firmId: string; 
+    advisorId: string; 
+  }, { rejectWithValue }) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/firms/${firmId}/advisors/${advisorId}/reactivate`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to reactivate advisor' }));
+        throw new Error(errorData.detail || 'Failed to reactivate advisor');
+      }
+
+      const data = await response.json();
+      return data as Advisor;
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to reactivate advisor');
+    }
+  }
+);
+
 export const fetchFirmClients = createAsyncThunk(
   'firm/fetchFirmClients',
   async (_, { rejectWithValue }) => {
@@ -275,6 +355,49 @@ const firmSlice = createSlice({
         if (state.firm && state.firm.seats_used > 0) {
           state.firm.seats_used = state.firm.seats_used - 1;
         }
+      });
+
+    // Suspend advisor
+    builder
+      .addCase(suspendAdvisor.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(suspendAdvisor.fulfilled, (state, action) => {
+        state.isLoading = false;
+        // Update advisor in list
+        const index = state.advisors.findIndex(a => a.id === action.payload.id);
+        if (index !== -1) {
+          state.advisors[index] = action.payload;
+        }
+        // NOTE: Do NOT decrement seats_used - suspended advisors still count as seats
+      })
+      .addCase(suspendAdvisor.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      });
+
+    // Reactivate advisor
+    builder
+      .addCase(reactivateAdvisor.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(reactivateAdvisor.fulfilled, (state, action) => {
+        state.isLoading = false;
+        // Update advisor in list
+        const index = state.advisors.findIndex(a => a.id === action.payload.id);
+        if (index !== -1) {
+          state.advisors[index] = action.payload;
+        }
+        // Increment seats_used when an advisor is reactivated
+        if (state.firm) {
+          state.firm.seats_used = (state.firm.seats_used || 0) + 1;
+        }
+      })
+      .addCase(reactivateAdvisor.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
       });
 
     // Fetch clients

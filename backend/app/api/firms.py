@@ -3,7 +3,7 @@ Firm management API endpoints.
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Dict
 from uuid import UUID
 
 from ..database import get_db
@@ -32,6 +32,7 @@ from ..schemas.firm import (
     SubscriptionResponse,
     SeatUpdateRequest,
     EngagementReassignRequest,
+    AdvisorSuspendRequest,
 )
 
 router = APIRouter(prefix="/api/firms", tags=["firms"])
@@ -250,6 +251,123 @@ async def list_advisors(
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
+        )
+
+
+@router.get("/{firm_id}/advisors/{advisor_id}/engagements")
+async def get_advisor_engagements(
+    firm_id: UUID,
+    advisor_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_from_token)
+):
+    """Get all engagements where an advisor is involved (for suspension warning)."""
+    try:
+        firm_service = get_firm_service(db)
+        engagements_dict = firm_service.get_advisor_engagements(firm_id, advisor_id, current_user)
+        
+        # Build response with engagement details
+        from ..models.user import User as UserModel
+        
+        result = {
+            "primary": [],
+            "secondary": []
+        }
+        
+        for engagement in engagements_dict["primary"]:
+            client = db.query(UserModel).filter(UserModel.id == engagement.client_id).first()
+            engagement_dict = {
+                "id": str(engagement.id),
+                "engagement_name": engagement.engagement_name,
+                "business_name": engagement.business_name,
+                "client_id": str(engagement.client_id),
+                "client_name": client.name or client.email if client else None,
+                "status": engagement.status,
+            }
+            result["primary"].append(engagement_dict)
+        
+        for engagement in engagements_dict["secondary"]:
+            client = db.query(UserModel).filter(UserModel.id == engagement.client_id).first()
+            primary_advisor = db.query(UserModel).filter(UserModel.id == engagement.primary_advisor_id).first()
+            engagement_dict = {
+                "id": str(engagement.id),
+                "engagement_name": engagement.engagement_name,
+                "business_name": engagement.business_name,
+                "client_id": str(engagement.client_id),
+                "client_name": client.name or client.email if client else None,
+                "primary_advisor_name": primary_advisor.name or primary_advisor.email if primary_advisor else None,
+                "status": engagement.status,
+            }
+            result["secondary"].append(engagement_dict)
+        
+        return result
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
+        )
+
+
+@router.post("/{firm_id}/advisors/{advisor_id}/suspend", response_model=FirmAdvisorResponse)
+async def suspend_advisor(
+    firm_id: UUID,
+    advisor_id: UUID,
+    suspend_data: AdvisorSuspendRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_from_token)
+):
+    """
+    Suspend an advisor.
+    
+    Requires reassignments dict if advisor is primary in any engagements.
+    Format: {"engagement_id": "new_primary_advisor_id"}
+    """
+    try:
+        # Convert string UUIDs to UUID objects
+        reassignments = None
+        if suspend_data.reassignments:
+            reassignments = {
+                UUID(eng_id): UUID(advisor_id) 
+                for eng_id, advisor_id in suspend_data.reassignments.items()
+            }
+        
+        firm_service = get_firm_service(db)
+        advisor = firm_service.suspend_advisor(
+            firm_id=firm_id,
+            advisor_id=advisor_id,
+            suspended_by_user_id=current_user.id,
+            reassignments=reassignments
+        )
+        
+        return FirmAdvisorResponse.model_validate(advisor)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
+@router.post("/{firm_id}/advisors/{advisor_id}/reactivate", response_model=FirmAdvisorResponse)
+async def reactivate_advisor(
+    firm_id: UUID,
+    advisor_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_from_token)
+):
+    """Reactivate a suspended advisor."""
+    try:
+        firm_service = get_firm_service(db)
+        advisor = firm_service.reactivate_advisor(
+            firm_id=firm_id,
+            advisor_id=advisor_id,
+            reactivated_by_user_id=current_user.id
+        )
+        
+        return FirmAdvisorResponse.model_validate(advisor)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
 

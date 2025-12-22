@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, MoreHorizontal, User, Mail, Trash2, X } from 'lucide-react';
+import { Search, Plus, MoreHorizontal, User, Mail, Trash2, X, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { fetchFirm, fetchFirmAdvisors, addAdvisorToFirm, removeAdvisorFromFirm } from '@/store/slices/firmReducer';
+import { fetchFirm, fetchFirmAdvisors, addAdvisorToFirm, removeAdvisorFromFirm, getAdvisorEngagements, suspendAdvisor, reactivateAdvisor } from '@/store/slices/firmReducer';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +30,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AdvisorsPage() {
@@ -38,6 +45,11 @@ export default function AdvisorsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [advisorToDelete, setAdvisorToDelete] = useState<string | null>(null);
+  const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
+  const [advisorToSuspend, setAdvisorToSuspend] = useState<string | null>(null);
+  const [advisorEngagements, setAdvisorEngagements] = useState<{ primary: any[]; secondary: any[] } | null>(null);
+  const [reassignments, setReassignments] = useState<Record<string, string>>({});
+  const [isLoadingEngagements, setIsLoadingEngagements] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     name: '',
@@ -139,6 +151,126 @@ export default function AdvisorsPage() {
         description: error instanceof Error ? error.message : 'Failed to remove advisor',
         variant: 'destructive',
       });
+    }
+  };
+
+  const handleSuspendClick = async (advisorId: string) => {
+    if (!firm) return;
+
+    setAdvisorToSuspend(advisorId);
+    setIsLoadingEngagements(true);
+    setReassignments({});
+
+    try {
+      const result = await dispatch(getAdvisorEngagements({
+        firmId: firm.id,
+        advisorId: advisorId,
+      })).unwrap();
+
+      setAdvisorEngagements(result);
+      setSuspendDialogOpen(true);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to fetch advisor engagements',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingEngagements(false);
+    }
+  };
+
+  const handleSuspendConfirm = async () => {
+    if (!firm || !advisorToSuspend) return;
+
+    // Check if there are primary engagements without reassignments
+    if (advisorEngagements?.primary && advisorEngagements.primary.length > 0) {
+      const missingReassignments = advisorEngagements.primary.filter(
+        eng => !reassignments[eng.id]
+      );
+
+      if (missingReassignments.length > 0) {
+        toast({
+          title: 'Error',
+          description: `Please assign a new advisor for all ${missingReassignments.length} primary engagement(s)`,
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
+    // Check if there are any active advisors left (excluding the one being suspended)
+    const activeAdvisorsAfterSuspend = advisors.filter(
+      a => a.is_active && a.id !== advisorToSuspend
+    );
+
+    if (activeAdvisorsAfterSuspend.length === 0) {
+      toast({
+        title: 'Error',
+        description: 'Cannot suspend advisor: No active advisors will remain in the firm',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await dispatch(suspendAdvisor({
+        firmId: firm.id,
+        advisorId: advisorToSuspend,
+        reassignments: Object.keys(reassignments).length > 0 ? reassignments : undefined,
+      })).unwrap();
+
+      toast({
+        title: 'Success',
+        description: 'Advisor suspended successfully',
+      });
+
+      setSuspendDialogOpen(false);
+      setAdvisorToSuspend(null);
+      setAdvisorEngagements(null);
+      setReassignments({});
+      
+      // Refresh advisors list
+      dispatch(fetchFirmAdvisors(firm.id));
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to suspend advisor',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleReactivate = async (advisorId: string) => {
+    if (!firm) return;
+
+    setIsSubmitting(true);
+
+    try {
+      await dispatch(reactivateAdvisor({
+        firmId: firm.id,
+        advisorId: advisorId,
+      })).unwrap();
+
+      toast({
+        title: 'Success',
+        description: 'Advisor reactivated successfully',
+      });
+
+      // Refresh advisors list
+      dispatch(fetchFirmAdvisors(firm.id));
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to reactivate advisor',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -292,6 +424,21 @@ export default function AdvisorsPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem className="cursor-pointer">View Details</DropdownMenuItem>
+                      {advisor.is_active ? (
+                        <DropdownMenuItem 
+                          className="cursor-pointer text-warning"
+                          onClick={() => handleSuspendClick(advisor.id)}
+                        >
+                          Suspend Advisor
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem 
+                          className="cursor-pointer text-green-600 hover:text-green-700"
+                          onClick={() => handleReactivate(advisor.id)}
+                        >
+                          Reactivate Advisor
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem 
                         className="cursor-pointer text-destructive"
                         onClick={() => handleDeleteClick(advisor.id)}
@@ -344,6 +491,195 @@ export default function AdvisorsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Suspend Advisor Dialog */}
+      <Dialog open={suspendDialogOpen} onOpenChange={setSuspendDialogOpen}>
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-warning" />
+              Suspend Advisor
+            </DialogTitle>
+            <DialogDescription>
+              {advisorEngagements && (advisorEngagements.primary.length > 0 || advisorEngagements.secondary.length > 0) ? (
+                "This advisor is involved in engagements. Please assign new advisors to primary engagements before suspending."
+              ) : (
+                "You are about to suspend this advisor. They will lose access to all firm engagements."
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          {isLoadingEngagements ? (
+            <div className="py-8 text-center text-muted-foreground">Loading engagements...</div>
+          ) : advisorEngagements && (advisorEngagements.primary.length > 0 || advisorEngagements.secondary.length > 0) ? (
+            <div className="space-y-6">
+              {/* Primary Engagements - Require Reassignment */}
+              {advisorEngagements.primary.length > 0 && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-warning" />
+                    <h3 className="font-semibold">Primary Advisor Engagements ({advisorEngagements.primary.length})</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    These engagements require a new primary advisor assignment:
+                  </p>
+                  <div className="space-y-3">
+                    {advisorEngagements.primary.map((engagement) => {
+                      const activeAdvisors = advisors.filter(
+                        a => a.is_active && a.id !== advisorToSuspend
+                      );
+
+                      return (
+                        <div key={engagement.id} className="p-4 border border-border rounded-lg space-y-2">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <p className="font-medium">{engagement.engagement_name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                Client: {engagement.client_name || 'Unknown'}
+                              </p>
+                            </div>
+                            <span className={cn(
+                              "status-badge text-xs",
+                              engagement.status === 'active' && "status-success"
+                            )}>
+                              {engagement.status}
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm">Assign New Primary Advisor *</Label>
+                            <Select
+                              value={reassignments[engagement.id] || ''}
+                              onValueChange={(value) => {
+                                setReassignments(prev => ({
+                                  ...prev,
+                                  [engagement.id]: value
+                                }));
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select advisor" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {activeAdvisors.length === 0 ? (
+                                  <SelectItem value="none" disabled>
+                                    No active advisors available
+                                  </SelectItem>
+                                ) : (
+                                  activeAdvisors.map((advisor) => (
+                                    <SelectItem key={advisor.id} value={advisor.id}>
+                                      {advisor.name || advisor.email}
+                                    </SelectItem>
+                                  ))
+                                )}
+                              </SelectContent>
+                            </Select>
+                            {activeAdvisors.length === 0 && (
+                              <p className="text-xs text-destructive">
+                                Cannot suspend: No active advisors available to reassign
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Secondary Engagements - Info Only */}
+              {advisorEngagements.secondary.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="font-semibold">Secondary Advisor Engagements ({advisorEngagements.secondary.length})</h3>
+                  <p className="text-sm text-muted-foreground">
+                    These engagements will automatically remove this advisor from secondary advisor list:
+                  </p>
+                  <div className="space-y-2">
+                    {advisorEngagements.secondary.map((engagement) => (
+                      <div key={engagement.id} className="p-3 border border-border rounded-lg">
+                        <p className="font-medium text-sm">{engagement.engagement_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Client: {engagement.client_name} • Primary: {engagement.primary_advisor_name}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Warning if no active advisors after suspend */}
+              {advisors.filter(a => a.is_active && a.id !== advisorToSuspend).length === 0 && (
+                <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-5 h-5 text-destructive mt-0.5" />
+                    <div>
+                      <p className="font-medium text-destructive">Cannot Suspend</p>
+                      <p className="text-sm text-destructive/80 mt-1">
+                        Suspending this advisor would leave no active advisors in the firm. Please add more advisors first.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : advisorEngagements && advisorEngagements.primary.length === 0 && advisorEngagements.secondary.length === 0 ? (
+            <div className="space-y-4">
+              <div className="p-4 bg-warning/10 border border-warning/20 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-5 h-5 text-warning mt-0.5" />
+                  <div>
+                    <p className="font-medium text-warning">Warning</p>
+                    <p className="text-sm text-warning/80 mt-1">
+                      You are about to suspend this advisor. They will lose access to all firm resources.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Warning if no active advisors after suspend */}
+              {advisors.filter(a => a.is_active && a.id !== advisorToSuspend).length === 0 && (
+                <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-5 h-5 text-destructive mt-0.5" />
+                    <div>
+                      <p className="font-medium text-destructive">Cannot Suspend</p>
+                      <p className="text-sm text-destructive/80 mt-1">
+                        Suspending this advisor would leave no active advisors in the firm. Please add more advisors first.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-border">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSuspendDialogOpen(false);
+                setAdvisorToSuspend(null);
+                setAdvisorEngagements(null);
+                setReassignments({});
+              }}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSuspendConfirm}
+              disabled={
+                isSubmitting ||
+                (advisorEngagements?.primary && advisorEngagements.primary.length > 0 && 
+                 Object.keys(reassignments).length !== advisorEngagements.primary.length) ||
+                advisors.filter(a => a.is_active && a.id !== advisorToSuspend).length === 0
+              }
+              className="bg-warning text-warning-foreground hover:bg-warning/90"
+            >
+              {isSubmitting ? 'Suspending...' : 'Suspend Advisor'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

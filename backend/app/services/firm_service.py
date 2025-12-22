@@ -326,3 +326,4 @@ def get_firm_service(db: Session) -> FirmService:
     """Factory function to create FirmService."""
     return FirmService(db)
 
+

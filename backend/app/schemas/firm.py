@@ -126,3 +126,4 @@ class EngagementReassignRequest(BaseModel):
     new_primary_advisor_id: UUID = Field(..., description="ID of the new primary advisor")
     engagement_id: UUID = Field(..., description="ID of the engagement to reassign")
 
+

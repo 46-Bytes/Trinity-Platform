@@ -57,3 +57,4 @@ def can_modify_subscription(user: User, firm_id: UUID) -> bool:
         return True
     return False
 
+

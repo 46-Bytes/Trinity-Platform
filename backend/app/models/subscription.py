@@ -146,3 +146,4 @@ class Subscription(Base):
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
+

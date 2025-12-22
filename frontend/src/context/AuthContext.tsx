@@ -26,6 +26,7 @@ function mapBackendUserToFrontend(backendUser: any): User {
     role: role,
     avatar: backendUser.picture || undefined,
     bio: backendUser.bio || undefined,
+    firmId: backendUser.firm_id || undefined,
     createdAt: backendUser.created_at || new Date().toISOString(),
   };
 }

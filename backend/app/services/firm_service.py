@@ -85,6 +85,10 @@ class FirmService:
             current_period_end=datetime.utcnow() + timedelta(days=30)
         )
         self.db.add(subscription)
+        self.db.flush()  # Get subscription.id
+        
+        # Link subscription to firm
+        firm.subscription_id = subscription.id
         
         self.db.commit()
         self.db.refresh(firm)
@@ -217,7 +221,7 @@ class FirmService:
         
         return self.db.query(User).filter(
             User.firm_id == firm_id,
-            User.role.in_([UserRole.FIRM_ADMIN, UserRole.FIRM_ADVISOR])
+            User.role.in_([UserRole.FIRM_ADVISOR])
         ).all()
     
     def get_firm_engagements(self, firm_id: UUID, current_user: User) -> List[Engagement]:
@@ -320,6 +324,102 @@ class FirmService:
     def get_firm_by_admin_id(self, admin_id: UUID) -> Optional[Firm]:
         """Get firm by Firm Admin ID."""
         return self.db.query(Firm).filter(Firm.firm_admin_id == admin_id).first()
+    
+    def add_client_to_firm(
+        self,
+        firm_id: UUID,
+        email: str,
+        name: Optional[str] = None,
+        given_name: Optional[str] = None,
+        family_name: Optional[str] = None,
+        added_by: UUID = None
+    ) -> User:
+        """
+        Add a client to a firm.
+        
+        If the client doesn't exist, creates a new user with CLIENT role.
+        If the client exists, associates them with the firm.
+        Adds the client ID to the firm's clients array.
+        
+        Args:
+            firm_id: ID of the firm
+            email: Email address of the client
+            name: Full name of the client (optional)
+            given_name: First name (optional)
+            family_name: Last name (optional)
+            added_by: ID of the user adding the client (for permissions)
+            
+        Returns:
+            User object (client)
+        """
+        # Verify firm exists
+        firm = self.db.query(Firm).filter(Firm.id == firm_id).first()
+        if not firm:
+            raise ValueError("Firm not found")
+        
+        # Check permissions if added_by is provided
+        if added_by:
+            adder = self.db.query(User).filter(User.id == added_by).first()
+            if not adder or adder.firm_id != firm_id:
+                raise ValueError("Insufficient permissions to add clients to this firm")
+            if adder.role not in [UserRole.FIRM_ADMIN, UserRole.SUPER_ADMIN, UserRole.ADMIN]:
+                raise ValueError("Only Firm Admins can add clients")
+        
+        # Check if client already exists
+        client = self.db.query(User).filter(User.email == email).first()
+        
+        if client:
+            # Client exists - check if already in this firm
+            if firm.clients and client.id in firm.clients:
+                raise ValueError("Client is already associated with this firm")
+            
+            # Update client to be associated with firm
+            client.firm_id = firm_id
+            if name:
+                client.name = name
+            if given_name:
+                client.given_name = given_name
+            if family_name:
+                client.family_name = family_name
+            if client.role != UserRole.CLIENT:
+                client.role = UserRole.CLIENT
+        else:
+            # Create new client user
+            # Generate a temporary auth0_id (will be updated when they sign up via Auth0)
+            import uuid as uuid_lib
+            temp_auth0_id = f"temp_client_{uuid_lib.uuid4()}"
+            
+            client = User(
+                email=email,
+                auth0_id=temp_auth0_id,
+                name=name,
+                given_name=given_name,
+                family_name=family_name,
+                role=UserRole.CLIENT,
+                firm_id=firm_id,
+                email_verified=False,
+                is_active=True
+            )
+            self.db.add(client)
+            self.db.flush()  # Flush to get the client ID before adding to array
+        
+        # Initialize clients array if None
+        if firm.clients is None:
+            firm.clients = []
+        
+        # Add client ID to firm's clients array if not already present
+        if client.id not in firm.clients:
+            firm.clients.append(client.id)
+            # Mark the array as modified for SQLAlchemy to detect changes
+            from sqlalchemy.orm.attributes import flag_modified
+            flag_modified(firm, "clients")
+        
+        self.db.commit()
+        self.db.refresh(client)
+        self.db.refresh(firm)
+        
+        self.logger.info(f"Client {client.id} added to firm {firm_id}")
+        return client
 
 
 def get_firm_service(db: Session) -> FirmService:

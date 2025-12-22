@@ -37,7 +37,7 @@ export interface Client {
 }
 
 export interface UserRoleData {
-  user_role: 'advisor' | 'client' | 'admin';
+  user_role: 'advisor' | 'client' | 'admin' | 'firm_admin' | 'firm_advisor';
   advisors?: Advisor[];
   clients?: Client[];
 }

@@ -1,7 +1,7 @@
 """
 User model for PostgreSQL database.
 """
-from sqlalchemy import Column, String, DateTime, Boolean, Text, Enum, TypeDecorator
+from sqlalchemy import Column, String, DateTime, Boolean, Text, Enum, ForeignKey, TypeDecorator
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime

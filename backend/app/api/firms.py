@@ -26,6 +26,8 @@ from ..schemas.firm import (
     FirmAdvisorAdd,
     FirmAdvisorResponse,
     FirmAdvisorListResponse,
+    FirmClientAdd,
+    FirmClientResponse,
     FirmEngagementResponse,
     SubscriptionResponse,
     SeatUpdateRequest,
@@ -248,6 +250,35 @@ async def list_advisors(
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
+        )
+
+
+# ==================== Client Management ====================
+
+@router.post("/{firm_id}/clients", response_model=FirmClientResponse, status_code=status.HTTP_201_CREATED)
+async def add_client(
+    firm_id: UUID,
+    client_data: FirmClientAdd,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_from_token)
+):
+    """Add a client to a firm."""
+    try:
+        firm_service = get_firm_service(db)
+        client = firm_service.add_client_to_firm(
+            firm_id=firm_id,
+            email=client_data.email,
+            name=client_data.name,
+            given_name=client_data.given_name,
+            family_name=client_data.family_name,
+            added_by=current_user.id
+        )
+        
+        return FirmClientResponse.model_validate(client)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
 

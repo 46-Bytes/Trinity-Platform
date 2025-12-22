@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Search, MoreHorizontal, Building2, Loader2, Eye, FileText } from 'lucide-react';
+import { Search, MoreHorizontal, Building2, Loader2, Eye, FileText, Plus, Mail, Phone } from 'lucide-react';
 import { cn, getUniqueClientIds } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchEngagements } from '@/store/slices/engagementReducer';
+import { fetchFirmClients, addClientToFirm } from '@/store/slices/firmReducer';
 import { useAuth } from '@/context/AuthContext';
 import {
   DropdownMenu,
@@ -10,6 +11,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -23,21 +36,35 @@ interface Client {
   is_active: boolean;
   email_verified: boolean;
   role?: string;
+  contact?: string;
+  phone?: string;
 }
 
 export default function ClientsPage() {
   const dispatch = useAppDispatch();
   const { user } = useAuth();
   const { engagements, isLoading: engagementsLoading } = useAppSelector((state) => state.engagement);
+  const { clients: firmClients, isLoading: firmClientsLoading, error: firmError } = useAppSelector((state) => state.firm);
+  const { toast } = useToast();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    email: '',
+    name: '',
+    given_name: '',
+    family_name: '',
+  });
 
   // Check if user is advisor (including firm_advisor)
   const isAdvisor = user?.role === 'advisor' || user?.role === 'firm_advisor';
   // Check if user is admin (can access users API)
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  // Check if user is firm admin
+  const isFirmAdmin = user?.role === 'firm_admin';
 
   // Build clients from engagements for advisors
   const buildClientsFromEngagements = useCallback(() => {
@@ -89,6 +116,12 @@ export default function ClientsPage() {
   }, [isAdvisor, engagements]);
 
   const fetchClients = useCallback(async () => {
+    // For firm admin, use firm reducer clients
+    if (isFirmAdmin) {
+      dispatch(fetchFirmClients());
+      return;
+    }
+
     // For advisors, build clients from engagements instead of calling API
     if (isAdvisor) {
       setIsLoading(true);
@@ -139,24 +172,42 @@ export default function ClientsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [isAdvisor, isAdmin, buildClientsFromEngagements]);
+  }, [isAdvisor, isAdmin, isFirmAdmin, buildClientsFromEngagements, dispatch]);
 
   // Fetch engagements on mount
   useEffect(() => {
-    if (user) {
+    if (user && !isFirmAdmin) {
       dispatch(fetchEngagements(undefined));
     }
-  }, [dispatch, user]);
+  }, [dispatch, user, isFirmAdmin]);
 
   // Fetch clients when engagements are loaded (especially important for advisors)
   useEffect(() => {
-    if (user && !engagementsLoading) {
+    if (user && !engagementsLoading && !isFirmAdmin) {
       fetchClients();
     }
-  }, [user, engagementsLoading, fetchClients, engagements.length]);
+  }, [user, engagementsLoading, fetchClients, engagements.length, isFirmAdmin]);
+
+  // For firm admin, use clients from firm reducer
+  const clientsToUse = isFirmAdmin ? firmClients.map(client => ({
+    id: client.id,
+    name: client.name || 'Unknown',
+    email: client.email || '',
+    industry: '',
+    status: client.is_active ? 'Active' as const : 'Pending' as const,
+    engagements: 0,
+    is_active: client.is_active,
+    email_verified: false,
+    role: 'client',
+  })) : clients;
 
   // Merge client data with engagement data
   const clientsWithEngagements = useMemo<Client[]>(() => {
+    // For firm admin, return clients as-is
+    if (isFirmAdmin) {
+      return clientsToUse;
+    }
+
     // Create a map of client engagements
     const engagementMap = new Map<string, {
       industries: Set<string>;
@@ -183,7 +234,7 @@ export default function ClientsPage() {
     });
 
     // Merge client data with engagement data
-    return clients.map(client => {
+    return clientsToUse.map(client => {
       const clientEngagements = engagementMap.get(client.id) || {
         industries: new Set<string>(),
         engagementStatuses: new Set<string>(),
@@ -210,18 +261,55 @@ export default function ClientsPage() {
         engagements: clientEngagements.engagementCount,
       };
     });
-  }, [clients, engagements]);
+  }, [clientsToUse, engagements, isFirmAdmin]);
+
+  const industries = ['all', ...new Set(clientsWithEngagements.map(c => c.industry).filter(Boolean))];
+  const [industryFilter, setIndustryFilter] = useState('all');
 
   const filteredClients = clientsWithEngagements.filter(c => {
     const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.email.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
+    const matchesIndustry = industryFilter === 'all' || c.industry === industryFilter;
+    return matchesSearch && matchesIndustry;
   });
 
   const activeClientsCount = clientsWithEngagements.filter(c => c.status === 'Active').length;
   const totalClientsCount = clientsWithEngagements.length;
 
-  const isLoadingData = isLoading || engagementsLoading;
+  const isLoadingData = isLoading || engagementsLoading || (isFirmAdmin && firmClientsLoading);
+  const error = isFirmAdmin ? firmError : null;
+
+  const handleAddClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !isFirmAdmin) {
+      toast({
+        title: 'Error',
+        description: 'Only firm admins can add clients',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // For firm admin, we need to get the firm ID first
+      // This would need to be implemented based on your API
+      toast({
+        title: 'Error',
+        description: 'Add client functionality needs firm ID',
+        variant: 'destructive',
+      });
+      setIsAddDialogOpen(false);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to add client',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="space-y-6 w-full min-w-0" style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
@@ -230,6 +318,78 @@ export default function ClientsPage() {
           <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground break-words">Clients</h1>
           <p className="text-muted-foreground mt-1 break-words">Manage your client relationships</p>
         </div>
+        {isFirmAdmin && (
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="btn-primary">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Client
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New Client</DialogTitle>
+                <DialogDescription>
+                  Add a new client to your firm.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleAddClient} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    required
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="client@example.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="name">Full Name</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="John Doe"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="given_name">First Name</Label>
+                    <Input
+                      id="given_name"
+                      value={formData.given_name}
+                      onChange={(e) => setFormData({ ...formData, given_name: e.target.value })}
+                      placeholder="John"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="family_name">Last Name</Label>
+                    <Input
+                      id="family_name"
+                      value={formData.family_name}
+                      onChange={(e) => setFormData({ ...formData, family_name: e.target.value })}
+                      placeholder="Doe"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsAddDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? 'Adding...' : 'Add Client'}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 w-full min-w-0">
@@ -241,7 +401,19 @@ export default function ClientsPage() {
           <p className="text-sm text-muted-foreground break-words">Active Clients</p>
           <p className="text-xl sm:text-2xl font-heading font-bold mt-1 break-words">{activeClientsCount}</p>
         </div>
+        <div className="stat-card w-full min-w-0" style={{ maxWidth: '100%' }}>
+          <p className="text-sm text-muted-foreground break-words">Total Engagements</p>
+          <p className="text-xl sm:text-2xl font-heading font-bold mt-1 break-words">
+            {clientsWithEngagements.reduce((sum, c) => sum + c.engagements, 0)}
+          </p>
+        </div>
       </div>
+
+      {error && (
+        <div className="card-trinity p-4 bg-destructive/10 border border-destructive/20">
+          <p className="text-destructive">{error}</p>
+        </div>
+      )}
 
       {isLoadingData && (
         <div className="flex items-center justify-center py-12">
@@ -253,7 +425,7 @@ export default function ClientsPage() {
       {!isLoadingData && (
         <div className="card-trinity p-3 sm:p-4 md:p-6 w-full min-w-0" style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
           <div className="mb-4 sm:mb-6 w-full min-w-0">
-            <div className="relative w-full max-w-md">
+            <div className="relative w-full max-w-md mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 type="text"
@@ -264,6 +436,18 @@ export default function ClientsPage() {
                 style={{ maxWidth: '100%' }}
               />
             </div>
+            {industries.length > 1 && (
+              <select 
+                className="input-trinity w-full sm:w-48"
+                value={industryFilter}
+                onChange={(e) => setIndustryFilter(e.target.value)}
+              >
+                <option value="all">All Industries</option>
+                {industries.filter(i => i !== 'all').map((industry) => (
+                  <option key={industry} value={industry}>{industry}</option>
+                ))}
+              </select>
+            )}
           </div>
 
           {filteredClients.length === 0 ? (

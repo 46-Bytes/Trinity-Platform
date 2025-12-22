@@ -310,6 +310,76 @@ async def get_user_role_data(
             ]
         }
     
+    elif current_user.role == UserRole.FIRM_ADMIN:
+        # Firm Admin gets all clients from the firm's clients array
+        # and all advisors in their firm
+        from ..models.firm import Firm
+        
+        firm = db.query(Firm).filter(Firm.id == current_user.firm_id).first()
+        client_ids_list = firm.clients if firm and firm.clients else []
+        
+        if client_ids_list:
+            clients = db.query(User).filter(
+                User.id.in_(client_ids_list),
+                User.role == UserRole.CLIENT,
+                User.is_active == True
+            ).all()
+        else:
+            clients = []
+        
+        advisors = db.query(User).filter(
+            User.firm_id == current_user.firm_id,
+            User.role.in_([UserRole.FIRM_ADMIN, UserRole.FIRM_ADVISOR]),
+            User.is_active == True
+        ).all()
+        
+        return {
+            "user_role": "firm_admin",
+            "clients": [
+                {"id": str(client.id), "name": client.name or client.email}
+                for client in clients
+            ],
+            "advisors": [
+                {"id": str(advisor.id), "name": advisor.name or advisor.email}
+                for advisor in advisors
+            ]
+        }
+    
+    elif current_user.role == UserRole.FIRM_ADVISOR:
+        # Firm Advisor gets clients from the firm's clients array
+        # and advisors in their firm
+        from ..models.firm import Firm
+        
+        firm = db.query(Firm).filter(Firm.id == current_user.firm_id).first()
+        client_ids_list = firm.clients if firm and firm.clients else []
+        
+        if client_ids_list:
+            clients = db.query(User).filter(
+                User.id.in_(client_ids_list),
+                User.role == UserRole.CLIENT,
+                User.is_active == True
+            ).all()
+        else:
+            clients = []
+        
+        advisors = db.query(User).filter(
+            User.firm_id == current_user.firm_id,
+            User.role.in_([UserRole.FIRM_ADMIN, UserRole.FIRM_ADVISOR]),
+            User.is_active == True
+        ).all()
+        
+        return {
+            "user_role": "firm_advisor",
+            "clients": [
+                {"id": str(client.id), "name": client.name or client.email}
+                for client in clients
+            ],
+            "advisors": [
+                {"id": str(advisor.id), "name": advisor.name or advisor.email}
+                for advisor in advisors
+            ]
+        }
+    
     elif current_user.role == UserRole.CLIENT:
         # Get all advisors (for now - can be filtered by firm later)
         advisors = db.query(User).filter(

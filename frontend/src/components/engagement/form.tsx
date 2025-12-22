@@ -39,6 +39,12 @@ const baseSchemaFields = {
   description: z.string().min(10, {
     message: "Description must be at least 10 characters.",
   }),
+  // Client must always be selected
+  clientId: z.string().min(1, {
+    message: "Please select a client.",
+  }),
+  // Primary advisor is required at runtime for firm admins, but optional in schema
+  primaryAdvisorId: z.string().optional(),
   tool: z.enum(['diagnostic', 'kpi_builder'], {
     message: "Please select a tool.",
   }),
@@ -378,40 +384,57 @@ export function EngagementForm({
           {!isAdmin && userRoleData && (
             <FormField
               control={form.control}
-              name="clientOrAdvisorId"
+              name="clientId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>
-                    {userRoleData.user_role === 'advisor' ? 'Select Client' : 'Select Advisor'}
-                  </FormLabel>
+                  <FormLabel>Select Client</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder={`Select a ${userRoleData.user_role === 'advisor' ? 'client' : 'advisor'}`} />
+                        <SelectValue placeholder="Select a client" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {userRoleData.user_role === 'advisor' && userRoleData.clients ? (
-                        userRoleData.clients.map((client) => (
-                          <SelectItem key={client.id} value={client.id}>
-                            {client.name}
-                          </SelectItem>
-                        ))
-                      ) : userRoleData.advisors ? (
-                        userRoleData.advisors.map((advisor) => (
-                          <SelectItem key={advisor.id} value={advisor.id}>
-                            {advisor.name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="none" disabled>No options available</SelectItem>
-                      )}
+                      {userRoleData.clients.map((client) => (
+                        <SelectItem key={client.id} value={client.id}>
+                          {client.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormDescription>
-                    {userRoleData.user_role === 'advisor' 
-                      ? 'Choose the client.' 
-                      : 'Choose the advisor.'}
+                    Choose the client for this engagement.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          {/* Primary Advisor Dropdown - visible for firm/admin roles */}
+          {userRoleData && userRoleData.advisors && (
+            <FormField
+              control={form.control}
+              name="primaryAdvisorId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Select Primary Advisor</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a primary advisor" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {userRoleData.advisors.map((advisor) => (
+                        <SelectItem key={advisor.id} value={advisor.id}>
+                          {advisor.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    Choose the primary advisor for this engagement.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

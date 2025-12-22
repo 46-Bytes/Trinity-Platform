@@ -224,6 +224,192 @@ class FirmService:
             User.role.in_([UserRole.FIRM_ADVISOR])
         ).all()
     
+    def get_advisor_engagements(self, firm_id: UUID, advisor_id: UUID, current_user: User) -> Dict[str, List[Engagement]]:
+        """
+        Get all engagements where an advisor is involved (primary or secondary).
+        
+        Returns:
+            Dict with 'primary' and 'secondary' keys containing lists of engagements
+        """
+        if not can_view_firm_engagements(current_user, firm_id):
+            raise ValueError("Insufficient permissions")
+        
+        advisor = self.db.query(User).filter(User.id == advisor_id).first()
+        if not advisor or advisor.firm_id != firm_id:
+            raise ValueError("Advisor not found in firm")
+        
+        # Get engagements where advisor is primary
+        primary_engagements = self.db.query(Engagement).filter(
+            Engagement.primary_advisor_id == advisor_id,
+            Engagement.firm_id == firm_id
+        ).all()
+        
+        # Get engagements where advisor is secondary
+        secondary_engagements = self.db.query(Engagement).filter(
+            Engagement.firm_id == firm_id
+        ).all()
+        
+        # Filter to only those where advisor is in secondary_advisor_ids
+        secondary_list = [
+            eng for eng in secondary_engagements
+            if eng.secondary_advisor_ids and advisor_id in eng.secondary_advisor_ids
+        ]
+        
+        return {
+            "primary": primary_engagements,
+            "secondary": secondary_list
+        }
+    
+    def suspend_advisor(
+        self,
+        firm_id: UUID,
+        advisor_id: UUID,
+        suspended_by_user_id: UUID,
+        reassignments: Optional[Dict[UUID, UUID]] = None
+    ) -> User:
+        """
+        Suspend an advisor (temporary deactivation).
+        
+        Args:
+            firm_id: Firm ID
+            advisor_id: Advisor to suspend
+            suspended_by_user_id: User performing the suspension
+            reassignments: Dict mapping engagement_id -> new_primary_advisor_id for primary engagements
+        
+        Returns:
+            Suspended User object
+        """
+        # Check permissions
+        suspended_by = self.db.query(User).filter(User.id == suspended_by_user_id).first()
+        if not can_manage_firm_users(suspended_by, firm_id):
+            raise ValueError("Only Firm Admins can suspend advisors")
+        
+        firm = self.db.query(Firm).filter(Firm.id == firm_id).first()
+        advisor = self.db.query(User).filter(User.id == advisor_id).first()
+        
+        if not advisor or advisor.firm_id != firm_id:
+            raise ValueError("Advisor not found in firm")
+        
+        if advisor.role == UserRole.FIRM_ADMIN:
+            raise ValueError("Cannot suspend Firm Admin")
+        
+        if not advisor.is_active:
+            raise ValueError("Advisor is already suspended")
+        
+        # Get all active advisors in firm (excluding the one being suspended)
+        active_advisors = self.db.query(User).filter(
+            User.firm_id == firm_id,
+            User.role.in_([UserRole.FIRM_ADMIN, UserRole.FIRM_ADVISOR]),
+            User.is_active == True,
+            User.id != advisor_id
+        ).all()
+        
+        # Get engagements where advisor is primary
+        primary_engagements = self.db.query(Engagement).filter(
+            Engagement.primary_advisor_id == advisor_id,
+            Engagement.firm_id == firm_id
+        ).all()
+        
+        # Handle primary advisor reassignments
+        if primary_engagements:
+            if not reassignments:
+                raise ValueError("Reassignments required for primary advisor engagements")
+            
+            for engagement in primary_engagements:
+                new_advisor_id = reassignments.get(engagement.id)
+                if not new_advisor_id:
+                    raise ValueError(f"Reassignment required for engagement {engagement.id}")
+                
+                # Verify new advisor is active and in the same firm
+                new_advisor = self.db.query(User).filter(
+                    User.id == new_advisor_id,
+                    User.firm_id == firm_id,
+                    User.is_active == True
+                ).first()
+                
+                if not new_advisor:
+                    raise ValueError(f"New advisor {new_advisor_id} not found or not active in firm")
+                
+                # Reassign
+                engagement.primary_advisor_id = new_advisor_id
+                
+                # Remove old advisor from secondary if present
+                if engagement.secondary_advisor_ids and advisor_id in engagement.secondary_advisor_ids:
+                    engagement.secondary_advisor_ids = [
+                        aid for aid in engagement.secondary_advisor_ids if aid != advisor_id
+                    ]
+        
+        # Remove from secondary advisor lists
+        secondary_engagements = self.db.query(Engagement).filter(
+            Engagement.firm_id == firm_id
+        ).all()
+        
+        for engagement in secondary_engagements:
+            if engagement.secondary_advisor_ids and advisor_id in engagement.secondary_advisor_ids:
+                engagement.secondary_advisor_ids = [
+                    aid for aid in engagement.secondary_advisor_ids if aid != advisor_id
+                ]
+        
+        # Suspend advisor (keep in firm but deactivate)
+        # NOTE: Do NOT decrement seats_used - suspended advisors still count as seats
+        advisor.is_active = False
+        
+        self.db.commit()
+        self.db.refresh(advisor)
+        
+        self.logger.info(f"Advisor {advisor_id} suspended in firm {firm_id}")
+        return advisor
+    
+    def reactivate_advisor(
+        self,
+        firm_id: UUID,
+        advisor_id: UUID,
+        reactivated_by_user_id: UUID
+    ) -> User:
+        """
+        Reactivate a suspended advisor.
+        
+        Args:
+            firm_id: Firm ID
+            advisor_id: Advisor to reactivate
+            reactivated_by_user_id: User performing the reactivation
+        
+        Returns:
+            Reactivated User object
+        """
+        # Check permissions
+        reactivated_by = self.db.query(User).filter(User.id == reactivated_by_user_id).first()
+        if not can_manage_firm_users(reactivated_by, firm_id):
+            raise ValueError("Only Firm Admins can reactivate advisors")
+        
+        firm = self.db.query(Firm).filter(Firm.id == firm_id).first()
+        advisor = self.db.query(User).filter(User.id == advisor_id).first()
+        
+        if not advisor or advisor.firm_id != firm_id:
+            raise ValueError("Advisor not found in firm")
+        
+        if advisor.role == UserRole.FIRM_ADMIN:
+            raise ValueError("Cannot reactivate Firm Admin (they should always be active)")
+        
+        if advisor.is_active:
+            raise ValueError("Advisor is already active")
+        
+        # Check seat availability
+        if firm.seats_used >= firm.seat_count:
+            raise ValueError(f"Firm has reached seat limit ({firm.seat_count}). Cannot reactivate advisor.")
+        
+        # Reactivate advisor
+        advisor.is_active = True
+        
+        # Increment seat usage (suspended advisors don't count, so we add them back)
+        firm.seats_used += 1
+        
+        self.db.commit()
+        self.db.refresh(advisor)
+        
+        self.logger.info(f"Advisor {advisor_id} reactivated in firm {firm_id}")
+        return advisor
+    
     def get_firm_engagements(self, firm_id: UUID, current_user: User) -> List[Engagement]:
         """Get all engagements for a firm."""
         if not can_view_firm_engagements(current_user, firm_id):

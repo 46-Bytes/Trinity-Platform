@@ -2,7 +2,7 @@
 Firm schemas for API requests/responses.
 """
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime
 from uuid import UUID
 
@@ -148,5 +148,13 @@ class EngagementReassignRequest(BaseModel):
     """Schema for reassigning an engagement."""
     new_primary_advisor_id: UUID = Field(..., description="ID of the new primary advisor")
     engagement_id: UUID = Field(..., description="ID of the engagement to reassign")
+
+
+class AdvisorSuspendRequest(BaseModel):
+    """Schema for suspending an advisor with engagement reassignments."""
+    reassignments: Optional[Dict[str, str]] = Field(
+        None, 
+        description="Dict mapping engagement_id (string) to new_primary_advisor_id (string) for primary engagements"
+    )
 
 

@@ -357,7 +357,12 @@ export default function AdvisorsPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="stat-card">
             <p className="text-sm text-muted-foreground">Total Advisors</p>
-            <p className="text-2xl font-heading font-bold mt-1">{advisors.length}</p>
+            <p className="text-2xl font-heading font-bold mt-1">
+              {advisors.length}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Firm Advisors only
+            </p>
           </div>
           <div className="stat-card">
             <p className="text-sm text-muted-foreground">Active Advisors</p>
@@ -368,7 +373,10 @@ export default function AdvisorsPage() {
           <div className="stat-card">
             <p className="text-sm text-muted-foreground">Seats Used</p>
             <p className="text-2xl font-heading font-bold mt-1">
-              {firm.seats_used} / {firm.seat_count}
+              {firm.seats_used ?? 0} / {firm?.seat_count ?? 0}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {firm.seat_count - firm.seats_used} available
             </p>
           </div>
         </div>

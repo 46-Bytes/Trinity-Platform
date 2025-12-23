@@ -182,6 +182,10 @@ class AuthService:
             else:
                 print(f" Preserving existing role: {user.role.value} (no role in Auth0 metadata)")
             
+            # IMPORTANT: Don't overwrite existing user's role from database
+            # The database role is the source of truth - keep it as-is
+            # Only update role for brand new users (handled in else block below)
+            
             user.last_login = datetime.utcnow()
             user.updated_at = datetime.utcnow()
         else:

@@ -1,7 +1,7 @@
 import { useAuth } from '@/context/AuthContext';
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { fetchFirm, fetchFirmAdvisors, fetchFirmClients } from '@/store/slices/firmReducer';
+import { fetchFirm, fetchFirmAdvisors, fetchFirmClients, fetchFirmStats } from '@/store/slices/firmReducer';
 import { StatCard } from '@/components/ui/stat-card';
 import { 
   Users, 
@@ -510,7 +510,7 @@ function AdminDashboard() {
 
 function FirmAdminDashboard() {
   const dispatch = useAppDispatch();
-  const { firm, advisors, clients, isLoading } = useAppSelector((state) => state.firm);
+  const { firm, advisors, clients, stats, isLoading } = useAppSelector((state) => state.firm);
 
   useEffect(() => {
     if (!firm) {
@@ -522,21 +522,26 @@ function FirmAdminDashboard() {
     if (firm?.id) {
       dispatch(fetchFirmAdvisors(firm.id));
       dispatch(fetchFirmClients());
+      dispatch(fetchFirmStats(firm.id));
     }
   }, [dispatch, firm?.id]);
 
-  const activeAdvisors = advisors.filter((a) => a.is_active);
-  const seatsUsed = firm?.seats_used ?? activeAdvisors.length;
+  // Total advisors includes all Firm Advisors (active + suspended), NOT including Firm Admin
+  const totalAdvisors = stats?.advisors_count ?? advisors.length;
+  // Seats used should only count active Firm Advisors (Firm Admin does NOT count toward seats)
+  const seatsUsed = stats?.seats_used ?? advisors.filter((a) => a.is_active).length;
   const seatCount = firm?.seat_count ?? 0;
-  const availableSeats = Math.max(seatCount - seatsUsed, 0);
+  // Use stats for available seats to ensure consistency
+  const availableSeats = stats?.seats_available ?? Math.max(seatCount - seatsUsed, 0);
   const totalClients = clients.length;
+  const activeEngagements = stats?.active_engagements ?? 0;
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
           title="Firm Advisors" 
-          value={String(activeAdvisors.length)} 
+          value={String(totalAdvisors)} 
           change={`${availableSeats} available seats`} 
           changeType="neutral"
           icon={Users}
@@ -548,7 +553,7 @@ function FirmAdminDashboard() {
         />
         <StatCard 
           title="Active Engagements" 
-          value="38" 
+          value={String(activeEngagements)} 
           icon={FolderOpen}
         />
         <StatCard 
@@ -597,8 +602,14 @@ function FirmAdminDashboard() {
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Seats used</span>
-              <span className="font-medium">{seatsUsed} / {seatCount || '-'}</span>
+              <span className="font-medium">{stats?.seats_used ?? seatsUsed} / {seatCount || '-'}</span>
             </div>
+            {stats?.seats_available !== undefined && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Seats available</span>
+                <span className="font-medium">{stats.seats_available}</span>
+              </div>
+            )}
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Next billing</span>
               <span className="font-medium">Jan 1, 2025</span>

@@ -121,9 +121,16 @@ class User(Base):
     auth0_id = Column(
         String(255),
         unique=True,
-        nullable=False,
+        nullable=True,  # Allow NULL for users created with email/password
         index=True,
-        comment="Auth0 user ID (sub claim from token)"
+        comment="Auth0 user ID (sub claim from token). NULL for email/password users."
+    )
+    
+    # Password (for email/password authentication)
+    hashed_password = Column(
+        String(255),
+        nullable=True,
+        comment="Hashed password for email/password authentication"
     )
     
     # Basic Information

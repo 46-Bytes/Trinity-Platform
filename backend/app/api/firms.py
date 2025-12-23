@@ -242,11 +242,22 @@ async def list_advisors(
         if not firm:
             raise HTTPException(status_code=404, detail="Firm not found")
         
+        # Calculate seats_used based on total Firm Advisors in the firm (active + suspended).
+        # Firm Admin does NOT consume a billed seat.
+        from sqlalchemy import func
+        total_advisors = db.query(func.count(User.id)).filter(
+            User.firm_id == firm_id,
+            User.role == UserRole.FIRM_ADVISOR,
+        ).scalar() or 0
+        
+        seats_used = total_advisors
+        seats_available = max(0, firm.seat_count - seats_used)
+        
         return FirmAdvisorListResponse(
             advisors=[FirmAdvisorResponse.model_validate(a) for a in advisors],
             total=len(advisors),
-            seats_used=firm.seats_used,
-            seats_available=firm.seat_count - firm.seats_used
+            seats_used=seats_used,
+            seats_available=seats_available
         )
     except ValueError as e:
         raise HTTPException(
@@ -598,15 +609,31 @@ async def get_firm_stats(
         Engagement.firm_id == firm_id
     ).scalar() or 0
     
-    # Count advisors
-    advisors_count = firm.seats_used
+    # Count total advisors (FIRM_ADVISOR only, NOT including Firm Admin)
+    total_advisors = db.query(func.count(User.id)).filter(
+        User.firm_id == firm_id,
+        User.role == UserRole.FIRM_ADVISOR
+    ).scalar() or 0
+    
+    # Count active advisors only (FIRM_ADVISOR only, NOT including Firm Admin)
+    active_advisors_count = db.query(func.count(User.id)).filter(
+        User.firm_id == firm_id,
+        User.role == UserRole.FIRM_ADVISOR,
+        User.is_active == True
+    ).scalar() or 0
+    
+    # Seats used = total Firm Advisors in the firm (active + suspended).
+    # Firm Admin does NOT consume a billed seat.
+    seats_used = total_advisors
+    seats_available = max(0, firm.seat_count - seats_used)
     
     return {
         "firm_id": str(firm_id),
         "firm_name": firm.firm_name,
-        "advisors_count": advisors_count,
-        "seats_used": firm.seats_used,
-        "seats_available": firm.seat_count - firm.seats_used,
+        "advisors_count": total_advisors,  # Total advisors (active + suspended)
+        "active_advisors_count": active_advisors_count,  # Only active advisors
+        "seats_used": seats_used,  # Active advisors only (for billing)
+        "seats_available": seats_available,
         "engagements_count": engagements_count,
         "active_engagements": active_engagements,
         "diagnostics_count": diagnostics_count,

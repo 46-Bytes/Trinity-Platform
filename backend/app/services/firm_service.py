@@ -139,10 +139,9 @@ class FirmService:
             advisor.role = UserRole.FIRM_ADVISOR
             advisor.name = advisor_name or advisor.name
         else:
-            # Create new user (will need Auth0 setup separately)
-            # For now, create with placeholder auth0_id
+            # Create new user placeholder; real credentials managed in Auth0
             advisor = User(
-                auth0_id=f"firm_{firm_id}_{advisor_email}",  # Placeholder - needs real Auth0 ID
+                auth0_id=f"firm_{firm_id}_{advisor_email}",  # Placeholder - real Auth0 ID will be linked later
                 email=advisor_email,
                 name=advisor_name,
                 role=UserRole.FIRM_ADVISOR,
@@ -382,7 +381,6 @@ class FirmService:
         if not can_manage_firm_users(reactivated_by, firm_id):
             raise ValueError("Only Firm Admins can reactivate advisors")
         
-        firm = self.db.query(Firm).filter(Firm.id == firm_id).first()
         advisor = self.db.query(User).filter(User.id == advisor_id).first()
         
         if not advisor or advisor.firm_id != firm_id:
@@ -394,15 +392,8 @@ class FirmService:
         if advisor.is_active:
             raise ValueError("Advisor is already active")
         
-        # Check seat availability
-        if firm.seats_used >= firm.seat_count:
-            raise ValueError(f"Firm has reached seat limit ({firm.seat_count}). Cannot reactivate advisor.")
-        
         # Reactivate advisor
         advisor.is_active = True
-        
-        # Increment seat usage (suspended advisors don't count, so we add them back)
-        firm.seats_used += 1
         
         self.db.commit()
         self.db.refresh(advisor)
@@ -570,14 +561,10 @@ class FirmService:
             if client.role != UserRole.CLIENT:
                 client.role = UserRole.CLIENT
         else:
-            # Create new client user
-            # Generate a temporary auth0_id (will be updated when they sign up via Auth0)
-            import uuid as uuid_lib
-            temp_auth0_id = f"temp_client_{uuid_lib.uuid4()}"
-            
+            # Create new client user placeholder; real credentials managed in Auth0
             client = User(
                 email=email,
-                auth0_id=temp_auth0_id,
+                auth0_id=f"temp_client_{uuid_lib.uuid4()}",
                 name=name,
                 given_name=given_name,
                 family_name=family_name,

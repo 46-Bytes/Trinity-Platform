@@ -1,15 +1,20 @@
 """
-Authentication API routes using Auth0 Universal Login.
+Authentication API routes using Auth0 Universal Login and email/password.
 """
 from dotenv.main import logger
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, Request, HTTPException, status
 from fastapi.responses import RedirectResponse
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from urllib.parse import urlencode, quote_plus
+from pydantic import BaseModel, EmailStr
+from datetime import datetime, timedelta
+from jose import jwt
 from ..database import get_db
 from ..services.auth_service import AuthService
 from ..config import settings
 from ..utils.auth import get_current_user, get_token_expiry_time
+from ..utils.password import hash_password, verify_password
 from ..models.user import User
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -221,6 +226,82 @@ async def check_auth(request: Request):
         "authenticated": user_session is not None,
         "session_keys": list(request.session.keys()),
         "has_user": 'user' in request.session
+    }
+
+
+# ==================== Email/Password Login ====================
+
+class EmailPasswordLogin(BaseModel):
+    """Schema for email/password login."""
+    email: EmailStr
+    password: str
+
+
+@router.post("/login-email")
+async def login_email_password(
+    login_data: EmailPasswordLogin,
+    db: Session = Depends(get_db),
+    request: Request = None
+):
+    """
+    Login with email and password.
+    
+    This endpoint:
+    1. Finds user by email
+    2. Verifies password
+    3. Returns user info with role from database
+    """
+    # Find user by email
+    user = db.query(User).filter(User.email == login_data.email).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password"
+        )
+    
+    # Check if user has a password (email/password users)
+    if not user.hashed_password:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="This account does not have a password set. Please use Auth0 login."
+        )
+    
+    # Verify password
+    if not verify_password(login_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password"
+        )
+    
+    # Check if user is active
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is suspended"
+        )
+    
+    # Update last login
+    user.last_login = datetime.utcnow()
+    db.commit()
+    
+    # Create a simple JWT token for the frontend
+    token_secret = settings.SECRET_KEY or 'your-secret-key-change-in-production'
+    token_expiry = datetime.utcnow() + timedelta(days=7)
+    
+    token_payload = {
+        "sub": str(user.id),  # Use user ID instead of auth0_id
+        "email": user.email,
+        "role": user.role.value if user.role else "advisor",
+        "exp": token_expiry
+    }
+    
+    token = jwt.encode(token_payload, token_secret, algorithm="HS256")
+    
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": user.to_dict()
     }
 
 

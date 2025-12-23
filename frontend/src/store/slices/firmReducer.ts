@@ -35,10 +35,26 @@ export interface Client {
   created_at: string;
 }
 
+export interface FirmStats {
+  firm_id: string;
+  firm_name: string;
+  advisors_count: number;  // Total advisors (active + suspended)
+  active_advisors_count?: number;  // Only active advisors
+  seats_used: number;  // Active advisors only (for billing)
+  seats_available: number;
+  engagements_count: number;
+  active_engagements: number;
+  diagnostics_count: number;
+  tasks_count: number;
+}
+
 interface FirmState {
   firm: Firm | null;
   advisors: Advisor[];
   clients: Client[];
+  stats: FirmStats | null;
+  seats_used: number | null;  // From advisors API response
+  seats_available: number | null;  // From advisors API response
   isLoading: boolean;
   error: string | null;
 }
@@ -92,7 +108,11 @@ export const fetchFirmAdvisors = createAsyncThunk(
       }
 
       const data = await response.json();
-      return (data.advisors || data) as Advisor[];
+      return {
+        advisors: (data.advisors || data) as Advisor[],
+        seats_used: data.seats_used as number,
+        seats_available: data.seats_available as number,
+      };
     } catch (error) {
       return rejectWithValue(error instanceof Error ? error.message : 'Failed to fetch advisors');
     }
@@ -223,6 +243,27 @@ export const reactivateAdvisor = createAsyncThunk(
   }
 );
 
+export const fetchFirmStats = createAsyncThunk(
+  'firm/fetchFirmStats',
+  async (firmId: string, { rejectWithValue }) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/firms/${firmId}/stats`, {
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to fetch firm stats' }));
+        throw new Error(errorData.detail || 'Failed to fetch firm stats');
+      }
+
+      const data = await response.json();
+      return data as FirmStats;
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to fetch firm stats');
+    }
+  }
+);
+
 export const fetchFirmClients = createAsyncThunk(
   'firm/fetchFirmClients',
   async (_, { rejectWithValue }) => {
@@ -285,6 +326,9 @@ const initialState: FirmState = {
   firm: null,
   advisors: [],
   clients: [],
+  stats: null,
+  seats_used: null,
+  seats_available: null,
   isLoading: false,
   error: null,
 };
@@ -321,7 +365,9 @@ const firmSlice = createSlice({
       })
       .addCase(fetchFirmAdvisors.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.advisors = action.payload;
+        state.advisors = action.payload.advisors;
+        state.seats_used = action.payload.seats_used;
+        state.seats_available = action.payload.seats_available;
       })
       .addCase(fetchFirmAdvisors.rejected, (state, action) => {
         state.isLoading = false;
@@ -389,10 +435,6 @@ const firmSlice = createSlice({
         const index = state.advisors.findIndex(a => a.id === action.payload.id);
         if (index !== -1) {
           state.advisors[index] = action.payload;
-        }
-        // Increment seats_used when an advisor is reactivated
-        if (state.firm) {
-          state.firm.seats_used = (state.firm.seats_used || 0) + 1;
         }
       })
       .addCase(reactivateAdvisor.rejected, (state, action) => {

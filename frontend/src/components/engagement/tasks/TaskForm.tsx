@@ -261,15 +261,24 @@ export function TaskForm({ task, engagementId, onSubmit, onCancel }: TaskFormPro
           <FormField
             control={form.control}
             name="dueDate"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Due Date</FormLabel>
-                <FormControl>
-                  <Input type="date" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
+            render={({ field }) => {
+              // Get today's date in YYYY-MM-DD format for min attribute
+              const today = new Date().toISOString().split('T')[0];
+              
+              return (
+                <FormItem>
+                  <FormLabel>Due Date</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="date" 
+                      {...field} 
+                      min={today}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              );
+            }}
           />
         </div>
 

@@ -10,6 +10,8 @@ export interface GeneratedFileProps {
   generatedBy?: string;
   size?: string;
   toolType?: string; // e.g., 'business-plan', 'diagnostic', 'position-description'
+  relativePath?: string; // Path for downloading the file
+  diagnosticId?: string; // Diagnostic ID for report downloads
   onDownload?: (id: string) => void;
 }
 
@@ -30,6 +32,7 @@ const fileTypeColors = {
 };
 
 export function GeneratedFile({
+  id,
   name,
   type,
   generatedAt,
@@ -95,7 +98,7 @@ export function GeneratedFile({
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => onDownload?.('')}
+        onClick={() => onDownload?.(id)}
         className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
       >
         <Download className="w-4 h-4 mr-2" />

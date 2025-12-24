@@ -341,18 +341,18 @@ class OpenAIService:
         # Build context similar to PHP implementation
         context = (
             f"You are an expert business advisor named 'Trinity'. "
-            f"Based on the following diagnostic data, provide a JSON array of tasks "
+            f"Based on the following diagnostic data, provide a JSON object with a 'tasks' array containing tasks "
             f"a business owner should action within the next 30 days.\n\n"
             f"Summary: {diagnostic_summary}\n\n"
             f"Diagnostic Data (Q&A): {json.dumps(json_extract)}\n\n"
             f"Priority Roadmap (Modules by Priority):\n{json.dumps(roadmap, indent=2)}\n\n"
             f"Focus on the highest priority modules (lowest rank = highest priority).\n\n"
-            f"Template: [{{"
+            f"Template: {{\"tasks\": [{{"
             f'"title": "Task Title", '
             f'"description": "Task description with step-by-step instructions. Every step must be in a new line with 1. 2. 3. Numbering", '
             f'"category": "general|legal-licensing|financial|operations|human-resources|customers|competitive-forces|due-diligence|tax", '
             f'"priority": "low|medium|high|critical"'
-            f"}}]\n\n"
+            f"}}]}}\n\n"
             f"{task_prompt}"
         )
         
@@ -369,9 +369,9 @@ class OpenAIService:
                     f"Generate at least 1-2 tasks for each of the top 3-5 priority modules. "
                     f"Cover different categories to ensure comprehensive coverage. "
                     f"Provide detailed descriptions with step-by-step instructions for each task. "
-                    f"CRITICAL: Return a JSON ARRAY containing MULTIPLE task objects. "
-                    f"Format: [{{task1}}, {{task2}}, {{task3}}, ...] with at least 5-10 tasks. "
-                    f"Return ONLY the JSON array, no markdown, no wrapping object."
+                    f"CRITICAL: Return a JSON OBJECT with a 'tasks' key containing an array of task objects. "
+                    f"Format: {{\"tasks\": [{{task1}}, {{task2}}, {{task3}}, ...]}} with at least 5-10 tasks. "
+                    f"Return ONLY the JSON object, no markdown, no explanations."
                 )
             }
         ]

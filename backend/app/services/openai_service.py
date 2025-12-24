@@ -3,6 +3,7 @@ OpenAI service for GPT interactions using Responses API
 """
 from typing import Dict, Any, List, Optional
 import json
+import os
 from openai import OpenAI
 from app.config import settings
 import logging
@@ -14,7 +15,21 @@ class OpenAIService:
     
     def __init__(self):
         """Initialize OpenAI client"""
-        self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        # Set timeout (None = no timeout, or specify seconds as float/int)
+        # Can be overridden via OPENAI_TIMEOUT env var (set to "None" string or number)
+        timeout_str = os.getenv("OPENAI_TIMEOUT", "None")
+        if timeout_str.lower() == "none" or timeout_str == "":
+            timeout = None
+        else:
+            try:
+                timeout = float(timeout_str)
+            except ValueError:
+                timeout = None  # Default to no timeout if invalid value
+        
+        self.client = OpenAI(
+            api_key=settings.OPENAI_API_KEY,
+            timeout=timeout  # None = no timeout, or specify seconds (e.g., 60.0 for 60 seconds)
+        )
         self.model = settings.OPENAI_MODEL
         self.temperature = settings.OPENAI_TEMPERATURE
     

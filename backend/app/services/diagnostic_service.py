@@ -194,6 +194,17 @@ class DiagnosticService:
             diagnostic.status = "completed"
             diagnostic.completed_at = datetime.utcnow()
             
+            # Link diagnostic to conversation for chat
+            from app.services.chat_service import get_chat_service
+            chat_service = get_chat_service(self.db)
+            conversation = chat_service.get_or_create_conversation(
+                user_id=diagnostic.created_by_user_id,
+                category="diagnostic",
+                diagnostic_id=diagnostic.id
+            )
+            diagnostic.conversation_id = conversation.id
+            logger.info(f"Linked diagnostic {diagnostic.id} to conversation {conversation.id}")
+            
         except Exception as e:
             # If processing fails, mark as failed
             diagnostic.status = "failed"

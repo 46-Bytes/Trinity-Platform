@@ -138,6 +138,7 @@ class User(Base):
     
     # Relationships
     media = relationship("Media", back_populates="user")
+    conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<User {self.email}>"

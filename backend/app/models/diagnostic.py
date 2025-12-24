@@ -23,6 +23,8 @@ class Diagnostic(Base):
     engagement_id = Column(UUID(as_uuid=True), ForeignKey('engagements.id', ondelete='CASCADE'), nullable=False, index=True)
     created_by_user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
     completed_by_user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
+    conversation_id = Column(UUID(as_uuid=True), ForeignKey('conversations.id', ondelete='SET NULL'), nullable=True, index=True,
+                           comment="Linked conversation for chat about this diagnostic")
     
     # Diagnostic metadata
     status = Column(String(50), nullable=False, server_default='draft', index=True, 
@@ -63,6 +65,7 @@ class Diagnostic(Base):
     tasks = relationship("Task", back_populates="diagnostic", cascade="all, delete-orphan")
     notes = relationship("Note", back_populates="diagnostic")
     media = relationship("Media", secondary="diagnostic_media", back_populates="diagnostics")
+    conversation = relationship("Conversation", back_populates="diagnostics")
     
     def __repr__(self):
         return f"<Diagnostic(id={self.id}, engagement_id={self.engagement_id}, status='{self.status}', score={self.overall_score})>"

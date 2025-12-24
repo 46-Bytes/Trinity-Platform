@@ -221,7 +221,7 @@ export default function EngagementsPage() {
                             <FileText className="w-4 h-4" />
                             Docs
                           </div>
-                          <p className="font-semibold">{engagement.diagnosticsCount || 0}</p>
+                          <p className="font-semibold">{engagement.documentsCount || 0}</p>
                         </div>
 
                         <div className="min-w-[120px]">

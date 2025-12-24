@@ -94,6 +94,7 @@ class EngagementListItem(EngagementResponse):
     tasks_count: int = Field(default=0, description="Number of tasks in this engagement")
     pending_tasks_count: int = Field(default=0, description="Number of pending tasks")
     notes_count: int = Field(default=0, description="Number of notes in this engagement")
+    documents_count: int = Field(default=0, description="Number of documents/media files attached to diagnostics")
 
 
 # Schema for engagement detail (with relationships)

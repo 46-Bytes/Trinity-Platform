@@ -194,6 +194,17 @@ class DiagnosticService:
             diagnostic.status = "completed"
             diagnostic.completed_at = datetime.utcnow()
             
+            # Update engagement status to completed if diagnostic is completed
+            engagement = self.db.query(Engagement).filter(
+                Engagement.id == diagnostic.engagement_id
+            ).first()
+            
+            if engagement and engagement.status != "completed":
+                engagement.status = "completed"
+                if not engagement.completed_at:
+                    engagement.completed_at = datetime.utcnow()
+                logger.info(f"Updated engagement {engagement.id} status to 'completed' because diagnostic {diagnostic.id} is completed")
+            
         except Exception as e:
             # If processing fails, mark as failed
             diagnostic.status = "failed"

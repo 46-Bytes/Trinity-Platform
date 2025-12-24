@@ -22,6 +22,7 @@ export interface Engagement {
   pendingTasksCount?: number;
   diagnosticsCount?: number;
   notesCount?: number;
+  documentsCount?: number;
 }
 
 export interface Advisor {
@@ -135,6 +136,7 @@ export const fetchEngagements = createAsyncThunk(
         pendingTasksCount: item.pending_tasks_count || 0,
         diagnosticsCount: item.diagnostics_count || 0,
         notesCount: item.notes_count || 0,
+        documentsCount: item.documents_count || 0,
       }));
 
       return engagements;

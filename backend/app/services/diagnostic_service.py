@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 from datetime import datetime
 import json
+import re
 
 from app.models.diagnostic import Diagnostic
 from app.models.task import Task
@@ -18,6 +19,60 @@ from app.utils.file_loader import (
     load_task_library,
     load_prompt
 )
+
+
+def convert_numbered_list_to_bullets(text: str) -> str:
+    """
+    Convert numbered lists (1., 2., Step 1, step1), etc.) to bullet points.
+    
+    Examples:
+        "1. First step" -> "- First step"
+        "Step 1) Do this" -> "- Do this"
+        "step1) Action" -> "- Action"
+        "1. Step one\n2. Step two" -> "- Step one\n- Step two"
+    
+    Args:
+        text: Text that may contain numbered lists
+        
+    Returns:
+        Text with numbered lists converted to bullet points
+    """
+    if not text:
+        return text
+    
+    # Pattern to match various numbered list formats:
+    # - "1. " or "1) " (number followed by period or parenthesis)
+    # - "Step 1. " or "step 1) " (case-insensitive "step" followed by number)
+    # - "step1) " or "Step1. " (no space between step and number)
+    # - Handles multi-digit numbers (10., 11), etc.)
+    # - Can appear at start of line or after newline
+    
+    # Split text into lines to process each line individually
+    lines = text.split('\n')
+    converted_lines = []
+    
+    for line in lines:
+        # Pattern to match numbered list items at the start of a line
+        # Matches: "1. ", "1) ", "Step 1. ", "step 1) ", "step1) ", "Step1. ", etc.
+        pattern = r'^(?:[Ss]tep\s*)?\d+[.)]\s*'
+        
+        if re.match(pattern, line):
+            # Replace the numbered prefix with a bullet point
+            converted_line = re.sub(pattern, '- ', line, count=1)
+            converted_lines.append(converted_line)
+        else:
+            # Keep the line as-is if it doesn't match the pattern
+            converted_lines.append(line)
+    
+    # Join lines back together
+    converted_text = '\n'.join(converted_lines)
+    
+    # Clean up: remove extra spaces after bullet points
+    converted_text = re.sub(r'^- \s+', '- ', converted_text, flags=re.MULTILINE)
+    
+    return converted_text
+
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -565,6 +620,29 @@ class DiagnosticService:
         Returns:
             Number of tasks created
         """
+        # Step 1: Delete existing diagnostic_generated tasks for this engagement/diagnostic
+        # This prevents duplicate tasks when diagnostic is resubmitted
+        try:
+            existing_tasks = self.db.query(Task).filter(
+                Task.engagement_id == diagnostic.engagement_id,
+                Task.diagnostic_id == diagnostic.id,
+                Task.task_type == "diagnostic_generated"
+            ).all()
+            
+            if existing_tasks:
+                deleted_count = len(existing_tasks)
+                logger.info(f"Deleting {deleted_count} existing diagnostic_generated tasks for engagement {diagnostic.engagement_id} and diagnostic {diagnostic.id}")
+                
+                for task in existing_tasks:
+                    self.db.delete(task)
+                
+                self.db.commit()
+                logger.info(f"Successfully deleted {deleted_count} existing diagnostic_generated tasks")
+        except Exception as e:
+            logger.warning(f"Failed to delete existing diagnostic_generated tasks: {str(e)}")
+            # Continue with task generation even if deletion fails
+            self.db.rollback()
+        
         # Load task generation prompt
         task_prompt = load_prompt("initial_task_prompt")
         
@@ -634,12 +712,16 @@ class DiagnosticService:
                 # Ensure category is not too long (max 50 chars to match database)
                 category = str(category).strip()[:50] if category else ""
                 
+                # Get description and convert numbered lists to bullet points
+                raw_description = task_data.get("description") or task_data.get("details") or ""
+                description = convert_numbered_list_to_bullets(raw_description)
+                
                 task = Task(
                     engagement_id=diagnostic.engagement_id,
                     diagnostic_id=diagnostic.id,
                     created_by_user_id=diagnostic.created_by_user_id,
                     title=title,
-                    description=task_data.get("description") or task_data.get("details") or "",
+                    description=description,
                     task_type="diagnostic_generated",
                     status="pending",
                     priority=task_data.get("priority", "medium"),

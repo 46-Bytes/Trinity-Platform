@@ -8,6 +8,7 @@ import {
   updateLocalResponses,
   submitDiagnostic,
 } from '@/store/slices/diagnosticReducer';
+import { updateEngagement } from '@/store/slices/engagementReducer';
 import { useAuth } from '@/context/AuthContext';
 import surveyData from '@/questions/diagnostic-survey.json';
 import { toast } from 'sonner';
@@ -27,6 +28,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
   const [currentPage, setCurrentPage] = useState(0);
   const [localResponses, setLocalResponses] = useState<Record<string, any>>({});
   const [completedPages, setCompletedPages] = useState<number[]>([]);
+  const [engagementStatusUpdated, setEngagementStatusUpdated] = useState(false);
   
   const pages = surveyData.pages;
   const totalPages = pages.length;
@@ -121,7 +123,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
       })).unwrap();
 
       // Step 2: Submit diagnostic to trigger LLM processing
-      toast.info('Submitting diagnostic for AI analysis... This may take 30-60 seconds.');
+      toast.info('Submitting diagnostic for AI analysis... This may take 10-15 minutes');
       await dispatch(submitDiagnostic({
         diagnosticId: diagnostic.id,
         completedByUserId: user.id,
@@ -141,6 +143,22 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
   const handleNextPage = async () => {
     // Auto-save before moving to next page
     await handleSaveProgress();
+    
+    // If moving from first page (page 0) to second page, update engagement status to 'active'
+    if (currentPage === 0 && !engagementStatusUpdated) {
+      try {
+        await dispatch(updateEngagement({
+          id: engagementId,
+          updates: {
+            status: 'active', // Change from 'draft' to 'active' (in progress)
+          },
+        })).unwrap();
+        setEngagementStatusUpdated(true);
+      } catch (engagementError) {
+        // Log error but don't fail the page navigation
+        console.warn('Failed to update engagement status:', engagementError);
+      }
+    }
     
     if (currentPage < totalPages - 1) {
       // Mark current page as completed
@@ -277,7 +295,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
       )}
 
       {/* Progress Bar */}
-      <div className="mb-8">
+  {!isSubmitting &&    <div className="mb-8">
         <div className="flex justify-between items-center mb-2">
           <h2 className="text-2xl font-bold">{currentPageData.title}</h2>
           <span className="text-sm text-muted-foreground">
@@ -290,7 +308,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
             style={{ width: `${progress}%` }}
           />
         </div>
-      </div>
+      </div>}
 
       {isSubmitting ? (
         // Loading screen shown while submitting (replaces questions + buttons)

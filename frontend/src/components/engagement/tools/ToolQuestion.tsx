@@ -20,22 +20,92 @@ interface ToolQuestionProps {
 
 // Helper to evaluate conditional visibility
 function evaluateCondition(condition: string, responses: Record<string, any>): boolean {
-  // Example: "{business_founded_by_you} == 'No'"
-  // Parse and evaluate the condition
-  const match = condition.match(/\{(\w+)\}\s*==\s*'([^']+)'/);
-  if (match) {
-    const [, fieldName, expectedValue] = match;
+  // Handle equality comparisons: "{business_founded_by_you} == 'No'"
+  const equalityMatch = condition.match(/\{(\w+)\}\s*==\s*'([^']+)'/);
+  if (equalityMatch) {
+    const [, fieldName, expectedValue] = equalityMatch;
     return responses[fieldName] === expectedValue;
   }
   
-  // Handle >= comparisons: "{leases_properties} >= 2"
-  const numMatch = condition.match(/\{(\w+)\}\s*>=\s*(\d+)/);
-  if (numMatch) {
-    const [, fieldName, minValue] = numMatch;
-    const fieldValue = parseInt(responses[fieldName]) || 0;
-    return fieldValue >= parseInt(minValue);
+  // Handle not equal comparisons with <>: "{key_reports_review_frequency} <> 'Never'"
+  const notEqualAngleMatch = condition.match(/\{(\w+)\}\s*<>\s*'([^']+)'/);
+  if (notEqualAngleMatch) {
+    const [, fieldName, expectedValue] = notEqualAngleMatch;
+    return responses[fieldName] !== expectedValue;
   }
   
+  // Handle not equal comparisons with !=: "{senior_mgmt_strategy_review_frequency} != 'Never'"
+  const notEqualMatch = condition.match(/\{(\w+)\}\s*!=\s*'([^']+)'/);
+  if (notEqualMatch) {
+    const [, fieldName, expectedValue] = notEqualMatch;
+    return responses[fieldName] !== expectedValue;
+  }
+  
+  // Handle >= comparisons: "{leases_properties} >= 2"
+  const greaterOrEqualMatch = condition.match(/\{(\w+)\}\s*>=\s*(\d+)/);
+  if (greaterOrEqualMatch) {
+    const [, fieldName, minValue] = greaterOrEqualMatch;
+    const rawValue = responses[fieldName];
+    // Only evaluate if field has a value (not undefined/null/empty string)
+    if (rawValue === undefined || rawValue === null || rawValue === '') return false;
+    const fieldValue = parseInt(rawValue);
+    return !isNaN(fieldValue) && fieldValue >= parseInt(minValue);
+  }
+  
+  // Handle > comparisons: "{retail_store_count} > 1"
+  const greaterThanMatch = condition.match(/\{(\w+)\}\s*>\s*(\d+)/);
+  if (greaterThanMatch) {
+    const [, fieldName, minValue] = greaterThanMatch;
+    const rawValue = responses[fieldName];
+    // Only evaluate if field has a value (not undefined/null/empty string)
+    if (rawValue === undefined || rawValue === null || rawValue === '') return false;
+    const fieldValue = parseInt(rawValue);
+    return !isNaN(fieldValue) && fieldValue > parseInt(minValue);
+  }
+  
+  // Handle < comparisons: "{sales_marketing_satisfaction} < 6"
+  const lessThanMatch = condition.match(/\{(\w+)\}\s*<\s*(\d+)/);
+  if (lessThanMatch) {
+    const [, fieldName, maxValue] = lessThanMatch;
+    const rawValue = responses[fieldName];
+    // Only evaluate if field has a value (not undefined/null/empty string)
+    if (rawValue === undefined || rawValue === null || rawValue === '') return false;
+    const fieldValue = parseInt(rawValue);
+    return !isNaN(fieldValue) && fieldValue < parseInt(maxValue);
+  }
+  
+  // Handle <= comparisons: "{some_field} <= 5"
+  const lessOrEqualMatch = condition.match(/\{(\w+)\}\s*<=\s*(\d+)/);
+  if (lessOrEqualMatch) {
+    const [, fieldName, maxValue] = lessOrEqualMatch;
+    const rawValue = responses[fieldName];
+    // Only evaluate if field has a value (not undefined/null/empty string)
+    if (rawValue === undefined || rawValue === null || rawValue === '') return false;
+    const fieldValue = parseInt(rawValue);
+    return !isNaN(fieldValue) && fieldValue <= parseInt(maxValue);
+  }
+  
+  // Handle allof comparisons: "{field} allof ['Value1', 'Value2']"
+  // Checks if field value matches ANY value in the array
+  const allofMatch = condition.match(/\{(\w+)\}\s+allof\s+\[(.+)\]/);
+  if (allofMatch) {
+    const [, fieldName, valuesStr] = allofMatch;
+    const actualValue = responses[fieldName];
+    // Parse the array values - they're quoted strings like 'Value1', 'Value2'
+    const expectedValues = valuesStr.match(/'([^']+)'/g)?.map(v => v.slice(1, -1)) || [];
+    return expectedValues.includes(actualValue);
+  }
+  
+  // Handle contains comparisons: "{field} contains 'text'"
+  // Checks if field value contains the specified substring
+  const containsMatch = condition.match(/\{(\w+)\}\s+contains\s+'([^']+)'/);
+  if (containsMatch) {
+    const [, fieldName, searchText] = containsMatch;
+    const actualValue = responses[fieldName] || '';
+    return String(actualValue).includes(searchText);
+  }
+  
+  // If no pattern matches, default to showing the question (safer than hiding)
   return true;
 }
 

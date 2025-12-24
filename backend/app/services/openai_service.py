@@ -14,7 +14,15 @@ class OpenAIService:
     
     def __init__(self):
         """Initialize OpenAI client"""
-        self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        # Set timeout to None to disable timeout (no retry limit)
+        client_kwargs = {"api_key": settings.OPENAI_API_KEY}
+        if settings.OPENAI_TIMEOUT is not None:
+            client_kwargs["timeout"] = settings.OPENAI_TIMEOUT
+        else:
+            # Explicitly set timeout to None to disable it
+            client_kwargs["timeout"] = None
+        
+        self.client = OpenAI(**client_kwargs)
         self.model = settings.OPENAI_MODEL
         self.temperature = settings.OPENAI_TEMPERATURE
     

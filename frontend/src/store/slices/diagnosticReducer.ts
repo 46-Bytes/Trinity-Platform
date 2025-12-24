@@ -36,6 +36,7 @@ interface DiagnosticState {
   isLoading: boolean;
   isSaving: boolean;
   isSubmitting: boolean;
+  isPolling: boolean;
   error: string | null;
 }
 
@@ -233,12 +234,67 @@ export const submitDiagnostic = createAsyncThunk(
   }
 );
 
+// Check diagnostic status (lightweight endpoint for polling)
+export const checkDiagnosticStatus = createAsyncThunk(
+  'diagnostic/checkStatus',
+  async (diagnosticId: string, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/diagnostics/${diagnosticId}/status`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to check status' }));
+        throw new Error(errorData.detail || `HTTP ${response.status}: Failed to check status`);
+      }
+
+      const statusData = await response.json();
+      
+      // If completed, fetch full diagnostic data
+      if (statusData.status === 'completed' || statusData.status === 'failed') {
+        const detailResponse = await fetch(`${API_BASE_URL}/api/diagnostics/${diagnosticId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (detailResponse.ok) {
+          const detailData = await detailResponse.json();
+          return {
+            status: statusData.status,
+            completedAt: statusData.completed_at,
+            diagnostic: mapBackendDiagnosticToFrontend(detailData),
+          };
+        }
+      }
+
+      return {
+        status: statusData.status,
+        completedAt: statusData.completed_at,
+        diagnostic: null,
+      };
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to check status');
+    }
+  }
+);
+
 // Initial state
 const initialState: DiagnosticState = {
   diagnostic: null,
   isLoading: false,
   isSaving: false,
   isSubmitting: false,
+  isPolling: false,
   error: null,
 };
 
@@ -253,6 +309,9 @@ const diagnosticSlice = createSlice({
     },
     clearError: (state) => {
       state.error = null;
+    },
+    stopPolling: (state) => {
+      state.isPolling = false;
     },
     // Update local responses without API call (for optimistic updates)
     updateLocalResponses: (state, action: PayloadAction<Record<string, any>>) => {
@@ -313,14 +372,66 @@ const diagnosticSlice = createSlice({
       .addCase(submitDiagnostic.fulfilled, (state, action) => {
         state.isSubmitting = false;
         state.diagnostic = action.payload;
+        // Start polling if status is processing
+        if (action.payload.status === 'processing') {
+          state.isPolling = true;
+          
+          // Store in localStorage for global polling
+          try {
+            const stored = localStorage.getItem('processing_diagnostics');
+            const diagnostics = stored ? JSON.parse(stored) : [];
+            const exists = diagnostics.some((d: { id: string }) => d.id === action.payload.id);
+            if (!exists) {
+              diagnostics.push({
+                id: action.payload.id,
+                engagementId: action.payload.engagementId,
+                timestamp: Date.now(),
+              });
+              localStorage.setItem('processing_diagnostics', JSON.stringify(diagnostics));
+            }
+          } catch (e) {
+            console.error('Error storing processing diagnostic:', e);
+          }
+        }
       })
       .addCase(submitDiagnostic.rejected, (state, action) => {
         state.isSubmitting = false;
+        state.error = action.payload as string;
+      })
+      // Check diagnostic status
+      .addCase(checkDiagnosticStatus.pending, (state) => {
+        // Don't set isPolling here - it's managed by the component/hook
+        // This allows global polling to work independently
+      })
+      .addCase(checkDiagnosticStatus.fulfilled, (state, action) => {
+        // Update diagnostic if we got full data
+        if (action.payload.diagnostic) {
+          // If this is the current diagnostic, update it
+          if (state.diagnostic && state.diagnostic.id === action.payload.diagnostic.id) {
+            state.diagnostic = action.payload.diagnostic;
+          } else {
+            // Otherwise, just update the status if it matches
+            state.diagnostic = action.payload.diagnostic;
+          }
+        } else if (state.diagnostic) {
+          // Update status only if we have a current diagnostic
+          // Note: We don't know which diagnostic this is for, so we only update if it matches
+          state.diagnostic.status = action.payload.status as Diagnostic['status'];
+          if (action.payload.completedAt) {
+            state.diagnostic.completedAt = action.payload.completedAt;
+          }
+        }
+        
+        // Note: isPolling is managed by the global hook, not here
+        // This allows polling to continue even if user navigates away
+      })
+      .addCase(checkDiagnosticStatus.rejected, (state, action) => {
+        // Don't stop polling on error, just log it
         state.error = action.payload as string;
       });
   },
 });
 
-export const { clearDiagnostic, clearError, updateLocalResponses } = diagnosticSlice.actions;
+export const { clearDiagnostic, clearError, updateLocalResponses, stopPolling } = diagnosticSlice.actions;
 export default diagnosticSlice.reducer;
 

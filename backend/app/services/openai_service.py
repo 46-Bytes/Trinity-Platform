@@ -4,6 +4,7 @@ OpenAI service for GPT interactions using Responses API
 from typing import Dict, Any, List, Optional
 import json
 import time
+import asyncio
 from openai import OpenAI
 from app.config import settings
 import logging
@@ -138,10 +139,18 @@ class OpenAIService:
             logger.info(f"[OpenAI API] File attachments: {len(file_ids) if file_ids else 0}")
             
             # Make API call using Responses API
+            # Run in thread pool to avoid blocking the event loop
             logger.info("[OpenAI API] ⏳ Waiting for OpenAI API response (this may take several minutes)...")
+            logger.info("[OpenAI API] Running in thread pool to avoid blocking other requests...")
             start_time = time.time()
             
-            response = self.client.responses.create(**params)
+            # Run the blocking OpenAI call in a thread pool
+            # This allows other requests to be processed while waiting for OpenAI
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,  # Use default ThreadPoolExecutor
+                lambda: self.client.responses.create(**params)
+            )
             
             elapsed_time = time.time() - start_time
             logger.info(f"[OpenAI API] ✅ API call completed in {elapsed_time:.2f} seconds ({elapsed_time/60:.2f} minutes)")
@@ -485,11 +494,17 @@ class OpenAIService:
             Dictionary with file information including 'id', or None if failed
         """
         try:
-            with open(file_path, 'rb') as file:
-                response = self.client.files.create(
-                    file=file,
-                    purpose=purpose
-                )
+            # Run file upload in thread pool to avoid blocking
+            loop = asyncio.get_event_loop()
+            
+            def upload():
+                with open(file_path, 'rb') as file:
+                    return self.client.files.create(
+                        file=file,
+                        purpose=purpose
+                    )
+            
+            response = await loop.run_in_executor(None, upload)
             
             return {
                 "id": response.id,

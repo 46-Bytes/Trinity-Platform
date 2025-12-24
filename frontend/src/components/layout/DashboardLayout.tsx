@@ -4,12 +4,16 @@ import { useAuth } from '@/context/AuthContext';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { cn } from '@/lib/utils';
+import { useGlobalDiagnosticPolling } from '@/hooks/useGlobalDiagnosticPolling';
 
 export function DashboardLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Global diagnostic polling - tracks processing diagnostics across all pages
+  useGlobalDiagnosticPolling();
 
   if (!isAuthenticated || !user) {
     return null;

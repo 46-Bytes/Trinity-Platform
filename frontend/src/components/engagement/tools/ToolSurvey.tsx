@@ -7,6 +7,8 @@ import {
   updateDiagnosticResponses,
   updateLocalResponses,
   submitDiagnostic,
+  checkDiagnosticStatus,
+  stopPolling,
 } from '@/store/slices/diagnosticReducer';
 import { updateEngagement } from '@/store/slices/engagementReducer';
 import { useAuth } from '@/context/AuthContext';
@@ -23,7 +25,7 @@ interface ToolSurveyProps {
 export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurveyProps) {
   const dispatch = useAppDispatch();
   const { user } = useAuth();
-  const { diagnostic, isSaving, isLoading, isSubmitting, error } = useAppSelector((state) => state.diagnostic);
+  const { diagnostic, isSaving, isLoading, isSubmitting, isPolling, error } = useAppSelector((state) => state.diagnostic);
   
   const [currentPage, setCurrentPage] = useState(0);
   const [localResponses, setLocalResponses] = useState<Record<string, any>>({});
@@ -41,6 +43,88 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
       dispatch(fetchDiagnosticByEngagement(engagementId));
     }
   }, [dispatch, engagementId, toolType]);
+
+  // Automatic status polling when diagnostic is processing
+  useEffect(() => {
+    if (!diagnostic || !isPolling) return;
+
+    // Only poll if status is processing
+    if (diagnostic.status !== 'processing') {
+      return;
+    }
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const result = await dispatch(checkDiagnosticStatus(diagnostic.id)).unwrap();
+        
+        if (result.status === 'completed') {
+          clearInterval(pollInterval);
+          dispatch(stopPolling());
+          
+          // Remove from localStorage (global polling will also handle this, but do it here too)
+          try {
+            const stored = localStorage.getItem('processing_diagnostics');
+            if (stored) {
+              const diagnostics = JSON.parse(stored);
+              const updated = diagnostics.filter((d: { id: string }) => d.id !== diagnostic.id);
+              if (updated.length > 0) {
+                localStorage.setItem('processing_diagnostics', JSON.stringify(updated));
+              } else {
+                localStorage.removeItem('processing_diagnostics');
+              }
+            }
+          } catch (e) {
+            // Ignore errors
+          }
+          
+          // Show notification (global polling will also show one, but this is for immediate feedback)
+          toast.success('✅ Diagnostic processing completed! PDF report is ready for download.', {
+            duration: 10000,
+          });
+          
+          // Refresh diagnostic data
+          dispatch(fetchDiagnosticByEngagement(engagementId));
+        } else if (result.status === 'failed') {
+          clearInterval(pollInterval);
+          dispatch(stopPolling());
+          
+          // Remove from localStorage
+          try {
+            const stored = localStorage.getItem('processing_diagnostics');
+            if (stored) {
+              const diagnostics = JSON.parse(stored);
+              const updated = diagnostics.filter((d: { id: string }) => d.id !== diagnostic.id);
+              if (updated.length > 0) {
+                localStorage.setItem('processing_diagnostics', JSON.stringify(updated));
+              } else {
+                localStorage.removeItem('processing_diagnostics');
+              }
+            }
+          } catch (e) {
+            // Ignore errors
+          }
+          
+          toast.error('❌ Diagnostic processing failed. Please try submitting again.');
+        }
+      } catch (error) {
+        console.error('Error checking diagnostic status:', error);
+        // Continue polling on error (don't stop)
+      }
+    }, 5000); // Poll every 5 seconds
+
+    // Safety timeout: stop polling after 20 minutes
+    const timeout = setTimeout(() => {
+      clearInterval(pollInterval);
+      dispatch(stopPolling());
+      toast.warning('Processing is taking longer than expected. Please check back later.');
+    }, 20 * 60 * 1000); // 20 minutes
+
+    // Cleanup on unmount or when status changes
+    return () => {
+      clearInterval(pollInterval);
+      clearTimeout(timeout);
+    };
+  }, [diagnostic?.id, diagnostic?.status, isPolling, dispatch, engagementId]);
 
   // Merge Redux responses (source of truth) with local unsaved changes
   const responses = useMemo(() => {

@@ -13,10 +13,15 @@ class OpenAIService:
     """Service for interacting with OpenAI Responses API"""
     
     def __init__(self):
-        """Initialize OpenAI client"""
-        self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        """Initialize OpenAI client with configurable timeout"""
+        # Set timeout (default: 3600 seconds = 1 hour for long-running processes)
+        self.client = OpenAI(
+            api_key=settings.OPENAI_API_KEY,
+            timeout=settings.OPENAI_TIMEOUT
+        )
         self.model = settings.OPENAI_MODEL
         self.temperature = settings.OPENAI_TEMPERATURE
+        logger.info(f"OpenAI client initialized with timeout: {settings.OPENAI_TIMEOUT} seconds ({settings.OPENAI_TIMEOUT/60:.1f} minutes)")
     
     def _convert_messages_to_input(
         self, 

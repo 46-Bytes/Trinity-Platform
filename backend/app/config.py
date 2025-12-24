@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY")
     OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o")
     OPENAI_TEMPERATURE: float = float(os.getenv("OPENAI_TEMPERATURE", "1.0"))
+    # OpenAI timeout in seconds (default: 3600 = 1 hour for long-running diagnostic processes)
+    # Set via OPENAI_TIMEOUT env var, or defaults to 3600 seconds (1 hour)
+    OPENAI_TIMEOUT: float = float(os.getenv("OPENAI_TIMEOUT", "3600"))
     # OPENAI_MAX_TOKENS: int = int(os.getenv("OPENAI_MAX_TOKENS", "16000"))
     
     # File Uploads

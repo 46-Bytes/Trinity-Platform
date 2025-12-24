@@ -1,7 +1,7 @@
 """
 Diagnostic API endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, BackgroundTasks, Response
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from typing import List
@@ -374,6 +374,7 @@ async def delete_diagnostic_file(
 async def submit_diagnostic(
     diagnostic_id: UUID,
     submit_data: DiagnosticSubmit,
+    response: Response,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -415,6 +416,9 @@ async def submit_diagnostic(
         }
         ```
     """
+    response.headers["Connection"] = "keep-alive"
+    response.headers["Keep-Alive"] = "timeout=1800, max=100"
+
     service = get_diagnostic_service(db)
     
     # Get diagnostic first to verify it exists

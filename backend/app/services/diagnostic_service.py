@@ -309,12 +309,14 @@ class DiagnosticService:
         # ===== STEP 6: Auto-Generate Tasks =====
         tasks_count = 0
         try:
+            logger.info(f"==========================Tasks Generation Started==========================:")
             tasks_count = await self._generate_tasks(
                 diagnostic=diagnostic,
                 summary=summary,
                 json_extract=json_extract,
                 roadmap=roadmap
             )
+            logger.info(f"==========================Tasks Generation Completed Successfully==========================:")
         except Exception as e:
             print(f"Warning: Could not generate tasks: {str(e)}")
         
@@ -504,40 +506,109 @@ class DiagnosticService:
         )
         
         # Parse tasks
-        tasks_data = task_result["parsed_content"]
+        tasks_data = task_result.get("parsed_content", {})
+        logger.info(f"Raw tasks_data type: {type(tasks_data)}, content: {str(tasks_data)[:500]}")
         
-        # Handle both array and object with tasks key
-        if isinstance(tasks_data, dict):
-            tasks_list = tasks_data.get("tasks", [])
-        else:
+        # Handle different response formats
+        if isinstance(tasks_data, list):
+            # Already a list of tasks
             tasks_list = tasks_data
+            logger.info(f"Tasks data is a list: {len(tasks_list)} tasks")
+        elif isinstance(tasks_data, dict):
+            # Check if it has a "tasks" key (wrapped format)
+            if "tasks" in tasks_data:
+                tasks_list = tasks_data.get("tasks", [])
+                logger.info(f"Extracted tasks from dict with 'tasks' key: {len(tasks_list)} tasks")
+            # Check if it's a single task object (has task-like fields)
+            elif "title" in tasks_data or "name" in tasks_data:
+                # Single task object - wrap it in a list
+                tasks_list = [tasks_data]
+                logger.info(f"Single task object detected, wrapped in list: 1 task")
+            else:
+                # Unknown dict format
+                tasks_list = []
+                logger.warning(f"Dict format not recognized. Keys: {list(tasks_data.keys())}")
+        else:
+            tasks_list = []
+            logger.warning(f"Tasks data is not dict or list: {type(tasks_data)}")
+        
+        # Ensure tasks_list is a list and not None
+        if not isinstance(tasks_list, list):
+            logger.warning(f"Tasks data is not in expected format: {type(tasks_list)}")
+            tasks_list = []
+        
+        # Log sample task structure for debugging
+        if tasks_list and len(tasks_list) > 0:
+            logger.info(f"Sample task structure (first task): {tasks_list[0]}")
         
         # Create Task records
         tasks_created = 0
-        for task_data in tasks_list:
+        created_tasks = []  # Track successfully created tasks
+        
+        logger.info(f"Attempting to create {len(tasks_list)} tasks from AI response")
+        
+        for idx, task_data in enumerate(tasks_list):
             try:
+                # Validate required fields
+                title = task_data.get("title") or task_data.get("name")
+                if not title or not title.strip():
+                    logger.warning(f"Task {idx + 1}: Missing or empty title, skipping. Task data: {task_data}")
+                    continue
+                
+                # Ensure title is not too long (max 255 chars)
+                title = str(title).strip()[:255]
+                
+                # Get full category name (store as-is, don't map to module code)
+                category = task_data.get("category") or task_data.get("module_reference") or ""
+                # Ensure category is not too long (max 50 chars to match database)
+                category = str(category).strip()[:50] if category else ""
+                
                 task = Task(
                     engagement_id=diagnostic.engagement_id,
                     diagnostic_id=diagnostic.id,
                     created_by_user_id=diagnostic.created_by_user_id,
-                    title=task_data.get("title"),
-                    description=task_data.get("description"),
+                    title=title,
+                    description=task_data.get("description") or task_data.get("details") or "",
                     task_type="diagnostic_generated",
                     status="pending",
                     priority=task_data.get("priority", "medium"),
-                    # Map category to module if possible
-                    module_reference=task_data.get("category", "")
-                    
+                    # Store full category name (e.g., "products-or-services", not just "M5")
+                    module_reference=category
                 )
                 
                 self.db.add(task)
+                created_tasks.append(task)  # Track this task
                 tasks_created += 1
+                logger.info(f"Task {idx + 1} added to session: '{title[:50]}...'")
                 
             except Exception as e:
-                print(f"Warning: Could not create task: {str(e)}")
+                logger.error(f"Could not create task {idx + 1}: {str(e)}", exc_info=True)
+                logger.error(f"Task data that failed: {task_data}")
                 continue
         
-        self.db.commit()
+        # Only commit and refresh if we created at least one task
+        if tasks_created > 0:
+            try:
+                self.db.commit()
+                logger.info(f"Successfully committed {tasks_created} tasks to database")
+                
+                # Refresh all created tasks
+                for task in created_tasks:
+                    try:
+                        self.db.refresh(task)
+                    except Exception as e:
+                        logger.warning(f"Could not refresh task {task.id}: {str(e)}")
+                
+                logger.info(f"==========================Tasks stored in DB: {tasks_created} tasks created==========================")
+            except Exception as e:
+                logger.error(f"Failed to commit tasks to database: {str(e)}", exc_info=True)
+                self.db.rollback()
+                logger.error("Database transaction rolled back due to error")
+                return 0
+        else:
+            logger.warning(f"No tasks were created from the generated task list (received {len(tasks_list)} tasks from AI)")
+            if tasks_list:
+                logger.warning(f"Sample task data structure: {tasks_list[0] if tasks_list else 'N/A'}")
         
         return tasks_created
     

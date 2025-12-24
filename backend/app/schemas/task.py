@@ -16,7 +16,7 @@ class TaskBase(BaseModel):
     status: str = Field(default="pending", description="pending, in_progress, completed, cancelled")
     priority: str = Field(default="medium", description="low, medium, high, urgent")
     priority_rank: Optional[int] = Field(None, description="Priority rank from AI (1 = highest)")
-    module_reference: Optional[str] = Field(None, max_length=10, description="Module reference (e.g., M1, M2)")
+    module_reference: Optional[str] = Field(None, max_length=50, description="Module reference or category name (e.g., M1, M2, or full category like 'products-or-services')")
     impact_level: Optional[str] = Field(None, description="Impact level: low, medium, high")
     effort_level: Optional[str] = Field(None, description="Effort level: low, medium, high")
     due_date: Optional[date] = Field(None, description="Task due date")

@@ -62,8 +62,47 @@ class ReportService:
         advice = ai_analysis.get("advice", "")
         advisor_report = ai_analysis.get("advisorReport", "")
         client_summary = ai_analysis.get("clientSummary", "")
-        roadmap = ai_analysis.get("roadmap", [])
+        # Roadmap can be in ai_analysis or scoring_data - check both
+        roadmap = ai_analysis.get("roadmap", []) or scoring_data.get("roadmap", [])
         scored_rows = scoring_data.get("scored_rows", [])
+        
+        # Get module_scores for fallback/merging
+        module_scores = getattr(diagnostic, "module_scores", {}) or {}
+        ranked_modules = module_scores.get("ranked", [])
+        
+        # If roadmap is empty or incomplete, build/merge with ranked_modules
+        if not roadmap and ranked_modules:
+            # Convert ranked_modules to roadmap format
+            roadmap = []
+            for module in ranked_modules:
+                roadmap_item = {
+                    "module": module.get("module", ""),
+                    "name": module.get("module_name", module.get("module", "")),
+                    "score": module.get("score", 0.0),
+                    "rank": module.get("rank", 0),
+                    "rag": module.get("rag", "Amber"),
+                    "whyPriority": module.get("whyPriority", f"Module {module.get('module', '')} requires attention based on score."),
+                    "quickWins": module.get("quickWins", "Review and address module-specific gaps.")
+                }
+                roadmap.append(roadmap_item)
+        elif roadmap and ranked_modules:
+            # Merge: Use ranked_modules for accurate scores/ranks, but keep AI's whyPriority/quickWins
+            roadmap_by_module = {item.get("module"): item for item in roadmap}
+            merged_roadmap = []
+            for module in ranked_modules:
+                module_code = module.get("module", "")
+                ai_item = roadmap_by_module.get(module_code, {})
+                merged_item = {
+                    "module": module_code,
+                    "name": ai_item.get("name") or module.get("module_name", module_code),
+                    "score": module.get("score", 0.0),  # Use calculated score
+                    "rank": module.get("rank", 0),  # Use calculated rank
+                    "rag": module.get("rag", "Amber"),  # Use calculated RAG
+                    "whyPriority": ai_item.get("whyPriority", module.get("whyPriority", f"Module {module_code} requires attention.")),
+                    "quickWins": ai_item.get("quickWins", module.get("quickWins", "Review and address module-specific gaps."))
+                }
+                merged_roadmap.append(merged_item)
+            roadmap = merged_roadmap
         
         # Format dates
         created_date = diagnostic.created_at.strftime("%B %d, %Y") if diagnostic.created_at else ""
@@ -71,6 +110,19 @@ class ReportService:
         
         # Get user name
         user_name = user.name or user.email or "Unknown User"
+        
+        # Get business / company name from engagement if available
+        business_name = ""
+        try:
+            engagement = getattr(diagnostic, "engagement", None)
+            if engagement is not None:
+                business_name = (
+                    getattr(engagement, "business_name", None)
+                    or getattr(engagement, "engagement_name", None)
+                    or ""
+                )
+        except Exception:
+            business_name = ""
         
         # Build Q&A data (all responses with question text)
         qa_data = ReportService._build_qa_data(user_responses, question_text_map)
@@ -88,8 +140,8 @@ class ReportService:
 <body>
     {ReportService._build_header_section(user_name, created_date, completed_date)}
     {ReportService._build_summary_section(summary)}
-    {ReportService._build_advice_section(advice)}
-    {ReportService._build_advisor_report_section(advisor_report)}
+    {ReportService._build_advice_section(advice, roadmap)}
+    {ReportService._build_advisor_report_section(advisor_report, business_name)}
     {ReportService._build_scoring_section(scored_rows, client_summary, roadmap)}
     {ReportService._build_all_responses_section(qa_data)}
 </body>
@@ -124,32 +176,42 @@ class ReportService:
     </div>"""
     
     @staticmethod
-    def _build_advice_section(advice: str) -> str:
-        """Build diagnostic advice section."""
-        if not advice:
-            return ""
+    def _build_advice_section(advice: str, roadmap: List[Dict[str, Any]]) -> str:
+        """
+        Build Diagnostic Advice section.
         
-        advice_html = ReportService._markdown_to_html(advice)
+        This section should ONLY contain the roadmap table.
+        NO narrative advice content - that goes in the Advisor Report section.
+        """
+        if not roadmap:
+            return ""
         
         return f"""
     <div class="page-break"></div>
     <div class="section">
         <h2>Diagnostic Advice</h2>
-        <div class="advice">{advice_html}</div>
+        {ReportService._build_diagnostic_advice_table(roadmap)}
     </div>"""
     
     @staticmethod
-    def _build_advisor_report_section(advisor_report: str) -> str:
-        """Build advisor report section (detailed narrative and tables)."""
+    def _build_advisor_report_section(advisor_report: str, business_name: str = "") -> str:
+        """Build advisor report section (detailed narrative paragraphs, not tables)."""
         if not advisor_report:
             return ""
         
+        # The advisor report is generated as HTML/Markdown containing numbered sections
+        # (1. Executive Summary, 2. Module Findings, 3. Task List by Module, 4. Additional Bespoke Tasks).
+        # We add the major heading "Sale-Ready Assessment Report for [Company]" above it.
         advisor_html = ReportService._markdown_to_html(advisor_report)
+        
+        # Build major heading text
+        company_text = business_name.strip() if business_name else "the business"
+        heading_html = f"<h1>Sale-Ready Assessment Report for {ReportService._escape_html(company_text)}</h1>"
         
         return f"""
     <div class="page-break"></div>
-    <div class="section">
-        <h2>Advisor Report</h2>
+    <div class="section advisor-report-section">
+        {heading_html}
         <div class="advisor-report">{advisor_html}</div>
     </div>"""
     
@@ -157,27 +219,35 @@ class ReportService:
     def _build_scoring_section(
         scored_rows: List[Dict[str, Any]],
         client_summary: str,
-        roadmap: List[Dict[str, Any]]
+        roadmap: List[Dict[str, Any]] = None
     ) -> str:
-        """Build scoring section with tables (scored responses, client summary, roadmap)."""
-        sections = []
+        """
+        Build scoring section with:
+        - Scored Responses table
+        - Client Summary (narrative + Roadmap table)
+        """
+        sections: List[str] = []
         
         # Scored Responses Table
         if scored_rows:
             sections.append(ReportService._build_scored_responses_table(scored_rows))
         
-        # Client Summary
-        if client_summary:
-            client_summary_html = ReportService._markdown_to_html(client_summary)
+        # Client Summary section (narrative + roadmap table)
+        if client_summary or roadmap:
+            client_summary_html = ""
+            if client_summary:
+                client_summary_html = ReportService._markdown_to_html(client_summary)
+            
+            roadmap_table_html = ""
+            if roadmap:
+                roadmap_table_html = ReportService._build_roadmap_table(roadmap)
+            
             sections.append(f"""
     <div class="section">
         <h2>Client Summary</h2>
-        <div class="client-summary">{client_summary_html}</div>
+        {f'<div class="client-summary">{client_summary_html}</div>' if client_summary_html else ''}
+        {roadmap_table_html}
     </div>""")
-        
-        # Roadmap Table
-        if roadmap:
-            sections.append(ReportService._build_roadmap_table(roadmap))
         
         if sections:
             return f"""
@@ -193,7 +263,7 @@ class ReportService:
     def _build_scored_responses_table(scored_rows: List[Dict[str, Any]]) -> str:
         """Build scored responses table."""
         rows_html = ""
-        for idx, row in enumerate(scored_rows, 1):
+        for row in scored_rows:
             question = ReportService._escape_html(str(row.get("question", "")))
             response = ReportService._escape_html(str(row.get("response", "")))
             score = str(row.get("score", ""))
@@ -201,7 +271,6 @@ class ReportService:
             
             rows_html += f"""
             <tr>
-                <td>{idx}</td>
                 <td>{question}</td>
                 <td>{response}</td>
                 <td>{score}</td>
@@ -213,8 +282,7 @@ class ReportService:
         <table class="data-table">
             <thead>
                 <tr>
-                    <th style="width:5%;">#</th>
-                    <th style="width:45%;">Question</th>
+                    <th style="width:50%;">Question</th>
                     <th style="width:20%;">Response</th>
                     <th style="width:10%;">Score</th>
                     <th style="width:20%;">Module</th>
@@ -226,10 +294,26 @@ class ReportService:
     
     @staticmethod
     def _build_roadmap_table(roadmap: List[Dict[str, Any]]) -> str:
-        """Build roadmap table."""
+        """
+        Build roadmap table for Client Summary section.
+        
+        Columns: Module | RAG | Score | Rank | Why Priority | Quick Wins
+        Same format as diagnostic advice table but different column order.
+        """
+        if not roadmap:
+            return ""
+        
         rows_html = ""
         for item in roadmap:
-            module = ReportService._escape_html(str(item.get("module", "")))
+            if not isinstance(item, dict):
+                continue
+            
+            # Get module name (prefer full name, fall back to code)
+            module_name = item.get("name") or item.get("module", "")
+            if not module_name:
+                continue
+            
+            module_name = ReportService._escape_html(str(module_name))
             rag = ReportService._escape_html(str(item.get("rag", "")))
             score = str(item.get("score", ""))
             rank = str(item.get("rank", ""))
@@ -238,7 +322,7 @@ class ReportService:
             
             rows_html += f"""
             <tr>
-                <td>{module}</td>
+                <td>{module_name}</td>
                 <td>{rag}</td>
                 <td>{score}</td>
                 <td>{rank}</td>
@@ -246,17 +330,81 @@ class ReportService:
                 <td>{quick_wins}</td>
             </tr>"""
         
+        if not rows_html:
+            return ""
+        
         return f"""
         <h3>Roadmap</h3>
         <table class="data-table">
             <thead>
                 <tr>
-                    <th>Module</th>
-                    <th>RAG</th>
-                    <th>Score</th>
-                    <th>Rank</th>
-                    <th>Why Priority</th>
-                    <th>Quick Wins</th>
+                    <th style="width:24%;">Module</th>
+                    <th style="width:10%;">RAG</th>
+                    <th style="width:10%;">Score</th>
+                    <th style="width:8%;">Rank</th>
+                    <th style="width:24%;">Why Priority</th>
+                    <th style="width:24%;">Quick Wins</th>
+                </tr>
+            </thead>
+            <tbody>{rows_html}
+            </tbody>
+        </table>"""
+    
+    @staticmethod
+    def _build_diagnostic_advice_table(roadmap: List[Dict[str, Any]]) -> str:
+        """
+        Build the Diagnostic Advice table using roadmap data.
+        
+        Columns:
+        - Rank
+        - Sale-Ready Module
+        - RAG
+        - Score
+        - Why Priority
+        - Quick Wins
+        """
+        if not roadmap:
+            return "<p>No roadmap data available.</p>"
+        
+        rows_html = ""
+        for item in roadmap:
+            if not isinstance(item, dict):
+                continue
+                
+            rank = str(item.get("rank", ""))
+            # Prefer full module name if available, else fall back to code
+            module_name = item.get("name") or item.get("module", "")
+            if not module_name:
+                continue  # Skip items without module info
+            module_name = ReportService._escape_html(str(module_name))
+            rag = ReportService._escape_html(str(item.get("rag", "")))
+            score = str(item.get("score", ""))
+            why_priority = ReportService._escape_html(str(item.get("whyPriority", "")))
+            quick_wins = ReportService._escape_html(str(item.get("quickWins", "")))
+            
+            rows_html += f"""
+            <tr>
+                <td>{rank}</td>
+                <td>{module_name}</td>
+                <td>{rag}</td>
+                <td>{score}</td>
+                <td>{why_priority}</td>
+                <td>{quick_wins}</td>
+            </tr>"""
+        
+        if not rows_html:
+            return "<p>No valid roadmap data available.</p>"
+        
+        return f"""
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width:8%;">Rank</th>
+                    <th style="width:24%;">Sale-Ready Module</th>
+                    <th style="width:10%;">RAG</th>
+                    <th style="width:10%;">Score</th>
+                    <th style="width:24%;">Why Priority</th>
+                    <th style="width:24%;">Quick Wins</th>
                 </tr>
             </thead>
             <tbody>{rows_html}
@@ -385,33 +533,33 @@ class ReportService:
         /* Base Typography */
         body, td, li, p {
             font-family: DejaVu Sans, sans-serif;
-            font-size: 14px;
-            line-height: 1.6;
+            font-size: 16px;
+            line-height: 1.7;
             color: #333;
         }
         
         /* Headings */
         h1 {
-            font-size: 24px;
+            font-size: 28px;
             font-weight: bold;
             margin-top: 20px;
-            margin-bottom: 15px;
+            margin-bottom: 18px;
             color: #1a1a1a;
         }
         
         h2 {
-            font-size: 20px;
+            font-size: 22px;
             font-weight: bold;
-            margin-top: 25px;
-            margin-bottom: 12px;
+            margin-top: 26px;
+            margin-bottom: 14px;
             color: #2a2a2a;
         }
         
         h3 {
-            font-size: 16px;
+            font-size: 18px;
             font-weight: bold;
-            margin-top: 20px;
-            margin-bottom: 10px;
+            margin-top: 22px;
+            margin-bottom: 12px;
             color: #3a3a3a;
         }
         
@@ -426,9 +574,52 @@ class ReportService:
             margin-bottom: 30px;
         }
         
-        .summary, .advice, .client-summary {
+        .summary, .advice, .client-summary, .advisor-report {
             margin-top: 10px;
             padding: 10px;
+        }
+        
+        .advisor-report-section {
+            margin-top: 20px;
+        }
+        
+        /* Ensure advisor report paragraphs are displayed properly */
+        .advisor-report p {
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+        
+        .advisor-report h2 {
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .advisor-report h3 {
+            margin-top: 15px;
+            margin-bottom: 8px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        /* Ensure tables in advisor report are styled but paragraphs are primary */
+        .advisor-report table {
+            margin: 15px 0;
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .advisor-report table th,
+        .advisor-report table td {
+            border: 1px solid #444;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        .advisor-report table th {
+            background-color: #f0f0f0;
+            font-weight: bold;
         }
         
         /* Tables */
@@ -442,8 +633,9 @@ class ReportService:
         table.data-table th,
         table.data-table td {
             border: 1px solid #444;
-            padding: 8px;
+            padding: 10px;
             text-align: left;
+            font-size: 15px;
         }
         
         table.data-table th {

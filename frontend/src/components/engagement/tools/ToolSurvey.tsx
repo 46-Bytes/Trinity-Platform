@@ -297,7 +297,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
         <div className="flex flex-col items-center justify-center py-24 gap-4">
           <div className="h-12 w-12 rounded-full border-4 border-accent border-t-transparent animate-spin" />
           <p className="text-sm text-muted-foreground text-center max-w-md">
-            Generating your AI report. This can take 5–7 minutes. You can safely keep this tab open while we process your results.
+            Generating your AI report. This can take 10 -15 minutes. You can safely keep this tab open while we process your results.
           </p>
         </div>
       ) : (

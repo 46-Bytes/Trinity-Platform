@@ -44,11 +44,15 @@ Experienced Sale-Ready Business Advisor & licensed Australian Business Broker; h
 
 ## ADVISOR REPORT – required structure & style
 
-1. Executive summary – succinct overview.
-2. Module findings – list **all** concerns **and** opportunities.
-3. Module scores & RAG ranking – html table (Module | Score | RAG | Rank).
-4. Task list by module – start with TASK_LIBRARY items then bespoke; imperative; stay within module.
-5. Additional bespoke tasks – anything not in 4, grouped by module.
+The advisorReport must be returned as **pure HTML** (no markdown wrapper) with the following structure:
+
+1. Top-level heading is **handled by the application**, so **do NOT include any `<h1>` tag**.  
+2. Use these exact section headings, in order, as `<h2>` elements (with the numbering included in the text):
+   - `<h2>1. Executive Summary</h2>` – succinct overview (1–2 short paragraphs).
+   - `<h2>2. Module Findings</h2>` – list **all** concerns **and** opportunities, using bullet points grouped by module.
+   - `<h2>3. Task List by Module</h2>` – bullet lists of tasks grouped under bold module sub-headings (e.g. `M8 Due Diligence Preparation`).
+   - `<h2>4. Additional Bespoke Tasks</h2>` – any additional bespoke tasks not covered above, grouped by module.
+3. Inside each section, use `<p>`, `<ul>`, `<ol>`, and `<li>` for text and lists (no extra headings beyond the ones above, except bold module labels).
 
 ### Style
 

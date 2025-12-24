@@ -3,6 +3,9 @@ Scoring service for calculating module scores and RAG status
 """
 from typing import Dict, Any, List, Tuple, Optional
 from decimal import Decimal, ROUND_HALF_UP
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ScoringService:
@@ -50,9 +53,16 @@ class ScoringService:
         # Group scores by module
         for row in scored_rows:
             module = row.get("module")
-            score = row.get("score")
+            score_raw = row.get("score")
             
-            if not module or score is None:
+            if not module or score_raw is None:
+                continue
+            
+            # Convert score to float if it's a string
+            try:
+                score = float(score_raw) if not isinstance(score_raw, (int, float)) else float(score_raw)
+            except (ValueError, TypeError):
+                logger.warning(f"Invalid score format for module {module}: {score_raw}")
                 continue
             
             if module not in module_data:
@@ -121,13 +131,23 @@ class ScoringService:
         # Convert to list and sort
         modules_list = list(module_scores.values())
         
+        # Ensure all scores are floats before sorting
+        for module in modules_list:
+            score = module.get("score")
+            if not isinstance(score, (int, float)):
+                try:
+                    module["score"] = float(score)
+                except (ValueError, TypeError):
+                    module["score"] = 0.0
+        
         # Sort by score (ascending) and then by module name (alphabetically)
-        modules_list.sort(key=lambda x: (x["score"], x["module"]))
+        modules_list.sort(key=lambda x: (float(x["score"]), x["module"]))
         
         # Assign ranks
         for rank, module in enumerate(modules_list, start=1):
             module["rank"] = rank
-            module["rag"] = ScoringService.determine_rag_status(module["score"])
+            score = float(module["score"]) if not isinstance(module["score"], (int, float)) else module["score"]
+            module["rag"] = ScoringService.determine_rag_status(score)
         
         return modules_list
     
@@ -270,9 +290,18 @@ class ScoringService:
         if roadmap:
             for roadmap_item in roadmap:
                 module = roadmap_item.get("module")
-                roadmap_score = roadmap_item.get("score")
+                roadmap_score_raw = roadmap_item.get("score")
                 
-                if module in module_scores:
+                # Convert roadmap_score to float if it's a string
+                try:
+                    roadmap_score = float(roadmap_score_raw) if roadmap_score_raw is not None else None
+                except (ValueError, TypeError):
+                    validation["warnings"].append(
+                        f"Module {module}: Invalid roadmap score format: {roadmap_score_raw}"
+                    )
+                    continue
+                
+                if module in module_scores and roadmap_score is not None:
                     calculated_score = module_scores[module]["score"]
                     
                     # Allow small floating point differences

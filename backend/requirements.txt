@@ -30,3 +30,7 @@ python-dateutil
 # OpenAI for AI processing
 openai
 
+# PDF generation
+xhtml2pdf
+markdown
+

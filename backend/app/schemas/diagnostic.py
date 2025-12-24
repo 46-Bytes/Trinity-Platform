@@ -55,7 +55,8 @@ class DiagnosticResponse(DiagnosticBase):
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     updated_at: datetime
-    
+
+
 # Schema for diagnostic with full data (questions, responses, scoring)
 class DiagnosticDetail(DiagnosticResponse):
     """Schema for detailed diagnostic view including all data"""

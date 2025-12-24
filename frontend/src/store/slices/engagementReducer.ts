@@ -17,7 +17,6 @@ export interface Engagement {
   assignedUsers: string[];
   createdAt: string;
   updatedAt: string;
-  toolId?: string;
   // Additional fields from backend
   tasksCount?: number;
   pendingTasksCount?: number;
@@ -259,7 +258,6 @@ export const createEngagement = createAsyncThunk(
         businessName: data.business_name || engagement.businessName,
         title: data.title || data.engagement_name || engagement.title,
         description: data.description || engagement.description,
-        toolId: data.tool_id || undefined,
         industryName: data.industry_name || data.industry || engagement.industryName,
         status: mapBackendStatusToFrontend(data.status),
         startDate: data.start_date || data.created_at || new Date().toISOString(),

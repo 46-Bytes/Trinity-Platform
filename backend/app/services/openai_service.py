@@ -5,6 +5,8 @@ from typing import Dict, Any, List, Optional
 import json
 from openai import OpenAI
 from app.config import settings
+import logging
+logger = logging.getLogger(__name__)
 
 
 class OpenAIService:
@@ -252,6 +254,11 @@ class OpenAIService:
         if file_context:
             file_context_msg = f"\n\n{file_context}"
         
+        question_text_map = {}
+        for page in diagnostic_questions.get("pages", []):
+            for element in page.get("elements", []):
+                question_text_map[element["name"]] = element.get("title", element["name"])
+
         messages = [
             {
                 "role": "system",
@@ -268,13 +275,13 @@ class OpenAIService:
             {
                 "role": "user",
                 "content": (
-                    f"Diagnostic: {json.dumps(diagnostic_questions)}\n\n"
+                    f"Question Text Map: {json.dumps(question_text_map)}\n\n"
                     f"User Responses: {json.dumps(user_responses)}\n\n"
                     f"Generate a complete JSON response with scored_rows, roadmap, and advisorReport."
                 )
             }
         ]
-        
+        logger.info(f"Messages: {messages}")
         # Pass file IDs to be attached to the user message
         return await self.generate_json_completion(
             messages=messages,
@@ -334,7 +341,7 @@ class OpenAIService:
         # Build context similar to PHP implementation
         context = (
             f"You are an expert business advisor named 'Trinity'. "
-            f"Based on the following diagnostic data, provide a JSON list of tasks "
+            f"Based on the following diagnostic data, provide a JSON array of tasks "
             f"a business owner should action within the next 30 days.\n\n"
             f"Summary: {diagnostic_summary}\n\n"
             f"Diagnostic Data (Q&A): {json.dumps(json_extract)}\n\n"
@@ -342,7 +349,7 @@ class OpenAIService:
             f"Focus on the highest priority modules (lowest rank = highest priority).\n\n"
             f"Template: [{{"
             f'"title": "Task Title", '
-            f'"description": "Task description with step-by-step instructions", '
+            f'"description": "Task description with step-by-step instructions. Every step must be in a new line with 1. 2. 3. Numbering", '
             f'"category": "general|legal-licensing|financial|operations|human-resources|customers|competitive-forces|due-diligence|tax", '
             f'"priority": "low|medium|high|critical"'
             f"}}]\n\n"
@@ -357,10 +364,14 @@ class OpenAIService:
             {
                 "role": "user",
                 "content": (
-                    f"Generate actionable tasks in JSON format. "
+                    f"Generate MULTIPLE actionable tasks in JSON format (minimum 5-10 tasks, ideally 8-12 tasks). "
                     f"Focus on the priority modules from the roadmap. "
-                    f"Provide detailed descriptions with step-by-step instructions. "
-                    f"Return ONLY the JSON array, no markdown."
+                    f"Generate at least 1-2 tasks for each of the top 3-5 priority modules. "
+                    f"Cover different categories to ensure comprehensive coverage. "
+                    f"Provide detailed descriptions with step-by-step instructions for each task. "
+                    f"CRITICAL: Return a JSON ARRAY containing MULTIPLE task objects. "
+                    f"Format: [{{task1}}, {{task2}}, {{task3}}, ...] with at least 5-10 tasks. "
+                    f"Return ONLY the JSON array, no markdown, no wrapping object."
                 )
             }
         ]

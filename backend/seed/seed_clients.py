@@ -13,6 +13,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.database import SessionLocal
 from app.models.user import User, UserRole
+# Import Media so SQLAlchemy can resolve the User.media relationship
+from app.models.media import Media  # noqa: F401
 from datetime import datetime
 
 

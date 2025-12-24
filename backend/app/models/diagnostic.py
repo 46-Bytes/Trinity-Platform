@@ -1,7 +1,7 @@
 """
 Diagnostic model for AI-powered business assessments
 """
-from sqlalchemy import Column, String, Text, DateTime, Integer, Numeric, func, ForeignKey, Boolean
+from sqlalchemy import Column, String, Text, DateTime, Integer, Numeric, func, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 import uuid

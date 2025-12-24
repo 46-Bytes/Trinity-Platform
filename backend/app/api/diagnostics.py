@@ -2,6 +2,7 @@
 Diagnostic API endpoints
 """
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
@@ -23,8 +24,12 @@ from app.schemas.diagnostic import (
     DiagnosticListItem
 )
 from app.services.diagnostic_service import get_diagnostic_service
+from app.services.file_service import get_file_service
+from app.services.report_service import ReportService
+from app.utils.file_loader import load_diagnostic_questions
 from app.api.auth import get_current_user
 from app.models.user import User
+from app.models.diagnostic import Diagnostic
 
 
 router = APIRouter(prefix="/diagnostics", tags=["diagnostics"])
@@ -145,54 +150,69 @@ async def update_diagnostic_responses(
 async def upload_diagnostic_file(
     diagnostic_id: UUID,
     file: UploadFile = File(...),
+    question_field_name: str = Query(
+        None,
+        description="Optional diagnostic question field name this file answers",
+    ),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Upload a supporting file for a diagnostic.
 
-    The file is stored under the backend ``files/uploads/diagnostics`` folder and
-    the API returns metadata that can be saved into ``user_responses`` instead of
-    the raw file content.
+    This is a convenience wrapper around the shared FileService:
 
-    This endpoint **does not** modify user_responses itself – the frontend will
-    call the normal ``/{diagnostic_id}/responses`` PATCH endpoint with the
-    returned metadata.
+    - Stores the file locally under the per-user uploads directory
+    - Uploads the file to OpenAI for analysis
+    - Creates a `Media` record linked to the current user
+    - Attaches the `Media` record to the given diagnostic
+
+    The endpoint returns lightweight metadata that can be stored in
+    `diagnostic.user_responses` by the frontend.
     """
-    service = get_diagnostic_service(db)
+    diagnostic_service = get_diagnostic_service(db)
 
     # Ensure diagnostic exists and the user has access (service will raise if not)
-    diagnostic = service.get_diagnostic(diagnostic_id)
+    diagnostic = diagnostic_service.get_diagnostic(diagnostic_id)
     if not diagnostic:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Diagnostic {diagnostic_id} not found"
+            detail=f"Diagnostic {diagnostic_id} not found",
         )
 
-    # Base files directory (backend/files)
-    base_dir = Path(__file__).resolve().parents[2] / "files"
-    uploads_dir = base_dir / "uploads" / "diagnostics" / str(diagnostic_id)
-    uploads_dir.mkdir(parents=True, exist_ok=True)
+    # Use the shared file service so logic is consistent with /files/upload
+    file_service = get_file_service(db)
 
-    # Sanitize file name
-    original_name = os.path.basename(file.filename or "uploaded-file")
-    safe_name = original_name.replace("..", "_").replace("/", "_").replace("\\", "_")
-    destination = uploads_dir / safe_name
+    # Upload single file (store locally + OpenAI)
+    media = await file_service.upload_file(
+        file=file,
+        user_id=current_user.id,
+        question_field_name=question_field_name,
+        upload_to_openai=True,
+    )
 
-    # Save file to disk
+    # Attach to diagnostic via many-to-many relationship if not already linked
+    if media not in diagnostic.media:
+        diagnostic.media.append(media)
+        db.commit()
+
+    # Build a relative path for frontend display (relative to upload root)
+    upload_root = file_service.upload_dir
     try:
-        with destination.open("wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-    finally:
-        await file.close()
-
-    rel_path = destination.relative_to(base_dir).as_posix()
+        rel_path = Path(media.file_path).relative_to(upload_root).as_posix()
+    except Exception:
+        # Fallback to full path string if something goes wrong
+        rel_path = media.file_path
 
     return {
-        "file_name": safe_name,
-        "file_type": file.content_type,
-        "file_size": destination.stat().st_size,
+        "file_name": media.file_name,
+        "file_type": media.file_type,
+        "file_size": media.file_size,
         "relative_path": rel_path,
+        # Extra fields the frontend may use later
+        "media_id": str(media.id),
+        "openai_file_id": media.openai_file_id,
+        "question_field_name": media.question_field_name,
     }
 
 
@@ -534,5 +554,103 @@ async def regenerate_diagnostic_report(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to regenerate report: {str(e)}"
+        )
+
+
+# ==================== DOWNLOAD REPORT ====================
+
+@router.get("/{diagnostic_id}/download")
+async def download_diagnostic_report(
+    diagnostic_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Download diagnostic report as PDF.
+    
+    Generates a comprehensive PDF report containing:
+    - Header (User, Date)
+    - Diagnostic Summary
+    - Diagnostic Advice
+    - Scoring Section (Scored Responses, Client Summary, Roadmap)
+    - All Responses
+    
+    Args:
+        diagnostic_id: UUID of the diagnostic
+        
+    Returns:
+        PDF file download
+    """
+    try:
+        # Get diagnostic
+        diagnostic = db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
+        
+        if not diagnostic:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Diagnostic not found"
+            )
+        
+        # Check access (user must be creator, advisor on engagement, or admin)
+        # from app.utils.auth import check_engagement_access
+        # if not check_engagement_access(diagnostic.engagement, current_user):
+        #     raise HTTPException(
+        #         status_code=status.HTTP_403_FORBIDDEN,
+        #         detail="You do not have access to this diagnostic"
+        #     )
+        
+        # Check if diagnostic is completed
+        if diagnostic.status != "completed":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Diagnostic must be completed before downloading report"
+            )
+        
+        # Build question text map from diagnostic questions
+        question_text_map = {}
+        diagnostic_questions = diagnostic.questions or {}
+        
+        for page in diagnostic_questions.get("pages", []):
+            for element in page.get("elements", []):
+                element_name = element.get("name")
+                element_title = element.get("title", element_name)
+                if element_name:
+                    question_text_map[element_name] = element_title
+        
+        # Get user for report (use completed_by_user_id if available, else created_by_user_id)
+        report_user_id = diagnostic.completed_by_user_id or diagnostic.created_by_user_id
+        report_user = db.query(User).filter(User.id == report_user_id).first()
+        
+        if not report_user:
+            report_user = current_user  # Fallback to current user
+        
+        # Generate PDF
+        pdf_bytes = ReportService.generate_pdf_report(
+            diagnostic=diagnostic,
+            user=report_user,
+            question_text_map=question_text_map
+        )
+        
+        # Generate filename
+        filename = ReportService.get_download_filename(diagnostic, report_user)
+        
+        # Return PDF as download
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating PDF report: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate report: {str(e)}"
         )
 

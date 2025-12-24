@@ -39,7 +39,7 @@ class Task(Base):
     priority_rank = Column(Integer, nullable=True, comment="Priority rank from AI (1 = highest priority)")
     
     # Diagnostic-generated task metadata
-    module_reference = Column(String(10), nullable=True, comment="Module reference from diagnostic (e.g., M1, M2, M3)")
+    module_reference = Column(String(50), nullable=True, comment="Module reference from diagnostic (e.g., M1, M2, M3)")
     impact_level = Column(String(20), nullable=True, comment="Impact level: low, medium, high")
     effort_level = Column(String(20), nullable=True, comment="Effort level: low, medium, high")
     

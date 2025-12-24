@@ -6,6 +6,7 @@ from .engagement import Engagement
 from .diagnostic import Diagnostic
 from .task import Task
 from .note import Note
+from .media import Media
 
 __all__ = [
     "User",
@@ -13,6 +14,7 @@ __all__ = [
     "Diagnostic",
     "Task",
     "Note",
+    "Media",
 ]
 
 

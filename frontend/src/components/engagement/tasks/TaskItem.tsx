@@ -22,31 +22,6 @@ export function TaskItem({ task, onEdit, onDelete, onStatusChange }: TaskItemPro
   const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
   const [showNoteForm, setShowNoteForm] = useState(false);
 
-  // Render description as bullet points if it's a numbered list (1), 2), etc.)
-  const renderDescription = (description?: string) => {
-    if (!description) return null;
-    const lines = description.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    const numberedItems = lines
-      .map((line) => {
-        const match = line.match(/^\d+\)\s*(.+)$/); // e.g., "1) Do X"
-        return match ? match[1].trim() : null;
-      })
-      .filter(Boolean);
-
-    if (numberedItems.length > 1) {
-      return (
-        <ul className="list-disc pl-5 text-sm text-muted-foreground mb-2 space-y-1">
-          {numberedItems.map((item, idx) => (
-            <li key={idx}>{item}</li>
-          ))}
-        </ul>
-      );
-    }
-
-    // Fallback: plain text
-    return <p className="text-sm text-muted-foreground mb-2">{description}</p>;
-  };
-
   const handleCreateNote = async (noteData: any) => {
     try {
       await dispatch(createNote({
@@ -132,7 +107,9 @@ export function TaskItem({ task, onEdit, onDelete, onStatusChange }: TaskItemPro
                   <Badge variant={getStatusBadgeVariant(task.status)}>{task.status.replace('_', ' ')}</Badge>
                   <Badge variant={getPriorityBadgeVariant(task.priority)}>{task.priority}</Badge>
                 </div>
-                {renderDescription(task.description)}
+                {task.description && (
+                  <p className="text-sm text-muted-foreground mb-2">{task.description}</p>
+                )}
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   {task.assignedToName && (
                     <span>Assigned to: {task.assignedToName}</span>

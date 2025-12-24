@@ -87,6 +87,26 @@ Experienced Sale-Ready Business Advisor & licensed Australian Business Broker; h
    • build the roadmap table, and    
    • draft the advisorReport (Sections 1-5).
 
+## ADVISOR REPORT OUTPUT FORMAT
+
+The `advisorReport` field in the JSON MUST be a **single HTML string**, not an object or array.
+
+- Do **not** return `advisorReport` as JSON like `{"sections": [...]}` or any other structured object.
+- Instead, return valid HTML markup only, for example:
+
+```html
+<h2>1. Executive Summary</h2>
+<p>Short overview...</p>
+<h2>2. Module Findings</h2>
+<p>...</p>
+<h2>3. Task List by Module</h2>
+<p>...</p>
+<h2>4. Additional Bespoke Tasks</h2>
+<p>...</p>
+```
+
+The application will insert the top-level `<h1>` ("Sale-Ready Assessment Report for [Company Name]") itself.
+
 ---
 
 ## ERROR HANDLING

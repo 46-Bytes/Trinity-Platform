@@ -3,6 +3,7 @@ OpenAI service for GPT interactions using Responses API
 """
 from typing import Dict, Any, List, Optional
 import json
+import time
 from openai import OpenAI
 from app.config import settings
 import logging
@@ -129,24 +130,60 @@ class OpenAIService:
             if reasoning_effort:
                 params["reasoning"] = {"effort": reasoning_effort}
             
+            logger.info(f"[OpenAI API] Making API call to responses.create()")
+            logger.info(f"[OpenAI API] Model: {params.get('model')}")
+            logger.info(f"[OpenAI API] Reasoning effort: {params.get('reasoning', {}).get('effort', 'none')}")
+            logger.info(f"[OpenAI API] JSON mode: {json_mode}")
+            logger.info(f"[OpenAI API] Input messages count: {len(params.get('input', []))}")
+            logger.info(f"[OpenAI API] File attachments: {len(file_ids) if file_ids else 0}")
+            
             # Make API call using Responses API
+            logger.info("[OpenAI API] ⏳ Waiting for OpenAI API response (this may take several minutes)...")
+            start_time = time.time()
+            
             response = self.client.responses.create(**params)
+            
+            elapsed_time = time.time() - start_time
+            logger.info(f"[OpenAI API] ✅ API call completed in {elapsed_time:.2f} seconds ({elapsed_time/60:.2f} minutes)")
             
             # Extract data
             content = response.output_text
+            logger.info(f"[OpenAI API] Response received: {len(content)} characters")
+            
+            # Extract token usage
+            tokens_used = getattr(response.usage, 'total_tokens', 0) if hasattr(response, 'usage') else 0
+            prompt_tokens = getattr(response.usage, 'prompt_tokens', 0) if hasattr(response, 'usage') else 0
+            completion_tokens = getattr(response.usage, 'completion_tokens', 0) if hasattr(response, 'usage') else 0
+            finish_reason = getattr(response, 'finish_reason', 'completed')
+            
+            logger.info(f"[OpenAI API] Token usage - Total: {tokens_used}, Prompt: {prompt_tokens}, Completion: {completion_tokens}")
+            logger.info(f"[OpenAI API] Finish reason: {finish_reason}")
             
             # Return structured response
             return {
                 "content": content,
                 "model": self.model,
-                "tokens_used": getattr(response.usage, 'total_tokens', 0) if hasattr(response, 'usage') else 0,
-                "prompt_tokens": getattr(response.usage, 'prompt_tokens', 0) if hasattr(response, 'usage') else 0,
-                "completion_tokens": getattr(response.usage, 'completion_tokens', 0) if hasattr(response, 'usage') else 0,
-                "finish_reason": getattr(response, 'finish_reason', 'completed')
+                "tokens_used": tokens_used,
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "finish_reason": finish_reason
             }
             
         except Exception as e:
-            raise Exception(f"OpenAI Responses API error: {str(e)}")
+            error_msg = str(e)
+            logger.error(f"[OpenAI API] ❌ API call failed: {error_msg}", exc_info=True)
+            
+            # Check for timeout errors
+            if "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
+                logger.error(f"[OpenAI API] Timeout error detected. Timeout setting: {settings.OPENAI_TIMEOUT} seconds")
+                raise Exception(f"OpenAI API request timed out after {settings.OPENAI_TIMEOUT} seconds. The request may be too complex or the server is slow. Error: {error_msg}")
+            
+            # Check for API key errors
+            if "api key" in error_msg.lower() or "authentication" in error_msg.lower():
+                logger.error("[OpenAI API] Authentication error detected")
+                raise Exception(f"OpenAI API authentication failed. Please check your OPENAI_API_KEY. Error: {error_msg}")
+            
+            raise Exception(f"OpenAI Responses API error: {error_msg}")
     
     async def generate_json_completion(
         self,
@@ -177,25 +214,37 @@ class OpenAIService:
         )
         
         # Parse JSON content
+        logger.info("[OpenAI] Parsing JSON response...")
         try:
             # Try to parse as JSON
             parsed_content = json.loads(result["content"])
             result["parsed_content"] = parsed_content
-        except json.JSONDecodeError:
+            logger.info("[OpenAI] ✅ JSON parsed successfully (direct parse)")
+            logger.info(f"[OpenAI] Parsed content keys: {list(parsed_content.keys()) if isinstance(parsed_content, dict) else 'Not a dict'}")
+        except json.JSONDecodeError as e:
+            logger.warning(f"[OpenAI] ⚠️ Direct JSON parse failed: {str(e)}")
+            logger.info("[OpenAI] Attempting to extract JSON from markdown...")
+            
             # If JSON parsing fails, try to extract JSON from markdown
             content = result["content"]
             
             # Remove markdown code blocks if present
             if "```json" in content:
+                logger.info("[OpenAI] Found ```json code block, extracting...")
                 content = content.split("```json")[1].split("```")[0].strip()
             elif "```" in content:
+                logger.info("[OpenAI] Found ``` code block, extracting...")
                 content = content.split("```")[1].split("```")[0].strip()
             
             try:
                 parsed_content = json.loads(content)
                 result["parsed_content"] = parsed_content
-            except json.JSONDecodeError as e:
-                raise Exception(f"Failed to parse JSON response: {str(e)}\nContent: {content}")
+                logger.info("[OpenAI] ✅ JSON parsed successfully (from markdown)")
+                logger.info(f"[OpenAI] Parsed content keys: {list(parsed_content.keys()) if isinstance(parsed_content, dict) else 'Not a dict'}")
+            except json.JSONDecodeError as e2:
+                logger.error(f"[OpenAI] ❌ JSON parsing failed after markdown extraction: {str(e2)}")
+                logger.error(f"[OpenAI] Content preview (first 500 chars): {content[:500]}")
+                raise Exception(f"Failed to parse JSON response: {str(e2)}\nContent preview: {content[:500]}...")
         
         return result
     
@@ -254,45 +303,79 @@ class OpenAIService:
         Returns:
             Dictionary containing scoring results, roadmap, and advisor report
         """
+        logger.info("[OpenAI] ========== Starting process_scoring ==========")
+        logger.info(f"[OpenAI] Model: {self.model}")
+        logger.info(f"[OpenAI] Reasoning effort: {reasoning_effort}")
+        logger.info(f"[OpenAI] File IDs provided: {len(file_ids) if file_ids else 0}")
+        if file_ids:
+            logger.info(f"[OpenAI] File IDs: {file_ids}")
+        logger.info(f"[OpenAI] File context length: {len(file_context) if file_context else 0} characters")
+        logger.info(f"[OpenAI] User responses count: {len(user_responses)}")
+        logger.info(f"[OpenAI] Scoring map entries: {len(scoring_map)}")
+        logger.info(f"[OpenAI] Task library entries: {len(task_library)}")
+        
         # Build file context message if files are present
         file_context_msg = ""
         if file_context:
             file_context_msg = f"\n\n{file_context}"
+            logger.info(f"[OpenAI] File context added to prompt: {len(file_context_msg)} characters")
         
         question_text_map = {}
         for page in diagnostic_questions.get("pages", []):
             for element in page.get("elements", []):
                 question_text_map[element["name"]] = element.get("title", element["name"])
+        
+        logger.info(f"[OpenAI] Question text map built: {len(question_text_map)} questions")
 
+        # Build system message
+        system_content = (
+            f"{scoring_prompt}\n\n"
+            f"Scoring Map: {json.dumps(scoring_map)}\n\n"
+            f"Process User Responses using Scoring Map and store as scored_rows.\n"
+            f"Join scored_rows array with roadmap array in the same json structure.\n\n"
+            f"Task Library: {json.dumps(task_library)}\n\n"
+            f"IMPORTANT: Respond with valid JSON only. No markdown, no explanations."
+            f"{file_context_msg}"
+        )
+        
+        # Build user message
+        user_content = (
+            f"Question Text Map: {json.dumps(question_text_map)}\n\n"
+            f"User Responses: {json.dumps(user_responses)}\n\n"
+            f"Generate a complete JSON response with scored_rows, roadmap, and advisorReport."
+        )
+        
+        logger.info(f"[OpenAI] System message length: {len(system_content)} characters")
+        logger.info(f"[OpenAI] User message length: {len(user_content)} characters")
+        logger.info(f"[OpenAI] Total prompt size: ~{len(system_content) + len(user_content)} characters")
+        
         messages = [
             {
                 "role": "system",
-                "content": (
-                    f"{scoring_prompt}\n\n"
-                    f"Scoring Map: {json.dumps(scoring_map)}\n\n"
-                    f"Process User Responses using Scoring Map and store as scored_rows.\n"
-                    f"Join scored_rows array with roadmap array in the same json structure.\n\n"
-                    f"Task Library: {json.dumps(task_library)}\n\n"
-                    f"IMPORTANT: Respond with valid JSON only. No markdown, no explanations."
-                    f"{file_context_msg}"
-                )
+                "content": system_content
             },
             {
                 "role": "user",
-                "content": (
-                    f"Question Text Map: {json.dumps(question_text_map)}\n\n"
-                    f"User Responses: {json.dumps(user_responses)}\n\n"
-                    f"Generate a complete JSON response with scored_rows, roadmap, and advisorReport."
-                )
+                "content": user_content
             }
         ]
-        logger.info(f"Messages: {messages}")
-        # Pass file IDs to be attached to the user message
-        return await self.generate_json_completion(
-            messages=messages,
-            reasoning_effort=reasoning_effort,
-            file_ids=file_ids if file_ids else None
-        )
+        
+        logger.info("[OpenAI] Calling generate_json_completion for scoring...")
+        logger.info(f"[OpenAI] Timeout setting: {self.client.timeout} seconds")
+        
+        try:
+            result = await self.generate_json_completion(
+                messages=messages,
+                reasoning_effort=reasoning_effort,
+                file_ids=file_ids if file_ids else None
+            )
+            logger.info("[OpenAI] ✅ generate_json_completion completed successfully")
+            logger.info(f"[OpenAI] Response content length: {len(result.get('content', ''))} characters")
+            logger.info(f"[OpenAI] Parsed content keys: {list(result.get('parsed_content', {}).keys())}")
+            return result
+        except Exception as e:
+            logger.error(f"[OpenAI] ❌ generate_json_completion failed: {str(e)}", exc_info=True)
+            raise
     
     async def generate_advice(
         self,

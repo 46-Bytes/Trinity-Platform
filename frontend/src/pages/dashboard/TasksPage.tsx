@@ -104,7 +104,7 @@ export default function TasksPage() {
           onChange={(e) => setPriorityFilter(e.target.value)}
         >
           <option value="all">All Priority</option>
-          <option value="urgent">Urgent</option>
+          <option value="critical">Critical</option>
           <option value="high">High</option>
           <option value="medium">Medium</option>
           <option value="low">Low</option>

@@ -17,7 +17,7 @@ const taskFormSchema = z.object({
   title: z.string().min(1, 'Title is required').max(255, 'Title must be less than 255 characters'),
   description: z.string().optional(),
   status: z.enum(['pending', 'in_progress', 'completed', 'cancelled']).optional(),
-  priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
+  priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
   assignedToUserId: z.string().optional(),
   createdByUserId: z.string().optional(),
   dueDate: z.string().optional(),
@@ -222,7 +222,7 @@ export function TaskForm({ task, engagementId, onSubmit, onCancel }: TaskFormPro
                     <SelectItem value="low">Low</SelectItem>
                     <SelectItem value="medium">Medium</SelectItem>
                     <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
+                    <SelectItem value="critical">Critical</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />

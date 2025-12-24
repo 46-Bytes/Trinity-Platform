@@ -14,7 +14,7 @@ class TaskBase(BaseModel):
     description: Optional[str] = Field(None, description="Detailed task description")
     task_type: str = Field(default="manual", description="manual, diagnostic_generated")
     status: str = Field(default="pending", description="pending, in_progress, completed, cancelled")
-    priority: str = Field(default="medium", description="low, medium, high, urgent")
+    priority: str = Field(default="medium", description="low, medium, high, critical")
     priority_rank: Optional[int] = Field(None, description="Priority rank from AI (1 = highest)")
     module_reference: Optional[str] = Field(None, max_length=10, description="Module reference (e.g., M1, M2)")
     impact_level: Optional[str] = Field(None, description="Impact level: low, medium, high")

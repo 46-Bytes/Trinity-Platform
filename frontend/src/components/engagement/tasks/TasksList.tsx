@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { Plus, Search } from 'lucide-react';
 import { TaskForm } from './TaskForm';
@@ -22,6 +23,7 @@ export function TasksList({ engagementId }: TasksListProps) {
   const { tasks, isLoading, error, filters } = useAppSelector((state) => state.task);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -78,16 +80,6 @@ export function TasksList({ engagementId }: TasksListProps) {
     }));
   }, [dispatch, engagementId]);
 
-  const handleCreateTask = async (taskData: TaskCreatePayload) => {
-    try {
-      await dispatch(createTask({ ...taskData, engagementId })).unwrap();
-      setIsCreateDialogOpen(false);
-      // Refresh tasks
-      dispatch(fetchTasks({ engagementId }));
-    } catch (error) {
-      console.error('Failed to create task:', error);
-    }
-  };
 
   const handleUpdateTask = async (taskId: string, updates: TaskUpdatePayload) => {
     try {
@@ -117,10 +109,34 @@ export function TasksList({ engagementId }: TasksListProps) {
   const inProgressTasks = engagementTasks.filter((t) => t.status === 'in_progress').length;
   const completedTasks = engagementTasks.filter((t) => t.status === 'completed').length;
 
+  const handleCreateTask = async (taskData: TaskCreatePayload) => {
+    try {
+      await dispatch(createTask({ ...taskData, engagementId })).unwrap();
+      setIsCreateDialogOpen(false);
+      // Refresh tasks
+      dispatch(fetchTasks({ engagementId }));
+    } catch (error) {
+      console.error('Failed to create task:', error);
+    }
+  };
+
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     // Scroll to top of tasks list
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const getPriorityBadgeVariant = (priority: string) => {
+    switch (priority) {
+      case 'critical':
+        return 'destructive';
+      case 'high':
+        return 'default';
+      case 'medium':
+        return 'secondary';
+      default:
+        return 'outline';
+    }
   };
 
   return (
@@ -192,7 +208,7 @@ export function TasksList({ engagementId }: TasksListProps) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Priority</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
+                    <SelectItem value="critical">Critical</SelectItem>
                     <SelectItem value="high">High</SelectItem>
                     <SelectItem value="medium">Medium</SelectItem>
                     <SelectItem value="low">Low</SelectItem>
@@ -240,6 +256,7 @@ export function TasksList({ engagementId }: TasksListProps) {
                     onEdit={() => setEditingTask(task)}
                     onDelete={() => handleDeleteTask(task.id)}
                     onStatusChange={(newStatus) => handleUpdateTask(task.id, { status: newStatus as any })}
+                    onClick={() => setSelectedTask(task)}
                   />
                 ))}
               </div>
@@ -347,6 +364,96 @@ export function TasksList({ engagementId }: TasksListProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Task Detail Dialog */}
+      {selectedTask && (
+        <Dialog open={!!selectedTask} onOpenChange={(open) => !open && setSelectedTask(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Task Details</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-semibold text-lg mb-2">{selectedTask.title}</h3>
+                {selectedTask.description && (
+                  <p className="text-sm text-muted-foreground mb-4 whitespace-pre-wrap">{selectedTask.description}</p>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Status</label>
+                  <Select
+                    value={selectedTask.status}
+                    onValueChange={(newStatus) => {
+                      handleUpdateTask(selectedTask.id, { status: newStatus as any });
+                      setSelectedTask({ ...selectedTask, status: newStatus as any });
+                    }}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Priority</label>
+                  <div className="mt-1">
+                    <Badge variant={getPriorityBadgeVariant(selectedTask.priority)}>
+                      {selectedTask.priority}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                {selectedTask.assignedToName && (
+                  <div>
+                    <span className="text-muted-foreground">Assigned to:</span>
+                    <span className="ml-2">{selectedTask.assignedToName}</span>
+                  </div>
+                )}
+                {selectedTask.createdByName && (
+                  <div>
+                    <span className="text-muted-foreground">Created by:</span>
+                    <span className="ml-2">{selectedTask.createdByName}</span>
+                  </div>
+                )}
+                {selectedTask.dueDate && (
+                  <div>
+                    <span className="text-muted-foreground">Due date:</span>
+                    <span className="ml-2">
+                      {new Date(selectedTask.dueDate).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button variant="outline" onClick={() => setSelectedTask(null)}>
+                  Close
+                </Button>
+                <Button variant="outline" onClick={() => {
+                  setSelectedTask(null);
+                  setEditingTask(selectedTask);
+                }}>
+                  Edit Task
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Edit Dialog */}
       {editingTask && (

@@ -1,9 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, Calendar, User, AlertCircle, CheckCircle2, Clock, Circle, Loader2 } from 'lucide-react';
+import { Search, Calendar, User, AlertCircle, CheckCircle2, Clock, Circle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { fetchTasks, Task } from '@/store/slices/tasksReducer';
+import { fetchTasks, updateTask, Task, TaskUpdatePayload } from '@/store/slices/tasksReducer';
 import { useNavigate } from 'react-router-dom';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { TaskForm } from '@/components/engagement/tasks/TaskForm';
 
 type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
 
@@ -33,10 +38,12 @@ export default function TasksPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { tasks, isLoading, error } = useAppSelector((state) => state.task);
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<TaskStatus | 'all'>('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   // Fetch all tasks for the current user on mount
   useEffect(() => {
@@ -63,6 +70,37 @@ export default function TasksPage() {
     'cancelled': filteredTasks.filter(t => t.status === 'cancelled'),
   };
 
+  const handleUpdateTask = async (taskId: string, updates: TaskUpdatePayload) => {
+    try {
+      await dispatch(updateTask({ id: taskId, updates })).unwrap();
+      if (selectedTask && selectedTask.id === taskId) {
+        setSelectedTask({ ...selectedTask, ...updates } as Task);
+      }
+      // Refresh tasks
+      dispatch(fetchTasks({ limit: 1000 }));
+    } catch (error) {
+      console.error('Failed to update task:', error);
+    }
+  };
+
+  const getPriorityBadgeVariant = (priority: string) => {
+    switch (priority) {
+      case 'critical':
+        return 'destructive';
+      case 'high':
+        return 'default';
+      case 'medium':
+        return 'secondary';
+      default:
+        return 'outline';
+    }
+  };
+
+  // Find the full task object from tasks array
+  const getFullTask = (taskId: string): Task | null => {
+    return tasks.find(t => t.id === taskId) || null;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -70,10 +108,6 @@ export default function TasksPage() {
           <h1 className="font-heading text-2xl font-bold text-foreground">Tasks</h1>
           <p className="text-muted-foreground mt-1">Manage and track all your tasks</p>
         </div>
-        <button className="btn-primary">
-          <Plus className="w-4 h-4" />
-          Add Task
-        </button>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4">
@@ -87,7 +121,7 @@ export default function TasksPage() {
             className="input-trinity pl-10 w-full"
           />
         </div>
-        <select 
+        <select
           className="input-trinity w-full sm:w-40"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as TaskStatus | 'all')}
@@ -98,7 +132,7 @@ export default function TasksPage() {
           <option value="completed">Completed</option>
           <option value="cancelled">Cancelled</option>
         </select>
-        <select 
+        <select
           className="input-trinity w-full sm:w-40"
           value={priorityFilter}
           onChange={(e) => setPriorityFilter(e.target.value)}
@@ -132,7 +166,7 @@ export default function TasksPage() {
             {(Object.keys(tasksByStatus) as TaskStatus[]).map((status) => {
               const config = statusConfig[status];
               const statusTasks = tasksByStatus[status];
-              
+
               return (
                 <div key={status} className="space-y-3">
                   <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
@@ -145,9 +179,15 @@ export default function TasksPage() {
 
                   <div className="space-y-3">
                     {statusTasks.map((task) => (
-                      <div 
+                      <div
                         key={task.id}
                         className="card-trinity p-4 cursor-pointer hover:shadow-trinity-md transition-all"
+                        onClick={() => {
+                          const fullTask = getFullTask(task.id);
+                          if (fullTask) {
+                            setSelectedTask(fullTask);
+                          }
+                        }}
                       >
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex items-center gap-2">
@@ -164,12 +204,12 @@ export default function TasksPage() {
                             </span>
                           </div>
                         </div>
-                        
+
                         <h4 className="font-medium text-sm mb-1">{task.title}</h4>
                         {task.description && (
                           <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{task.description}</p>
                         )}
-                        
+
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <User className="w-3 h-3" />
@@ -180,7 +220,7 @@ export default function TasksPage() {
                             {task.dueDate}
                           </span>
                         </div>
-                        
+
                         <div className="mt-2 pt-2 border-t border-border">
                           <span className="text-xs text-muted-foreground">{task.engagementName}</span>
                         </div>
@@ -198,6 +238,121 @@ export default function TasksPage() {
             })}
           </div>
         </>
+      )}
+
+      {/* Task Detail Dialog */}
+      {selectedTask && (
+        <Dialog open={!!selectedTask} onOpenChange={(open) => !open && setSelectedTask(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Task Details</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-semibold text-lg mb-2">{selectedTask.title}</h3>
+                {selectedTask.description && (
+                  <p className="text-sm text-muted-foreground mb-4 whitespace-pre-wrap">{selectedTask.description}</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Status</label>
+                  <Select
+                    value={selectedTask.status}
+                    onValueChange={(newStatus) => {
+                      handleUpdateTask(selectedTask.id, { status: newStatus as any });
+                      setSelectedTask({ ...selectedTask, status: newStatus as any });
+                    }}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Priority</label>
+                  <div className="mt-1">
+                    <Badge variant={getPriorityBadgeVariant(selectedTask.priority)}>
+                      {selectedTask.priority}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                {selectedTask.assignedToName && (
+                  <div>
+                    <span className="text-muted-foreground">Assigned to:</span>
+                    <span className="ml-2">{selectedTask.assignedToName}</span>
+                  </div>
+                )}
+                {selectedTask.createdByName && (
+                  <div>
+                    <span className="text-muted-foreground">Created by:</span>
+                    <span className="ml-2">{selectedTask.createdByName}</span>
+                  </div>
+                )}
+                {selectedTask.dueDate && (
+                  <div>
+                    <span className="text-muted-foreground">Due date:</span>
+                    <span className="ml-2">
+                      {new Date(selectedTask.dueDate).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </span>
+                  </div>
+                )}
+                {selectedTask.engagementName && (
+                  <div>
+                    <span className="text-muted-foreground">Engagement:</span>
+                    <span className="ml-2">{selectedTask.engagementName}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button variant="outline" onClick={() => setSelectedTask(null)}>
+                  Close
+                </Button>
+                <Button variant="outline" onClick={() => {
+                  setSelectedTask(null);
+                  setEditingTask(selectedTask);
+                }}>
+                  Edit Task
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Edit Dialog */}
+      {editingTask && (
+        <Dialog open={!!editingTask} onOpenChange={(open) => !open && setEditingTask(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Task</DialogTitle>
+            </DialogHeader>
+            <TaskForm
+              task={editingTask}
+              onSubmit={(updates) => {
+                handleUpdateTask(editingTask.id, updates);
+                setEditingTask(null)
+              }}
+              onCancel={() => setEditingTask(null)}
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

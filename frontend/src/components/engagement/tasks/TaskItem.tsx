@@ -15,9 +15,10 @@ interface TaskItemProps {
   onEdit: () => void;
   onDelete: () => void;
   onStatusChange: (status: string) => void;
+  onClick: () => void;
 }
 
-export function TaskItem({ task, onEdit, onDelete, onStatusChange }: TaskItemProps) {
+export function TaskItem({ task, onEdit, onDelete, onStatusChange, onClick }: TaskItemProps) {
   const dispatch = useAppDispatch();
   const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
   const [showNoteForm, setShowNoteForm] = useState(false);
@@ -95,7 +96,10 @@ export function TaskItem({ task, onEdit, onDelete, onStatusChange }: TaskItemPro
   const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'completed';
 
   return (
-    <Card className={`hover:shadow-md transition-shadow ${isOverdue ? 'border-destructive' : ''}`}>
+    <Card 
+      className={`hover:shadow-md transition-shadow cursor-pointer ${isOverdue ? 'border-destructive' : ''}`}
+      onClick={onClick}
+    >
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 space-y-2">
@@ -108,7 +112,7 @@ export function TaskItem({ task, onEdit, onDelete, onStatusChange }: TaskItemPro
                   <Badge variant={getPriorityBadgeVariant(task.priority)}>{task.priority}</Badge>
                 </div>
                 {task.description && (
-                  <p className="text-sm text-muted-foreground mb-2">{task.description}</p>
+                  <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{task.description}</p>
                 )}
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   {task.assignedToName && (
@@ -127,7 +131,7 @@ export function TaskItem({ task, onEdit, onDelete, onStatusChange }: TaskItemPro
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             <Button
               variant="ghost"
               size="sm"
@@ -146,10 +150,10 @@ export function TaskItem({ task, onEdit, onDelete, onStatusChange }: TaskItemPro
                 <CheckCircle2 className="h-4 w-4" />
               </Button>
             )}
-            <Button variant="ghost" size="sm" onClick={onEdit} title="Edit task">
+            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onEdit(); }} title="Edit task">
               <Edit className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={onDelete} title="Delete task" className="text-destructive hover:text-destructive">
+            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Delete task" className="text-destructive hover:text-destructive">
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>

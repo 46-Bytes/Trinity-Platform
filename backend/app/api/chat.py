@@ -35,9 +35,18 @@ async def list_conversations(
     chat_service = get_chat_service(db)
     conversations = chat_service.get_user_conversations(current_user.id)
     
+    # Build response manually to avoid model_validate issues
     return {
         "conversations": [
-            ConversationResponse.model_validate(conv) for conv in conversations
+            {
+                "id": str(conv.id),
+                "user_id": str(conv.user_id),
+                "category": conv.category,
+                "title": conv.title,
+                "created_at": conv.created_at.isoformat() if conv.created_at else None,
+                "updated_at": conv.updated_at.isoformat() if conv.updated_at else None,
+            }
+            for conv in conversations
         ]
     }
 
@@ -57,6 +66,14 @@ async def create_conversation(
     Returns:
         Created conversation
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"🚀 API: Creating/getting conversation")
+    logger.info(f"   User ID: {current_user.id}")
+    logger.info(f"   Category: {conversation_data.category}")
+    logger.info(f"   Diagnostic ID: {conversation_data.diagnostic_id}")
+    
     chat_service = get_chat_service(db)
     
     conversation = chat_service.get_or_create_conversation(
@@ -65,7 +82,20 @@ async def create_conversation(
         diagnostic_id=conversation_data.diagnostic_id
     )
     
-    return ConversationResponse.model_validate(conversation)
+    logger.info(f"✅ API: Conversation created/retrieved: {conversation.id}")
+    logger.info(f"   User ID: {conversation.user_id}")
+    logger.info(f"   Category: {conversation.category}")
+    logger.info(f"   Title: {conversation.title}")
+    
+    # Build response manually to avoid model_validate issues
+    return {
+        "id": str(conversation.id),
+        "user_id": str(conversation.user_id),
+        "category": conversation.category,
+        "title": conversation.title,
+        "created_at": conversation.created_at.isoformat() if conversation.created_at else None,
+        "updated_at": conversation.updated_at.isoformat() if conversation.updated_at else None,
+    }
 
 
 @router.get("/conversations/{conversation_id}", response_model=ConversationResponse)
@@ -92,7 +122,15 @@ async def get_conversation(
             detail="Conversation not found"
         )
     
-    return ConversationResponse.model_validate(conversation)
+    # Build response manually to avoid model_validate issues
+    return {
+        "id": str(conversation.id),
+        "user_id": str(conversation.user_id),
+        "category": conversation.category,
+        "title": conversation.title,
+        "created_at": conversation.created_at.isoformat() if conversation.created_at else None,
+        "updated_at": conversation.updated_at.isoformat() if conversation.updated_at else None,
+    }
 
 
 @router.get("/conversations/{conversation_id}/messages", response_model=List[MessageResponse])
@@ -119,13 +157,27 @@ async def get_messages(
         limit=limit
     )
     
-    return [MessageResponse.model_validate(msg) for msg in messages]
+    # Build response manually to avoid model_validate issues
+    return [
+        {
+            "id": str(msg.id),
+            "conversation_id": str(msg.conversation_id),
+            "role": msg.role,
+            "message": msg.message,
+            "response_data": msg.response_data,
+            "metadata": msg.message_metadata,
+            "created_at": msg.created_at.isoformat() if msg.created_at else None,
+            "updated_at": msg.updated_at.isoformat() if msg.updated_at else None,
+        }
+        for msg in messages
+    ]
 
 
 @router.post("/conversations/{conversation_id}/messages", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
 async def send_message(
     conversation_id: UUID,
     message_data: MessageCreate,
+    engagement_id: Optional[UUID] = Query(None, description="Optional engagement ID to find diagnostic context"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user_from_token)
 ):
@@ -146,24 +198,50 @@ async def send_message(
     Returns:
         Assistant message with AI response
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     chat_service = get_chat_service(db)
     
     try:
+        logger.info(f"🚀 API: Sending message to conversation")
+        logger.info(f"   Conversation ID: {conversation_id}")
+        logger.info(f"   User ID: {current_user.id}")
+        logger.info(f"   Message length: {len(message_data.message)} characters")
+        logger.info(f"   Engagement ID: {engagement_id}")
+        
         assistant_message = await chat_service.send_message(
             conversation_id=conversation_id,
             user_id=current_user.id,
             message_text=message_data.message,
-            limit=50
+            limit=50,
+            engagement_id=engagement_id
         )
         
-        return MessageResponse.model_validate(assistant_message)
+        logger.info(f"✅ API: Message sent successfully")
+        logger.info(f"   Assistant message ID: {assistant_message.id}")
+        logger.info(f"   Response length: {len(assistant_message.message)} characters")
+        
+        # Build response manually to avoid model_validate issues
+        return {
+            "id": str(assistant_message.id),
+            "conversation_id": str(assistant_message.conversation_id),
+            "role": assistant_message.role,
+            "message": assistant_message.message,
+            "response_data": assistant_message.response_data,
+            "metadata": assistant_message.message_metadata,
+            "created_at": assistant_message.created_at.isoformat() if assistant_message.created_at else None,
+            "updated_at": assistant_message.updated_at.isoformat() if assistant_message.updated_at else None,
+        }
         
     except ValueError as e:
+        logger.error(f"ValueError sending message: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
         )
     except Exception as e:
+        logger.error(f"Exception sending message: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to send message: {str(e)}"

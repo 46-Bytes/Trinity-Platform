@@ -235,8 +235,8 @@ class ReportService:
         # Client Summary section (narrative + roadmap table)
         if client_summary or roadmap:
             client_summary_html = ""
-            if client_summary:
-                client_summary_html = ReportService._markdown_to_html(client_summary)
+        if client_summary:
+            client_summary_html = ReportService._markdown_to_html(client_summary)
             
             roadmap_table_html = ""
             if roadmap:

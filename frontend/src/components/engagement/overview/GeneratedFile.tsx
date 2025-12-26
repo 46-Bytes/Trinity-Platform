@@ -1,4 +1,4 @@
-import { FileText, Download, Calendar, User } from 'lucide-react';
+import { FileText, Download, Calendar, User, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -12,6 +12,7 @@ export interface GeneratedFileProps {
   toolType?: string; // e.g., 'business-plan', 'diagnostic', 'position-description'
   relativePath?: string; // Path for downloading the file
   diagnosticId?: string; // Diagnostic ID for report downloads
+  isProcessing?: boolean; // Whether the file is currently being processed
   onDownload?: (id: string) => void;
 }
 
@@ -39,6 +40,7 @@ export function GeneratedFile({
   generatedBy,
   size,
   toolType,
+  isProcessing,
   onDownload,
 }: GeneratedFileProps) {
   const formatDate = (date: Date) => {
@@ -74,6 +76,12 @@ export function GeneratedFile({
                 {toolType}
               </span>
             )}
+            {isProcessing && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-info/20 text-info flex items-center gap-1">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Processing
+              </span>
+            )}
           </div>
           
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -94,16 +102,24 @@ export function GeneratedFile({
         </div>
       </div>
 
-      {/* Download Button */}
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => onDownload?.(id)}
-        className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-      >
-        <Download className="w-4 h-4 mr-2" />
-        Download
-      </Button>
+      {/* Download Button - Hide if processing */}
+      {!isProcessing && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onDownload?.(id)}
+          className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <Download className="w-4 h-4 mr-2" />
+          Download
+        </Button>
+      )}
+      {isProcessing && (
+        <div className="flex-shrink-0 flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span>Generating...</span>
+        </div>
+      )}
     </div>
   );
 }

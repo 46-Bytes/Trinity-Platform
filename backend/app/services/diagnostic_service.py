@@ -319,16 +319,42 @@ class DiagnosticService:
         file_context = self._build_file_context(attached_files)
         logger.info(f"[Scoring] File context built: {len(file_context) if file_context else 0} characters")
         
-        # Extract OpenAI file IDs (only files that have been uploaded to OpenAI)
-        file_ids = [
-            file.openai_file_id 
-            for file in attached_files 
-            if file.openai_file_id
+        # Attach files correctly for the Responses API:
+        # - PDFs can be attached as message content items: {"type":"input_file","file_id": ...}
+        # - CSV/TXT/XLSX/etc. must NOT be attached as message content; they must be provided to
+        #   Code Interpreter via tools[].container.file_ids (per OpenAI docs).
+        image_or_archive_ext = {"png", "jpg", "jpeg", "gif", "webp", "zip"}
+        pdf_ext = {"pdf"}
+        ci_ext = {"csv", "txt", "text", "md", "markdown", "json", "xml", "yaml", "yml", "xlsx", "xls"}
+
+        pdf_files = [
+            f for f in attached_files
+            if f.openai_file_id and f.file_extension and f.file_extension.lower() in pdf_ext
         ]
-        
-        logger.info(f"[Scoring] Files summary: {len(attached_files)} total files, {len(file_ids)} uploaded to OpenAI")
-        if file_ids:
-            logger.info(f"[Scoring] OpenAI file IDs: {file_ids}")
+        ci_files = [
+            f for f in attached_files
+            if (
+                f.openai_file_id
+                and f.file_extension
+                and f.file_extension.lower() in ci_ext
+            )
+        ]
+        filtered_files = [
+            f for f in attached_files
+            if f.openai_file_id and f.file_extension and f.file_extension.lower() in image_or_archive_ext
+        ]
+
+        pdf_file_ids = [f.openai_file_id for f in pdf_files if f.openai_file_id]
+        ci_file_ids = [f.openai_file_id for f in ci_files if f.openai_file_id]
+
+        if filtered_files:
+            logger.info(
+                f"[Scoring] Filtered out {len(filtered_files)} unsupported attachment(s) (images/zip): "
+                f"{[x.file_name + ' (' + (x.file_extension or 'no ext') + ')' for x in filtered_files]}"
+            )
+
+        logger.info(f"[Scoring] PDF attachments (message input_file): {len(pdf_file_ids)}")
+        logger.info(f"[Scoring] Code Interpreter container file_ids (csv/txt/xlsx/etc): {len(ci_file_ids)}")
         
         # Load scoring prompt
         scoring_prompt = load_prompt("scoring_prompt")
@@ -348,8 +374,15 @@ class DiagnosticService:
                 task_library=task_library,
                 diagnostic_questions=diagnostic_questions,
                 user_responses=user_responses,
-                file_context=file_context,  # Context about files (text description)
-                file_ids=file_ids if file_ids else None  # Actual file IDs for GPT to read
+                file_context=file_context,  # Text description of attached files
+                # Only PDFs are attached as message input_file items
+                file_ids=pdf_file_ids if pdf_file_ids else None,
+                # Non-PDFs go into the Code Interpreter container
+                tools=(
+                    [{"type": "code_interpreter", "container": {"type": "auto", "file_ids": ci_file_ids}}]
+                    if ci_file_ids
+                    else None
+                )
             )
             logger.info("[Scoring] ✅ OpenAI API call completed successfully")
             logger.info(f"[Scoring] Tokens used: {scoring_result.get('tokens_used', 0)}")

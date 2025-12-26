@@ -46,18 +46,26 @@ async def upload_files(
     file_service = get_file_service(db)
     
     try:
-        # Upload files
+        # Parse diagnostic_id if provided
+        diagnostic_uuid = None
+        if diagnostic_id:
+            try:
+                diagnostic_uuid = UUID(diagnostic_id)
+            except ValueError:
+                print(f"⚠️ Invalid diagnostic_id: {diagnostic_id}")
+        
+        # Upload files (pass diagnostic_id to use correct storage path)
         uploaded_media = await file_service.upload_files(
             files=files,
             user_id=current_user.id,
             question_field_name=question_field_name,
-            upload_to_openai=True
+            upload_to_openai=True,
+            diagnostic_id=diagnostic_uuid
         )
         
         # Attach files to diagnostic if diagnostic_id provided
-        if diagnostic_id:
+        if diagnostic_uuid:
             try:
-                diagnostic_uuid = UUID(diagnostic_id)
                 diagnostic = db.query(Diagnostic).filter(
                     Diagnostic.id == diagnostic_uuid
                 ).first()

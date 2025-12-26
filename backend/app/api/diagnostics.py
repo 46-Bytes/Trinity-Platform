@@ -187,11 +187,13 @@ async def upload_diagnostic_file(
     file_service = get_file_service(db)
 
     # Upload single file (store locally + OpenAI)
+    # Use diagnostic_id for the file path: uploads/diagnostic/{diagnostic_id}/
     media = await file_service.upload_file(
         file=file,
         user_id=current_user.id,
         question_field_name=question_field_name,
         upload_to_openai=True,
+        diagnostic_id=diagnostic_id,
     )
 
     # Attach to diagnostic via many-to-many relationship if not already linked

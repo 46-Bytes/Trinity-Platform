@@ -13,6 +13,7 @@ import {
 import { updateEngagement } from '@/store/slices/engagementReducer';
 import { useAuth } from '@/context/AuthContext';
 import surveyData from '@/questions/diagnostic-survey.json';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -379,28 +380,36 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
       )}
 
       {/* Progress Bar */}
-  {!isSubmitting &&    <div className="mb-8">
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="text-2xl font-bold">{currentPageData.title}</h2>
-          <span className="text-sm text-muted-foreground">
-            Page {currentPage + 1} of {totalPages}
-          </span>
+      {!isSubmitting && diagnostic.status !== 'processing' && (
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="text-2xl font-bold">{currentPageData.title}</h2>
+            <span className="text-sm text-muted-foreground">
+              Page {currentPage + 1} of {totalPages}
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-accent h-2 rounded-full transition-all"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div 
-            className="bg-accent h-2 rounded-full transition-all"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>}
+      )}
 
-      {isSubmitting ? (
-        // Loading screen shown while submitting (replaces questions + buttons)
+      {/* Show loading screen when submitting OR when status is processing */}
+      {isSubmitting || diagnostic.status === 'processing' ? (
+        // Loading screen shown while submitting or processing (replaces questions + buttons)
         <div className="flex flex-col items-center justify-center py-24 gap-4">
-          <div className="h-12 w-12 rounded-full border-4 border-accent border-t-transparent animate-spin" />
+          <Loader2 className="h-12 w-12 text-accent animate-spin" />
           <p className="text-sm text-muted-foreground text-center max-w-md">
-            Generating your AI report. This can take 10 -15 minutes. You can safely keep this tab open while we process your results.
+            Generating your AI report. This can take 10-15 minutes. You can safely keep this tab open while we process your results.
           </p>
+          {diagnostic.status === 'processing' && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Status: Processing... This page will automatically refresh when complete.
+            </p>
+          )}
         </div>
       ) : (
         <>

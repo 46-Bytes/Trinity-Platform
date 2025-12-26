@@ -147,10 +147,18 @@ class OpenAIService:
             # Run the blocking OpenAI call in a thread pool
             # This allows other requests to be processed while waiting for OpenAI
             loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(
-                None,  # Use default ThreadPoolExecutor
-                lambda: self.client.responses.create(**params)
-            )
+            try:
+                response = await loop.run_in_executor(
+                    None,  # Use default ThreadPoolExecutor
+                    lambda: self.client.responses.create(**params)
+                )
+            except Exception as executor_error:
+                elapsed_time = time.time() - start_time
+                error_msg = str(executor_error)
+                logger.error(f"[OpenAI API] ❌ Exception in run_in_executor after {elapsed_time:.2f} seconds: {error_msg}", exc_info=True)
+                logger.error(f"[OpenAI API] Exception type: {type(executor_error).__name__}")
+                # Re-raise to be caught by outer exception handler
+                raise
             
             elapsed_time = time.time() - start_time
             logger.info(f"[OpenAI API] ✅ API call completed in {elapsed_time:.2f} seconds ({elapsed_time/60:.2f} minutes)")

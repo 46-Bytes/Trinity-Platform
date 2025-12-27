@@ -5,9 +5,10 @@ from typing import Dict, Any, List, Optional
 import json
 import time
 import asyncio
-from openai import OpenAI
+from openai import AsyncOpenAI
 from app.config import settings
 import logging
+import httpx
 logger = logging.getLogger(__name__)
 
 
@@ -17,9 +18,15 @@ class OpenAIService:
     def __init__(self):
         """Initialize OpenAI client with configurable timeout"""
         # Set timeout (default: 3600 seconds = 1 hour for long-running processes)
-        self.client = OpenAI(
+        self.client = AsyncOpenAI(  # ← Changed from OpenAI to AsyncOpenAI
             api_key=settings.OPENAI_API_KEY,
-            timeout=settings.OPENAI_TIMEOUT
+            timeout=httpx.Timeout(
+                connect=10.0,
+                read=1800.0,      # ← 30 minutes for long requests
+                write=10.0,
+                pool=10.0
+            ),
+            max_retries=2
         )
         self.model = settings.OPENAI_MODEL
         self.temperature = settings.OPENAI_TEMPERATURE
@@ -113,6 +120,8 @@ class OpenAIService:
         try:
             # Convert messages to input format (with files if provided)
             input_messages = self._convert_messages_to_input(messages, file_ids=file_ids)
+
+            
             
             # Prepare parameters
             params = {
@@ -146,12 +155,18 @@ class OpenAIService:
             
             # Run the blocking OpenAI call in a thread pool
             # This allows other requests to be processed while waiting for OpenAI
-            loop = asyncio.get_event_loop()
+
+            logger.info("[OpenAI API] Making async API call...")
+            start_time = time.time()
+
+            # loop = asyncio.get_event_loop()
             try:
-                response = await loop.run_in_executor(
-                    None,  # Use default ThreadPoolExecutor
-                    lambda: self.client.responses.create(**params)
-                )
+                # response = await loop.run_in_executor(
+                #     None,  # Use default ThreadPoolExecutor
+                #     lambda: asyncio.run(self.client.responses.create(**params))
+                # )
+                response = await self.client.responses.create(**params)
+
             except Exception as executor_error:
                 elapsed_time = time.time() - start_time
                 error_msg = str(executor_error)
@@ -161,8 +176,7 @@ class OpenAIService:
                 raise
             
             elapsed_time = time.time() - start_time
-            logger.info(f"[OpenAI API] ✅ API call completed in {elapsed_time:.2f} seconds ({elapsed_time/60:.2f} minutes)")
-            
+            logger.info(f"[OpenAI API] ✅ Completed in {elapsed_time:.2f}s ({elapsed_time/60:.2f} minutes)")    
             # Extract data
             content = response.output_text
             logger.info(f"[OpenAI API] Response received: {len(content)} characters")

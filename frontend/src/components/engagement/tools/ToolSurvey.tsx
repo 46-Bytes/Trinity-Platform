@@ -110,7 +110,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
         console.error('Error checking diagnostic status:', error);
         // Continue polling on error (don't stop)
       }
-    }, 5000); // Poll every 5 seconds
+    }, 30000); // Poll every 30 seconds
 
     // Safety timeout: stop polling after 20 minutes
     const timeout = setTimeout(() => {

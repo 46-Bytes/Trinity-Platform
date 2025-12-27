@@ -134,7 +134,7 @@ export function useGlobalDiagnosticPolling() {
           console.error(`Error checking status for diagnostic ${diagnosticId}:`, error);
           // Continue polling on error
         }
-      }, 5000); // Poll every 5 seconds
+      }, 30000); // Poll every 30 seconds
 
       pollingIntervalsRef.current.set(diagnosticId, pollInterval);
     });

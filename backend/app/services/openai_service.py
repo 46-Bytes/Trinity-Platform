@@ -315,7 +315,7 @@ class OpenAIService:
         user_responses: Dict[str, Any],
         file_context: Optional[str] = None,
         file_ids: Optional[List[str]] = None,
-        reasoning_effort: str = "high"
+        reasoning_effort: str = "medium"
     ) -> Dict[str, Any]:
         """
         Process user scores using GPT with the scoring map.
@@ -517,17 +517,24 @@ class OpenAIService:
         """
         try:
             # Run file upload in thread pool to avoid blocking
-            loop = asyncio.get_event_loop()
+            # loop = asyncio.get_event_loop()
             
-            def upload():
-                with open(file_path, 'rb') as file:
-                    return self.client.files.create(
-                        file=file,
-                        purpose=purpose
-                    )
+            # def upload():
+            #     with open(file_path, 'rb') as file:
+            #         return self.client.files.create(
+            #             file=file,
+            #             purpose=purpose
+            #         )
             
-            response = await loop.run_in_executor(None, upload)
+            # response = await loop.run_in_executor(None, upload)
             
+            # Read file and upload directly with async client
+            with open(file_path, 'rb') as file:
+                response = await self.client.files.create(
+                    file=file,
+                    purpose=purpose
+                )
+            logger.info(f"[OpenAI] ✅ File uploaded: {response.id}")
             return {
                 "id": response.id,
                 "filename": response.filename,
@@ -537,7 +544,7 @@ class OpenAIService:
             }
             
         except Exception as e:
-            print(f"❌ OpenAI file upload error: {str(e)}")
+            logger.error(f"[OpenAI] ❌ File upload error: {str(e)}", exc_info=True)
             return None
 
 

@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo,useCallback } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from '@/components/ui/button';
@@ -156,11 +156,15 @@ export default function EngagementDetailPage() {
           fileMetadatas = fieldValue.filter(item => 
             item && 
             typeof item === 'object' && 
-            (item.file_name || item.fileName) // Support both snake_case and camelCase
+            !Array.isArray(item) &&
+            item !== null &&
+            (('file_name' in item && item.file_name) || ('fileName' in item && (item as any).fileName)) // Support both snake_case and camelCase
           );
-        } else if (typeof fieldValue === 'object') {
+        } else if (typeof fieldValue === 'object' && fieldValue !== null && !Array.isArray(fieldValue)) {
           // Check if it's a single file metadata object
-          if (fieldValue.file_name || (fieldValue as any).fileName) {
+          // Use 'in' operator to safely check for properties
+          if (('file_name' in fieldValue && fieldValue.file_name) || 
+              ('fileName' in fieldValue && (fieldValue as any).fileName)) {
             fileMetadatas = [fieldValue];
           }
         }

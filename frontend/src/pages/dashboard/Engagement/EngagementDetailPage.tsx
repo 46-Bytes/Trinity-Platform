@@ -1,6 +1,8 @@
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState, useMemo } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from '@/components/ui/button';
 import { ToolSurvey } from '@/components/engagement/tools/ToolSurvey';
 import { EngagementChatbot } from '@/components/engagement/chatbot';
 import { GeneratedFilesList } from '@/components/engagement/overview';
@@ -22,6 +24,7 @@ interface FileMetadata {
 
 export default function EngagementDetailPage() {
   const { engagementId } = useParams<{ engagementId: string }>();
+  const navigate = useNavigate();
   const [diagnostics, setDiagnostics] = useState<any[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
 
@@ -209,12 +212,23 @@ export default function EngagementDetailPage() {
       </div>
       
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-fit grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="tasks">Tasks</TabsTrigger>
-          <TabsTrigger value="diagnostic">Diagnostic</TabsTrigger>
-          <TabsTrigger value="chatbot">Chat Bot</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center gap-4 mb-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/dashboard/engagements')}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+          <TabsList className="grid w-fit grid-cols-4">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="tasks">Tasks</TabsTrigger>
+            <TabsTrigger value="diagnostic">Diagnostic</TabsTrigger>
+            <TabsTrigger value="chatbot">Chat Bot</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="overview" className="mt-6">
           <div className="space-y-6">

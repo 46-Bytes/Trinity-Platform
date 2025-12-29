@@ -3,6 +3,8 @@ OpenAI service for GPT interactions using Responses API
 """
 from typing import Dict, Any, List, Optional
 import json
+import os
+
 import time
 import asyncio
 from openai import AsyncOpenAI

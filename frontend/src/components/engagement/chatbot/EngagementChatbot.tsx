@@ -36,7 +36,8 @@ type ChatCategory =
   | 'tax' 
   | 'due-diligence'
   | 'competitive-forces'
-  | 'financial-docs';
+  | 'financial-docs'
+  | 'brand-ip-intangibles';
 
 interface EngagementChatbotProps {
   engagementId: string;
@@ -54,6 +55,7 @@ const CATEGORY_OPTIONS: { value: ChatCategory; label: string; description: strin
   { value: 'due-diligence', label: 'Due Diligence', description: 'Data-room and vendor readiness' },
   { value: 'competitive-forces', label: 'Competitive Forces', description: 'Market analysis and competitive positioning' },
   { value: 'financial-docs', label: 'Financial Documents', description: 'Financial document analysis' },
+  { value: 'brand-ip-intangibles', label: 'Brand, IP & Intangibles', description: 'Branding assets, trademarks and intangible value' },
 ];
 
 export function EngagementChatbot({ engagementId }: EngagementChatbotProps) {
@@ -207,6 +209,7 @@ export function EngagementChatbot({ engagementId }: EngagementChatbotProps) {
             'due-diligence': 'Hello! I\'m Trinity AI, your due diligence advisor assistant. I can help you prepare for due diligence, organize your data room, and ensure vendor readiness. How can I help you today?',
             'competitive-forces': 'Hello! I\'m Trinity AI, your competitive analysis advisor assistant. I can help you with market analysis and competitive positioning. How can I help you today?',
             'financial-docs': 'Hello! I\'m Trinity AI, your financial documents advisor assistant. I can help you analyze and organize your financial documents. How can I help you today?',
+            'brand-ip-intangibles': 'Hello! I\'m Trinity AI, your brand and IP advisor assistant. I can help you with branding assets, trademarks, patents, proprietary software, and intangible value. How can I help you today?',
           };
           
           const welcomeMessage = welcomeMessages[category] || welcomeMessages.general || 'Hello! I\'m Trinity AI, your business advisor assistant. How can I help you today?';

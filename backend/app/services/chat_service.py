@@ -477,6 +477,10 @@ class ChatService:
                 "general": "general",
                 "competitive-forces": "competitive-forces",
                 "financial-docs": "financial-docs",
+                "brand-ip-intangibles": "brand-ip-intangibles",
+                "brand": "brand-ip-intangibles",
+                "ip": "brand-ip-intangibles",
+                "intangibles": "brand-ip-intangibles",
             }
             
             normalized_category = category_variations.get(category.lower(), category.lower())

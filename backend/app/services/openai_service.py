@@ -101,7 +101,8 @@ class OpenAIService:
         temperature: Optional[float] = None,
         json_mode: bool = False,
         reasoning_effort: Optional[str] = None,
-        file_ids: Optional[List[str]] = None
+        file_ids: Optional[List[str]] = None,
+        tools: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
         Generate completion from OpenAI using Responses API.
@@ -139,6 +140,19 @@ class OpenAIService:
             # Add reasoning effort if specified
             if reasoning_effort:
                 params["reasoning"] = {"effort": reasoning_effort}
+
+            # Add tools if specified (e.g., code_interpreter for CSV/text processing)
+            if tools:
+                # Some tool types (e.g., code_interpreter) require a container field in newer Responses API versions.
+                normalized_tools: List[Dict[str, Any]] = []
+                for t in tools:
+                    if not isinstance(t, dict):
+                        continue
+                    if t.get("type") == "code_interpreter" and "container" not in t:
+                        normalized_tools.append({**t, "container": {"type": "auto"}})
+                    else:
+                        normalized_tools.append(t)
+                params["tools"] = normalized_tools
             
             logger.info(f"[OpenAI API] Making API call to responses.create()")
             logger.info(f"[OpenAI API] Model: {params.get('model')}")
@@ -146,6 +160,7 @@ class OpenAIService:
             logger.info(f"[OpenAI API] JSON mode: {json_mode}")
             logger.info(f"[OpenAI API] Input messages count: {len(params.get('input', []))}")
             logger.info(f"[OpenAI API] File attachments: {len(file_ids) if file_ids else 0}")
+            logger.info(f"[OpenAI API] Tools enabled: {tools if tools else 'none'}")
             
             # Make API call using Responses API
             # Run in thread pool to avoid blocking the event loop
@@ -221,7 +236,8 @@ class OpenAIService:
         messages: List[Dict[str, str]],
         temperature: Optional[float] = None,
         reasoning_effort: Optional[str] = None,
-        file_ids: Optional[List[str]] = None
+        file_ids: Optional[List[str]] = None,
+        tools: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
         Generate JSON completion from OpenAI using Responses API.
@@ -241,7 +257,8 @@ class OpenAIService:
             temperature=temperature,
             json_mode=True,
             reasoning_effort=reasoning_effort,
-            file_ids=file_ids
+            file_ids=file_ids,
+            tools=tools
         )
         
         # Parse JSON content
@@ -315,7 +332,8 @@ class OpenAIService:
         user_responses: Dict[str, Any],
         file_context: Optional[str] = None,
         file_ids: Optional[List[str]] = None,
-        reasoning_effort: str = "medium"
+        reasoning_effort: str = "medium",
+        tools: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
         Process user scores using GPT with the scoring map.
@@ -398,7 +416,8 @@ class OpenAIService:
             result = await self.generate_json_completion(
                 messages=messages,
                 reasoning_effort=reasoning_effort,
-                file_ids=file_ids if file_ids else None
+                file_ids=file_ids if file_ids else None,
+                tools=tools
             )
             logger.info("[OpenAI] ✅ generate_json_completion completed successfully")
             logger.info(f"[OpenAI] Response content length: {len(result.get('content', ''))} characters")
@@ -503,19 +522,27 @@ class OpenAIService:
     async def upload_file(
         self,
         file_path: str,
-        purpose: str = "assistants"
+        purpose: str = "user_data"
     ) -> Optional[Dict[str, Any]]:
         """
         Upload a file to OpenAI for analysis.
         
         Args:
             file_path: Path to the file to upload
-            purpose: Purpose of the file ("assistants", "vision", etc.)
+            purpose: Purpose of the file ("user_data", "assistants", etc.)
             
         Returns:
             Dictionary with file information including 'id', or None if failed
         """
         try:
+            # Verify file exists before uploading
+            import os
+            if not os.path.exists(file_path):
+                print(f"❌ File not found at path: {file_path}")
+                raise FileNotFoundError(f"File not found: {file_path}")
+            
+            print(f"✅ File found at path: {file_path}")
+            
             # Run file upload in thread pool to avoid blocking
             # loop = asyncio.get_event_loop()
             

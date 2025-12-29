@@ -333,6 +333,27 @@ const diagnosticSlice = createSlice({
       .addCase(fetchDiagnosticByEngagement.fulfilled, (state, action) => {
         state.isLoading = false;
         state.diagnostic = action.payload;
+        // Start polling if status is processing
+        if (action.payload.status === 'processing') {
+          state.isPolling = true;
+          
+          // Store in localStorage for global polling
+          try {
+            const stored = localStorage.getItem('processing_diagnostics');
+            const diagnostics = stored ? JSON.parse(stored) : [];
+            const exists = diagnostics.some((d: { id: string }) => d.id === action.payload.id);
+            if (!exists) {
+              diagnostics.push({
+                id: action.payload.id,
+                engagementId: action.payload.engagementId,
+                timestamp: Date.now(),
+              });
+              localStorage.setItem('processing_diagnostics', JSON.stringify(diagnostics));
+            }
+          } catch (e) {
+            console.error('Error storing processing diagnostic:', e);
+          }
+        }
       })
       .addCase(fetchDiagnosticByEngagement.rejected, (state, action) => {
         state.isLoading = false;

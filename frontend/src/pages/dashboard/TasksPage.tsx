@@ -5,7 +5,6 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchTasks, updateTask, Task, TaskUpdatePayload } from '@/store/slices/tasksReducer';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TaskForm } from '@/components/engagement/tasks/TaskForm';
@@ -91,6 +90,35 @@ export default function TasksPage() {
         return 'default';
       case 'medium':
         return 'secondary';
+      default:
+        return 'outline';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'Pending';
+      case 'in_progress':
+        return 'In Progress';
+      case 'completed':
+        return 'Completed';
+      case 'cancelled':
+        return 'Cancelled';
+      default:
+        return status;
+    }
+  };
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'default';
+      case 'in_progress':
+        return 'secondary';
+      case 'cancelled':
+        return 'outline';
+      case 'pending':
       default:
         return 'outline';
     }
@@ -260,23 +288,11 @@ export default function TasksPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Status</label>
-                  <Select
-                    value={selectedTask.status}
-                    onValueChange={(newStatus) => {
-                      handleUpdateTask(selectedTask.id, { status: newStatus as any });
-                      setSelectedTask({ ...selectedTask, status: newStatus as any });
-                    }}
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="mt-1">
+                    <Badge variant={getStatusBadgeVariant(selectedTask.status)}>
+                      {getStatusLabel(selectedTask.status)}
+                    </Badge>
+                  </div>
                 </div>
 
                 <div>

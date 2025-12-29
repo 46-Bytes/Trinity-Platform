@@ -27,100 +27,183 @@ export default function EngagementDetailPage() {
   const navigate = useNavigate();
   const [diagnostics, setDiagnostics] = useState<any[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
 
   // Fetch diagnostics for this engagement
-  useEffect(() => {
+  const fetchDiagnostics = useCallback(async () => {
     if (!engagementId) return;
+    
+    setIsLoadingFiles(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
 
-    const fetchDiagnostics = async () => {
-      setIsLoadingFiles(true);
-      try {
-        const token = localStorage.getItem('auth_token');
-        if (!token) return;
+      // First, get the list of diagnostics for this engagement
+      const listResponse = await fetch(`${API_BASE_URL}/api/diagnostics/engagement/${engagementId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-        const response = await fetch(`${API_BASE_URL}/api/diagnostics/engagement/${engagementId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setDiagnostics(Array.isArray(data) ? data : []);
-        }
-      } catch (error) {
-        console.error('Failed to fetch diagnostics:', error);
-      } finally {
-        setIsLoadingFiles(false);
+      if (listResponse.ok) {
+        const diagnosticList = await listResponse.json();
+        const diagnosticsArray = Array.isArray(diagnosticList) ? diagnosticList : [];
+        
+        // Fetch full details for each diagnostic to get user_responses
+        const fullDiagnostics = await Promise.all(
+          diagnosticsArray.map(async (diag: any) => {
+            try {
+              const detailResponse = await fetch(`${API_BASE_URL}/api/diagnostics/${diag.id}`, {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+              });
+              
+              if (detailResponse.ok) {
+                return await detailResponse.json();
+              }
+              return diag; // Fallback to list item if detail fetch fails
+            } catch (error) {
+              console.error(`Failed to fetch diagnostic ${diag.id} details:`, error);
+              return diag; // Fallback to list item on error
+            }
+          })
+        );
+        
+        setDiagnostics(fullDiagnostics);
       }
-    };
-
-    fetchDiagnostics();
+    } catch (error) {
+      console.error('Failed to fetch diagnostics:', error);
+    } finally {
+      setIsLoadingFiles(false);
+    }
   }, [engagementId]);
 
-  // Extract files from diagnostic responses and completed reports
-  const files: GeneratedFileProps[] = useMemo(() => {
+  // Initial fetch
+  useEffect(() => {
+    fetchDiagnostics();
+  }, [fetchDiagnostics]);
+
+  // Refresh diagnostics when overview tab is selected
+  useEffect(() => {
+    if (activeTab === 'overview') {
+      fetchDiagnostics();
+    }
+  }, [activeTab, fetchDiagnostics]);
+
+  // Poll for diagnostics that are processing
+  useEffect(() => {
+    const hasProcessingDiagnostics = diagnostics.some(d => d.status === 'processing');
+    
+    if (!hasProcessingDiagnostics || !engagementId) {
+      return;
+    }
+
+    // Poll every 5 seconds if there are processing diagnostics
+    const pollInterval = setInterval(() => {
+      fetchDiagnostics();
+    }, 5000);
+
+    return () => clearInterval(pollInterval);
+  }, [diagnostics, engagementId, fetchDiagnostics]);
+
+  // Extract generated files (diagnostic reports) from diagnostics
+  const generatedFiles: GeneratedFileProps[] = useMemo(() => {
     const extractedFiles: GeneratedFileProps[] = [];
 
     diagnostics.forEach((diagnostic) => {
-      // Add completed diagnostic report PDF if diagnostic is completed
-      if (diagnostic.status === 'completed') {
-        const reportFileName = `Diagnostic Report - ${new Date(diagnostic.completed_at || diagnostic.updated_at).toLocaleDateString()}.pdf`;
+      // Add diagnostic report PDF if diagnostic is completed or processing
+      if (diagnostic.status === 'completed' || diagnostic.status === 'processing') {
+        const reportFileName = `Diagnostic Report - ${new Date(diagnostic.completed_at || diagnostic.updated_at || diagnostic.created_at).toLocaleDateString()}.pdf`;
         extractedFiles.push({
           id: `diagnostic-report-${diagnostic.id}`,
           name: reportFileName,
           type: 'pdf',
-          generatedAt: new Date(diagnostic.completed_at || diagnostic.updated_at),
+          generatedAt: new Date(diagnostic.completed_at || diagnostic.updated_at || diagnostic.created_at),
           generatedBy: undefined,
           size: undefined, // Report is generated on-demand, size unknown
           toolType: 'diagnostic',
           diagnosticId: diagnostic.id, // Store diagnostic ID for download
+          isProcessing: diagnostic.status === 'processing', // Mark as processing
         });
       }
+    });
 
+    // Sort by date (newest first)
+    return extractedFiles.sort((a, b) => b.generatedAt.getTime() - a.generatedAt.getTime());
+  }, [diagnostics]);
+
+  // Extract uploaded files from diagnostic user_responses
+  const uploadedFiles: GeneratedFileProps[] = useMemo(() => {
+    const extractedFiles: GeneratedFileProps[] = [];
+
+    diagnostics.forEach((diagnostic) => {
       // Extract uploaded files from user_responses
-      const userResponses = diagnostic.user_responses || {};
+      // Support both snake_case (from API) and camelCase (from reducer)
+      const userResponses = diagnostic.user_responses || diagnostic.userResponses || {};
       
       // Iterate through all response fields
       Object.entries(userResponses).forEach(([fieldName, fieldValue]) => {
-        // Handle both array and single file metadata
-        const fileMetadatas: FileMetadata[] = Array.isArray(fieldValue) 
-          ? fieldValue 
-          : fieldValue ? [fieldValue] : [];
+        // Skip null/undefined values
+        if (!fieldValue) return;
+        
+        let fileMetadatas: any[] = [];
+        
+        if (Array.isArray(fieldValue)) {
+          // It's an array - check if items are file metadata objects
+          fileMetadatas = fieldValue.filter(item => 
+            item && 
+            typeof item === 'object' && 
+            (item.file_name || item.fileName) // Support both snake_case and camelCase
+          );
+        } else if (typeof fieldValue === 'object') {
+          // Check if it's a single file metadata object
+          if (fieldValue.file_name || (fieldValue as any).fileName) {
+            fileMetadatas = [fieldValue];
+          }
+        }
 
         fileMetadatas.forEach((fileMeta: any) => {
-          // Check if this is a file metadata object (has file_name)
-          if (fileMeta && typeof fileMeta === 'object' && fileMeta.file_name) {
-            // Extract file extension to determine type
-            const fileName = fileMeta.file_name || '';
-            const extension = fileName.split('.').pop()?.toLowerCase() || 'txt';
-            
-            // Map extension to file type
-            let fileType: 'pdf' | 'docx' | 'xlsx' | 'pptx' | 'txt' = 'txt';
-            if (extension === 'pdf') fileType = 'pdf';
-            else if (['doc', 'docx'].includes(extension)) fileType = 'docx';
-            else if (['xls', 'xlsx'].includes(extension)) fileType = 'xlsx';
-            else if (['ppt', 'pptx'].includes(extension)) fileType = 'pptx';
-
-            // Format file size
-            const fileSize = fileMeta.file_size 
-              ? fileMeta.file_size > 1024 * 1024 
-                ? `${(fileMeta.file_size / (1024 * 1024)).toFixed(1)} MB`
-                : `${(fileMeta.file_size / 1024).toFixed(0)} KB`
-              : undefined;
-
-            extractedFiles.push({
-              id: fileMeta.media_id || `${diagnostic.id}-${fieldName}-${fileName}`,
-              name: fileName,
-              type: fileType,
-              generatedAt: new Date(diagnostic.created_at || diagnostic.updated_at),
-              generatedBy: undefined, // Could fetch user name if needed
-              size: fileSize,
-              toolType: 'diagnostic',
-              relativePath: fileMeta.relative_path, // Store for download
-            });
+          // Support both snake_case (file_name) and camelCase (fileName) from backend
+          const fileName = fileMeta.file_name || fileMeta.fileName || '';
+          
+          if (!fileName) {
+            return;
           }
+
+          // Extract file extension to determine type
+          const extension = fileName.split('.').pop()?.toLowerCase() || 'txt';
+          
+          // Map extension to file type
+          let fileType: 'pdf' | 'docx' | 'xlsx' | 'pptx' | 'txt' = 'txt';
+          if (extension === 'pdf') fileType = 'pdf';
+          else if (['doc', 'docx'].includes(extension)) fileType = 'docx';
+          else if (['xls', 'xlsx'].includes(extension)) fileType = 'xlsx';
+          else if (['ppt', 'pptx'].includes(extension)) fileType = 'pptx';
+
+          // Format file size (support both snake_case and camelCase)
+          const fileSizeValue = fileMeta.file_size || fileMeta.fileSize;
+          const fileSize = fileSizeValue
+            ? fileSizeValue > 1024 * 1024 
+              ? `${(fileSizeValue / (1024 * 1024)).toFixed(1)} MB`
+              : `${(fileSizeValue / 1024).toFixed(0)} KB`
+            : undefined;
+
+          // Support both snake_case and camelCase for relative_path
+          const relativePath = fileMeta.relative_path || fileMeta.relativePath;
+
+          extractedFiles.push({
+            id: fileMeta.media_id || fileMeta.mediaId || `${diagnostic.id}-${fieldName}-${fileName}-${Date.now()}`,
+            name: fileName,
+            type: fileType,
+            generatedAt: new Date(diagnostic.created_at || diagnostic.updated_at || diagnostic.createdAt || diagnostic.updatedAt || new Date()),
+            generatedBy: undefined, // Could fetch user name if needed
+            size: fileSize,
+            toolType: 'diagnostic',
+            relativePath: relativePath, // Store for download
+          });
         });
       });
     });
@@ -130,8 +213,8 @@ export default function EngagementDetailPage() {
   }, [diagnostics]);
 
   const handleDownload = async (fileId: string) => {
-    // Find the file to get its metadata
-    const file = files.find(f => f.id === fileId);
+    // Find the file in either generated or uploaded files
+    const file = [...generatedFiles, ...uploadedFiles].find(f => f.id === fileId);
     if (!file) {
       toast.error('File not found');
       return;
@@ -247,14 +330,38 @@ export default function EngagementDetailPage() {
                 <h2 className="text-xl font-semibold">Generated Files</h2>
                 {!isLoadingFiles && (
                   <span className="text-sm text-muted-foreground">
-                    {files.length} file{files.length !== 1 ? 's' : ''}
+                    {generatedFiles.length} file{generatedFiles.length !== 1 ? 's' : ''}
                   </span>
                 )}
               </div>
               {isLoadingFiles ? (
                 <div className="text-center py-8 text-muted-foreground">Loading files...</div>
               ) : (
-                <GeneratedFilesList files={files} onDownload={handleDownload} />
+                <GeneratedFilesList files={generatedFiles} onDownload={handleDownload} />
+              )}
+            </div>
+
+            {/* Uploaded Files Section */}
+            <div className="card-trinity p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold">Uploaded Files</h2>
+                {!isLoadingFiles && (
+                  <span className="text-sm text-muted-foreground">
+                    {uploadedFiles.length} file{uploadedFiles.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+              {isLoadingFiles ? (
+                <div className="text-center py-8 text-muted-foreground">Loading files...</div>
+              ) : (
+                <GeneratedFilesList 
+                  files={uploadedFiles} 
+                  onDownload={handleDownload}
+                  emptyMessage={{
+                    title: 'No uploaded files yet',
+                    description: 'Files uploaded during the diagnostic will appear here'
+                  }}
+                />
               )}
             </div>
           </div>

@@ -312,23 +312,58 @@ class DiagnosticService:
         logger.info("STEP 3: Starting Scoring Process with GPT")
         logger.info("=" * 60)
         
-        # Get files attached to this diagnostic
-        attached_files = list(diagnostic.media)
-        logger.info(f"[Scoring] Found {len(attached_files)} attached files for diagnostic {diagnostic.id}")
+        # Get files that are CURRENTLY in user_responses (not stale files)
+        # Only use files that the user has explicitly included in their current responses
+        attached_files = self._get_current_files_from_responses(diagnostic)
+        logger.info(f"[Scoring] Found {len(attached_files)} current files from user_responses for diagnostic {diagnostic.id}")
+        
+        # Log which files are being used
+        if attached_files:
+            logger.info(f"[Scoring] Files being used for scoring:")
+            for f in attached_files:
+                logger.info(f"[Scoring]   - {f.file_name} (media_id: {f.id}, openai_file_id: {f.openai_file_id})")
+        else:
+            logger.info(f"[Scoring] No files found in user_responses - scoring will proceed without file attachments")
         
         file_context = self._build_file_context(attached_files)
         logger.info(f"[Scoring] File context built: {len(file_context) if file_context else 0} characters")
         
-        # Extract OpenAI file IDs (only files that have been uploaded to OpenAI)
-        file_ids = [
-            file.openai_file_id 
-            for file in attached_files 
-            if file.openai_file_id
+        # Attach files correctly for the Responses API:
+        # - PDFs can be attached as message content items: {"type":"input_file","file_id": ...}
+        # - CSV/TXT/XLSX/etc. must NOT be attached as message content; they must be provided to
+        #   Code Interpreter via tools[].container.file_ids (per OpenAI docs).
+        image_or_archive_ext = {"png", "jpg", "jpeg", "gif", "webp", "zip"}
+        pdf_ext = {"pdf"}
+        ci_ext = {"csv", "txt", "text", "md", "markdown", "json", "xml", "yaml", "yml", "xlsx", "xls"}
+
+        pdf_files = [
+            f for f in attached_files
+            if f.openai_file_id and f.file_extension and f.file_extension.lower() in pdf_ext
         ]
-        
-        logger.info(f"[Scoring] Files summary: {len(attached_files)} total files, {len(file_ids)} uploaded to OpenAI")
-        if file_ids:
-            logger.info(f"[Scoring] OpenAI file IDs: {file_ids}")
+        ci_files = [
+            f for f in attached_files
+            if (
+                f.openai_file_id
+                and f.file_extension
+                and f.file_extension.lower() in ci_ext
+            )
+        ]
+        filtered_files = [
+            f for f in attached_files
+            if f.openai_file_id and f.file_extension and f.file_extension.lower() in image_or_archive_ext
+        ]
+
+        pdf_file_ids = [f.openai_file_id for f in pdf_files if f.openai_file_id]
+        ci_file_ids = [f.openai_file_id for f in ci_files if f.openai_file_id]
+
+        if filtered_files:
+            logger.info(
+                f"[Scoring] Filtered out {len(filtered_files)} unsupported attachment(s) (images/zip): "
+                f"{[x.file_name + ' (' + (x.file_extension or 'no ext') + ')' for x in filtered_files]}"
+            )
+
+        logger.info(f"[Scoring] PDF attachments (message input_file): {len(pdf_file_ids)}")
+        logger.info(f"[Scoring] Code Interpreter container file_ids (csv/txt/xlsx/etc): {len(ci_file_ids)}")
         
         # Load scoring prompt
         scoring_prompt = load_prompt("scoring_prompt")
@@ -348,8 +383,15 @@ class DiagnosticService:
                 task_library=task_library,
                 diagnostic_questions=diagnostic_questions,
                 user_responses=user_responses,
-                file_context=file_context,  # Context about files (text description)
-                file_ids=file_ids if file_ids else None  # Actual file IDs for GPT to read
+                file_context=file_context,  # Text description of attached files
+                # Only PDFs are attached as message input_file items
+                file_ids=pdf_file_ids if pdf_file_ids else None,
+                # Non-PDFs go into the Code Interpreter container
+                tools=(
+                    [{"type": "code_interpreter", "container": {"type": "auto", "file_ids": ci_file_ids}}]
+                    if ci_file_ids
+                    else None
+                )
             )
             logger.info("[Scoring] ✅ OpenAI API call completed successfully")
             logger.info(f"[Scoring] Tokens used: {scoring_result.get('tokens_used', 0)}")
@@ -510,6 +552,121 @@ class DiagnosticService:
         diagnostic.tasks_generated_count = tasks_count
         
         self.db.commit()
+    
+    def _get_current_files_from_responses(self, diagnostic: Diagnostic) -> List:
+        """
+        Get only the files that are currently referenced in user_responses.
+        This ensures we don't use stale/old files that were previously attached.
+        
+        Args:
+            diagnostic: Diagnostic model with user_responses
+            
+        Returns:
+            List of Media objects that are currently in user_responses
+        """
+        from app.models.media import Media
+        
+        user_responses = diagnostic.user_responses or {}
+        
+        # Collect all media_ids from user_responses
+        # Files can be stored as:
+        # - Single object: {"file_name": "...", "media_id": "uuid", ...}
+        # - Array: [{"file_name": "...", "media_id": "uuid", ...}, ...]
+        current_media_ids = set()
+        files_without_id = []  # For fallback matching
+        
+        for field_name, field_value in user_responses.items():
+            if not field_value:
+                continue
+            
+            # Handle both array and single file metadata
+            file_metadatas = field_value if isinstance(field_value, list) else [field_value]
+            
+            for file_meta in file_metadatas:
+                if isinstance(file_meta, dict):
+                    # Try to get media_id (preferred identifier)
+                    media_id = file_meta.get("media_id")
+                    if media_id:
+                        try:
+                            current_media_ids.add(UUID(media_id))
+                        except (ValueError, TypeError):
+                            logger.warning(f"[File Sync] Invalid media_id format: {media_id} in field {field_name}")
+                            # Store for fallback matching
+                            files_without_id.append({
+                                "file_name": file_meta.get("file_name"),
+                                "relative_path": file_meta.get("relative_path"),
+                                "field": field_name
+                            })
+                    else:
+                        # No media_id - store for fallback matching
+                        file_name = file_meta.get("file_name")
+                        relative_path = file_meta.get("relative_path")
+                        if file_name:
+                            files_without_id.append({
+                                "file_name": file_name,
+                                "relative_path": relative_path,
+                                "field": field_name
+                            })
+                            logger.info(f"[File Sync] File {file_name} in field {field_name} has no media_id, will try fallback matching")
+        
+        # Query Media objects by IDs (primary method)
+        valid_media = []
+        if current_media_ids:
+            media_objects = self.db.query(Media).filter(
+                Media.id.in_(current_media_ids),
+                Media.is_active == True
+            ).all()
+            
+            # Verify files are actually attached to this diagnostic
+            attached_media_ids = {m.id for m in diagnostic.media}
+            valid_media = [
+                m for m in media_objects 
+                if m.id in attached_media_ids
+            ]
+            
+            logger.info(f"[File Sync] Found {len(valid_media)}/{len(current_media_ids)} files by media_id")
+        
+        # Fallback: Try to match files without media_id by file_name + relative_path
+        if files_without_id:
+            logger.info(f"[File Sync] Attempting fallback matching for {len(files_without_id)} files without media_id")
+            for file_info in files_without_id:
+                file_name = file_info["file_name"]
+                relative_path = file_info.get("relative_path")
+                
+                # Try to find matching Media object
+                query = self.db.query(Media).filter(
+                    Media.file_name == file_name,
+                    Media.is_active == True
+                )
+                
+                # If relative_path is available, use it for more precise matching
+                if relative_path:
+                    # Extract diagnostic_id from relative_path: diagnostic/{id}/filename
+                    if "diagnostic/" in relative_path:
+                        try:
+                            path_parts = relative_path.split("/")
+                            if len(path_parts) >= 2:
+                                diagnostic_id_from_path = path_parts[1]
+                                # Verify this matches current diagnostic
+                                if str(diagnostic.id) == diagnostic_id_from_path:
+                                    query = query.filter(Media.file_path.like(f"%{diagnostic_id_from_path}%"))
+                        except Exception as e:
+                            logger.warning(f"[File Sync] Error parsing relative_path {relative_path}: {e}")
+                
+                matched_media = query.first()
+                if matched_media and matched_media.id not in {m.id for m in valid_media}:
+                    # Check if it's attached to this diagnostic
+                    if matched_media in diagnostic.media:
+                        valid_media.append(matched_media)
+                        logger.info(f"[File Sync] Matched file {file_name} by name/path (media_id: {matched_media.id})")
+                    else:
+                        logger.warning(f"[File Sync] File {file_name} found but not attached to diagnostic")
+        
+        logger.info(f"[File Sync] Total valid files: {len(valid_media)}")
+        if valid_media:
+            logger.info(f"[File Sync] Files being used: {[f.file_name + ' (id: ' + str(f.id) + ')' for f in valid_media]}")
+        
+        return valid_media
     
     def _generate_qa_extract(
         self,

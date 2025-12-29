@@ -149,28 +149,30 @@ export default function TasksPage() {
             className="input-trinity pl-10 w-full"
           />
         </div>
-        <select
-          className="input-trinity w-full sm:w-40"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as TaskStatus | 'all')}
-        >
-          <option value="all">All Status</option>
-          <option value="pending">Pending</option>
-          <option value="in_progress">In Progress</option>
-          <option value="completed">Completed</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
-        <select
-          className="input-trinity w-full sm:w-40"
-          value={priorityFilter}
-          onChange={(e) => setPriorityFilter(e.target.value)}
-        >
-          <option value="all">All Priority</option>
-          <option value="critical">Critical</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
-        </select>
+        <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as TaskStatus | 'all')}>
+          <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectValue placeholder="All Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="in_progress">In Progress</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+          <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectValue placeholder="All Priority" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Priority</SelectItem>
+            <SelectItem value="critical">Critical</SelectItem>
+            <SelectItem value="high">High</SelectItem>
+            <SelectItem value="medium">Medium</SelectItem>
+            <SelectItem value="low">Low</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {isLoading && (

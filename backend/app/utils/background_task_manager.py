@@ -29,12 +29,10 @@ class BackgroundTaskManager:
     
     def _setup_signal_handlers(self):
         """Setup signal handlers for graceful shutdown."""
-        def signal_handler(signum, frame):
-            logger.info(f"🛑 Received shutdown signal {signum}, initiating graceful shutdown...")
-            self.initiate_shutdown()
-        
-        signal.signal(signal.SIGTERM, signal_handler)
-        signal.signal(signal.SIGINT, signal_handler)
+        # Note: We don't intercept signals here to avoid blocking uvicorn's shutdown
+        # Instead, we rely on FastAPI's shutdown event handler
+        # Signal handlers can interfere with uvicorn's reload mechanism
+        pass
     
     def is_shutting_down(self) -> bool:
         """Check if the application is shutting down."""
@@ -76,23 +74,34 @@ class BackgroundTaskManager:
         """Get the task for a specific diagnostic."""
         return self._diagnostic_tasks.get(diagnostic_id)
     
-    async def wait_for_shutdown(self, timeout: float = 30.0):
+    async def wait_for_shutdown(self, timeout: float = 10.0):
         """Wait for all tasks to complete or timeout during shutdown."""
         if not self.is_shutting_down():
             return
         
-        logger.info("⏳ Waiting for background tasks to complete...")
+        logger.info(f"⏳ Waiting for {len(self._running_tasks)} background task(s) to complete...")
         
         # Wait for all tasks with a timeout
         if self._running_tasks:
-            try:
-                await asyncio.wait_for(
-                    asyncio.gather(*self._running_tasks, return_exceptions=True),
-                    timeout=timeout
-                )
-                logger.info("✅ All background tasks completed")
-            except asyncio.TimeoutError:
-                logger.warning(f"⚠️ Some background tasks did not complete within {timeout}s timeout")
+            # Filter out already completed tasks
+            active_tasks = [t for t in self._running_tasks if not t.done()]
+            
+            if active_tasks:
+                logger.info(f"⏳ Waiting for {len(active_tasks)} active task(s)...")
+                try:
+                    await asyncio.wait_for(
+                        asyncio.gather(*active_tasks, return_exceptions=True),
+                        timeout=timeout
+                    )
+                    logger.info("✅ All background tasks completed")
+                except asyncio.TimeoutError:
+                    logger.warning(f"⚠️ Some background tasks did not complete within {timeout}s timeout - forcing shutdown")
+                    # Force cancel remaining tasks
+                    for task in active_tasks:
+                        if not task.done():
+                            task.cancel()
+            else:
+                logger.info("✅ All background tasks already completed")
         else:
             logger.info("✅ No background tasks to wait for")
 

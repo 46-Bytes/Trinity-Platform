@@ -9,13 +9,13 @@ import json
 import re
 import asyncio
 import logging
-from backend.app.utils.background_task_manager import background_task_manager
 
 from app.models.diagnostic import Diagnostic
 from app.models.task import Task
 from app.models.engagement import Engagement
 from app.services.openai_service import openai_service
 from app.services.scoring_service import scoring_service
+from app.utils.background_task_manager import background_task_manager
 from app.utils.file_loader import (
     load_diagnostic_questions,
     load_scoring_map,

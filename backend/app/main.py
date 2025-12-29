@@ -115,8 +115,8 @@ async def shutdown_event():
     # Initiate shutdown in task manager
     background_task_manager.initiate_shutdown()
     
-    # Wait for tasks to complete (with timeout)
-    await background_task_manager.wait_for_shutdown(timeout=30.0)
+    # Wait for tasks to complete (with shorter timeout to avoid hanging)
+    await background_task_manager.wait_for_shutdown(timeout=5.0)
     
     logger.info("✅ Application shutdown complete")
 

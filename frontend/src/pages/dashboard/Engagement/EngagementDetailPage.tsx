@@ -101,10 +101,9 @@ export default function EngagementDetailPage() {
       return;
     }
 
-    // Poll every 5 seconds if there are processing diagnostics
     const pollInterval = setInterval(() => {
       fetchDiagnostics();
-    }, 5000);
+    }, 30000);
 
     return () => clearInterval(pollInterval);
   }, [diagnostics, engagementId, fetchDiagnostics]);

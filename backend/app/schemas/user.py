@@ -29,12 +29,12 @@ class UserResponse(UserBase):
     auth0_id: str
     email_verified: bool
     is_active: bool
+    role: str  # User role as string (e.g., "client", "advisor", "admin")
     created_at: datetime
     updated_at: datetime
     last_login: Optional[datetime] = None
     
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 

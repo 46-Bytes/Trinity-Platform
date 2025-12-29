@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Search, MoreHorizontal, Building2, Loader2 } from 'lucide-react';
+import { Search, MoreHorizontal, Building2, Loader2, Eye, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchEngagements } from '@/store/slices/engagementReducer';
@@ -10,31 +10,69 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-interface ClientFromEngagements {
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+interface Client {
   id: string;
   name: string;
+  email: string;
   industry: string;
   status: 'Active' | 'Pending';
   engagements: number;
+  is_active: boolean;
+  email_verified: boolean;
+  role?: string;
 }
 
 export default function ClientsPage() {
   const dispatch = useAppDispatch();
-  const { engagements, isLoading, error } = useAppSelector((state) => state.engagement);
+  const { engagements, isLoading: engagementsLoading } = useAppSelector((state) => state.engagement);
   
   const [searchQuery, setSearchQuery] = useState('');
-  const [industryFilter, setIndustryFilter] = useState('all');
+  const [isLoading, setIsLoading] = useState(false);
+  const [clients, setClients] = useState<Client[]>([]);
 
-  // Fetch engagements on mount
+  // Fetch engagements and clients on mount
   useEffect(() => {
     dispatch(fetchEngagements(undefined));
+    fetchClients();
   }, [dispatch]);
 
-  // Extract unique clients from engagements
-  const clientsFromEngagements = useMemo<ClientFromEngagements[]>(() => {
-    const clientMap = new Map<string, {
-      id: string;
-      name: string;
+  const fetchClients = async () => {
+    setIsLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+
+      // Fetch all users with role='client'
+      const response = await fetch(`${API_BASE_URL}/api/users?role=client`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const users = await response.json();
+        // Filter out firm_admin and firm_advisor roles
+        const filteredUsers = users.filter((user: any) => 
+          user.role !== 'firm_admin' && user.role !== 'firm_advisor'
+        );
+        setClients(filteredUsers);
+      } else {
+        console.error('Failed to fetch clients');
+      }
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Merge client data with engagement data
+  const clientsWithEngagements = useMemo<Client[]>(() => {
+    // Create a map of client engagements
+    const engagementMap = new Map<string, {
       industries: Set<string>;
       engagementStatuses: Set<string>;
       engagementCount: number;
@@ -42,57 +80,62 @@ export default function ClientsPage() {
 
     engagements.forEach(engagement => {
       const clientId = engagement.clientId;
-      if (!clientMap.has(clientId)) {
-        clientMap.set(clientId, {
-          id: clientId,
-          name: engagement.clientName,
+      if (!engagementMap.has(clientId)) {
+        engagementMap.set(clientId, {
           industries: new Set(),
           engagementStatuses: new Set(),
           engagementCount: 0,
         });
       }
 
-      const client = clientMap.get(clientId)!;
+      const clientEngagements = engagementMap.get(clientId)!;
       if (engagement.industryName) {
-        client.industries.add(engagement.industryName);
+        clientEngagements.industries.add(engagement.industryName);
       }
-      client.engagementStatuses.add(engagement.status);
-      client.engagementCount += 1;
+      clientEngagements.engagementStatuses.add(engagement.status);
+      clientEngagements.engagementCount += 1;
     });
 
-    // Convert to array and determine status
-    return Array.from(clientMap.values()).map(client => {
-      // Determine client status: Active if any engagement is active/draft, otherwise Pending/Inactive
-      const hasActiveEngagement = Array.from(client.engagementStatuses).some(
+    // Merge client data with engagement data
+    return clients.map(client => {
+      const clientEngagements = engagementMap.get(client.id) || {
+        industries: new Set<string>(),
+        engagementStatuses: new Set<string>(),
+        engagementCount: 0,
+      };
+
+      // Determine client status: Active if any engagement is active/draft, or if client is active with no engagements
+      const hasActiveEngagement = Array.from(clientEngagements.engagementStatuses).some(
         status => status === 'active' || status === 'draft'
       );
-      const status: 'Active' | 'Pending' = hasActiveEngagement ? 'Active' : 'Pending';
+      const status: 'Active' | 'Pending' = hasActiveEngagement || (client.is_active && clientEngagements.engagementCount === 0) 
+        ? 'Active' 
+        : 'Pending';
       
       // Use the first industry found (or empty string if none)
-      const industry = client.industries.size > 0 ? Array.from(client.industries)[0] : '';
+      const industry = clientEngagements.industries.size > 0 
+        ? Array.from(clientEngagements.industries)[0] 
+        : '';
 
       return {
-        id: client.id,
-        name: client.name,
+        ...client,
         industry,
         status,
-        engagements: client.engagementCount,
+        engagements: clientEngagements.engagementCount,
       };
     });
-  }, [engagements]);
+  }, [clients, engagements]);
 
-  const industries = useMemo(() => {
-    const uniqueIndustries = new Set(clientsFromEngagements.map(c => c.industry).filter(Boolean));
-    return ['all', ...Array.from(uniqueIndustries)];
-  }, [clientsFromEngagements]);
-
-  const filteredClients = clientsFromEngagements.filter(c => {
-    const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesIndustry = industryFilter === 'all' || c.industry === industryFilter;
-    return matchesSearch && matchesIndustry;
+  const filteredClients = clientsWithEngagements.filter(c => {
+    const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.email.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSearch;
   });
 
-  const activeClientsCount = clientsFromEngagements.filter(c => c.status === 'Active').length;
+  const activeClientsCount = clientsWithEngagements.filter(c => c.status === 'Active').length;
+  const totalClientsCount = clientsWithEngagements.length;
+
+  const isLoadingData = isLoading || engagementsLoading;
 
   return (
     <div className="space-y-6">
@@ -105,29 +148,26 @@ export default function ClientsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="stat-card">
+          <p className="text-sm text-muted-foreground">Total Clients</p>
+          <p className="text-2xl font-heading font-bold mt-1">{totalClientsCount}</p>
+        </div>
+        <div className="stat-card">
           <p className="text-sm text-muted-foreground">Active Clients</p>
           <p className="text-2xl font-heading font-bold mt-1">{activeClientsCount}</p>
         </div>
       </div>
 
-      {isLoading && (
+      {isLoadingData && (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-6 h-6 animate-spin text-accent" />
           <span className="ml-2 text-muted-foreground">Loading clients...</span>
         </div>
       )}
 
-      {error && !isLoading && (
-        <div className="text-center py-12">
-          <p className="text-destructive mb-2">Error loading clients</p>
-          <p className="text-sm text-muted-foreground">{error}</p>
-        </div>
-      )}
-
-      {!isLoading && !error && (
+      {!isLoadingData && (
         <div className="card-trinity p-6">
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="relative flex-1">
+          <div className="mb-6">
+            <div className="relative max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 type="text"
@@ -142,6 +182,11 @@ export default function ClientsPage() {
           {filteredClients.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-muted-foreground">No clients found</p>
+              {searchQuery && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  Try adjusting your search
+                </p>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -152,10 +197,13 @@ export default function ClientsPage() {
                       <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
                         <Building2 className="w-6 h-6 text-primary" />
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-foreground group-hover:text-accent transition-colors">{client.name}</h3>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-foreground group-hover:text-accent transition-colors truncate">
+                          {client.name}
+                        </h3>
+                        <p className="text-sm text-muted-foreground truncate">{client.email}</p>
                         {client.industry && (
-                          <p className="text-sm text-muted-foreground">{client.industry}</p>
+                          <p className="text-sm text-muted-foreground mt-1">{client.industry}</p>
                         )}
                       </div>
                     </div>
@@ -166,8 +214,14 @@ export default function ClientsPage() {
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem className="cursor-pointer">View Details</DropdownMenuItem>
-                        <DropdownMenuItem className="cursor-pointer">New Engagement</DropdownMenuItem>
+                        <DropdownMenuItem className="cursor-pointer">
+                          <Eye className="w-4 h-4 mr-2" />
+                          View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="cursor-pointer">
+                          <FileText className="w-4 h-4 mr-2" />
+                          New Engagement
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -180,8 +234,15 @@ export default function ClientsPage() {
                       )}>
                         {client.status}
                       </span>
+                      {!client.email_verified && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800">
+                          Unverified
+                        </span>
+                      )}
                     </div>
-                    <span className="text-sm text-muted-foreground">{client.engagements} {client.engagements === 1 ? 'engagement' : 'engagements'}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {client.engagements} {client.engagements === 1 ? 'engagement' : 'engagements'}
+                    </span>
                   </div>
                 </div>
               ))}

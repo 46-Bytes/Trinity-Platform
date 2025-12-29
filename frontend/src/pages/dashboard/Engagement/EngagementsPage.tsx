@@ -270,7 +270,13 @@ export default function EngagementsPage() {
               Fill in the details to create a new client engagement.
             </DialogDescription>
           </DialogHeader>
-          <EngagementForm onSuccess={handleFormSuccess} mode="create" />
+          {isDialogOpen && (
+            <EngagementForm 
+              onSuccess={handleFormSuccess} 
+              mode="create" 
+              refreshUserData={true}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>

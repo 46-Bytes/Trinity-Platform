@@ -4,9 +4,13 @@ OpenAI service for GPT interactions using Responses API
 from typing import Dict, Any, List, Optional
 import json
 import os
-from openai import OpenAI
+
+import time
+import asyncio
+from openai import AsyncOpenAI
 from app.config import settings
 import logging
+import httpx
 logger = logging.getLogger(__name__)
 
 
@@ -14,24 +18,21 @@ class OpenAIService:
     """Service for interacting with OpenAI Responses API"""
     
     def __init__(self):
-        """Initialize OpenAI client"""
-        # Set timeout (None = no timeout, or specify seconds as float/int)
-        # Can be overridden via OPENAI_TIMEOUT env var (set to "None" string or number)
-        timeout_str = os.getenv("OPENAI_TIMEOUT", "None")
-        if timeout_str.lower() == "none" or timeout_str == "":
-            timeout = None
-        else:
-            try:
-                timeout = float(timeout_str)
-            except ValueError:
-                timeout = None  # Default to no timeout if invalid value
-        
-        self.client = OpenAI(
+        """Initialize OpenAI client with configurable timeout"""
+        # Set timeout (default: 3600 seconds = 1 hour for long-running processes)
+        self.client = AsyncOpenAI(  # ← Changed from OpenAI to AsyncOpenAI
             api_key=settings.OPENAI_API_KEY,
-            timeout=timeout  # None = no timeout, or specify seconds (e.g., 60.0 for 60 seconds)
+            timeout=httpx.Timeout(
+                connect=10.0,
+                read=1800.0,      # ← 30 minutes for long requests
+                write=10.0,
+                pool=10.0
+            ),
+            max_retries=2
         )
         self.model = settings.OPENAI_MODEL
         self.temperature = settings.OPENAI_TEMPERATURE
+        logger.info(f"OpenAI client initialized with timeout: {settings.OPENAI_TIMEOUT} seconds ({settings.OPENAI_TIMEOUT/60:.1f} minutes)")
     
     def _convert_messages_to_input(
         self, 
@@ -102,7 +103,8 @@ class OpenAIService:
         temperature: Optional[float] = None,
         json_mode: bool = False,
         reasoning_effort: Optional[str] = None,
-        file_ids: Optional[List[str]] = None
+        file_ids: Optional[List[str]] = None,
+        tools: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
         Generate completion from OpenAI using Responses API.
@@ -121,6 +123,8 @@ class OpenAIService:
         try:
             # Convert messages to input format (with files if provided)
             input_messages = self._convert_messages_to_input(messages, file_ids=file_ids)
+
+            
             
             # Prepare parameters
             params = {
@@ -138,32 +142,104 @@ class OpenAIService:
             # Add reasoning effort if specified
             if reasoning_effort:
                 params["reasoning"] = {"effort": reasoning_effort}
+
+            # Add tools if specified (e.g., code_interpreter for CSV/text processing)
+            if tools:
+                # Some tool types (e.g., code_interpreter) require a container field in newer Responses API versions.
+                normalized_tools: List[Dict[str, Any]] = []
+                for t in tools:
+                    if not isinstance(t, dict):
+                        continue
+                    if t.get("type") == "code_interpreter" and "container" not in t:
+                        normalized_tools.append({**t, "container": {"type": "auto"}})
+                    else:
+                        normalized_tools.append(t)
+                params["tools"] = normalized_tools
+            
+            logger.info(f"[OpenAI API] Making API call to responses.create()")
+            logger.info(f"[OpenAI API] Model: {params.get('model')}")
+            logger.info(f"[OpenAI API] Reasoning effort: {params.get('reasoning', {}).get('effort', 'none')}")
+            logger.info(f"[OpenAI API] JSON mode: {json_mode}")
+            logger.info(f"[OpenAI API] Input messages count: {len(params.get('input', []))}")
+            logger.info(f"[OpenAI API] File attachments: {len(file_ids) if file_ids else 0}")
+            logger.info(f"[OpenAI API] Tools enabled: {tools if tools else 'none'}")
             
             # Make API call using Responses API
-            response = self.client.responses.create(**params)
+            # Run in thread pool to avoid blocking the event loop
+            logger.info("[OpenAI API] ⏳ Waiting for OpenAI API response (this may take several minutes)...")
+            logger.info("[OpenAI API] Running in thread pool to avoid blocking other requests...")
+            start_time = time.time()
             
+            # Run the blocking OpenAI call in a thread pool
+            # This allows other requests to be processed while waiting for OpenAI
+
+            logger.info("[OpenAI API] Making async API call...")
+            start_time = time.time()
+
+            # loop = asyncio.get_event_loop()
+            try:
+                # response = await loop.run_in_executor(
+                #     None,  # Use default ThreadPoolExecutor
+                #     lambda: asyncio.run(self.client.responses.create(**params))
+                # )
+                response = await self.client.responses.create(**params)
+
+            except Exception as executor_error:
+                elapsed_time = time.time() - start_time
+                error_msg = str(executor_error)
+                logger.error(f"[OpenAI API] ❌ Exception in run_in_executor after {elapsed_time:.2f} seconds: {error_msg}", exc_info=True)
+                logger.error(f"[OpenAI API] Exception type: {type(executor_error).__name__}")
+                # Re-raise to be caught by outer exception handler
+                raise
+            
+            elapsed_time = time.time() - start_time
+            logger.info(f"[OpenAI API] ✅ Completed in {elapsed_time:.2f}s ({elapsed_time/60:.2f} minutes)")    
             # Extract data
             content = response.output_text
+            logger.info(f"[OpenAI API] Response received: {len(content)} characters")
+            
+            # Extract token usage
+            tokens_used = getattr(response.usage, 'total_tokens', 0) if hasattr(response, 'usage') else 0
+            prompt_tokens = getattr(response.usage, 'prompt_tokens', 0) if hasattr(response, 'usage') else 0
+            completion_tokens = getattr(response.usage, 'completion_tokens', 0) if hasattr(response, 'usage') else 0
+            finish_reason = getattr(response, 'finish_reason', 'completed')
+            
+            logger.info(f"[OpenAI API] Token usage - Total: {tokens_used}, Prompt: {prompt_tokens}, Completion: {completion_tokens}")
+            logger.info(f"[OpenAI API] Finish reason: {finish_reason}")
             
             # Return structured response
             return {
                 "content": content,
                 "model": self.model,
-                "tokens_used": getattr(response.usage, 'total_tokens', 0) if hasattr(response, 'usage') else 0,
-                "prompt_tokens": getattr(response.usage, 'prompt_tokens', 0) if hasattr(response, 'usage') else 0,
-                "completion_tokens": getattr(response.usage, 'completion_tokens', 0) if hasattr(response, 'usage') else 0,
-                "finish_reason": getattr(response, 'finish_reason', 'completed')
+                "tokens_used": tokens_used,
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "finish_reason": finish_reason
             }
             
         except Exception as e:
-            raise Exception(f"OpenAI Responses API error: {str(e)}")
+            error_msg = str(e)
+            logger.error(f"[OpenAI API] ❌ API call failed: {error_msg}", exc_info=True)
+            
+            # Check for timeout errors
+            if "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
+                logger.error(f"[OpenAI API] Timeout error detected. Timeout setting: {settings.OPENAI_TIMEOUT} seconds")
+                raise Exception(f"OpenAI API request timed out after {settings.OPENAI_TIMEOUT} seconds. The request may be too complex or the server is slow. Error: {error_msg}")
+            
+            # Check for API key errors
+            if "api key" in error_msg.lower() or "authentication" in error_msg.lower():
+                logger.error("[OpenAI API] Authentication error detected")
+                raise Exception(f"OpenAI API authentication failed. Please check your OPENAI_API_KEY. Error: {error_msg}")
+            
+            raise Exception(f"OpenAI Responses API error: {error_msg}")
     
     async def generate_json_completion(
         self,
         messages: List[Dict[str, str]],
         temperature: Optional[float] = None,
         reasoning_effort: Optional[str] = None,
-        file_ids: Optional[List[str]] = None
+        file_ids: Optional[List[str]] = None,
+        tools: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
         Generate JSON completion from OpenAI using Responses API.
@@ -183,29 +259,42 @@ class OpenAIService:
             temperature=temperature,
             json_mode=True,
             reasoning_effort=reasoning_effort,
-            file_ids=file_ids
+            file_ids=file_ids,
+            tools=tools
         )
         
         # Parse JSON content
+        logger.info("[OpenAI] Parsing JSON response...")
         try:
             # Try to parse as JSON
             parsed_content = json.loads(result["content"])
             result["parsed_content"] = parsed_content
-        except json.JSONDecodeError:
+            logger.info("[OpenAI] ✅ JSON parsed successfully (direct parse)")
+            logger.info(f"[OpenAI] Parsed content keys: {list(parsed_content.keys()) if isinstance(parsed_content, dict) else 'Not a dict'}")
+        except json.JSONDecodeError as e:
+            logger.warning(f"[OpenAI] ⚠️ Direct JSON parse failed: {str(e)}")
+            logger.info("[OpenAI] Attempting to extract JSON from markdown...")
+            
             # If JSON parsing fails, try to extract JSON from markdown
             content = result["content"]
             
             # Remove markdown code blocks if present
             if "```json" in content:
+                logger.info("[OpenAI] Found ```json code block, extracting...")
                 content = content.split("```json")[1].split("```")[0].strip()
             elif "```" in content:
+                logger.info("[OpenAI] Found ``` code block, extracting...")
                 content = content.split("```")[1].split("```")[0].strip()
             
             try:
                 parsed_content = json.loads(content)
                 result["parsed_content"] = parsed_content
-            except json.JSONDecodeError as e:
-                raise Exception(f"Failed to parse JSON response: {str(e)}\nContent: {content}")
+                logger.info("[OpenAI] ✅ JSON parsed successfully (from markdown)")
+                logger.info(f"[OpenAI] Parsed content keys: {list(parsed_content.keys()) if isinstance(parsed_content, dict) else 'Not a dict'}")
+            except json.JSONDecodeError as e2:
+                logger.error(f"[OpenAI] ❌ JSON parsing failed after markdown extraction: {str(e2)}")
+                logger.error(f"[OpenAI] Content preview (first 500 chars): {content[:500]}")
+                raise Exception(f"Failed to parse JSON response: {str(e2)}\nContent preview: {content[:500]}...")
         
         return result
     
@@ -245,7 +334,8 @@ class OpenAIService:
         user_responses: Dict[str, Any],
         file_context: Optional[str] = None,
         file_ids: Optional[List[str]] = None,
-        reasoning_effort: str = "high"
+        reasoning_effort: str = "medium",
+        tools: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
         Process user scores using GPT with the scoring map.
@@ -264,45 +354,80 @@ class OpenAIService:
         Returns:
             Dictionary containing scoring results, roadmap, and advisor report
         """
+        logger.info("[OpenAI] ========== Starting process_scoring ==========")
+        logger.info(f"[OpenAI] Model: {self.model}")
+        logger.info(f"[OpenAI] Reasoning effort: {reasoning_effort}")
+        logger.info(f"[OpenAI] File IDs provided: {len(file_ids) if file_ids else 0}")
+        if file_ids:
+            logger.info(f"[OpenAI] File IDs: {file_ids}")
+        logger.info(f"[OpenAI] File context length: {len(file_context) if file_context else 0} characters")
+        logger.info(f"[OpenAI] User responses count: {len(user_responses)}")
+        logger.info(f"[OpenAI] Scoring map entries: {len(scoring_map)}")
+        logger.info(f"[OpenAI] Task library entries: {len(task_library)}")
+        
         # Build file context message if files are present
         file_context_msg = ""
         if file_context:
             file_context_msg = f"\n\n{file_context}"
+            logger.info(f"[OpenAI] File context added to prompt: {len(file_context_msg)} characters")
         
         question_text_map = {}
         for page in diagnostic_questions.get("pages", []):
             for element in page.get("elements", []):
                 question_text_map[element["name"]] = element.get("title", element["name"])
+        
+        logger.info(f"[OpenAI] Question text map built: {len(question_text_map)} questions")
 
+        # Build system message
+        system_content = (
+            f"{scoring_prompt}\n\n"
+            f"Scoring Map: {json.dumps(scoring_map)}\n\n"
+            f"Process User Responses using Scoring Map and store as scored_rows.\n"
+            f"Join scored_rows array with roadmap array in the same json structure.\n\n"
+            f"Task Library: {json.dumps(task_library)}\n\n"
+            f"IMPORTANT: Respond with valid JSON only. No markdown, no explanations."
+            f"{file_context_msg}"
+        )
+        
+        # Build user message
+        user_content = (
+            f"Question Text Map: {json.dumps(question_text_map)}\n\n"
+            f"User Responses: {json.dumps(user_responses)}\n\n"
+            f"Generate a complete JSON response with scored_rows, roadmap, and advisorReport."
+        )
+        
+        logger.info(f"[OpenAI] System message length: {len(system_content)} characters")
+        logger.info(f"[OpenAI] User message length: {len(user_content)} characters")
+        logger.info(f"[OpenAI] Total prompt size: ~{len(system_content) + len(user_content)} characters")
+        
         messages = [
             {
                 "role": "system",
-                "content": (
-                    f"{scoring_prompt}\n\n"
-                    f"Scoring Map: {json.dumps(scoring_map)}\n\n"
-                    f"Process User Responses using Scoring Map and store as scored_rows.\n"
-                    f"Join scored_rows array with roadmap array in the same json structure.\n\n"
-                    f"Task Library: {json.dumps(task_library)}\n\n"
-                    f"IMPORTANT: Respond with valid JSON only. No markdown, no explanations."
-                    f"{file_context_msg}"
-                )
+                "content": system_content
             },
             {
                 "role": "user",
-                "content": (
-                    f"Question Text Map: {json.dumps(question_text_map)}\n\n"
-                    f"User Responses: {json.dumps(user_responses)}\n\n"
-                    f"Generate a complete JSON response with scored_rows, roadmap, and advisorReport."
-                )
+                "content": user_content
             }
         ]
-        logger.info(f"Messages: {messages}")
-        # Pass file IDs to be attached to the user message
-        return await self.generate_json_completion(
-            messages=messages,
-            reasoning_effort=reasoning_effort,
-            file_ids=file_ids if file_ids else None
-        )
+        
+        logger.info("[OpenAI] Calling generate_json_completion for scoring...")
+        logger.info(f"[OpenAI] Timeout setting: {self.client.timeout} seconds")
+        
+        try:
+            result = await self.generate_json_completion(
+                messages=messages,
+                reasoning_effort=reasoning_effort,
+                file_ids=file_ids if file_ids else None,
+                tools=tools
+            )
+            logger.info("[OpenAI] ✅ generate_json_completion completed successfully")
+            logger.info(f"[OpenAI] Response content length: {len(result.get('content', ''))} characters")
+            logger.info(f"[OpenAI] Parsed content keys: {list(result.get('parsed_content', {}).keys())}")
+            return result
+        except Exception as e:
+            logger.error(f"[OpenAI] ❌ generate_json_completion failed: {str(e)}", exc_info=True)
+            raise
     
     async def generate_advice(
         self,
@@ -356,18 +481,18 @@ class OpenAIService:
         # Build context similar to PHP implementation
         context = (
             f"You are an expert business advisor named 'Trinity'. "
-            f"Based on the following diagnostic data, provide a JSON array of tasks "
+            f"Based on the following diagnostic data, provide a JSON object with a 'tasks' array containing tasks "
             f"a business owner should action within the next 30 days.\n\n"
             f"Summary: {diagnostic_summary}\n\n"
             f"Diagnostic Data (Q&A): {json.dumps(json_extract)}\n\n"
             f"Priority Roadmap (Modules by Priority):\n{json.dumps(roadmap, indent=2)}\n\n"
             f"Focus on the highest priority modules (lowest rank = highest priority).\n\n"
-            f"Template: [{{"
+            f"Template: {{\"tasks\": [{{"
             f'"title": "Task Title", '
             f'"description": "Task description with step-by-step instructions. Every step must be in a new line with 1. 2. 3. Numbering", '
             f'"category": "general|legal-licensing|financial|operations|human-resources|customers|competitive-forces|due-diligence|tax", '
             f'"priority": "low|medium|high|critical"'
-            f"}}]\n\n"
+            f"}}]}}\n\n"
             f"{task_prompt}"
         )
         
@@ -384,9 +509,9 @@ class OpenAIService:
                     f"Generate at least 1-2 tasks for each of the top 3-5 priority modules. "
                     f"Cover different categories to ensure comprehensive coverage. "
                     f"Provide detailed descriptions with step-by-step instructions for each task. "
-                    f"CRITICAL: Return a JSON ARRAY containing MULTIPLE task objects. "
-                    f"Format: [{{task1}}, {{task2}}, {{task3}}, ...] with at least 5-10 tasks. "
-                    f"Return ONLY the JSON array, no markdown, no wrapping object."
+                    f"CRITICAL: Return a JSON OBJECT with a 'tasks' key containing an array of task objects. "
+                    f"Format: {{\"tasks\": [{{task1}}, {{task2}}, {{task3}}, ...]}} with at least 5-10 tasks. "
+                    f"Return ONLY the JSON object, no markdown, no explanations."
                 )
             }
         ]
@@ -399,25 +524,46 @@ class OpenAIService:
     async def upload_file(
         self,
         file_path: str,
-        purpose: str = "assistants"
+        purpose: str = "user_data"
     ) -> Optional[Dict[str, Any]]:
         """
         Upload a file to OpenAI for analysis.
         
         Args:
             file_path: Path to the file to upload
-            purpose: Purpose of the file ("assistants", "vision", etc.)
+            purpose: Purpose of the file ("user_data", "assistants", etc.)
             
         Returns:
             Dictionary with file information including 'id', or None if failed
         """
         try:
+            # Verify file exists before uploading
+            import os
+            if not os.path.exists(file_path):
+                print(f"❌ File not found at path: {file_path}")
+                raise FileNotFoundError(f"File not found: {file_path}")
+            
+            print(f"✅ File found at path: {file_path}")
+            
+            # Run file upload in thread pool to avoid blocking
+            # loop = asyncio.get_event_loop()
+            
+            # def upload():
+            #     with open(file_path, 'rb') as file:
+            #         return self.client.files.create(
+            #             file=file,
+            #             purpose=purpose
+            #         )
+            
+            # response = await loop.run_in_executor(None, upload)
+            
+            # Read file and upload directly with async client
             with open(file_path, 'rb') as file:
-                response = self.client.files.create(
+                response = await self.client.files.create(
                     file=file,
                     purpose=purpose
                 )
-            
+            logger.info(f"[OpenAI] ✅ File uploaded: {response.id}")
             return {
                 "id": response.id,
                 "filename": response.filename,
@@ -427,7 +573,7 @@ class OpenAIService:
             }
             
         except Exception as e:
-            print(f"❌ OpenAI file upload error: {str(e)}")
+            logger.error(f"[OpenAI] ❌ File upload error: {str(e)}", exc_info=True)
             return None
 
 

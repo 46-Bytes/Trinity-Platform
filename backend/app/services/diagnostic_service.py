@@ -6,18 +6,76 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 from datetime import datetime
 import json
+import re
+import asyncio
+import logging
 
 from app.models.diagnostic import Diagnostic
 from app.models.task import Task
 from app.models.engagement import Engagement
 from app.services.openai_service import openai_service
 from app.services.scoring_service import scoring_service
+from app.utils.background_task_manager import background_task_manager
 from app.utils.file_loader import (
     load_diagnostic_questions,
     load_scoring_map,
     load_task_library,
     load_prompt
 )
+
+
+def convert_numbered_list_to_bullets(text: str) -> str:
+    """
+    Convert numbered lists (1., 2., Step 1, step1), etc.) to bullet points.
+    
+    Examples:
+        "1. First step" -> "- First step"
+        "Step 1) Do this" -> "- Do this"
+        "step1) Action" -> "- Action"
+        "1. Step one\n2. Step two" -> "- Step one\n- Step two"
+    
+    Args:
+        text: Text that may contain numbered lists
+        
+    Returns:
+        Text with numbered lists converted to bullet points
+    """
+    if not text:
+        return text
+    
+    # Pattern to match various numbered list formats:
+    # - "1. " or "1) " (number followed by period or parenthesis)
+    # - "Step 1. " or "step 1) " (case-insensitive "step" followed by number)
+    # - "step1) " or "Step1. " (no space between step and number)
+    # - Handles multi-digit numbers (10., 11), etc.)
+    # - Can appear at start of line or after newline
+    
+    # Split text into lines to process each line individually
+    lines = text.split('\n')
+    converted_lines = []
+    
+    for line in lines:
+        # Pattern to match numbered list items at the start of a line
+        # Matches: "1. ", "1) ", "Step 1. ", "step 1) ", "step1) ", "Step1. ", etc.
+        pattern = r'^(?:[Ss]tep\s*)?\d+[.)]\s*'
+        
+        if re.match(pattern, line):
+            # Replace the numbered prefix with a bullet point
+            converted_line = re.sub(pattern, '- ', line, count=1)
+            converted_lines.append(converted_line)
+        else:
+            # Keep the line as-is if it doesn't match the pattern
+            converted_lines.append(line)
+    
+    # Join lines back together
+    converted_text = '\n'.join(converted_lines)
+    
+    # Clean up: remove extra spaces after bullet points
+    converted_text = re.sub(r'^- \s+', '- ', converted_text, flags=re.MULTILINE)
+    
+    return converted_text
+
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -204,6 +262,16 @@ class DiagnosticService:
             )
             diagnostic.conversation_id = conversation.id
             logger.info(f"Linked diagnostic {diagnostic.id} to conversation {conversation.id}")
+            # Update engagement status to completed if diagnostic is completed
+            engagement = self.db.query(Engagement).filter(
+                Engagement.id == diagnostic.engagement_id
+            ).first()
+            
+            if engagement and engagement.status != "completed":
+                engagement.status = "completed"
+                if not engagement.completed_at:
+                    engagement.completed_at = datetime.utcnow()
+                logger.info(f"Updated engagement {engagement.id} status to 'completed' because diagnostic {diagnostic.id} is completed")
             
         except Exception as e:
             # If processing fails, mark as failed
@@ -216,7 +284,7 @@ class DiagnosticService:
         
         return diagnostic
     
-    async def _process_diagnostic_pipeline(self, diagnostic: Diagnostic):
+    async def _process_diagnostic_pipeline(self, diagnostic: Diagnostic, check_shutdown: bool = False):
         """
         Internal method to execute the complete AI processing pipeline.
         
@@ -227,8 +295,17 @@ class DiagnosticService:
         4. Validate and calculate scores
         5. Generate advice (optional)
         6. Auto-generate tasks
+        
+        Args:
+            diagnostic: Diagnostic model to process
+            check_shutdown: If True, check for shutdown signals between steps
         """
         user_responses = diagnostic.user_responses
+        
+        # Check for shutdown before starting
+        if check_shutdown and background_task_manager.is_shutting_down():
+            logger.warning(f"⚠️ Shutdown detected before starting diagnostic pipeline for {diagnostic.id}")
+            raise asyncio.CancelledError("Shutdown detected")
         
         # Load required data files
         diagnostic_questions = load_diagnostic_questions()
@@ -243,6 +320,12 @@ class DiagnosticService:
             user_responses
         )
         logger.info(f"==========================JSON Extract Completed Successfully==========================: {json_extract}")
+        
+        # Check for shutdown after step 1
+        if check_shutdown and background_task_manager.is_shutting_down():
+            logger.warning(f"⚠️ Shutdown detected after Q&A extract for diagnostic {diagnostic.id}")
+            raise asyncio.CancelledError("Shutdown detected")
+        
         # ===== STEP 2: Generate Summary =====
         summary_prompt = load_prompt("diagnostic_summary")
         summary_result = await openai_service.generate_summary(
@@ -252,57 +335,174 @@ class DiagnosticService:
         
         summary = summary_result["content"]
         
+        # Check for shutdown after step 2
+        if check_shutdown and background_task_manager.is_shutting_down():
+            logger.warning(f"⚠️ Shutdown detected after summary generation for diagnostic {diagnostic.id}")
+            raise asyncio.CancelledError("Shutdown detected")
+        
         # ===== STEP 3: Process Scores with GPT (including uploaded files) =====
-        # Get files attached to this diagnostic
-        attached_files = list(diagnostic.media)
+        logger.info("=" * 60)
+        logger.info("STEP 3: Starting Scoring Process with GPT")
+        logger.info("=" * 60)
+        
+        # Get files that are CURRENTLY in user_responses (not stale files)
+        # Only use files that the user has explicitly included in their current responses
+        attached_files = self._get_current_files_from_responses(diagnostic)
+        logger.info(f"[Scoring] Found {len(attached_files)} current files from user_responses for diagnostic {diagnostic.id}")
+        
+        # Log which files are being used
+        if attached_files:
+            logger.info(f"[Scoring] Files being used for scoring:")
+            for f in attached_files:
+                logger.info(f"[Scoring]   - {f.file_name} (media_id: {f.id}, openai_file_id: {f.openai_file_id})")
+        else:
+            logger.info(f"[Scoring] No files found in user_responses - scoring will proceed without file attachments")
+        
         file_context = self._build_file_context(attached_files)
-        logger.info(f"==========================File Context Completed Successfully==========================:")
-        # Extract OpenAI file IDs (only files that have been uploaded to OpenAI)
-        file_ids = [
-            file.openai_file_id 
-            for file in attached_files 
-            if file.openai_file_id
+        logger.info(f"[Scoring] File context built: {len(file_context) if file_context else 0} characters")
+        
+        # Attach files correctly for the Responses API:
+        # - PDFs can be attached as message content items: {"type":"input_file","file_id": ...}
+        # - CSV/TXT/XLSX/etc. must NOT be attached as message content; they must be provided to
+        #   Code Interpreter via tools[].container.file_ids (per OpenAI docs).
+        image_or_archive_ext = {"png", "jpg", "jpeg", "gif", "webp", "zip"}
+        pdf_ext = {"pdf"}
+        ci_ext = {"csv", "txt", "text", "md", "markdown", "json", "xml", "yaml", "yml", "xlsx", "xls"}
+
+        pdf_files = [
+            f for f in attached_files
+            if f.openai_file_id and f.file_extension and f.file_extension.lower() in pdf_ext
         ]
+        ci_files = [
+            f for f in attached_files
+            if (
+                f.openai_file_id
+                and f.file_extension
+                and f.file_extension.lower() in ci_ext
+            )
+        ]
+        filtered_files = [
+            f for f in attached_files
+            if f.openai_file_id and f.file_extension and f.file_extension.lower() in image_or_archive_ext
+        ]
+
+        pdf_file_ids = [f.openai_file_id for f in pdf_files if f.openai_file_id]
+        ci_file_ids = [f.openai_file_id for f in ci_files if f.openai_file_id]
+
+        if filtered_files:
+            logger.info(
+                f"[Scoring] Filtered out {len(filtered_files)} unsupported attachment(s) (images/zip): "
+                f"{[x.file_name + ' (' + (x.file_extension or 'no ext') + ')' for x in filtered_files]}"
+            )
+
+        logger.info(f"[Scoring] PDF attachments (message input_file): {len(pdf_file_ids)}")
+        logger.info(f"[Scoring] Code Interpreter container file_ids (csv/txt/xlsx/etc): {len(ci_file_ids)}")
         
-        print(f"📎 Found {len(attached_files)} attached files for scoring")
-        print(f"📤 {len(file_ids)} files uploaded to OpenAI and ready for AI analysis")
-        
+        # Load scoring prompt
         scoring_prompt = load_prompt("scoring_prompt")
-        logger.info(f"==========================Scoring Started==========================:")
-        scoring_result = await openai_service.process_scoring(
-            scoring_prompt=scoring_prompt,
-            scoring_map=scoring_map,
-            task_library=task_library,
-            diagnostic_questions=diagnostic_questions,
-            user_responses=user_responses,
-            file_context=file_context,  # Context about files (text description)
-            file_ids=file_ids if file_ids else None  # Actual file IDs for GPT to read
-        )
+        logger.info(f"[Scoring] Scoring prompt loaded: {len(scoring_prompt)} characters")
+        logger.info(f"[Scoring] Scoring map loaded: {len(scoring_map)} entries")
+        logger.info(f"[Scoring] Task library loaded: {len(task_library)} entries")
+        logger.info(f"[Scoring] User responses count: {len(user_responses)} responses")
+        
+        # Call OpenAI API for scoring
+        logger.info("[Scoring] Calling OpenAI API for scoring (this may take several minutes)...")
+        logger.info(f"[Scoring] Model: {openai_service.model}, Reasoning effort: high")
+        
+        try:
+            scoring_result = await openai_service.process_scoring(
+                scoring_prompt=scoring_prompt,
+                scoring_map=scoring_map,
+                task_library=task_library,
+                diagnostic_questions=diagnostic_questions,
+                user_responses=user_responses,
+                file_context=file_context,  # Text description of attached files
+                # Only PDFs are attached as message input_file items
+                file_ids=pdf_file_ids if pdf_file_ids else None,
+                # Non-PDFs go into the Code Interpreter container
+                tools=(
+                    [{"type": "code_interpreter", "container": {"type": "auto", "file_ids": ci_file_ids}}]
+                    if ci_file_ids
+                    else None
+                )
+            )
+            logger.info("[Scoring] ✅ OpenAI API call completed successfully")
+            logger.info(f"[Scoring] Tokens used: {scoring_result.get('tokens_used', 0)}")
+            logger.info(f"[Scoring] Prompt tokens: {scoring_result.get('prompt_tokens', 0)}")
+            logger.info(f"[Scoring] Completion tokens: {scoring_result.get('completion_tokens', 0)}")
+        except Exception as e:
+            logger.error(f"[Scoring] ❌ OpenAI API call failed: {str(e)}", exc_info=True)
+            raise
         
         # Extract scoring data
+        logger.info("[Scoring] Extracting scoring data from API response...")
         scoring_data = scoring_result["parsed_content"]
-        logger.info(f"==========================Scoring Completed Successfully==========================:")
+        logger.info(f"[Scoring] Scoring data extracted. Keys: {list(scoring_data.keys())}")
+        
         # ===== STEP 4: Calculate and Validate Scores =====
+        # Check for shutdown after step 3 (scoring)
+        if check_shutdown and background_task_manager.is_shutting_down():
+            logger.warning(f"⚠️ Shutdown detected after scoring for diagnostic {diagnostic.id}")
+            raise asyncio.CancelledError("Shutdown detected")
+        
+        logger.info("=" * 60)
+        logger.info("STEP 4: Processing Scoring Data")
+        logger.info("=" * 60)
+        
         scored_rows = scoring_data.get("scored_rows", [])
         roadmap = scoring_data.get("roadmap", [])
         client_summary = scoring_data.get("clientSummary", "")
         advisor_report = scoring_data.get("advisorReport", "")
         
+        logger.info(f"[Scoring Data] Scored rows count: {len(scored_rows)}")
+        logger.info(f"[Scoring Data] Roadmap items count: {len(roadmap)}")
+        logger.info(f"[Scoring Data] Client summary length: {len(client_summary) if client_summary else 0} characters")
+        logger.info(f"[Scoring Data] Advisor report length: {len(advisor_report) if advisor_report else 0} characters")
+        
+        if scored_rows:
+            logger.info(f"[Scoring Data] Sample scored row: {scored_rows[0]}")
+        if roadmap:
+            logger.info(f"[Scoring Data] Sample roadmap item: {roadmap[0]}")
+        
         # Calculate module scores
+        logger.info("[Scoring Data] Calculating module scores...")
         module_scores = scoring_service.calculate_module_scores(scored_rows)
+        logger.info(f"[Scoring Data] Module scores calculated: {len(module_scores)} modules")
+        for module, score_data in module_scores.items():
+            logger.info(f"[Scoring Data]   Module {module}: score={score_data.get('score', 'N/A')}, count={score_data.get('count', 0)}")
         
         # Rank modules
+        logger.info("[Scoring Data] Ranking modules...")
         ranked_modules = scoring_service.rank_modules(module_scores)
+        logger.info(f"[Scoring Data] Modules ranked: {len(ranked_modules)} modules")
+        for idx, module in enumerate(ranked_modules[:5], 1):  # Log top 5
+            logger.info(f"[Scoring Data]   Rank {idx}: {module.get('module', 'N/A')} - Score: {module.get('score', 'N/A')}")
         
         # Calculate overall score
+        logger.info("[Scoring Data] Calculating overall score...")
         overall_score = scoring_service.calculate_overall_score(module_scores)
+        logger.info(f"[Scoring Data] Overall score: {overall_score}")
         
         # Validate scoring data
+        logger.info("[Scoring Data] Validating scoring data...")
         validation = scoring_service.validate_scoring_data(
             ai_scoring_data=scoring_data,
             user_responses=user_responses,
             scoring_map=scoring_map
         )
+        logger.info(f"[Scoring Data] Validation result: {validation.get('is_valid', False)}")
+        if not validation.get('is_valid', True):
+            logger.warning(f"[Scoring Data] Validation warnings: {validation.get('warnings', [])}")
+            logger.warning(f"[Scoring Data] Validation errors: {validation.get('errors', [])}")
+        
+        logger.info("=" * 60)
+        logger.info("STEP 4: Scoring Data Processing Completed")
+        logger.info("=" * 60)
+        
+        # Check for shutdown after step 4
+        if check_shutdown and background_task_manager.is_shutting_down():
+            logger.warning(f"⚠️ Shutdown detected after scoring data processing for diagnostic {diagnostic.id}")
+            raise asyncio.CancelledError("Shutdown detected")
         
         # ===== STEP 5: Generate Advice (Optional) =====
         advice = None
@@ -328,6 +528,11 @@ class DiagnosticService:
                 roadmap=roadmap
             )
             logger.info(f"==========================Tasks Generation Completed Successfully==========================:")
+            
+            # Check for shutdown after step 6
+            if check_shutdown and background_task_manager.is_shutting_down():
+                logger.warning(f"⚠️ Shutdown detected after task generation for diagnostic {diagnostic.id}")
+                raise asyncio.CancelledError("Shutdown detected")
         except Exception as e:
             print(f"Warning: Could not generate tasks: {str(e)}")
         
@@ -395,6 +600,121 @@ class DiagnosticService:
         diagnostic.tasks_generated_count = tasks_count
         
         self.db.commit()
+    
+    def _get_current_files_from_responses(self, diagnostic: Diagnostic) -> List:
+        """
+        Get only the files that are currently referenced in user_responses.
+        This ensures we don't use stale/old files that were previously attached.
+        
+        Args:
+            diagnostic: Diagnostic model with user_responses
+            
+        Returns:
+            List of Media objects that are currently in user_responses
+        """
+        from app.models.media import Media
+        
+        user_responses = diagnostic.user_responses or {}
+        
+        # Collect all media_ids from user_responses
+        # Files can be stored as:
+        # - Single object: {"file_name": "...", "media_id": "uuid", ...}
+        # - Array: [{"file_name": "...", "media_id": "uuid", ...}, ...]
+        current_media_ids = set()
+        files_without_id = []  # For fallback matching
+        
+        for field_name, field_value in user_responses.items():
+            if not field_value:
+                continue
+            
+            # Handle both array and single file metadata
+            file_metadatas = field_value if isinstance(field_value, list) else [field_value]
+            
+            for file_meta in file_metadatas:
+                if isinstance(file_meta, dict):
+                    # Try to get media_id (preferred identifier)
+                    media_id = file_meta.get("media_id")
+                    if media_id:
+                        try:
+                            current_media_ids.add(UUID(media_id))
+                        except (ValueError, TypeError):
+                            logger.warning(f"[File Sync] Invalid media_id format: {media_id} in field {field_name}")
+                            # Store for fallback matching
+                            files_without_id.append({
+                                "file_name": file_meta.get("file_name"),
+                                "relative_path": file_meta.get("relative_path"),
+                                "field": field_name
+                            })
+                    else:
+                        # No media_id - store for fallback matching
+                        file_name = file_meta.get("file_name")
+                        relative_path = file_meta.get("relative_path")
+                        if file_name:
+                            files_without_id.append({
+                                "file_name": file_name,
+                                "relative_path": relative_path,
+                                "field": field_name
+                            })
+                            logger.info(f"[File Sync] File {file_name} in field {field_name} has no media_id, will try fallback matching")
+        
+        # Query Media objects by IDs (primary method)
+        valid_media = []
+        if current_media_ids:
+            media_objects = self.db.query(Media).filter(
+                Media.id.in_(current_media_ids),
+                Media.is_active == True
+            ).all()
+            
+            # Verify files are actually attached to this diagnostic
+            attached_media_ids = {m.id for m in diagnostic.media}
+            valid_media = [
+                m for m in media_objects 
+                if m.id in attached_media_ids
+            ]
+            
+            logger.info(f"[File Sync] Found {len(valid_media)}/{len(current_media_ids)} files by media_id")
+        
+        # Fallback: Try to match files without media_id by file_name + relative_path
+        if files_without_id:
+            logger.info(f"[File Sync] Attempting fallback matching for {len(files_without_id)} files without media_id")
+            for file_info in files_without_id:
+                file_name = file_info["file_name"]
+                relative_path = file_info.get("relative_path")
+                
+                # Try to find matching Media object
+                query = self.db.query(Media).filter(
+                    Media.file_name == file_name,
+                    Media.is_active == True
+                )
+                
+                # If relative_path is available, use it for more precise matching
+                if relative_path:
+                    # Extract diagnostic_id from relative_path: diagnostic/{id}/filename
+                    if "diagnostic/" in relative_path:
+                        try:
+                            path_parts = relative_path.split("/")
+                            if len(path_parts) >= 2:
+                                diagnostic_id_from_path = path_parts[1]
+                                # Verify this matches current diagnostic
+                                if str(diagnostic.id) == diagnostic_id_from_path:
+                                    query = query.filter(Media.file_path.like(f"%{diagnostic_id_from_path}%"))
+                        except Exception as e:
+                            logger.warning(f"[File Sync] Error parsing relative_path {relative_path}: {e}")
+                
+                matched_media = query.first()
+                if matched_media and matched_media.id not in {m.id for m in valid_media}:
+                    # Check if it's attached to this diagnostic
+                    if matched_media in diagnostic.media:
+                        valid_media.append(matched_media)
+                        logger.info(f"[File Sync] Matched file {file_name} by name/path (media_id: {matched_media.id})")
+                    else:
+                        logger.warning(f"[File Sync] File {file_name} found but not attached to diagnostic")
+        
+        logger.info(f"[File Sync] Total valid files: {len(valid_media)}")
+        if valid_media:
+            logger.info(f"[File Sync] Files being used: {[f.file_name + ' (id: ' + str(f.id) + ')' for f in valid_media]}")
+        
+        return valid_media
     
     def _generate_qa_extract(
         self,
@@ -505,6 +825,29 @@ class DiagnosticService:
         Returns:
             Number of tasks created
         """
+        # Step 1: Delete existing diagnostic_generated tasks for this engagement/diagnostic
+        # This prevents duplicate tasks when diagnostic is resubmitted
+        try:
+            existing_tasks = self.db.query(Task).filter(
+                Task.engagement_id == diagnostic.engagement_id,
+                Task.diagnostic_id == diagnostic.id,
+                Task.task_type == "diagnostic_generated"
+            ).all()
+            
+            if existing_tasks:
+                deleted_count = len(existing_tasks)
+                logger.info(f"Deleting {deleted_count} existing diagnostic_generated tasks for engagement {diagnostic.engagement_id} and diagnostic {diagnostic.id}")
+                
+                for task in existing_tasks:
+                    self.db.delete(task)
+                
+                self.db.commit()
+                logger.info(f"Successfully deleted {deleted_count} existing diagnostic_generated tasks")
+        except Exception as e:
+            logger.warning(f"Failed to delete existing diagnostic_generated tasks: {str(e)}")
+            # Continue with task generation even if deletion fails
+            self.db.rollback()
+        
         # Load task generation prompt
         task_prompt = load_prompt("initial_task_prompt")
         
@@ -574,12 +917,16 @@ class DiagnosticService:
                 # Ensure category is not too long (max 50 chars to match database)
                 category = str(category).strip()[:50] if category else ""
                 
+                # Get description and convert numbered lists to bullet points
+                raw_description = task_data.get("description") or task_data.get("details") or ""
+                description = convert_numbered_list_to_bullets(raw_description)
+                
                 task = Task(
                     engagement_id=diagnostic.engagement_id,
                     diagnostic_id=diagnostic.id,
                     created_by_user_id=diagnostic.created_by_user_id,
                     title=title,
-                    description=task_data.get("description") or task_data.get("details") or "",
+                    description=description,
                     task_type="diagnostic_generated",
                     status="pending",
                     priority=task_data.get("priority", "medium"),

@@ -1,12 +1,13 @@
 """
 Diagnostic API endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, BackgroundTasks, Response
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
 from pathlib import Path
+from datetime import datetime
 import os
 import shutil
 import logging
@@ -27,9 +28,13 @@ from app.services.diagnostic_service import get_diagnostic_service
 from app.services.file_service import get_file_service
 from app.services.report_service import ReportService
 from app.utils.file_loader import load_diagnostic_questions
+from app.utils.background_task_manager import background_task_manager
 from app.api.auth import get_current_user
 from app.models.user import User
 from app.models.diagnostic import Diagnostic
+from app.models.engagement import Engagement
+from app.database import SessionLocal
+import asyncio
 
 
 router = APIRouter(prefix="/diagnostics", tags=["diagnostics"])
@@ -184,11 +189,13 @@ async def upload_diagnostic_file(
     file_service = get_file_service(db)
 
     # Upload single file (store locally + OpenAI)
+    # Use diagnostic_id for the file path: uploads/diagnostic/{diagnostic_id}/
     media = await file_service.upload_file(
         file=file,
         user_id=current_user.id,
         question_field_name=question_field_name,
         upload_to_openai=True,
+        diagnostic_id=diagnostic_id,
     )
 
     # Attach to diagnostic via many-to-many relationship if not already linked
@@ -371,13 +378,18 @@ async def delete_diagnostic_file(
 async def submit_diagnostic(
     diagnostic_id: UUID,
     submit_data: DiagnosticSubmit,
+    response: Response,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Submit diagnostic and trigger AI processing pipeline.
+    Submit diagnostic and trigger AI processing pipeline (asynchronous background job).
     
-    **Workflow Step 3**: Main AI processing workflow:
+    This endpoint returns immediately with status "processing".
+    The actual AI processing runs in the background and may take 10-15 minutes.
+    
+    **Workflow Step 3**: Main AI processing workflow (runs in background):
     1. Generate Q&A extract
     2. Generate summary
     3. Process scores with GPT
@@ -386,15 +398,20 @@ async def submit_diagnostic(
     6. Generate roadmap
     7. Generate advisor report
     8. Auto-generate tasks
+    9. Generate PDF report
     
-    This endpoint may take 30-60 seconds to complete.
+    **Frontend should poll GET /diagnostics/{diagnostic_id} to check status:**
+    - "processing" = Still running
+    - "completed" = Ready, PDF available for download
+    - "failed" = Error occurred
     
     Args:
         diagnostic_id: UUID of the diagnostic
         submit_data: Submission data
+        background_tasks: FastAPI background tasks
         
     Returns:
-        Processed diagnostic with AI analysis
+        Diagnostic with status "processing" (will be updated to "completed" when done)
         
     Example:
         ```json
@@ -403,26 +420,199 @@ async def submit_diagnostic(
         }
         ```
     """
+    response.headers["Connection"] = "keep-alive"
+    response.headers["Keep-Alive"] = "timeout=1800, max=100"
+
     service = get_diagnostic_service(db)
     
-    try:
-        diagnostic = await service.submit_diagnostic(
-            diagnostic_id=diagnostic_id,
-            completed_by_user_id=submit_data.completed_by_user_id
-        )
-        
-        return diagnostic
-        
-    except ValueError as e:
+    # Get diagnostic first to verify it exists
+    diagnostic = service.get_diagnostic(diagnostic_id)
+    if not diagnostic:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
+            detail=f"Diagnostic {diagnostic_id} not found"
         )
-    except Exception as e:
+    
+    if not diagnostic.user_responses:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Diagnostic processing failed: {str(e)}"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot submit diagnostic without responses"
         )
+    
+    # Update status to processing immediately
+    diagnostic.status = "processing"
+    diagnostic.completed_by_user_id = submit_data.completed_by_user_id
+    db.commit()
+    db.refresh(diagnostic)
+    
+    # Add background task for processing
+    async def process_diagnostic_background():
+        """Background task to process diagnostic and generate PDF"""
+        # Create a new database session for background task
+        background_db = SessionLocal()
+        task = None
+        try:
+            logger.info(f"🚀 Starting background processing for diagnostic {diagnostic_id}")
+            
+            # Check if shutdown was initiated before starting
+            if background_task_manager.is_shutting_down():
+                logger.warning(f"⚠️ Shutdown detected before starting diagnostic {diagnostic_id} processing")
+                # Update status back to draft or leave as processing
+                try:
+                    diagnostic_obj = background_db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
+                    if diagnostic_obj:
+                        diagnostic_obj.status = "draft"  # Reset to draft so user can resubmit
+                        background_db.commit()
+                except Exception as e:
+                    logger.error(f"Failed to reset diagnostic status: {e}")
+                finally:
+                    background_db.close()
+                return
+            
+            # Get current task for tracking
+            task = asyncio.current_task()
+            if task:
+                background_task_manager.register_task(task, diagnostic_id)
+            
+            background_service = get_diagnostic_service(background_db)
+            diagnostic_obj = background_service.get_diagnostic(diagnostic_id)
+            
+            if not diagnostic_obj:
+                logger.error(f"❌ Diagnostic {diagnostic_id} not found in background task")
+                return
+            
+            # Process the diagnostic pipeline (with shutdown checks)
+            await background_service._process_diagnostic_pipeline(diagnostic_obj, check_shutdown=True)
+            
+            # Generate PDF report after processing is complete
+            try:
+                logger.info(f"📄 Generating PDF report for diagnostic {diagnostic_id}")
+                
+                # Get user for report
+                report_user_id = diagnostic_obj.completed_by_user_id or diagnostic_obj.created_by_user_id
+                report_user = background_db.query(User).filter(User.id == report_user_id).first()
+                
+                if report_user:
+                    # Build question text map
+                    question_text_map = {}
+                    diagnostic_questions = diagnostic_obj.questions or {}
+                    for page in diagnostic_questions.get("pages", []):
+                        for element in page.get("elements", []):
+                            element_name = element.get("name")
+                            element_title = element.get("title", element_name)
+                            if element_name:
+                                question_text_map[element_name] = element_title
+                    
+                    # Generate PDF (this will be stored/cached for download)
+                    pdf_bytes = ReportService.generate_pdf_report(
+                        diagnostic=diagnostic_obj,
+                        user=report_user,
+                        question_text_map=question_text_map
+                    )
+                    logger.info(f"✅ PDF report generated successfully ({len(pdf_bytes)} bytes)")
+                else:
+                    logger.warning(f"⚠️ Could not find user for PDF generation")
+                    
+            except Exception as pdf_error:
+                logger.error(f"⚠️ PDF generation failed (non-critical): {str(pdf_error)}", exc_info=True)
+                # Don't fail the whole process if PDF generation fails
+            
+            # Update status to completed
+            diagnostic_obj.status = "completed"
+            diagnostic_obj.completed_at = datetime.utcnow()
+            
+            # Update engagement status
+            engagement = background_db.query(Engagement).filter(
+                Engagement.id == diagnostic_obj.engagement_id
+            ).first()
+            if engagement and engagement.status != "completed":
+                engagement.status = "completed"
+                if not engagement.completed_at:
+                    engagement.completed_at = datetime.utcnow()
+                logger.info(f"✅ Updated engagement {engagement.id} status to 'completed'")
+            
+            background_db.commit()
+            logger.info(f"✅ Background processing completed successfully for diagnostic {diagnostic_id}")
+            
+        except asyncio.CancelledError:
+            logger.warning(f"⚠️ Background processing cancelled for diagnostic {diagnostic_id} (shutdown detected)")
+            # Update status to indicate it was cancelled
+            try:
+                diagnostic_obj = background_db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
+                if diagnostic_obj:
+                    diagnostic_obj.status = "draft"  # Reset to draft so user can resubmit after redeploy
+                    background_db.commit()
+                    logger.info(f"✅ Updated diagnostic {diagnostic_id} status to 'draft' (cancelled due to shutdown)")
+            except Exception as update_error:
+                logger.error(f"❌ Failed to update diagnostic status after cancellation: {str(update_error)}")
+            raise  # Re-raise to properly handle cancellation
+        except Exception as e:
+            # Check if shutdown was the cause
+            if background_task_manager.is_shutting_down():
+                logger.warning(f"⚠️ Background processing interrupted for diagnostic {diagnostic_id} (shutdown detected)")
+                try:
+                    diagnostic_obj = background_db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
+                    if diagnostic_obj:
+                        diagnostic_obj.status = "draft"
+                        background_db.commit()
+                except Exception as update_error:
+                    logger.error(f"❌ Failed to update diagnostic status: {str(update_error)}")
+            else:
+                logger.error(f"❌ Background processing failed for diagnostic {diagnostic_id}: {str(e)}", exc_info=True)
+                # Update status to failed
+                try:
+                    diagnostic_obj = background_service.get_diagnostic(diagnostic_id)
+                    if diagnostic_obj:
+                        diagnostic_obj.status = "failed"
+                        background_db.commit()
+                        logger.info(f"✅ Updated diagnostic {diagnostic_id} status to 'failed'")
+                except Exception as update_error:
+                    logger.error(f"❌ Failed to update diagnostic status to 'failed': {str(update_error)}")
+        finally:
+            background_db.close()
+    
+    # Add the background task
+    background_tasks.add_task(process_diagnostic_background)
+    
+    logger.info(f"✅ Diagnostic {diagnostic_id} submitted, processing in background")
+    
+    return diagnostic
+
+
+# ==================== GET DIAGNOSTIC STATUS ====================
+
+@router.get("/{diagnostic_id}/status")
+async def get_diagnostic_status(
+    diagnostic_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get diagnostic processing status (optimized for polling).
+    
+    This lightweight endpoint is designed for frontend polling to check
+    if background processing is complete.
+    
+    Returns:
+        {
+            "status": "processing" | "completed" | "failed" | "draft",
+            "completed_at": "2024-01-01T00:00:00" | null,
+            "error": "error message" | null
+        }
+    """
+    diagnostic = db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
+    
+    if not diagnostic:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Diagnostic {diagnostic_id} not found"
+        )
+    
+    return {
+        "status": diagnostic.status,
+        "completed_at": diagnostic.completed_at.isoformat() if diagnostic.completed_at else None,
+        "error": None  # Could add error field to Diagnostic model if needed
+    }
 
 
 # ==================== GET DIAGNOSTIC ====================

@@ -7,9 +7,13 @@ import {
   updateDiagnosticResponses,
   updateLocalResponses,
   submitDiagnostic,
+  checkDiagnosticStatus,
+  stopPolling,
 } from '@/store/slices/diagnosticReducer';
+import { updateEngagement } from '@/store/slices/engagementReducer';
 import { useAuth } from '@/context/AuthContext';
 import surveyData from '@/questions/diagnostic-survey.json';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -22,11 +26,12 @@ interface ToolSurveyProps {
 export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurveyProps) {
   const dispatch = useAppDispatch();
   const { user } = useAuth();
-  const { diagnostic, isSaving, isLoading, isSubmitting, error } = useAppSelector((state) => state.diagnostic);
+  const { diagnostic, isSaving, isLoading, isSubmitting, isPolling, error } = useAppSelector((state) => state.diagnostic);
   
   const [currentPage, setCurrentPage] = useState(0);
   const [localResponses, setLocalResponses] = useState<Record<string, any>>({});
   const [completedPages, setCompletedPages] = useState<number[]>([]);
+  const [engagementStatusUpdated, setEngagementStatusUpdated] = useState(false);
   
   const pages = surveyData.pages;
   const totalPages = pages.length;
@@ -39,6 +44,88 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
       dispatch(fetchDiagnosticByEngagement(engagementId));
     }
   }, [dispatch, engagementId, toolType]);
+
+  // Automatic status polling when diagnostic is processing
+  useEffect(() => {
+    if (!diagnostic || !isPolling) return;
+
+    // Only poll if status is processing
+    if (diagnostic.status !== 'processing') {
+      return;
+    }
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const result = await dispatch(checkDiagnosticStatus(diagnostic.id)).unwrap();
+        
+        if (result.status === 'completed') {
+          clearInterval(pollInterval);
+          dispatch(stopPolling());
+          
+          // Remove from localStorage (global polling will also handle this, but do it here too)
+          try {
+            const stored = localStorage.getItem('processing_diagnostics');
+            if (stored) {
+              const diagnostics = JSON.parse(stored);
+              const updated = diagnostics.filter((d: { id: string }) => d.id !== diagnostic.id);
+              if (updated.length > 0) {
+                localStorage.setItem('processing_diagnostics', JSON.stringify(updated));
+              } else {
+                localStorage.removeItem('processing_diagnostics');
+              }
+            }
+          } catch (e) {
+            // Ignore errors
+          }
+          
+          // Show notification (global polling will also show one, but this is for immediate feedback)
+          toast.success('✅ Diagnostic processing completed! PDF report is ready for download.', {
+            duration: 10000,
+          });
+          
+          // Refresh diagnostic data
+          dispatch(fetchDiagnosticByEngagement(engagementId));
+        } else if (result.status === 'failed') {
+          clearInterval(pollInterval);
+          dispatch(stopPolling());
+          
+          // Remove from localStorage
+          try {
+            const stored = localStorage.getItem('processing_diagnostics');
+            if (stored) {
+              const diagnostics = JSON.parse(stored);
+              const updated = diagnostics.filter((d: { id: string }) => d.id !== diagnostic.id);
+              if (updated.length > 0) {
+                localStorage.setItem('processing_diagnostics', JSON.stringify(updated));
+              } else {
+                localStorage.removeItem('processing_diagnostics');
+              }
+            }
+          } catch (e) {
+            // Ignore errors
+          }
+          
+          toast.error('❌ Diagnostic processing failed. Please try submitting again.');
+        }
+      } catch (error) {
+        console.error('Error checking diagnostic status:', error);
+        // Continue polling on error (don't stop)
+      }
+    }, 30000); // Poll every 30 seconds
+
+    // Safety timeout: stop polling after 20 minutes
+    const timeout = setTimeout(() => {
+      clearInterval(pollInterval);
+      dispatch(stopPolling());
+      toast.warning('Processing is taking longer than expected. Please check back later.');
+    }, 20 * 60 * 1000); // 20 minutes
+
+    // Cleanup on unmount or when status changes
+    return () => {
+      clearInterval(pollInterval);
+      clearTimeout(timeout);
+    };
+  }, [diagnostic?.id, diagnostic?.status, isPolling, dispatch, engagementId]);
 
   // Merge Redux responses (source of truth) with local unsaved changes
   const responses = useMemo(() => {
@@ -121,7 +208,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
       })).unwrap();
 
       // Step 2: Submit diagnostic to trigger LLM processing
-      toast.info('Submitting diagnostic for AI analysis... This may take 30-60 seconds.');
+      toast.info('Submitting diagnostic for AI analysis... This may take 10-15 minutes');
       await dispatch(submitDiagnostic({
         diagnosticId: diagnostic.id,
         completedByUserId: user.id,
@@ -141,6 +228,22 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
   const handleNextPage = async () => {
     // Auto-save before moving to next page
     await handleSaveProgress();
+    
+    // If moving from first page (page 0) to second page, update engagement status to 'active'
+    if (currentPage === 0 && !engagementStatusUpdated) {
+      try {
+        await dispatch(updateEngagement({
+          id: engagementId,
+          updates: {
+            status: 'active', // Change from 'draft' to 'active' (in progress)
+          },
+        })).unwrap();
+        setEngagementStatusUpdated(true);
+      } catch (engagementError) {
+        // Log error but don't fail the page navigation
+        console.warn('Failed to update engagement status:', engagementError);
+      }
+    }
     
     if (currentPage < totalPages - 1) {
       // Mark current page as completed
@@ -277,28 +380,36 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
       )}
 
       {/* Progress Bar */}
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="text-2xl font-bold">{currentPageData.title}</h2>
-          <span className="text-sm text-muted-foreground">
-            Page {currentPage + 1} of {totalPages}
-          </span>
+      {!isSubmitting && diagnostic.status !== 'processing' && (
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="text-2xl font-bold">{currentPageData.title}</h2>
+            <span className="text-sm text-muted-foreground">
+              Page {currentPage + 1} of {totalPages}
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-accent h-2 rounded-full transition-all"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div 
-            className="bg-accent h-2 rounded-full transition-all"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
+      )}
 
-      {isSubmitting ? (
-        // Loading screen shown while submitting (replaces questions + buttons)
+      {/* Show loading screen when submitting OR when status is processing */}
+      {isSubmitting || diagnostic.status === 'processing' ? (
+        // Loading screen shown while submitting or processing (replaces questions + buttons)
         <div className="flex flex-col items-center justify-center py-24 gap-4">
-          <div className="h-12 w-12 rounded-full border-4 border-accent border-t-transparent animate-spin" />
+          <Loader2 className="h-12 w-12 text-accent animate-spin" />
           <p className="text-sm text-muted-foreground text-center max-w-md">
-            Generating your AI report. This can take 10 -15 minutes. You can safely keep this tab open while we process your results.
+            Generating your AI report. This can take 10-15 minutes. You can safely keep this tab open while we process your results.
           </p>
+          {diagnostic.status === 'processing' && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Status: Processing... This page will automatically refresh when complete.
+            </p>
+          )}
         </div>
       ) : (
         <>

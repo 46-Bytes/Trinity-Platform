@@ -7,7 +7,9 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from pathlib import Path
 import logging
+import asyncio
 from .config import settings
+from .utils.background_task_manager import background_task_manager
 
 from .api.diagnostics import router as diagnostics_router
 
@@ -104,6 +106,21 @@ async def health_check():
         "status": "healthy",
         "environment": settings.APP_ENV
     }
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Handle application shutdown - gracefully terminate background tasks."""
+    logger = logging.getLogger(__name__)
+    logger.info("🛑 Application shutdown initiated")
+    
+    # Initiate shutdown in task manager
+    background_task_manager.initiate_shutdown()
+    
+    # Wait for tasks to complete (with shorter timeout to avoid hanging)
+    await background_task_manager.wait_for_shutdown(timeout=5.0)
+    
+    logger.info("✅ Application shutdown complete")
 
 
 if __name__ == "__main__":

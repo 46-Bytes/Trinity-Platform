@@ -35,7 +35,7 @@ class Task(Base):
     status = Column(String(50), nullable=False, server_default='pending', index=True,
                    comment="pending, in_progress, completed, cancelled")
     priority = Column(String(20), nullable=False, server_default='medium', index=True,
-                     comment="low, medium, high, urgent")
+                     comment="low, medium, high, critical")
     priority_rank = Column(Integer, nullable=True, comment="Priority rank from AI (1 = highest priority)")
     
     # Diagnostic-generated task metadata

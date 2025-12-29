@@ -32,17 +32,6 @@ export function TopBar({ onMenuClick }: TopBarProps) {
           <Menu className="w-5 h-5 text-muted-foreground" />
         </button>
 
-        {/* Search */}
-        <div className="relative hidden sm:block">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="input-trinity pl-10 w-64"
-          />
-        </div>
       </div>
 
       <div className="flex items-center gap-3">

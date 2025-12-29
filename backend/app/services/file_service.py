@@ -37,7 +37,12 @@ class FileService:
     def __init__(self, db: Session):
         self.db = db
         self.openai_service = OpenAIService()
-        self.upload_dir = Path(settings.UPLOAD_DIR if hasattr(settings, 'UPLOAD_DIR') else "uploads")
+        # Use files/uploads as the base upload directory
+        # Path(__file__) = backend/app/services/file_service.py
+        # .parents[2] = backend/
+        # / "files" / "uploads" = backend/files/uploads
+        base_dir = Path(__file__).resolve().parents[2]  # Go up to backend/
+        self.upload_dir = base_dir / "files" / "uploads"
         self.upload_dir.mkdir(parents=True, exist_ok=True)
     
     def _get_file_extension(self, filename: str) -> str:
@@ -67,7 +72,8 @@ class FileService:
         user_id: UUID,
         question_field_name: Optional[str] = None,
         description: Optional[str] = None,
-        upload_to_openai: bool = True
+        upload_to_openai: bool = True,
+        diagnostic_id: Optional[UUID] = None
     ) -> Media:
         """
         Upload a file, store it locally, and optionally upload to OpenAI
@@ -78,6 +84,8 @@ class FileService:
             question_field_name: Which diagnostic question this file answers
             description: Optional description
             upload_to_openai: Whether to upload to OpenAI for analysis
+            diagnostic_id: Optional diagnostic ID. If provided, files are stored in 
+                          files/uploads/diagnostic/{diagnostic_id}/, otherwise files/uploads/users/{user_id}/
             
         Returns:
             Media object representing the uploaded file
@@ -85,14 +93,20 @@ class FileService:
         # Validate file
         self._validate_file(file)
         
-        # Create user-specific directory
-        user_dir = self.upload_dir / str(user_id)
-        user_dir.mkdir(parents=True, exist_ok=True)
+        # Create directory based on whether diagnostic_id is provided
+        if diagnostic_id:
+            # Store diagnostic files in files/uploads/diagnostic/{diagnostic_id}/
+            storage_dir = self.upload_dir / "diagnostic" / str(diagnostic_id)
+        else:
+            # Store user files (profile pictures, etc.) in files/uploads/users/{user_id}/
+            storage_dir = self.upload_dir / "users" / str(user_id)
+        
+        storage_dir.mkdir(parents=True, exist_ok=True)
         
         # Generate unique filename
         ext = self._get_file_extension(file.filename)
         unique_filename = f"{uuid.uuid4()}.{ext}"
-        file_path = user_dir / unique_filename
+        file_path = storage_dir / unique_filename
         
         # Save file locally
         try:
@@ -122,14 +136,16 @@ class FileService:
         # Upload to OpenAI if requested
         if upload_to_openai:
             try:
+                file_path_str = str(file_path)
+                print(f"📤 Uploading file to OpenAI from path: {file_path_str}")
                 openai_file = await self.openai_service.upload_file(
-                    file_path=str(file_path),
-                    purpose="assistants"  # For file analysis
+                    file_path=file_path_str,
+                    purpose="user_data"  # For Responses API + tools (e.g., code_interpreter)
                 )
                 
                 if openai_file:
                     media.openai_file_id = openai_file.get('id')
-                    media.openai_purpose = "assistants"
+                    media.openai_purpose = openai_file.get('purpose') or "user_data"
                     from datetime import datetime
                     media.openai_uploaded_at = datetime.utcnow()
                     print(f"✅ File uploaded to OpenAI: {media.openai_file_id}")
@@ -147,7 +163,8 @@ class FileService:
         files: List[UploadFile],
         user_id: UUID,
         question_field_name: Optional[str] = None,
-        upload_to_openai: bool = True
+        upload_to_openai: bool = True,
+        diagnostic_id: Optional[UUID] = None
     ) -> List[Media]:
         """
         Upload multiple files
@@ -157,6 +174,8 @@ class FileService:
             user_id: ID of the user uploading the files
             question_field_name: Which diagnostic question these files answer
             upload_to_openai: Whether to upload to OpenAI
+            diagnostic_id: Optional diagnostic ID. If provided, files are stored in 
+                          files/uploads/diagnostic/{diagnostic_id}/, otherwise files/uploads/users/{user_id}/
             
         Returns:
             List of Media objects
@@ -169,7 +188,8 @@ class FileService:
                     file=file,
                     user_id=user_id,
                     question_field_name=question_field_name,
-                    upload_to_openai=upload_to_openai
+                    upload_to_openai=upload_to_openai,
+                    diagnostic_id=diagnostic_id
                 )
                 media_list.append(media)
             except Exception as e:

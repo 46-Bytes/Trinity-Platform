@@ -209,6 +209,37 @@ async def list_engagements(
             Note.engagement_id == engagement.id
         ).scalar() or 0
         
+        # Count documents (Media files) attached to diagnostics in this engagement
+        # Media files are linked to diagnostics via diagnostic_media table
+        from app.models.media import diagnostic_media, Media
+        documents_count = db.query(func.count(Media.id)).join(
+            diagnostic_media, Media.id == diagnostic_media.c.media_id
+        ).join(
+            Diagnostic, diagnostic_media.c.diagnostic_id == Diagnostic.id
+        ).filter(
+            Diagnostic.engagement_id == engagement.id,
+            Media.is_active == True,
+            Media.deleted_at.is_(None)
+        ).scalar() or 0
+        
+        # Check if diagnostic is completed and update engagement status accordingly
+        # If engagement has a diagnostic and it's completed, set engagement status to completed
+        completed_diagnostic = db.query(Diagnostic).filter(
+            Diagnostic.engagement_id == engagement.id,
+            Diagnostic.status == "completed"
+        ).first()
+        
+        # Determine effective status: if diagnostic is completed, engagement should be completed
+        effective_status = engagement.status
+        if completed_diagnostic and engagement.status != "completed":
+            # Update engagement status in database if diagnostic is completed
+            engagement.status = "completed"
+            if not engagement.completed_at:
+                from datetime import datetime
+                engagement.completed_at = datetime.utcnow()
+            db.commit()
+            effective_status = "completed"
+        
         # Get client name
         client = db.query(User).filter(User.id == engagement.client_id).first()
         client_name = client.name or client.email if client else None
@@ -216,10 +247,12 @@ async def list_engagements(
         engagement_dict = {
             **engagement.__dict__,
             "client_name": client_name,
+            "status": effective_status,  # Use computed status
             "diagnostics_count": diagnostics_count,
             "tasks_count": tasks_count,
             "pending_tasks_count": pending_tasks_count,
             "notes_count": notes_count,
+            "documents_count": documents_count,
         }
         result.append(EngagementListItem(**engagement_dict))
     

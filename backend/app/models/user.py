@@ -1,7 +1,7 @@
 """
 User model for PostgreSQL database.
 """
-from sqlalchemy import Column, String, DateTime, Boolean, Text, Enum
+from sqlalchemy import Column, String, DateTime, Boolean, Text, Enum, TypeDecorator
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -16,6 +16,86 @@ class UserRole(str, enum.Enum):
     CLIENT = "client"
     ADMIN = "admin"
     SUPER_ADMIN = "super_admin"
+    FIRM_ADMIN = "firm_admin"
+    FIRM_ADVISOR = "firm_advisor"
+
+
+class UserRoleType(TypeDecorator):
+    """Custom type that handles both enum and string values for user role.
+    
+    The database enum uses uppercase values (ADVISOR, CLIENT, etc.) but we want
+    to use lowercase in Python. This type handles the conversion.
+    """
+    impl = String
+    cache_ok = True
+    
+    def __init__(self, length=50):
+        super().__init__(length)
+    
+    def process_bind_param(self, value, dialect):
+        """Convert enum to database format when writing to database.
+        
+        Database enum has mixed case:
+        - Old roles: ADVISOR, CLIENT, ADMIN, SUPER_ADMIN (uppercase)
+        - New roles: firm_admin, firm_advisor (lowercase)
+        """
+        if value is None:
+            return None
+        if isinstance(value, UserRole):
+            value_str = value.value
+            # Map Python enum values to database enum values
+            db_value_map = {
+                'advisor': 'ADVISOR',
+                'client': 'CLIENT',
+                'admin': 'ADMIN',
+                'super_admin': 'SUPER_ADMIN',
+                'firm_admin': 'firm_admin',  # Keep lowercase (DB has it as lowercase)
+                'firm_advisor': 'firm_advisor',  # Keep lowercase (DB has it as lowercase)
+            }
+            return db_value_map.get(value_str, value_str.upper())
+        if isinstance(value, str):
+            # If it's already a string, validate and convert
+            value_lower = value.lower()
+            db_value_map = {
+                'advisor': 'ADVISOR',
+                'client': 'CLIENT',
+                'admin': 'ADMIN',
+                'super_admin': 'SUPER_ADMIN',
+                'firm_admin': 'firm_admin',
+                'firm_advisor': 'firm_advisor',
+            }
+            if value_lower in db_value_map:
+                return db_value_map[value_lower]
+            # Validate it's a valid role value
+            valid_values = [e.value for e in UserRole]
+            if value_lower not in valid_values:
+                raise ValueError(f"Invalid role: {value}. Must be one of {valid_values}")
+            return value.upper()
+        return str(value).upper()
+    
+    def process_result_value(self, value, dialect):
+        """Convert database string to enum when reading from database."""
+        if value is None:
+            return None
+        value_str = str(value)
+        # Map uppercase database values to lowercase Python enum values
+        lowercase_map = {
+            'ADVISOR': 'advisor',
+            'CLIENT': 'client',
+            'ADMIN': 'admin',
+            'SUPER_ADMIN': 'super_admin',
+            'FIRM_ADMIN': 'firm_admin',  # Convert from uppercase DB value
+            'FIRM_ADVISOR': 'firm_advisor',  # Convert from uppercase DB value
+            # Also handle lowercase if they exist in DB
+            'firm_admin': 'firm_admin',
+            'firm_advisor': 'firm_advisor',
+        }
+        normalized = lowercase_map.get(value_str, value_str.lower())
+        try:
+            return UserRole(normalized)
+        except ValueError:
+            # If it's not a valid enum value, try to return as-is
+            return value
 
 
 class User(Base):
@@ -108,10 +188,10 @@ class User(Base):
     
     # Role
     role = Column(
-        Enum(UserRole),
+        UserRoleType(50),
         default=UserRole.ADVISOR,
         nullable=False,
-        comment="User role (advisor, client, admin, super_admin)"
+        comment="User role (advisor, client, admin, super_admin, firm_admin, firm_advisor)"
     )
     
     # Timestamps

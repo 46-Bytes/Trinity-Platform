@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { EngagementForm } from "@/components/engagement/form";
 import { toast } from "sonner";
 
@@ -122,18 +123,19 @@ export default function EngagementsPage() {
               className="input-trinity pl-10 w-full"
             />
           </div>
-          <select 
-            className="input-trinity w-full sm:w-48"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="all">All Status</option>
-            <option value="active">Active</option>
-            <option value="draft">Draft</option>
-            <option value="on-hold">In Review</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Archived</option>
-          </select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="on-hold">In Review</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="cancelled">Archived</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {isLoading && (
@@ -221,7 +223,7 @@ export default function EngagementsPage() {
                             <FileText className="w-4 h-4" />
                             Docs
                           </div>
-                          <p className="font-semibold">{engagement.diagnosticsCount || 0}</p>
+                          <p className="font-semibold">{engagement.documentsCount || 0}</p>
                         </div>
 
                         <div className="min-w-[120px]">

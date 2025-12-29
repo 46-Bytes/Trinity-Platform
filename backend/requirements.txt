@@ -34,3 +34,4 @@ openai
 xhtml2pdf
 markdown
 
+gunicorn

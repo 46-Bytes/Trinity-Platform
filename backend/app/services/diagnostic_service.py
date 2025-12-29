@@ -417,14 +417,16 @@ class DiagnosticService:
         advisor_report = scoring_data.get("advisorReport", "")
         
         logger.info(f"[Scoring Data] Scored rows count: {len(scored_rows)}")
-        logger.info(f"[Scoring Data] Roadmap items count: {len(roadmap)}")
+        logger.info(f"[Scoring Data] Roadmap items count: {len(roadmap) if isinstance(roadmap, (list, tuple)) else 'N/A (not a list)'}")
         logger.info(f"[Scoring Data] Client summary length: {len(client_summary) if client_summary else 0} characters")
         logger.info(f"[Scoring Data] Advisor report length: {len(advisor_report) if advisor_report else 0} characters")
         
-        if scored_rows:
+        if scored_rows and isinstance(scored_rows, (list, tuple)) and len(scored_rows) > 0:
             logger.info(f"[Scoring Data] Sample scored row: {scored_rows[0]}")
-        if roadmap:
+        if roadmap and isinstance(roadmap, (list, tuple)) and len(roadmap) > 0:
             logger.info(f"[Scoring Data] Sample roadmap item: {roadmap[0]}")
+        elif roadmap:
+            logger.info(f"[Scoring Data] Roadmap type: {type(roadmap)}, value: {roadmap}")
         
         # Calculate module scores
         logger.info("[Scoring Data] Calculating module scores...")

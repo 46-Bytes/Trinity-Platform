@@ -9,6 +9,7 @@ import { GeneratedFilesList } from '@/components/engagement/overview';
 import type { GeneratedFileProps } from '@/components/engagement/overview';
 import { TasksList } from '@/components/engagement/tasks';
 import { toast } from 'sonner';
+import { useAppSelector } from '@/store/hooks';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -28,6 +29,9 @@ export default function EngagementDetailPage() {
   const [diagnostics, setDiagnostics] = useState<any[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  
+  // Listen to Redux diagnostic state to detect when diagnostic is submitted
+  const reduxDiagnostic = useAppSelector((state) => state.diagnostic.diagnostic);
 
   // Fetch diagnostics for this engagement
   const fetchDiagnostics = useCallback(async () => {
@@ -50,6 +54,8 @@ export default function EngagementDetailPage() {
         const diagnosticList = await listResponse.json();
         const diagnosticsArray = Array.isArray(diagnosticList) ? diagnosticList : [];
         
+        console.log('[fetchDiagnostics] Diagnostics list:', diagnosticsArray.map((d: any) => ({ id: d.id, status: d.status })));
+        
         // Fetch full details for each diagnostic to get user_responses
         const fullDiagnostics = await Promise.all(
           diagnosticsArray.map(async (diag: any) => {
@@ -62,16 +68,34 @@ export default function EngagementDetailPage() {
               });
               
               if (detailResponse.ok) {
-                return await detailResponse.json();
+                const fullDetail = await detailResponse.json();
+                // Ensure status is preserved (handle both snake_case and camelCase)
+                const finalStatus = fullDetail.status || diag.status || 'draft';
+                console.log(`[fetchDiagnostics] Diagnostic ${diag.id} status: ${finalStatus}`);
+                return {
+                  ...fullDetail,
+                  status: finalStatus,
+                };
               }
-              return diag; // Fallback to list item if detail fetch fails
+              // Fallback to list item if detail fetch fails, but preserve status
+              const fallbackStatus = diag.status || 'draft';
+              console.log(`[fetchDiagnostics] Diagnostic ${diag.id} fallback status: ${fallbackStatus}`);
+              return {
+                ...diag,
+                status: fallbackStatus,
+              };
             } catch (error) {
               console.error(`Failed to fetch diagnostic ${diag.id} details:`, error);
-              return diag; // Fallback to list item on error
+              // Fallback to list item on error, but preserve status
+              return {
+                ...diag,
+                status: diag.status || 'draft',
+              };
             }
           })
         );
         
+        console.log('[fetchDiagnostics] Final diagnostics:', fullDiagnostics.map((d: any) => ({ id: d.id, status: d.status })));
         setDiagnostics(fullDiagnostics);
       }
     } catch (error) {
@@ -93,16 +117,127 @@ export default function EngagementDetailPage() {
     }
   }, [activeTab, fetchDiagnostics]);
 
-  // Poll for diagnostics that are processing
+  // Listen for diagnostic submission - immediately refresh when status becomes "processing"
   useEffect(() => {
-    const hasProcessingDiagnostics = diagnostics.some(d => d.status === 'processing');
+    if (reduxDiagnostic && reduxDiagnostic.status === 'processing') {
+      console.log('[EngagementDetailPage] Diagnostic submitted, status is processing - refreshing diagnostics list');
+      // Immediately fetch diagnostics to show the processing file
+      fetchDiagnostics();
+      
+      // Also set up immediate polling (check status every 5 seconds initially, then back to 30)
+      const quickPollInterval = setInterval(async () => {
+        try {
+          const token = localStorage.getItem('auth_token');
+          if (!token) return;
+
+          const statusResponse = await fetch(`${API_BASE_URL}/api/diagnostics/${reduxDiagnostic.id}/status`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (statusResponse.ok) {
+            const statusData = await statusResponse.json();
+            
+            // Update diagnostics state immediately
+            setDiagnostics(prev => prev.map(d => 
+              d.id === reduxDiagnostic.id 
+                ? { ...d, status: statusData.status }
+                : d
+            ));
+            
+            // If completed, stop quick polling and fetch full details
+            if (statusData.status === 'completed' || statusData.status === 'failed') {
+              clearInterval(quickPollInterval);
+              fetchDiagnostics();
+            }
+          }
+        } catch (error) {
+          console.error('Failed to check diagnostic status:', error);
+        }
+      }, 5000); // Poll every 5 seconds for quick updates
+
+      // Stop quick polling after 2 minutes (fall back to regular 30s polling)
+      const timeout = setTimeout(() => {
+        clearInterval(quickPollInterval);
+      }, 1 * 60 * 1000);
+
+      return () => {
+        clearInterval(quickPollInterval);
+        clearTimeout(timeout);
+      };
+    }
+  }, [reduxDiagnostic?.status, reduxDiagnostic?.id, fetchDiagnostics]);
+
+  // Poll for diagnostics that are processing (lightweight status check only)
+  useEffect(() => {
+    // Get current processing diagnostics
+    const processingDiagnostics = diagnostics.filter(d => d.status === 'processing');
     
-    if (!hasProcessingDiagnostics || !engagementId) {
+    if (processingDiagnostics.length === 0 || !engagementId) {
       return;
     }
 
-    const pollInterval = setInterval(() => {
-      fetchDiagnostics();
+    const pollInterval = setInterval(async () => {
+      try {
+        const token = localStorage.getItem('auth_token');
+        if (!token) return;
+
+        // Get fresh list of processing diagnostics (in case status changed)
+        const currentProcessing = diagnostics.filter(d => d.status === 'processing');
+        if (currentProcessing.length === 0) {
+          return; // No more processing diagnostics, stop polling
+        }
+
+        // Check status for each processing diagnostic (lightweight call)
+        const statusChecks = await Promise.all(
+          currentProcessing.map(async (diag: any) => {
+            try {
+              const statusResponse = await fetch(`${API_BASE_URL}/api/diagnostics/${diag.id}/status`, {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+              });
+              
+              if (statusResponse.ok) {
+                const statusData = await statusResponse.json();
+                return { id: diag.id, ...statusData };
+              }
+              return null;
+            } catch (error) {
+              console.error(`Failed to check status for diagnostic ${diag.id}:`, error);
+              return null;
+            }
+          })
+        );
+
+        // Update diagnostics state with new statuses (to show processing chip)
+        let statusChanged = false;
+        const updatedDiagnostics = diagnostics.map((diag: any) => {
+          const statusData = statusChecks.find((s: any) => s && s.id === diag.id);
+          if (statusData) {
+            // Update status if it changed
+            if (statusData.status !== diag.status) {
+              statusChanged = true;
+            }
+            // Always update to ensure status is current (for processing chip visibility)
+            return { ...diag, status: statusData.status };
+          }
+          return diag;
+        });
+
+        // Always update state to keep processing chip visible
+        setDiagnostics(updatedDiagnostics);
+
+        // If status changed to completed/failed, fetch full details
+        if (statusChanged) {
+          fetchDiagnostics();
+        }
+      } catch (error) {
+        console.error('Failed to poll diagnostic status:', error);
+      }
     }, 30000);
 
     return () => clearInterval(pollInterval);
@@ -113,8 +248,20 @@ export default function EngagementDetailPage() {
     const extractedFiles: GeneratedFileProps[] = [];
 
     diagnostics.forEach((diagnostic) => {
+      // Handle both snake_case and camelCase status
+      const status = diagnostic.status || (diagnostic as any).status;
+      
+      // Debug: Log diagnostic status
+      if (status === 'processing' || status === 'completed') {
+        console.log('[GeneratedFiles] Diagnostic found:', {
+          id: diagnostic.id,
+          status: status,
+          isProcessing: status === 'processing'
+        });
+      }
+      
       // Add diagnostic report PDF if diagnostic is completed or processing
-      if (diagnostic.status === 'completed' || diagnostic.status === 'processing') {
+      if (status === 'completed' || status === 'processing') {
         const reportFileName = `Diagnostic Report - ${new Date(diagnostic.completed_at || diagnostic.updated_at || diagnostic.created_at).toLocaleDateString()}.pdf`;
         extractedFiles.push({
           id: `diagnostic-report-${diagnostic.id}`,
@@ -125,10 +272,12 @@ export default function EngagementDetailPage() {
           size: undefined, // Report is generated on-demand, size unknown
           toolType: 'diagnostic',
           diagnosticId: diagnostic.id, // Store diagnostic ID for download
-          isProcessing: diagnostic.status === 'processing', // Mark as processing
+          isProcessing: status === 'processing', // Mark as processing - show chip and hide download
         });
       }
     });
+
+    console.log('[GeneratedFiles] Total files extracted:', extractedFiles.length, extractedFiles.map(f => ({ name: f.name, isProcessing: f.isProcessing })));
 
     // Sort by date (newest first)
     return extractedFiles.sort((a, b) => b.generatedAt.getTime() - a.generatedAt.getTime());

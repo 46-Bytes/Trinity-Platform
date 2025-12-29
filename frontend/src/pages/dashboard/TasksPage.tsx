@@ -7,6 +7,13 @@ import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { TaskForm } from '@/components/engagement/tasks/TaskForm';
 
 type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';

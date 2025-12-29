@@ -7,12 +7,15 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 import json
 import re
+import asyncio
+import logging
 
 from app.models.diagnostic import Diagnostic
 from app.models.task import Task
 from app.models.engagement import Engagement
 from app.services.openai_service import openai_service
 from app.services.scoring_service import scoring_service
+from app.utils.background_task_manager import background_task_manager
 from app.utils.file_loader import (
     load_diagnostic_questions,
     load_scoring_map,
@@ -249,6 +252,16 @@ class DiagnosticService:
             diagnostic.status = "completed"
             diagnostic.completed_at = datetime.utcnow()
             
+            # Link diagnostic to conversation for chat
+            from app.services.chat_service import get_chat_service
+            chat_service = get_chat_service(self.db)
+            conversation = chat_service.get_or_create_conversation(
+                user_id=diagnostic.created_by_user_id,
+                category="diagnostic",
+                diagnostic_id=diagnostic.id
+            )
+            diagnostic.conversation_id = conversation.id
+            logger.info(f"Linked diagnostic {diagnostic.id} to conversation {conversation.id}")
             # Update engagement status to completed if diagnostic is completed
             engagement = self.db.query(Engagement).filter(
                 Engagement.id == diagnostic.engagement_id
@@ -271,7 +284,7 @@ class DiagnosticService:
         
         return diagnostic
     
-    async def _process_diagnostic_pipeline(self, diagnostic: Diagnostic):
+    async def _process_diagnostic_pipeline(self, diagnostic: Diagnostic, check_shutdown: bool = False):
         """
         Internal method to execute the complete AI processing pipeline.
         
@@ -282,8 +295,17 @@ class DiagnosticService:
         4. Validate and calculate scores
         5. Generate advice (optional)
         6. Auto-generate tasks
+        
+        Args:
+            diagnostic: Diagnostic model to process
+            check_shutdown: If True, check for shutdown signals between steps
         """
         user_responses = diagnostic.user_responses
+        
+        # Check for shutdown before starting
+        if check_shutdown and background_task_manager.is_shutting_down():
+            logger.warning(f"⚠️ Shutdown detected before starting diagnostic pipeline for {diagnostic.id}")
+            raise asyncio.CancelledError("Shutdown detected")
         
         # Load required data files
         diagnostic_questions = load_diagnostic_questions()
@@ -298,6 +320,12 @@ class DiagnosticService:
             user_responses
         )
         logger.info(f"==========================JSON Extract Completed Successfully==========================: {json_extract}")
+        
+        # Check for shutdown after step 1
+        if check_shutdown and background_task_manager.is_shutting_down():
+            logger.warning(f"⚠️ Shutdown detected after Q&A extract for diagnostic {diagnostic.id}")
+            raise asyncio.CancelledError("Shutdown detected")
+        
         # ===== STEP 2: Generate Summary =====
         summary_prompt = load_prompt("diagnostic_summary")
         summary_result = await openai_service.generate_summary(
@@ -306,6 +334,11 @@ class DiagnosticService:
         )
         
         summary = summary_result["content"]
+        
+        # Check for shutdown after step 2
+        if check_shutdown and background_task_manager.is_shutting_down():
+            logger.warning(f"⚠️ Shutdown detected after summary generation for diagnostic {diagnostic.id}")
+            raise asyncio.CancelledError("Shutdown detected")
         
         # ===== STEP 3: Process Scores with GPT (including uploaded files) =====
         logger.info("=" * 60)
@@ -407,6 +440,11 @@ class DiagnosticService:
         logger.info(f"[Scoring] Scoring data extracted. Keys: {list(scoring_data.keys())}")
         
         # ===== STEP 4: Calculate and Validate Scores =====
+        # Check for shutdown after step 3 (scoring)
+        if check_shutdown and background_task_manager.is_shutting_down():
+            logger.warning(f"⚠️ Shutdown detected after scoring for diagnostic {diagnostic.id}")
+            raise asyncio.CancelledError("Shutdown detected")
+        
         logger.info("=" * 60)
         logger.info("STEP 4: Processing Scoring Data")
         logger.info("=" * 60)
@@ -463,6 +501,11 @@ class DiagnosticService:
         logger.info("STEP 4: Scoring Data Processing Completed")
         logger.info("=" * 60)
         
+        # Check for shutdown after step 4
+        if check_shutdown and background_task_manager.is_shutting_down():
+            logger.warning(f"⚠️ Shutdown detected after scoring data processing for diagnostic {diagnostic.id}")
+            raise asyncio.CancelledError("Shutdown detected")
+        
         # ===== STEP 5: Generate Advice (Optional) =====
         advice = None
         try:
@@ -487,6 +530,11 @@ class DiagnosticService:
                 roadmap=roadmap
             )
             logger.info(f"==========================Tasks Generation Completed Successfully==========================:")
+            
+            # Check for shutdown after step 6
+            if check_shutdown and background_task_manager.is_shutting_down():
+                logger.warning(f"⚠️ Shutdown detected after task generation for diagnostic {diagnostic.id}")
+                raise asyncio.CancelledError("Shutdown detected")
         except Exception as e:
             print(f"Warning: Could not generate tasks: {str(e)}")
         

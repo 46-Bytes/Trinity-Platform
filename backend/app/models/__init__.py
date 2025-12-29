@@ -7,6 +7,8 @@ from .diagnostic import Diagnostic
 from .task import Task
 from .note import Note
 from .media import Media
+from .conversation import Conversation
+from .message import Message
 
 __all__ = [
     "User",
@@ -15,6 +17,8 @@ __all__ = [
     "Task",
     "Note",
     "Media",
+    "Conversation",
+    "Message",
 ]
 
 

@@ -93,6 +93,15 @@ export function TaskItem({ task, onEdit, onDelete, onStatusChange, onClick }: Ta
     });
   };
 
+  const capitalizeFirstLetter = (str: string) => {
+    if (!str) return str;
+    return str
+      .replace(/_/g, ' ')
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
   const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'completed';
 
   return (
@@ -108,8 +117,8 @@ export function TaskItem({ task, onEdit, onDelete, onStatusChange, onClick }: Ta
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <h3 className="font-semibold text-lg">{task.title}</h3>
-                  <Badge variant={getStatusBadgeVariant(task.status)}>{task.status.replace('_', ' ')}</Badge>
-                  <Badge variant={getPriorityBadgeVariant(task.priority)}>{task.priority}</Badge>
+                  <Badge variant={getStatusBadgeVariant(task.status)}>{capitalizeFirstLetter(task.status)}</Badge>
+                  <Badge variant={getPriorityBadgeVariant(task.priority)}>{capitalizeFirstLetter(task.priority)}</Badge>
                 </div>
                 {task.description && (
                   <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{task.description}</p>

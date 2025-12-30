@@ -139,6 +139,15 @@ export function TasksList({ engagementId }: TasksListProps) {
     }
   };
 
+  const capitalizeFirstLetter = (str: string) => {
+    if (!str) return str;
+    return str
+      .replace(/_/g, ' ')
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
@@ -406,7 +415,7 @@ export function TasksList({ engagementId }: TasksListProps) {
                   <label className="text-sm font-medium text-muted-foreground">Priority</label>
                   <div className="mt-1">
                     <Badge variant={getPriorityBadgeVariant(selectedTask.priority)}>
-                      {selectedTask.priority}
+                      {capitalizeFirstLetter(selectedTask.priority)}
                     </Badge>
                   </div>
                 </div>

@@ -50,6 +50,7 @@ class EngagementResponse(EngagementBase):
     client_id: UUID
     client_name: Optional[str] = Field(None, description="Client's name (populated from user)")
     primary_advisor_id: UUID
+    advisor_name: Optional[str] = Field(None, description="Primary advisor's name (populated from user)")
     secondary_advisor_ids: Optional[List[UUID]] = []
     created_at: datetime
     updated_at: datetime

@@ -220,6 +220,7 @@ async def upload_diagnostic_file(
         "media_id": str(media.id),
         "openai_file_id": media.openai_file_id,
         "question_field_name": media.question_field_name,
+        "uploaded_by_user_id": str(media.user_id),  # Include uploader's user_id for filtering
     }
 
 

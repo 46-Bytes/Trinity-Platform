@@ -29,9 +29,10 @@ interface FileQuestionProps {
   value: FileMetadata[] | FileMetadata | null;
   onChange: (value: FileMetadata[] | FileMetadata | null) => void;
   diagnosticId?: string;
+  engagementId?: string;
 }
 
-export function FileQuestion({ question, value, onChange, diagnosticId }: FileQuestionProps) {
+export function FileQuestion({ question, value, onChange, diagnosticId, engagementId }: FileQuestionProps) {
   const [uploading, setUploading] = useState(false);
   
   // Normalize value from user_responses to an array of metadata
@@ -61,6 +62,13 @@ export function FileQuestion({ question, value, onChange, diagnosticId }: FileQu
 
         // Immediately PATCH diagnostic responses with file metadata
         await saveFileResponse(diagnosticId, question.name, newMetadata);
+        
+        // Dispatch custom event to notify parent components that files were updated
+        if (engagementId) {
+          window.dispatchEvent(new CustomEvent('diagnostic-file-uploaded', {
+            detail: { diagnosticId, engagementId }
+          }));
+        }
       } catch (error) {
         console.error("File upload failed:", error);
       } finally {

@@ -150,14 +150,9 @@ async def list_engagements(
     # Build base query
     query = db.query(Engagement)
     
-    # Apply role-based filtering
     if current_user.role == UserRole.SUPER_ADMIN or current_user.role == UserRole.ADMIN:
-        # Admins see all
         pass
     elif current_user.role == UserRole.ADVISOR:
-        # Advisors see engagements where they are involved
-        # Use PostgreSQL array contains operator (@>) to check if user ID is in secondary_advisor_ids array
-        # Using text() with bindparam for safe parameter binding
         query = query.filter(
             or_(
                 Engagement.primary_advisor_id == current_user.id,
@@ -165,7 +160,6 @@ async def list_engagements(
             )
         )
     elif current_user.role == UserRole.CLIENT:
-        # Clients see only their engagements
         query = query.filter(Engagement.client_id == current_user.id)
     else:
         raise HTTPException(
@@ -173,11 +167,9 @@ async def list_engagements(
             detail="Invalid user role."
         )
     
-    # Apply status filter
     if status_filter:
         query = query.filter(Engagement.status == status_filter)
     
-    # Apply search filter
     if search:
         search_pattern = f"%{search}%"
         query = query.filter(
@@ -187,16 +179,12 @@ async def list_engagements(
             )
         )
     
-    # Get total count before pagination
     total = query.count()
     
-    # Apply pagination
     engagements = query.order_by(Engagement.created_at.desc()).offset(skip).limit(limit).all()
     
-    # Build response with counts
     result = []
     for engagement in engagements:
-        # Count related records
         diagnostics_count = db.query(func.count(Diagnostic.id)).filter(
             Diagnostic.engagement_id == engagement.id
         ).scalar() or 0
@@ -214,8 +202,6 @@ async def list_engagements(
             Note.engagement_id == engagement.id
         ).scalar() or 0
         
-        # Count documents (Media files) attached to diagnostics in this engagement
-        # Media files are linked to diagnostics via diagnostic_media table
         from app.models.media import diagnostic_media, Media
         documents_count = db.query(func.count(Media.id)).join(
             diagnostic_media, Media.id == diagnostic_media.c.media_id
@@ -227,17 +213,13 @@ async def list_engagements(
             Media.deleted_at.is_(None)
         ).scalar() or 0
         
-        # Check if diagnostic is completed and update engagement status accordingly
-        # If engagement has a diagnostic and it's completed, set engagement status to completed
         completed_diagnostic = db.query(Diagnostic).filter(
             Diagnostic.engagement_id == engagement.id,
             Diagnostic.status == "completed"
         ).first()
         
-        # Determine effective status: if diagnostic is completed, engagement should be completed
         effective_status = engagement.status
         if completed_diagnostic and engagement.status != "completed":
-            # Update engagement status in database if diagnostic is completed
             engagement.status = "completed"
             if not engagement.completed_at:
                 from datetime import datetime
@@ -254,10 +236,8 @@ async def list_engagements(
                 if client:
                     client_name = client.name or client.email or client.nickname
                     if not client_name:
-                        # Log warning if client exists but has no name/email/nickname
                         logger.warning(f"Client {engagement.client_id} found but has no name, email, or nickname")
                 else:
-                    # Log warning if client_id exists but client not found
                     logger.warning(f"Client with id {engagement.client_id} not found in database")
             except Exception as e:
                 logger.error(f"Error fetching client {engagement.client_id}: {str(e)}")

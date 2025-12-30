@@ -23,6 +23,9 @@ from ..schemas.engagement import (
 )
 from ..services.role_check import get_current_user_from_token, check_engagement_access
 
+# Configure logger for this module
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/engagements", tags=["engagements"])
 
 
@@ -252,14 +255,11 @@ async def list_engagements(
                     client_name = client.name or client.email or client.nickname
                     if not client_name:
                         # Log warning if client exists but has no name/email/nickname
-                        logger = logging.getLogger(__name__)
                         logger.warning(f"Client {engagement.client_id} found but has no name, email, or nickname")
                 else:
                     # Log warning if client_id exists but client not found
-                    logger = logging.getLogger(__name__)
                     logger.warning(f"Client with id {engagement.client_id} not found in database")
             except Exception as e:
-                logger = logging.getLogger(__name__)
                 logger.error(f"Error fetching client {engagement.client_id}: {str(e)}")
         
         # Get primary advisor name
@@ -271,7 +271,6 @@ async def list_engagements(
                 if primary_advisor:
                     advisor_name = primary_advisor.name or primary_advisor.email or primary_advisor.nickname
             except Exception as e:
-                logger = logging.getLogger(__name__)
                 logger.error(f"Error fetching advisor {engagement.primary_advisor_id}: {str(e)}")
         
         engagement_dict = {

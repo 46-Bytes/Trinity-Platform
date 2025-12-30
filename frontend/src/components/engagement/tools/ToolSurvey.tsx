@@ -9,6 +9,7 @@ import {
   submitDiagnostic,
   checkDiagnosticStatus,
   stopPolling,
+  clearDiagnostic,
 } from '@/store/slices/diagnosticReducer';
 import { updateEngagement } from '@/store/slices/engagementReducer';
 import { useAuth } from '@/context/AuthContext';
@@ -40,8 +41,16 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
   const currentPageData = pages[currentPage];
   const progress = ((currentPage + 1) / totalPages) * 100;
 
-  // Fetch diagnostic when component mounts
+  // Clear diagnostic and reset local state when engagementId changes, then fetch new diagnostic
   useEffect(() => {
+    // Clear diagnostic state when switching engagements to prevent showing old data
+    dispatch(clearDiagnostic());
+    setLocalResponses({});
+    setCurrentPage(0);
+    setCompletedPages([]);
+    setEngagementStatusUpdated(false);
+    
+    // Fetch new diagnostic for the new engagement
     if (engagementId && toolType === 'diagnostic') {
       dispatch(fetchDiagnosticByEngagement(engagementId));
     }

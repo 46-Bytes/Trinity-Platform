@@ -201,6 +201,12 @@ export default function EngagementsPage() {
                             <Calendar className="w-4 h-4" />
                             Started {formatDate(engagement.startDate)}
                           </span>
+                          {engagement.clientName && (
+                            <span>Client: {engagement.clientName}</span>
+                          )}
+                          {engagement.advisorName && (
+                            <span>Advisor: {engagement.advisorName}</span>
+                          )}
                           {engagement.industryName && (
                             <span>Industry: {engagement.industryName}</span>
                           )}

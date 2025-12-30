@@ -10,6 +10,7 @@ import type { GeneratedFileProps } from '@/components/engagement/overview';
 import { TasksList } from '@/components/engagement/tasks';
 import { toast } from 'sonner';
 import { useAppSelector } from '@/store/hooks';
+import { useAuth } from '@/context/AuthContext';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -26,9 +27,15 @@ interface FileMetadata {
 export default function EngagementDetailPage() {
   const { engagementId } = useParams<{ engagementId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [diagnostics, setDiagnostics] = useState<any[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  
+  // Check user role for file filtering
+  const isAdmin = user?.role === 'admin' || user?.role === 'firm_admin';
+  const isAdvisor = user?.role === 'advisor' || user?.role === 'firm_advisor';
+  const isClient = user?.role === 'client';
   
   // Listen to Redux diagnostic state to detect when diagnostic is submitted
   const reduxDiagnostic = useAppSelector((state) => state.diagnostic.diagnostic);
@@ -95,7 +102,17 @@ export default function EngagementDetailPage() {
           })
         );
         
-        console.log('[fetchDiagnostics] Final diagnostics:', fullDiagnostics.map((d: any) => ({ id: d.id, status: d.status })));
+        console.log('[fetchDiagnostics] Final diagnostics:', fullDiagnostics.map((d: any) => ({ 
+          id: d.id, 
+          status: d.status,
+          created_by_user_id: d.created_by_user_id || d.createdByUserId,
+          createdByUserId: d.createdByUserId || d.created_by_user_id,
+          user_responses_keys: d.user_responses ? Object.keys(d.user_responses) : []
+        })));
+        console.log('[fetchDiagnostics] Current user for comparison:', {
+          userId: user?.id,
+          role: user?.role
+        });
         setDiagnostics(fullDiagnostics);
       }
     } catch (error) {
@@ -116,6 +133,24 @@ export default function EngagementDetailPage() {
       fetchDiagnostics();
     }
   }, [activeTab, fetchDiagnostics]);
+
+  // Listen for file upload events from diagnostic tab
+  useEffect(() => {
+    const handleFileUpload = (event: CustomEvent) => {
+      const { engagementId: eventEngagementId } = event.detail;
+      // Only refresh if the event is for this engagement
+      if (eventEngagementId === engagementId) {
+        console.log('[EngagementDetailPage] File uploaded, refreshing diagnostics...');
+        fetchDiagnostics();
+      }
+    };
+
+    window.addEventListener('diagnostic-file-uploaded', handleFileUpload as EventListener);
+    
+    return () => {
+      window.removeEventListener('diagnostic-file-uploaded', handleFileUpload as EventListener);
+    };
+  }, [engagementId, fetchDiagnostics]);
 
   // Listen for diagnostic submission - immediately refresh when status becomes "processing"
   useEffect(() => {
@@ -246,10 +281,33 @@ export default function EngagementDetailPage() {
   // Extract generated files (diagnostic reports) from diagnostics
   const generatedFiles: GeneratedFileProps[] = useMemo(() => {
     const extractedFiles: GeneratedFileProps[] = [];
+    
+    console.log('[GeneratedFiles] Starting extraction. Current user:', {
+      id: user?.id,
+      role: user?.role,
+      isAdmin: isAdmin
+    });
+    console.log('[GeneratedFiles] Diagnostics to process:', diagnostics.map((d: any) => ({
+      id: d.id,
+      created_by_user_id: d.created_by_user_id,
+      createdByUserId: d.createdByUserId
+    })));
 
     diagnostics.forEach((diagnostic) => {
       // Handle both snake_case and camelCase status
       const status = diagnostic.status || (diagnostic as any).status;
+      
+      // For admins: only show diagnostic reports from diagnostics they created
+      // (Diagnostic reports are tied to the diagnostic creator)
+      if (isAdmin && user?.id) {
+        const createdByUserId = diagnostic.created_by_user_id || diagnostic.createdByUserId;
+        const currentUserId = String(user.id);
+        const diagnosticUserId = createdByUserId ? String(createdByUserId) : null;
+        
+        if (!diagnosticUserId || diagnosticUserId !== currentUserId) {
+          return; // Skip diagnostic reports not created by admin
+        }
+      }
       
       // Debug: Log diagnostic status
       if (status === 'processing' || status === 'completed') {
@@ -281,13 +339,28 @@ export default function EngagementDetailPage() {
 
     // Sort by date (newest first)
     return extractedFiles.sort((a, b) => b.generatedAt.getTime() - a.generatedAt.getTime());
-  }, [diagnostics]);
+  }, [diagnostics, isAdmin, user?.id]);
 
   // Extract uploaded files from diagnostic user_responses
   const uploadedFiles: GeneratedFileProps[] = useMemo(() => {
     const extractedFiles: GeneratedFileProps[] = [];
+    
+    console.log('[UploadedFiles] Starting extraction. Current user:', {
+      id: user?.id,
+      role: user?.role,
+      isAdmin: isAdmin
+    });
+    console.log('[UploadedFiles] Total diagnostics to process:', diagnostics.length);
+    console.log('[UploadedFiles] Diagnostics to process:', diagnostics.map((d: any) => ({
+      id: d.id,
+      created_by_user_id: d.created_by_user_id,
+      createdByUserId: d.createdByUserId,
+      user_responses_keys: d.user_responses ? Object.keys(d.user_responses) : []
+    })));
 
     diagnostics.forEach((diagnostic) => {
+      // Note: We filter at the file level for admins, not at the diagnostic level
+      
       // Extract uploaded files from user_responses
       // Support both snake_case (from API) and camelCase (from reducer)
       const userResponses = diagnostic.user_responses || diagnostic.userResponses || {};
@@ -323,6 +396,34 @@ export default function EngagementDetailPage() {
           
           if (!fileName) {
             return;
+          }
+          
+          // For admins: only show files they uploaded themselves
+          if (isAdmin && user?.id) {
+            // Get uploaded_by_user_id from file metadata (support both snake_case and camelCase)
+            const uploadedByUserId = fileMeta.uploaded_by_user_id || fileMeta.uploadedByUserId;
+            const currentUserId = String(user.id);
+            const fileUploaderId = uploadedByUserId ? String(uploadedByUserId) : null;
+            
+            // If file doesn't have uploader info, filter it out for admins (safety: old files)
+            if (!fileUploaderId) {
+              console.log('[UploadedFiles] Admin filtering out file (no uploaded_by_user_id):', {
+                fileName: fileName,
+                diagnosticId: diagnostic.id
+              });
+              return;
+            }
+            
+            // If file was uploaded by someone else, filter it out
+            if (fileUploaderId !== currentUserId) {
+              console.log('[UploadedFiles] Admin filtering out file (different uploader):', {
+                fileName: fileName,
+                fileUploaderId: fileUploaderId,
+                currentUserId: currentUserId,
+                diagnosticId: diagnostic.id
+              });
+              return;
+            }
           }
 
           // Extract file extension to determine type
@@ -362,7 +463,7 @@ export default function EngagementDetailPage() {
 
     // Sort by date (newest first)
     return extractedFiles.sort((a, b) => b.generatedAt.getTime() - a.generatedAt.getTime());
-  }, [diagnostics]);
+  }, [diagnostics, isAdmin, user?.id]);
 
   const handleDownload = async (fileId: string) => {
     // Find the file in either generated or uploaded files
@@ -467,16 +568,18 @@ export default function EngagementDetailPage() {
 
         <TabsContent value="overview" className="mt-6">
           <div className="space-y-6">
-            {/* Engagement Summary Card */}
-            <div className="card-trinity p-6">
-              <h2 className="text-xl font-semibold mb-4">Engagement Overview</h2>
-              <p className="text-muted-foreground">
-                Engagement overview and details will be displayed here.
-              </p>
-              {/* TODO: Add engagement overview content */}
-            </div>
+            {/* Engagement Summary Card - Hidden for admins */}
+            {!isAdmin && (
+              <div className="card-trinity p-6">
+                <h2 className="text-xl font-semibold mb-4">Engagement Overview</h2>
+                <p className="text-muted-foreground">
+                  Engagement overview and details will be displayed here.
+                </p>
+                {/* TODO: Add engagement overview content */}
+              </div>
+            )}
 
-            {/* Generated Files Section */}
+            {/* Generated Files Section - Visible to all, but filtered by role */}
             <div className="card-trinity p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold">Generated Files</h2>
@@ -493,7 +596,7 @@ export default function EngagementDetailPage() {
               )}
             </div>
 
-            {/* Uploaded Files Section */}
+            {/* Uploaded Files Section - Visible to all, but filtered by role */}
             <div className="card-trinity p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold">Uploaded Files</h2>

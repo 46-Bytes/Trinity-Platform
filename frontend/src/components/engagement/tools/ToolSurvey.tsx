@@ -28,6 +28,8 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
   const { user } = useAuth();
   const { diagnostic, isSaving, isLoading, isSubmitting, isPolling, error } = useAppSelector((state) => state.diagnostic);
   
+  const isAdmin = user?.role === 'admin' || user?.role === 'firm_admin';
+  
   const [currentPage, setCurrentPage] = useState(0);
   const [localResponses, setLocalResponses] = useState<Record<string, any>>({});
   const [completedPages, setCompletedPages] = useState<number[]>([]);
@@ -315,8 +317,8 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      {/* If diagnostic is completed, show completion message and download button */}
-      {diagnostic.status === 'completed' && (
+      {/* If diagnostic is completed, show completion message and download button - Hidden for admins */}
+      {diagnostic.status === 'completed' && !isAdmin && (
         <div className="mb-8 rounded-lg border border-green-200 bg-green-50 p-4">
           <p className="font-semibold text-green-800">
             Diagnostic completed and analyzed.
@@ -427,6 +429,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
                   onChange={(value) => handleResponseChange(element.name, value)}
                   allResponses={responses}
                   diagnosticId={diagnostic?.id}
+                  engagementId={engagementId}
                 />
               );
             })}

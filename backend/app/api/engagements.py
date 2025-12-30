@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_, func, text
 from typing import List, Optional
 from uuid import UUID
+import logging
 
 from ..database import get_db
 from ..models.engagement import Engagement
@@ -119,8 +120,9 @@ async def create_engagement(
     
     # Create response using Pydantic model_validate (handles SQLAlchemy models properly)
     response = EngagementResponse.model_validate(engagement)
-    # Add client_name (not in model, but needed for response)
-    response.client_name = client.name or client.email
+    # Add client_name and advisor_name (not in model, but needed for response)
+    response.client_name = client.name or client.email or client.nickname if client else None
+    response.advisor_name = primary_advisor.name or primary_advisor.email or primary_advisor.nickname if primary_advisor else None
     
     return response
 
@@ -241,12 +243,41 @@ async def list_engagements(
             effective_status = "completed"
         
         # Get client name
-        client = db.query(User).filter(User.id == engagement.client_id).first()
-        client_name = client.name or client.email if client else None
+        client = None
+        client_name = None
+        if engagement.client_id:
+            try:
+                client = db.query(User).filter(User.id == engagement.client_id).first()
+                if client:
+                    client_name = client.name or client.email or client.nickname
+                    if not client_name:
+                        # Log warning if client exists but has no name/email/nickname
+                        logger = logging.getLogger(__name__)
+                        logger.warning(f"Client {engagement.client_id} found but has no name, email, or nickname")
+                else:
+                    # Log warning if client_id exists but client not found
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"Client with id {engagement.client_id} not found in database")
+            except Exception as e:
+                logger = logging.getLogger(__name__)
+                logger.error(f"Error fetching client {engagement.client_id}: {str(e)}")
+        
+        # Get primary advisor name
+        primary_advisor = None
+        advisor_name = None
+        if engagement.primary_advisor_id:
+            try:
+                primary_advisor = db.query(User).filter(User.id == engagement.primary_advisor_id).first()
+                if primary_advisor:
+                    advisor_name = primary_advisor.name or primary_advisor.email or primary_advisor.nickname
+            except Exception as e:
+                logger = logging.getLogger(__name__)
+                logger.error(f"Error fetching advisor {engagement.primary_advisor_id}: {str(e)}")
         
         engagement_dict = {
             **engagement.__dict__,
             "client_name": client_name,
+            "advisor_name": advisor_name,
             "status": effective_status,  # Use computed status
             "diagnostics_count": diagnostics_count,
             "tasks_count": tasks_count,
@@ -359,10 +390,12 @@ async def get_engagement(
             detail="You do not have access to this engagement."
         )
     
-    # Populate client_name for response
+    # Populate client_name and advisor_name for response
     client = db.query(User).filter(User.id == engagement.client_id).first()
+    primary_advisor = db.query(User).filter(User.id == engagement.primary_advisor_id).first()
     engagement_dict = engagement.__dict__.copy()
-    engagement_dict["client_name"] = client.name or client.email if client else None
+    engagement_dict["client_name"] = client.name or client.email or client.nickname if client else None
+    engagement_dict["advisor_name"] = primary_advisor.name or primary_advisor.email or primary_advisor.nickname if primary_advisor else None
     
     return EngagementDetail(**engagement_dict)
 
@@ -425,10 +458,12 @@ async def update_engagement(
     db.commit()
     db.refresh(engagement)
     
-    # Populate client_name for response
+    # Populate client_name and advisor_name for response
     client = db.query(User).filter(User.id == engagement.client_id).first()
+    primary_advisor = db.query(User).filter(User.id == engagement.primary_advisor_id).first()
     engagement_dict = engagement.__dict__.copy()
-    engagement_dict["client_name"] = client.name or client.email if client else None
+    engagement_dict["client_name"] = client.name or client.email or client.nickname if client else None
+    engagement_dict["advisor_name"] = primary_advisor.name or primary_advisor.email or primary_advisor.nickname if primary_advisor else None
     
     return EngagementResponse(**engagement_dict)
 

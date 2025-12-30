@@ -3,6 +3,8 @@ import { useAuth } from '@/context/AuthContext';
 import { roleLabels, roleColors, UserRole } from '@/types/auth';
 import { Search, Plus, MoreHorizontal, Filter, Mail, Shield, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { fetchUsers, createUser } from '@/store/slices/userReducer';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,68 +30,31 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  is_active: boolean;
-  email_verified: boolean;
-  last_login?: string;
-  created_at: string;
-}
-
 export default function UsersPage() {
   const { user } = useAuth();
+  const dispatch = useAppDispatch();
+  const { users, isLoading, isCreating, error } = useAppSelector((state) => state.user);
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [users, setUsers] = useState<User[]>([]);
   
   // Form state
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState<UserRole>('client');
-  const [isCreating, setIsCreating] = useState(false);
 
   // Fetch users on mount
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    dispatch(fetchUsers());
+  }, [dispatch]);
 
-  const fetchUsers = async () => {
-    setIsLoading(true);
-    try {
-      const token = localStorage.getItem('auth_token');
-      if (!token) return;
-
-      const response = await fetch(`${API_BASE_URL}/api/users`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        // Filter out firm_admin and firm_advisor roles
-        const filteredUsers = data.filter((user: User) => 
-          user.role !== 'firm_admin' && user.role !== 'firm_advisor'
-        );
-        setUsers(filteredUsers);
-      } else {
-        toast.error('Failed to fetch users');
-      }
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      toast.error('Failed to fetch users');
-    } finally {
-      setIsLoading(false);
+  // Show error toast if there's an error
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
     }
-  };
+  }, [error]);
 
   const handleCreateUser = async () => {
     if (!newUserEmail || !newUserName) {
@@ -97,43 +62,20 @@ export default function UsersPage() {
       return;
     }
 
-    setIsCreating(true);
     try {
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        toast.error('Not authenticated');
-        return;
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/users`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: newUserEmail,
-          name: newUserName,
-          role: newUserRole,
-        }),
-      });
-
-      if (response.ok) {
-        toast.success('User created successfully');
-        setIsDialogOpen(false);
-        setNewUserEmail('');
-        setNewUserName('');
-        setNewUserRole('client');
-        fetchUsers(); // Refresh users list
-      } else {
-        const error = await response.json();
-        toast.error(error.detail || 'Failed to create user');
-      }
+      await dispatch(createUser({
+        email: newUserEmail,
+        name: newUserName,
+        role: newUserRole,
+      })).unwrap();
+      
+      toast.success('User created successfully');
+      setIsDialogOpen(false);
+      setNewUserEmail('');
+      setNewUserName('');
+      setNewUserRole('client');
     } catch (error) {
-      console.error('Error creating user:', error);
-      toast.error('Failed to create user');
-    } finally {
-      setIsCreating(false);
+
     }
   };
 

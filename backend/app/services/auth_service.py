@@ -126,6 +126,7 @@ class AuthService:
             user_metadata = user_info.get('user_metadata', {})
             username = user_metadata.get('username') or nickname
             user.nickname = username
+            print(f"🔤 Updated nickname: {username} (from nickname: {nickname}, user_metadata.username: {user_metadata.get('username')})")
             user.picture = user_info.get('picture')
             
             # IMPORTANT: Only update email_verified if it's True (don't unverify)
@@ -156,6 +157,7 @@ class AuthService:
             nickname = user_info.get('nickname')
             user_metadata = user_info.get('user_metadata', {})
             username = user_metadata.get('username') or nickname
+            print(f"🔤 New user nickname: {username} (from nickname: {nickname}, user_metadata.username: {user_metadata.get('username')})")
             
             user = User(
                 auth0_id=auth0_id,

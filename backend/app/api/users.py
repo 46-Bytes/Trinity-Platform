@@ -91,8 +91,15 @@ async def create_user(
     Create a new user (admin/super_admin only).
     
     This endpoint allows admins to manually create users (typically clients)
-    without requiring Auth0 authentication. The user will need to set up
-    Auth0 authentication later.
+    without requiring Auth0 authentication. 
+    
+    WORKFLOW:
+    1. Admin creates user via this endpoint → User is created in database with placeholder auth0_id
+    2. User signs up via Auth0 using the same email → Auth0 account is created
+    3. Backend automatically links the accounts (matches by email) → User can now login
+    
+    NOTE: The user MUST signup via Auth0 (not login) to create their Auth0 account first.
+    After signup, they can login normally. Login will fail if they haven't signed up yet.
     
     Args:
         email: User's email address

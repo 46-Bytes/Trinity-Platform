@@ -39,48 +39,15 @@ class ChatService:
         Get or create a conversation for a user.
         
         If diagnostic_id is provided, links the conversation to that diagnostic.
-        For diagnostic category, reuses existing diagnostic conversation if available.
         
         Args:
             user_id: UUID of the user
-            category: Conversation category (general, diagnostic, finance, etc.)
+            category: Conversation category (general, finance, etc.)
             diagnostic_id: Optional diagnostic ID to link to conversation
             
         Returns:
             Conversation model
         """
-        # For diagnostic category, check if there's an existing conversation for this diagnostic
-        if category == "diagnostic" and diagnostic_id:
-            logger.info(f"🔍 Checking for existing diagnostic conversation")
-            existing_diagnostic = self.db.query(Diagnostic).filter(
-                Diagnostic.id == diagnostic_id,
-                Diagnostic.conversation_id.isnot(None)
-            ).first()
-            
-            if existing_diagnostic and existing_diagnostic.conversation_id:
-                conversation = self.db.query(Conversation).filter(
-                    Conversation.id == existing_diagnostic.conversation_id
-                ).first()
-                if conversation:
-                    logger.info(f"✅ Found existing conversation for diagnostic: {conversation.id}")
-                    return conversation
-        
-        # For diagnostic category, try to reuse most recent diagnostic conversation
-        if category == "diagnostic":
-            logger.info(f"🔍 Looking for most recent diagnostic conversation for user")
-            existing_diagnostic = self.db.query(Diagnostic).filter(
-                Diagnostic.created_by_user_id == user_id,
-                Diagnostic.conversation_id.isnot(None)
-            ).order_by(Diagnostic.created_at.desc()).first()
-            
-            if existing_diagnostic and existing_diagnostic.conversation_id:
-                conversation = self.db.query(Conversation).filter(
-                    Conversation.id == existing_diagnostic.conversation_id
-                ).first()
-                if conversation:
-                    logger.info(f"✅ Found most recent diagnostic conversation: {conversation.id}")
-                    return conversation
-        
         # Create new conversation
         logger.info(f"🔍 Creating new conversation")
         logger.info(f"   User ID: {user_id}")
@@ -472,11 +439,7 @@ class ChatService:
                 "tax": "tax",
                 "due-diligence": "due-diligence",
                 "dd": "due-diligence",
-                "diagnostic": "diagnostic",
-                "diagnostics": "diagnostic",
                 "general": "general",
-                "competitive-forces": "competitive-forces",
-                "financial-docs": "financial-docs",
                 "brand-ip-intangibles": "brand-ip-intangibles",
                 "brand": "brand-ip-intangibles",
                 "ip": "brand-ip-intangibles",
@@ -496,7 +459,6 @@ class ChatService:
                 logger.warning(f"⚠️ Using default prompt for category: {category}")
                 default_prompts = {
                     "general": "This is a general business advisory conversation. Provide helpful business advice.",
-                    "diagnostic": "This conversation is about a completed business diagnostic. Reference the diagnostic findings when relevant.",
                     "financial": "This conversation focuses on financial matters. Provide financial advice and analysis.",
                     "legal-licensing": "This conversation focuses on legal and compliance matters.",
                     "operations": "This conversation focuses on business operations and processes.",

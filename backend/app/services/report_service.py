@@ -132,7 +132,7 @@ class ReportService:
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>TrinityAi Diagnostic Report</title>
+    <title>TrinityAI Diagnostic Report</title>
     <style>
         {ReportService._get_css_styles()}
     </style>
@@ -155,7 +155,7 @@ class ReportService:
         date_display = completed_date if completed_date else created_date
         return f"""
     <div class="header-section">
-        <h1>TrinityAi Diagnostic</h1>
+        <h1>TrinityAI Diagnostic</h1>
         <p><strong>User:</strong> {ReportService._escape_html(user_name)}</p>
         <p><strong>Date:</strong> {date_display}</p>
     </div>"""
@@ -530,82 +530,84 @@ class ReportService:
             margin: 25mm 20mm 25mm 20mm;
         }
         
-        /* Base Typography */
+        /* Base Typography - Arial font, black color */
         body, td, li, p {
-            font-family: DejaVu Sans, sans-serif;
+            font-family: Arial, sans-serif;
             font-size: 16px;
-            line-height: 1.7;
-            color: #333;
+            line-height: 1.4;
+            color: #000000;
         }
         
-        /* Headings */
+        /* Headings - reduced spacing */
         h1 {
             font-size: 28px;
             font-weight: bold;
-            margin-top: 20px;
-            margin-bottom: 18px;
-            color: #1a1a1a;
+            margin-top: 10px;
+            margin-bottom: 8px;
+            color: #000000;
         }
         
         h2 {
             font-size: 22px;
             font-weight: bold;
-            margin-top: 26px;
-            margin-bottom: 14px;
-            color: #2a2a2a;
+            margin-top: 12px;
+            margin-bottom: 6px;
+            color: #000000;
         }
         
         h3 {
             font-size: 18px;
             font-weight: bold;
-            margin-top: 22px;
-            margin-bottom: 12px;
-            color: #3a3a3a;
+            margin-top: 10px;
+            margin-bottom: 4px;
+            color: #000000;
         }
         
-        /* Sections */
+        /* Sections - removed border, reduced spacing */
         .header-section {
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #444;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
         }
         
         .section {
-            margin-bottom: 30px;
+            margin-bottom: 15px;
         }
         
         .summary, .advice, .client-summary, .advisor-report {
-            margin-top: 10px;
-            padding: 10px;
+            margin-top: 5px;
+            padding: 5px;
         }
         
         .advisor-report-section {
-            margin-top: 20px;
+            margin-top: 10px;
         }
         
-        /* Ensure advisor report paragraphs are displayed properly */
+        /* Ensure advisor report paragraphs are displayed properly - reduced spacing */
         .advisor-report p {
-            margin: 10px 0;
-            line-height: 1.6;
+            margin: 4px 0;
+            line-height: 1.4;
+            color: #000000;
         }
         
         .advisor-report h2 {
-            margin-top: 20px;
-            margin-bottom: 10px;
+            margin-top: 10px;
+            margin-bottom: 4px;
             font-size: 18px;
             font-weight: bold;
+            color: #000000;
         }
         
         .advisor-report h3 {
-            margin-top: 15px;
-            margin-bottom: 8px;
+            margin-top: 8px;
+            margin-bottom: 3px;
             font-size: 16px;
             font-weight: bold;
+            color: #000000;
         }
         
         /* Ensure tables in advisor report are styled but paragraphs are primary */
         .advisor-report table {
-            margin: 15px 0;
+            margin: 10px 0;
             width: 100%;
             border-collapse: collapse;
         }
@@ -615,19 +617,21 @@ class ReportService:
             border: 1px solid #444;
             padding: 8px;
             text-align: left;
+            color: #000000;
         }
         
         .advisor-report table th {
             background-color: #f0f0f0;
             font-weight: bold;
+            color: #000000;
         }
         
         /* Tables */
         table.data-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 15px;
-            margin-bottom: 20px;
+            margin-top: 8px;
+            margin-bottom: 10px;
         }
         
         table.data-table th,
@@ -636,25 +640,29 @@ class ReportService:
             padding: 10px;
             text-align: left;
             font-size: 15px;
+            color: #000000;
         }
         
         table.data-table th {
             background-color: #f0f0f0;
             font-weight: bold;
+            color: #000000;
         }
         
         table.data-table tr:nth-child(even) {
             background-color: #f9f9f9;
         }
         
-        /* Lists */
+        /* Lists - reduced spacing between items */
         ul, ol {
-            margin: 10px 0;
+            margin: 4px 0;
             padding-left: 30px;
         }
         
         li {
-            margin: 5px 0;
+            margin: 2px 0;
+            line-height: 1.4;
+            color: #000000;
         }
         
         /* Page Breaks */
@@ -670,6 +678,7 @@ class ReportService:
         .sub-table th,
         .sub-table td {
             padding: 4px;
+            color: #000000;
         }
         """
     
@@ -695,7 +704,7 @@ class ReportService:
         """
         Generate download filename for diagnostic report.
         
-        Format: YYYY-MM-DD_HH-MM-SS-TrinityAi-diagnostic-LastName_FirstName.pdf
+        Format: YYYY-MM-DD_HH-MM-SS-TrinityAI-diagnostic-LastName_FirstName.pdf
         """
         # Get date (use completed_at if available, else created_at)
         date_obj = diagnostic.completed_at or diagnostic.created_at
@@ -720,9 +729,9 @@ class ReportService:
         first_name = "".join(c for c in first_name if c.isalnum() or c in ('-', '_'))
         
         if first_name:
-            filename = f"{file_date}-TrinityAi-diagnostic-{last_name}_{first_name}.pdf"
+            filename = f"{file_date}-TrinityAI-diagnostic-{last_name}_{first_name}.pdf"
         else:
-            filename = f"{file_date}-TrinityAi-diagnostic-{last_name}.pdf"
+            filename = f"{file_date}-TrinityAI-diagnostic-{last_name}.pdf"
         
         return filename
 

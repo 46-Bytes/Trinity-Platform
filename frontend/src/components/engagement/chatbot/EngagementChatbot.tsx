@@ -27,7 +27,6 @@ interface Conversation {
 
 type ChatCategory = 
   | 'general' 
-  | 'diagnostic' 
   | 'financial' 
   | 'legal-licensing' 
   | 'operations' 
@@ -35,8 +34,6 @@ type ChatCategory =
   | 'customers' 
   | 'tax' 
   | 'due-diligence'
-  | 'competitive-forces'
-  | 'financial-docs'
   | 'brand-ip-intangibles';
 
 interface EngagementChatbotProps {
@@ -45,7 +42,6 @@ interface EngagementChatbotProps {
 
 const CATEGORY_OPTIONS: { value: ChatCategory; label: string; description: string }[] = [
   { value: 'general', label: 'General', description: 'General business advisory' },
-  { value: 'diagnostic', label: 'Diagnostic', description: 'About your diagnostic results' },
   { value: 'financial', label: 'Financial', description: 'Financial clarity & reporting' },
   { value: 'legal-licensing', label: 'Legal & Licensing', description: 'Legal, compliance & property' },
   { value: 'operations', label: 'Operations', description: 'Owner dependency & operations' },
@@ -53,8 +49,6 @@ const CATEGORY_OPTIONS: { value: ChatCategory; label: string; description: strin
   { value: 'customers', label: 'Customers & Products', description: 'Product fit, margins, customers and pricing' },
   { value: 'tax', label: 'Tax & Regulatory', description: 'Tax, compliance & regulatory matters' },
   { value: 'due-diligence', label: 'Due Diligence', description: 'Data-room and vendor readiness' },
-  { value: 'competitive-forces', label: 'Competitive Forces', description: 'Market analysis and competitive positioning' },
-  { value: 'financial-docs', label: 'Financial Documents', description: 'Financial document analysis' },
   { value: 'brand-ip-intangibles', label: 'Brand, IP & Intangibles', description: 'Branding assets, trademarks and intangible value' },
 ];
 
@@ -65,8 +59,6 @@ export function EngagementChatbot({ engagementId }: EngagementChatbotProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<ChatCategory>('general');
-  const [diagnosticCompleted, setDiagnosticCompleted] = useState(false);
-  const [completedDiagnosticId, setCompletedDiagnosticId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCategorySelector, setShowCategorySelector] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -81,42 +73,6 @@ export function EngagementChatbot({ engagementId }: EngagementChatbotProps) {
     scrollToBottom();
   }, [messages]);
 
-  // Check diagnostic status on mount
-  useEffect(() => {
-    const checkDiagnostic = async () => {
-      try {
-        const token = localStorage.getItem('auth_token');
-        if (!token) return;
-
-        const diagnosticsResponse = await fetch(
-          `${API_BASE_URL}/api/diagnostics/engagement/${engagementId}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-
-        if (diagnosticsResponse.ok) {
-          const diagnostics = await diagnosticsResponse.json();
-          const completedDiagnostic = Array.isArray(diagnostics)
-            ? diagnostics.find((d: any) => d.status === 'completed')
-            : diagnostics.status === 'completed' ? diagnostics : null;
-
-          if (completedDiagnostic) {
-            setDiagnosticCompleted(true);
-            setCompletedDiagnosticId(completedDiagnostic.id);
-          }
-        }
-      } catch (err) {
-        console.error('Error checking diagnostic:', err);
-      }
-    };
-
-    checkDiagnostic();
-  }, [engagementId]);
-
   // Initialize conversation when category is selected
   const initializeConversation = async (category: ChatCategory) => {
     setIsInitializing(true);
@@ -127,14 +83,6 @@ export function EngagementChatbot({ engagementId }: EngagementChatbotProps) {
       const token = localStorage.getItem('auth_token');
       if (!token) {
         throw new Error('Not authenticated');
-      }
-
-      // For diagnostic category, require completed diagnostic
-      if (category === 'diagnostic' && !diagnosticCompleted) {
-        setError('Please complete the diagnostic first to use diagnostic chat.');
-        setIsInitializing(false);
-        setShowCategorySelector(true);
-        return;
       }
 
       // Step 1: Get or create conversation
@@ -148,7 +96,6 @@ export function EngagementChatbot({ engagementId }: EngagementChatbotProps) {
           },
           body: JSON.stringify({
             category: category,
-            diagnostic_id: category === 'diagnostic' && completedDiagnosticId ? completedDiagnosticId : undefined,
           }),
         }
       );
@@ -199,7 +146,6 @@ export function EngagementChatbot({ engagementId }: EngagementChatbotProps) {
         if (formattedMessages.length === 0) {
           const welcomeMessages: Partial<Record<ChatCategory, string>> = {
             general: 'Hello! I\'m Trinity AI, your business advisor assistant. I can help you with general business questions, provide advice, and assist with various business matters. How can I help you today?',
-            diagnostic: 'Hello! I\'m Trinity AI, your business advisor assistant. I have access to your diagnostic results and can help you understand your findings, answer questions, and provide recommendations. How can I help you today?',
             financial: 'Hello! I\'m Trinity AI, your financial advisor assistant. I can help you with financial matters, analysis, budgeting, and financial planning. How can I help you today?',
             'legal-licensing': 'Hello! I\'m Trinity AI, your legal and compliance advisor assistant. I can help you with legal matters, compliance questions, and regulatory guidance. How can I help you today?',
             operations: 'Hello! I\'m Trinity AI, your operations advisor assistant. I can help you with business operations, process improvements, and operational efficiency. How can I help you today?',
@@ -207,8 +153,6 @@ export function EngagementChatbot({ engagementId }: EngagementChatbotProps) {
             customers: 'Hello! I\'m Trinity AI, your customer and product advisor assistant. I can help you with product fit, margins, customer relationships, and pricing strategies. How can I help you today?',
             tax: 'Hello! I\'m Trinity AI, your tax and regulatory advisor assistant. I can help you with tax matters, compliance, and regulatory requirements. How can I help you today?',
             'due-diligence': 'Hello! I\'m Trinity AI, your due diligence advisor assistant. I can help you prepare for due diligence, organize your data room, and ensure vendor readiness. How can I help you today?',
-            'competitive-forces': 'Hello! I\'m Trinity AI, your competitive analysis advisor assistant. I can help you with market analysis and competitive positioning. How can I help you today?',
-            'financial-docs': 'Hello! I\'m Trinity AI, your financial documents advisor assistant. I can help you analyze and organize your financial documents. How can I help you today?',
             'brand-ip-intangibles': 'Hello! I\'m Trinity AI, your brand and IP advisor assistant. I can help you with branding assets, trademarks, patents, proprietary software, and intangible value. How can I help you today?',
           };
           
@@ -376,21 +320,8 @@ export function EngagementChatbot({ engagementId }: EngagementChatbotProps) {
               </Select>
             </div>
 
-            {selectedCategory === 'diagnostic' && !diagnosticCompleted && (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  <p className="text-sm">
-                    Please complete the diagnostic first to use diagnostic chat. 
-                    You can still use other categories like General, Finance, Legal, or Operations.
-                  </p>
-                </AlertDescription>
-              </Alert>
-            )}
-
             <Button
               onClick={() => initializeConversation(selectedCategory)}
-              disabled={selectedCategory === 'diagnostic' && !diagnosticCompleted}
               className="w-full"
             >
               Start Conversation

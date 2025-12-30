@@ -11,6 +11,7 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { Plus, Search } from 'lucide-react';
 import { TaskForm } from './TaskForm';
 import { TaskItem } from './TaskItem';
+import { capitalizeFirstLetter } from '@/lib/utils';
 
 interface TasksListProps {
   engagementId: string;
@@ -137,15 +138,6 @@ export function TasksList({ engagementId }: TasksListProps) {
       default:
         return 'outline';
     }
-  };
-
-  const capitalizeFirstLetter = (str: string) => {
-    if (!str) return str;
-    return str
-      .replace(/_/g, ' ')
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' ');
   };
 
   return (

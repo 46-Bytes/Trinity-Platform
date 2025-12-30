@@ -9,6 +9,7 @@ import { NoteForm } from './NoteForm';
 import { NotesList } from './NotesList';
 import { useAppDispatch } from '@/store/hooks';
 import { createNote, fetchNotes } from '@/store/slices/notesReducer';
+import { capitalizeFirstLetter } from '@/lib/utils';
 
 interface TaskItemProps {
   task: Task;
@@ -91,15 +92,6 @@ export function TaskItem({ task, onEdit, onDelete, onStatusChange, onClick }: Ta
       month: 'short',
       day: 'numeric',
     });
-  };
-
-  const capitalizeFirstLetter = (str: string) => {
-    if (!str) return str;
-    return str
-      .replace(/_/g, ' ')
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' ');
   };
 
   const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'completed';

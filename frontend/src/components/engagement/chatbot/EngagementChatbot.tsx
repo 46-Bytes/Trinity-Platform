@@ -444,9 +444,6 @@ export function EngagementChatbot({ engagementId }: EngagementChatbotProps) {
             )}
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground mt-2">
-          Press Enter to send, Shift+Enter for new line
-        </p>
       </div>
     </div>
   );

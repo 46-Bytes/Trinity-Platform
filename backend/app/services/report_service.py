@@ -1,6 +1,7 @@
 """
 PDF Report Generation Service for Diagnostics
 """
+import json
 import markdown
 from datetime import datetime
 from typing import Dict, Any, Optional, List
@@ -322,12 +323,12 @@ class ReportService:
             
             rows_html += f"""
             <tr>
-                <td>{module_name}</td>
-                <td>{rag}</td>
-                <td>{score}</td>
-                <td>{rank}</td>
-                <td>{why_priority}</td>
-                <td>{quick_wins}</td>
+                <td style="text-align: left;">{module_name}</td>
+                <td style="text-align: center;">{rag}</td>
+                <td style="text-align: center;">{score}</td>
+                <td style="text-align: center;">{rank}</td>
+                <td style="text-align: left;">{why_priority}</td>
+                <td style="text-align: left;">{quick_wins}</td>
             </tr>"""
         
         if not rows_html:
@@ -335,15 +336,15 @@ class ReportService:
         
         return f"""
         <h3>Roadmap</h3>
-        <table class="data-table">
+        <table class="data-table" style="border-collapse: collapse; width: 100%; table-layout: fixed;">
             <thead>
                 <tr>
-                    <th style="width:24%;">Module</th>
-                    <th style="width:10%;">RAG</th>
-                    <th style="width:10%;">Score</th>
-                    <th style="width:8%;">Rank</th>
-                    <th style="width:24%;">Why Priority</th>
-                    <th style="width:24%;">Quick Wins</th>
+                    <th style="width:24%; text-align: left;">Module</th>
+                    <th style="width:10%; text-align: center;">RAG</th>
+                    <th style="width:10%; text-align: center;">Score</th>
+                    <th style="width:8%; text-align: center;">Rank</th>
+                    <th style="width:24%; text-align: left;">Why Priority</th>
+                    <th style="width:24%; text-align: left;">Quick Wins</th>
                 </tr>
             </thead>
             <tbody>{rows_html}
@@ -384,27 +385,27 @@ class ReportService:
             
             rows_html += f"""
             <tr>
-                <td>{rank}</td>
-                <td>{module_name}</td>
-                <td>{rag}</td>
-                <td>{score}</td>
-                <td>{why_priority}</td>
-                <td>{quick_wins}</td>
+                <td style="text-align: center;">{rank}</td>
+                <td style="text-align: left;">{module_name}</td>
+                <td style="text-align: center;">{rag}</td>
+                <td style="text-align: center;">{score}</td>
+                <td style="text-align: left;">{why_priority}</td>
+                <td style="text-align: left;">{quick_wins}</td>
             </tr>"""
         
         if not rows_html:
             return "<p>No valid roadmap data available.</p>"
         
         return f"""
-        <table class="data-table">
+        <table class="data-table" style="border-collapse: collapse; width: 100%; table-layout: fixed;">
             <thead>
                 <tr>
-                    <th style="width:8%;">Rank</th>
-                    <th style="width:24%;">Sale-Ready Module</th>
-                    <th style="width:10%;">RAG</th>
-                    <th style="width:10%;">Score</th>
-                    <th style="width:24%;">Why Priority</th>
-                    <th style="width:24%;">Quick Wins</th>
+                    <th style="width:8%; text-align: center;">Rank</th>
+                    <th style="width:24%; text-align: left;">Sale-Ready Module</th>
+                    <th style="width:10%; text-align: center;">RAG</th>
+                    <th style="width:10%; text-align: center;">Score</th>
+                    <th style="width:24%; text-align: left;">Why Priority</th>
+                    <th style="width:24%; text-align: left;">Quick Wins</th>
                 </tr>
             </thead>
             <tbody>{rows_html}
@@ -413,29 +414,52 @@ class ReportService:
     
     @staticmethod
     def _build_all_responses_section(qa_data: List[Dict[str, str]]) -> str:
-        """Build all responses section."""
+        """Build all responses section with proper formatting."""
         rows_html = ""
         for idx, qa in enumerate(qa_data, 1):
             question = ReportService._escape_html(qa.get("question", ""))
-            answer_html = ReportService._format_answer(qa.get("answer"))
+            answer = qa.get("answer")
             
-            rows_html += f"""
+            # Check if answer is matrix data (list of dicts)
+            is_matrix = (
+                isinstance(answer, list) 
+                and len(answer) > 0 
+                and isinstance(answer[0], dict)
+            )
+            
+            if is_matrix:
+                # Matrix data: show "See table below" in main row, then nested table
+                rows_html += f"""
             <tr>
-                <td>{idx}</td>
-                <td>{question}</td>
-                <td>{answer_html}</td>
+                <td style="text-align: center;">{idx}</td>
+                <td style="text-align: left;">{question}</td>
+                <td style="text-align: left;">See table below</td>
+            </tr>
+            <tr>
+                <td colspan="3" style="padding: 0; border: none;">
+                    {ReportService._format_matrix_table(answer)}
+                </td>
+            </tr>"""
+            else:
+                # Regular answer formatting
+                answer_html = ReportService._format_answer(answer)
+                rows_html += f"""
+            <tr>
+                <td style="text-align: center;">{idx}</td>
+                <td style="text-align: left;">{question}</td>
+                <td style="text-align: left;">{answer_html}</td>
             </tr>"""
         
         return f"""
     <div class="page-break"></div>
     <div class="section">
         <h3>All Responses</h3>
-        <table class="data-table">
+        <table class="data-table" style="border-collapse: collapse; width: 100%; table-layout: fixed;">
             <thead>
                 <tr>
-                    <th style="width:5%;">#</th>
-                    <th style="width:45%;">Question</th>
-                    <th style="width:50%;">Response</th>
+                    <th style="width:5%; text-align: center;">#</th>
+                    <th style="width:45%; text-align: left;">Question</th>
+                    <th style="width:50%; text-align: left;">Response</th>
                 </tr>
             </thead>
             <tbody>{rows_html}
@@ -468,26 +492,90 @@ class ReportService:
         return qa_data
     
     @staticmethod
+    def _humanize_label(slug: str) -> str:
+        """Convert field_name to Field Name."""
+        return slug.replace('_', ' ').replace('-', ' ').title()
+    
+    @staticmethod
+    def _format_matrix_table(matrix_data: List[Dict[str, Any]]) -> str:
+        """Format matrix data (list of dicts) as nested table."""
+        if not matrix_data or not isinstance(matrix_data[0], dict):
+            return ""
+        
+        # Get column names from first row
+        cols = list(matrix_data[0].keys())
+        
+        # Build table header
+        header_html = "".join([
+            f"<th style=\"text-align: left; padding: 4px;\">{ReportService._escape_html(ReportService._humanize_label(col))}</th>"
+            for col in cols
+        ])
+        
+        # Build table rows
+        rows_html = ""
+        for row in matrix_data:
+            # Check if row has any non-empty data
+            has_data = any(
+                v is not None and v != '' 
+                for v in row.values()
+            )
+            
+            if has_data:
+                cells_html = ""
+                for col in cols:
+                    val = row.get(col, '')
+                    if isinstance(val, (dict, list)):
+                        val = json.dumps(val)
+                    val_str = ReportService._escape_html(str(val))
+                    cells_html += f"<td style=\"padding: 4px;\">{val_str}</td>"
+                rows_html += f"<tr>{cells_html}</tr>"
+        
+        return f"""
+                    <table class="sub-table" style="width: 100%; border-collapse: collapse; table-layout: fixed; border: 1px solid #444;">
+                        <thead>
+                            <tr>{header_html}</tr>
+                        </thead>
+                        <tbody>{rows_html}
+                        </tbody>
+                    </table>"""
+    
+    @staticmethod
     def _format_answer(answer: Any) -> str:
-        """Format answer based on type (text, array, dict, etc.)."""
+        """
+        Format answer based on type (text, array, dict, etc.).
+        
+        Types:
+        1. Matrix (list of dicts) - handled separately in _build_all_responses_section
+        2. Associative array (dict) - bulleted list with key: value
+        3. Simple array (list) - bulleted list
+        4. Scalar (string/number) - direct value
+        """
         if answer is None:
             return ""
         
+        # Type 2: Associative array (dict)
+        if isinstance(answer, dict):
+            items = []
+            for k, v in answer.items():
+                key_label = ReportService._humanize_label(str(k))
+                val_str = ReportService._escape_html(str(v))
+                items.append(f"<li><strong>{ReportService._escape_html(key_label)}:</strong> {val_str}</li>")
+            return f"<ul style=\"margin: 0; padding-left: 1.2em; list-style: disc;\">{''.join(items)}</ul>"
+        
+        # Type 3: Simple array (list)
+        if isinstance(answer, (list, tuple)):
+            items = []
+            for item in answer:
+                if isinstance(item, (dict, list)):
+                    item_str = json.dumps(item)
+                else:
+                    item_str = str(item)
+                items.append(f"<li>{ReportService._escape_html(item_str)}</li>")
+            return f"<ul style=\"margin: 0; padding-left: 1.2em; list-style: disc;\">{''.join(items)}</ul>"
+        
+        # Type 4: Scalar (string/number)
         if isinstance(answer, str):
             return ReportService._escape_html(answer)
-        
-        if isinstance(answer, (list, tuple)):
-            # Array - bullet list
-            items = [f"<li>{ReportService._escape_html(str(item))}</li>" for item in answer]
-            return f"<ul>{''.join(items)}</ul>"
-        
-        if isinstance(answer, dict):
-            # Associative array - key-value list
-            items = [
-                f"<li><strong>{ReportService._escape_html(str(k))}:</strong> {ReportService._escape_html(str(v))}</li>"
-                for k, v in answer.items()
-            ]
-            return f"<ul>{''.join(items)}</ul>"
         
         # Default: convert to string
         return ReportService._escape_html(str(answer))
@@ -630,6 +718,7 @@ class ReportService:
         table.data-table {
             width: 100%;
             border-collapse: collapse;
+            table-layout: fixed;
             margin-top: 8px;
             margin-bottom: 10px;
         }
@@ -637,16 +726,23 @@ class ReportService:
         table.data-table th,
         table.data-table td {
             border: 1px solid #444;
-            padding: 10px;
+            padding: 6px 8px;
             text-align: left;
             font-size: 15px;
             color: #000000;
+            vertical-align: top;
         }
         
         table.data-table th {
             background-color: #f0f0f0;
             font-weight: bold;
             color: #000000;
+        }
+        
+        /* Center alignment for numeric/short columns */
+        table.data-table th.center,
+        table.data-table td.center {
+            text-align: center;
         }
         
         table.data-table tr:nth-child(even) {
@@ -673,12 +769,21 @@ class ReportService:
         /* Sub-tables (nested) */
         .sub-table {
             font-size: 10px;
+            border-collapse: collapse;
+            table-layout: fixed;
         }
         
         .sub-table th,
         .sub-table td {
+            border: 1px solid #444;
             padding: 4px;
+            text-align: left;
             color: #000000;
+        }
+        
+        .sub-table th {
+            background-color: #f0f0f0;
+            font-weight: bold;
         }
         """
     

@@ -32,7 +32,12 @@ class OpenAIService:
         )
         self.model = settings.OPENAI_MODEL
         self.temperature = settings.OPENAI_TEMPERATURE
-        logger.info(f"OpenAI client initialized with timeout: {settings.OPENAI_TIMEOUT} seconds ({settings.OPENAI_TIMEOUT/60:.1f} minutes)")
+        # Safely format timeout string (handle None case)
+        if settings.OPENAI_TIMEOUT is not None:
+            timeout_str = f"{settings.OPENAI_TIMEOUT} seconds ({settings.OPENAI_TIMEOUT/60:.1f} minutes)"
+        else:
+            timeout_str = "no timeout"
+        logger.info(f"OpenAI client initialized with timeout: {timeout_str}")
     
     def _convert_messages_to_input(
         self, 

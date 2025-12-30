@@ -1,35 +1,99 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { roleLabels, roleColors, UserRole } from '@/types/auth';
-import { Search, Plus, MoreHorizontal, Filter, Mail, Shield } from 'lucide-react';
+import { Search, Plus, MoreHorizontal, Filter, Mail, Shield, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { fetchUsers, createUser } from '@/store/slices/userReducer';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
-const mockUsers = [
-  { id: '1', name: 'Sarah Mitchell', email: 'sarah@trinity.com', role: 'super_admin' as UserRole, status: 'Active', lastActive: '2 min ago' },
-  { id: '2', name: 'James Wilson', email: 'james@trinity.com', role: 'admin' as UserRole, status: 'Active', lastActive: '15 min ago' },
-  { id: '3', name: 'Emma Thompson', email: 'emma@trinity.com', role: 'advisor' as UserRole, status: 'Active', lastActive: '1 hour ago' },
-  { id: '4', name: 'Michael Chen', email: 'michael@company.com', role: 'client' as UserRole, status: 'Active', lastActive: '3 hours ago' },
-  { id: '5', name: 'Lisa Anderson', email: 'lisa@firm.com', role: 'firm_advisor' as UserRole, status: 'Active', lastActive: '5 hours ago' },
-  { id: '6', name: 'David Roberts', email: 'david@firm.com', role: 'firm_admin' as UserRole, status: 'Inactive', lastActive: '2 days ago' },
-];
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { toast } from 'sonner';
 
 export default function UsersPage() {
   const { user } = useAuth();
+  const dispatch = useAppDispatch();
+  const { users, isLoading, isCreating, error } = useAppSelector((state) => state.user);
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  
+  // Form state
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserRole, setNewUserRole] = useState<UserRole>('client');
 
-  const filteredUsers = mockUsers.filter(u => {
+  // Fetch users on mount
+  useEffect(() => {
+    dispatch(fetchUsers());
+  }, [dispatch]);
+
+  // Show error toast if there's an error
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
+
+  const handleCreateUser = async () => {
+    if (!newUserEmail || !newUserName) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      await dispatch(createUser({
+        email: newUserEmail,
+        name: newUserName,
+        role: newUserRole,
+      })).unwrap();
+      
+      toast.success('User created successfully');
+      setIsDialogOpen(false);
+      setNewUserEmail('');
+      setNewUserName('');
+      setNewUserRole('client');
+    } catch (error) {
+
+    }
+  };
+
+  const filteredUsers = users.filter(u => {
     const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.email.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesRole = roleFilter === 'all' || u.role === roleFilter;
     return matchesSearch && matchesRole;
   });
+
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch {
+      return 'N/A';
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -38,7 +102,10 @@ export default function UsersPage() {
           <h1 className="font-heading text-2xl font-bold text-foreground">User Management</h1>
           <p className="text-muted-foreground mt-1">Manage platform users and their roles</p>
         </div>
-        <button className="btn-primary">
+        <button 
+          className="btn-primary"
+          onClick={() => setIsDialogOpen(true)}
+        >
           <Plus className="w-4 h-4" />
           Add User
         </button>
@@ -62,86 +129,188 @@ export default function UsersPage() {
             onChange={(e) => setRoleFilter(e.target.value as UserRole | 'all')}
           >
             <option value="all">All Roles</option>
-            {Object.entries(roleLabels).map(([key, label]) => (
-              <option key={key} value={key}>{label}</option>
-            ))}
+            {Object.entries(roleLabels)
+              .filter(([key]) => key !== 'firm_admin' && key !== 'firm_advisor')
+              .map(([key, label]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
           </select>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="table-trinity">
-            <thead>
-              <tr>
-                <th>User</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Last Active</th>
-                <th className="w-12"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.map((u) => (
-                <tr key={u.id}>
-                  <td>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-medium">
-                        {u.name.charAt(0)}
-                      </div>
-                      <div>
-                        <p className="font-medium">{u.name}</p>
-                        <p className="text-sm text-muted-foreground">{u.email}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <span className={cn("status-badge", roleColors[u.role])}>
-                      {roleLabels[u.role]}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={cn(
-                      "status-badge",
-                      u.status === 'Active' ? "status-success" : "bg-muted text-muted-foreground"
-                    )}>
-                      {u.status}
-                    </span>
-                  </td>
-                  <td className="text-muted-foreground">{u.lastActive}</td>
-                  <td>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="p-2 rounded-lg hover:bg-muted transition-colors">
-                          <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem className="cursor-pointer">
-                          <Mail className="w-4 h-4 mr-2" />
-                          Send Email
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="cursor-pointer">
-                          <Shield className="w-4 h-4 mr-2" />
-                          Change Role
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
-          <p className="text-sm text-muted-foreground">
-            Showing {filteredUsers.length} of {mockUsers.length} users
-          </p>
-          <div className="flex items-center gap-2">
-            <button className="btn-secondary py-1.5 px-3 text-sm" disabled>Previous</button>
-            <button className="btn-secondary py-1.5 px-3 text-sm">Next</button>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-6 h-6 animate-spin text-accent" />
+            <span className="ml-2 text-muted-foreground">Loading users...</span>
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="table-trinity">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Email Verified</th>
+                    <th>Last Active</th>
+                    <th className="w-12"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredUsers.map((u) => (
+                    <tr key={u.id} className="group">
+                      <td>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-medium">
+                            {u.name.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="font-medium">{u.name}</p>
+                            <p className="text-sm text-muted-foreground">{u.email}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span className={cn("status-badge", roleColors[u.role])}>
+                          {roleLabels[u.role]}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={cn(
+                          "status-badge",
+                          u.is_active ? "status-success" : "bg-muted text-muted-foreground"
+                        )}>
+                          {u.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={cn(
+                          "status-badge",
+                          u.email_verified ? "status-success" : "bg-yellow-100 text-yellow-800"
+                        )}>
+                          {u.email_verified ? 'Verified' : 'Unverified'}
+                        </span>
+                      </td>
+                      <td className="text-muted-foreground">
+                        {u.last_login ? formatDate(u.last_login) : 'Never'}
+                      </td>
+                      <td>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="p-1.5 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100">
+                              <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem className="cursor-pointer">
+                              <Mail className="w-4 h-4 mr-2" />
+                              Send Email
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="cursor-pointer">
+                              <Shield className="w-4 h-4 mr-2" />
+                              Change Role
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {filteredUsers.length === 0 && !isLoading && (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">No users found</p>
+                {searchQuery && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Try adjusting your search or filters
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
+              <p className="text-sm text-muted-foreground">
+                Showing {filteredUsers.length} of {users.length} users
+              </p>
+            </div>
+          </>
+        )}
       </div>
+
+      {/* Add Client Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Add New Client</DialogTitle>
+            <DialogDescription>
+              Create a new user account. The user will need to set up Auth0 authentication later.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email Address *</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="user@example.com"
+                value={newUserEmail}
+                onChange={(e) => setNewUserEmail(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name *</Label>
+              <Input
+                id="name"
+                type="text"
+                placeholder="John Doe"
+                value={newUserName}
+                onChange={(e) => setNewUserName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="role">Role</Label>
+              <Select value={newUserRole} onValueChange={(value) => setNewUserRole(value as UserRole)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="client">Client</SelectItem>
+                  <SelectItem value="advisor">Advisor</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDialogOpen(false);
+                setNewUserEmail('');
+                setNewUserName('');
+                setNewUserRole('client');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateUser}
+              disabled={isCreating || !newUserEmail || !newUserName}
+            >
+              {isCreating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Create Client'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

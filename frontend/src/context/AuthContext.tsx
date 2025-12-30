@@ -21,6 +21,7 @@ function mapBackendUserToFrontend(backendUser: any): User {
     id: backendUser.id,
     email: backendUser.email,
     name: backendUser.name || backendUser.email,
+    nickname: backendUser.nickname || undefined,
     role: role,
     avatar: backendUser.picture || undefined,
     bio: backendUser.bio || undefined,

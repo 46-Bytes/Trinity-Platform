@@ -38,20 +38,20 @@ class AuthService:
         return oauth
     
     @staticmethod
-    def extract_role_from_auth0(user_info: dict) -> UserRole:
+    def extract_role_from_auth0(user_info: dict) -> UserRole | None:
         """
         Extract user role from Auth0 user info.
         
         Checks in order:
         1. app_metadata.role
         2. user_metadata.role
-        3. Default to ADVISOR
+        3. Returns None if no role found (don't default)
         
         Args:
             user_info: User information from Auth0
             
         Returns:
-            UserRole: User role
+            UserRole | None: User role if found in Auth0, None otherwise
         """
         # Check app_metadata first (typically set by admin)
         app_metadata = user_info.get('app_metadata', {})
@@ -73,9 +73,13 @@ class AuthService:
                 return UserRole.CLIENT
             elif role_str_lower == 'advisor':
                 return UserRole.ADVISOR
+            elif role_str_lower == 'firm_admin':
+                return UserRole.FIRM_ADMIN
+            elif role_str_lower == 'firm_advisor':
+                return UserRole.FIRM_ADVISOR
         
-        # Default to advisor
-        return UserRole.ADVISOR
+        # Return None if no role found - don't default
+        return None
     
     @staticmethod
     def get_or_create_user(db: Session, user_info: dict) -> User:
@@ -96,8 +100,8 @@ class AuthService:
         auth0_id = user_info.get('sub')
         email = user_info.get('email')
         
-        # Extract role from Auth0
-        role = AuthService.extract_role_from_auth0(user_info)
+        # Extract role from Auth0 (may be None if not set in Auth0)
+        auth0_role = AuthService.extract_role_from_auth0(user_info)
         
         # Try to find existing user by auth0_id first
         user = db.query(User).filter(User.auth0_id == auth0_id).first()
@@ -117,7 +121,12 @@ class AuthService:
             user.name = user_info.get('name')
             user.given_name = user_info.get('given_name')
             user.family_name = user_info.get('family_name')
-            user.nickname = user_info.get('nickname')
+            # Extract username from nickname (Auth0 default) or user_metadata.username (custom field)
+            nickname = user_info.get('nickname')
+            user_metadata = user_info.get('user_metadata', {})
+            username = user_metadata.get('username') or nickname
+            user.nickname = username
+            print(f"🔤 Updated nickname: {username} (from nickname: {nickname}, user_metadata.username: {user_metadata.get('username')})")
             user.picture = user_info.get('picture')
             
             # IMPORTANT: Only update email_verified if it's True (don't unverify)
@@ -128,21 +137,38 @@ class AuthService:
                 user.email_verified = True  # Update to verified
             # If False, don't change existing verified status (preserve verified state)
             
-            user.role = role  # Update role from Auth0
+            # IMPORTANT: Only update role from Auth0 if Auth0 has a role set
+            # This preserves manually set roles in the database
+            if auth0_role is not None:
+                print(f"🔄 Updating role from Auth0: {user.role.value} -> {auth0_role.value}")
+                user.role = auth0_role
+            else:
+                print(f"✅ Preserving existing role: {user.role.value} (no role in Auth0 metadata)")
+            
             user.last_login = datetime.utcnow()
             user.updated_at = datetime.utcnow()
         else:
             # Create new user
+            # Use Auth0 role if available, otherwise default to CLIENT (safer default than advisor)
+            default_role = auth0_role if auth0_role is not None else UserRole.CLIENT
+            print(f"👤 Creating new user with role: {default_role.value} (from Auth0: {auth0_role.value if auth0_role else 'None'})")
+            
+            # Extract username from nickname (Auth0 default) or user_metadata.username (custom field)
+            nickname = user_info.get('nickname')
+            user_metadata = user_info.get('user_metadata', {})
+            username = user_metadata.get('username') or nickname
+            print(f"🔤 New user nickname: {username} (from nickname: {nickname}, user_metadata.username: {user_metadata.get('username')})")
+            
             user = User(
                 auth0_id=auth0_id,
                 email=email,
                 name=user_info.get('name'),
                 given_name=user_info.get('given_name'),
                 family_name=user_info.get('family_name'),
-                nickname=user_info.get('nickname'),
+                nickname=username,
                 picture=user_info.get('picture'),
                 email_verified=user_info.get('email_verified', False),
-                role=role,  # Set role from Auth0
+                role=default_role,  # Use Auth0 role or default to CLIENT
                 last_login=datetime.utcnow(),
             )
             db.add(user)

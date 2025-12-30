@@ -36,7 +36,7 @@ const navItems: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
   { label: 'Users', href: '/dashboard/users', icon: Users, roles: ['super_admin', 'admin'] },
   { label: 'Clients', href: '/dashboard/clients', icon: UserCircle, roles: ['super_admin', 'admin', 'advisor', 'firm_admin', 'firm_advisor'] },
-  { label: 'Engagements', href: '/dashboard/engagements', icon: FolderOpen, roles: ['super_admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
+  { label: 'Engagements', href: '/dashboard/engagements', icon: FolderOpen, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
   { label: 'Tasks', href: '/dashboard/tasks', icon: CheckSquare, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
   { label: 'Documents', href: '/dashboard/documents', icon: FileText, roles: ['super_admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
   { label: 'AI Tools', href: '/dashboard/ai-tools', icon: Brain, roles: ['super_admin', 'admin', 'advisor', 'firm_admin', 'firm_advisor'] },
@@ -127,10 +127,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         <div className="p-4 border-t border-sidebar-border">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-sidebar-accent flex items-center justify-center text-sidebar-foreground font-medium">
-              {user.name.charAt(0)}
+              {(user.nickname || user.name).charAt(0)}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-sidebar-foreground truncate">{user.name}</p>
+              <p className="text-sm font-medium text-sidebar-foreground truncate">
+                {user.nickname || user.name}
+              </p>
               <p className="text-xs text-sidebar-foreground/60 truncate">{user.email}</p>
             </div>
           </div>

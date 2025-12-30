@@ -192,10 +192,12 @@ async def get_current_user_endpoint(
             print(f"❌ User not found in database for auth0_id: {auth0_id}")
             raise HTTPException(status_code=401, detail="User not found")
         
-        print(f"✅ User found: {user.email}, role: {user.role}")
+        print(f"✅ User found: {user.email}, role: {user.role}, nickname: {user.nickname}")
+        user_dict = user.to_dict()
+        print(f"📋 User dict nickname: {user_dict.get('nickname')}")
         return {
             "authenticated": True,
-            "user": user.to_dict()
+            "user": user_dict
         }
     except HTTPException:
         raise

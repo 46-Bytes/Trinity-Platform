@@ -160,6 +160,12 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
         if (responses[element.name] !== undefined) {
           currentPageResponses[element.name] = responses[element.name];
         }
+        // Also include any "other" fields for dropdowns with showOtherItem
+        // e.g., if element.name is "industry_type", also include "industry_type_other" if it exists
+        const otherFieldName = `${element.name}_other`;
+        if (responses[otherFieldName] !== undefined) {
+          currentPageResponses[otherFieldName] = responses[otherFieldName];
+        }
       });
 
       // Update local state immediately for better UX
@@ -184,6 +190,11 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
           // Only clear if the response is now in the backend (saved)
           if (updatedDiagnostic?.userResponses?.[element.name] !== undefined) {
             delete updated[element.name];
+          }
+          // Also clear the "other" field if it was saved
+          const otherFieldName = `${element.name}_other`;
+          if (updatedDiagnostic?.userResponses?.[otherFieldName] !== undefined) {
+            delete updated[otherFieldName];
           }
         });
         return updated;
@@ -436,6 +447,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
                   question={element}
                   value={value}
                   onChange={(value) => handleResponseChange(element.name, value)}
+                  onFieldChange={handleResponseChange}
                   allResponses={responses}
                   diagnosticId={diagnostic?.id}
                   engagementId={engagementId}

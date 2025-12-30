@@ -112,9 +112,6 @@ export function TaskItem({ task, onEdit, onDelete, onStatusChange, onClick }: Ta
                   <Badge variant={getStatusBadgeVariant(task.status)}>{capitalizeFirstLetter(task.status)}</Badge>
                   <Badge variant={getPriorityBadgeVariant(task.priority)}>{capitalizeFirstLetter(task.priority)}</Badge>
                 </div>
-                {task.description && (
-                  <p className="text-xs text-muted-foreground mb-2 italic">Open to view description</p>
-                )}
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   {task.assignedToName && (
                     <span>Assigned to: {task.assignedToName}</span>

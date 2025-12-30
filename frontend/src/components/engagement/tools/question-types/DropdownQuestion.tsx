@@ -1,4 +1,5 @@
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -7,7 +8,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export function DropdownQuestion({ question, value, onChange }) {
+interface DropdownQuestionProps {
+  question: any;
+  value: any;
+  onChange: (value: any) => void;
+  allResponses?: Record<string, any>;
+  onFieldChange?: (fieldName: string, value: any) => void;
+}
+
+export function DropdownQuestion({ question, value, onChange, allResponses = {}, onFieldChange }: DropdownQuestionProps) {
   // Generate choices from range if choicesMin/choicesMax are provided
   let choices: (string | { value: string; text: string })[] = question.choices || [];
   
@@ -26,6 +35,28 @@ export function DropdownQuestion({ question, value, onChange }) {
     return choice;
   };
 
+  // Field name for storing the "other" description
+  const otherFieldName = `${question.name}_other`;
+  const otherValue = allResponses[otherFieldName] || '';
+
+  // Handle dropdown value change
+  const handleDropdownChange = (newValue: string) => {
+    onChange(newValue);
+    // Clear the "other" field if a non-other option is selected
+    if (newValue !== 'other' && otherValue && onFieldChange) {
+      onFieldChange(otherFieldName, '');
+    }
+  };
+
+  // Handle "other" description change
+  const handleOtherChange = (otherDescription: string) => {
+    if (onFieldChange) {
+      onFieldChange(otherFieldName, otherDescription);
+    }
+  };
+
+  const isOtherSelected = value === 'other';
+
   return (
     <div className="space-y-2">
       <Label>{question.title}</Label>
@@ -33,7 +64,7 @@ export function DropdownQuestion({ question, value, onChange }) {
         <p className="text-sm text-muted-foreground">{question.description}</p>
       )}
       
-      <Select value={value || ""} onValueChange={onChange}>
+      <Select value={value || ""} onValueChange={handleDropdownChange}>
         <SelectTrigger>
           <SelectValue placeholder="Select an option" />
         </SelectTrigger>
@@ -51,10 +82,26 @@ export function DropdownQuestion({ question, value, onChange }) {
             );
           })}
           {question.showOtherItem && (
-            <SelectItem value="other">Other</SelectItem>
+            <SelectItem value="other">Other (describe)</SelectItem>
           )}
         </SelectContent>
       </Select>
+
+      {/* Show text input when "other" is selected */}
+      {isOtherSelected && question.showOtherItem && (
+        <div className="mt-3">
+          <Label htmlFor={otherFieldName}>
+            {question.otherText || "Please describe"}
+          </Label>
+          <Input
+            id={otherFieldName}
+            type="text"
+            value={otherValue}
+            onChange={(e) => handleOtherChange(e.target.value)}
+            placeholder={question.otherPlaceholder || "Please describe"}
+          />
+        </div>
+      )}
     </div>
   );
 }

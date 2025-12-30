@@ -60,7 +60,9 @@
               "Waste management industry",
               "Wine industry"
             ],
-            "showOtherItem": true
+            "showOtherItem": true,
+            "otherText": "Please describe your industry",
+            "otherPlaceholder": "Please describe your industry"
           },
           {
             "type": "text",

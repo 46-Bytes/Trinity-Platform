@@ -14,6 +14,7 @@ interface ToolQuestionProps {
   question: any;
   value: any;
   onChange: (value: any) => void;
+  onFieldChange?: (fieldName: string, value: any) => void;
   allResponses: Record<string, any>;
   diagnosticId?: string;
   engagementId?: string;
@@ -110,7 +111,7 @@ function evaluateCondition(condition: string, responses: Record<string, any>): b
   return true;
 }
 
-export function ToolQuestion({ question, value, onChange, allResponses, diagnosticId, engagementId }: ToolQuestionProps) {
+export function ToolQuestion({ question, value, onChange, onFieldChange, allResponses, diagnosticId, engagementId }: ToolQuestionProps) {
   // Check conditional visibility
   if (question.visibleIf) {
     const isVisible = evaluateCondition(question.visibleIf, allResponses);
@@ -120,7 +121,15 @@ export function ToolQuestion({ question, value, onChange, allResponses, diagnost
   // Render based on question type
   switch (question.type) {
     case 'dropdown':
-      return <DropdownQuestion question={question} value={value} onChange={onChange} />;
+      return (
+        <DropdownQuestion 
+          question={question} 
+          value={value} 
+          onChange={onChange}
+          allResponses={allResponses}
+          onFieldChange={onFieldChange}
+        />
+      );
     
     case 'text':
       return <TextQuestion question={question} value={value} onChange={onChange} />;

@@ -11,6 +11,7 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { Plus, Search } from 'lucide-react';
 import { TaskForm } from './TaskForm';
 import { TaskItem } from './TaskItem';
+import { capitalizeFirstLetter } from '@/lib/utils';
 
 interface TasksListProps {
   engagementId: string;
@@ -406,7 +407,7 @@ export function TasksList({ engagementId }: TasksListProps) {
                   <label className="text-sm font-medium text-muted-foreground">Priority</label>
                   <div className="mt-1">
                     <Badge variant={getPriorityBadgeVariant(selectedTask.priority)}>
-                      {selectedTask.priority}
+                      {capitalizeFirstLetter(selectedTask.priority)}
                     </Badge>
                   </div>
                 </div>

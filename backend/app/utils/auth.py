@@ -39,7 +39,10 @@ def get_current_user(
             # Decode the ID token to get user info (no signature verification for simplicity)
             payload = jwt.get_unverified_claims(token)
             auth0_id = payload.get('sub')
-            print(f"✅ Token decoded, auth0_id: {auth0_id}")
+            
+            # Extract username from token for logging
+            username = payload.get(settings.AUTH0_USERNAME_NAMESPACE)
+            print(f"✅ Token decoded, auth0_id: {auth0_id}, username: {username}")
             
             if not auth0_id:
                 raise HTTPException(
@@ -90,7 +93,7 @@ def get_current_user(
             detail="User account is inactive"
         )
     
-    print(f"✅ User authenticated: {user.email}, role: {user.role}")
+    print(f"✅ User authenticated: {user.email}, username/nickname: {user.nickname}, role: {user.role}")
     return user
 
 

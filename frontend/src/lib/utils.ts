@@ -21,3 +21,12 @@ export function capitalizeFirstLetter(str: string): string {
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
 }
+
+/**
+ * Gets unique client IDs from an array of engagements.
+ * @param engagements - Array of engagements with clientId property
+ * @returns Set of unique client IDs
+ */
+export function getUniqueClientIds(engagements: Array<{ clientId: string }>): Set<string> {
+  return new Set(engagements.map(e => e.clientId));
+}

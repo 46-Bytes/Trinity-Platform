@@ -4,13 +4,14 @@ import { FileText } from 'lucide-react';
 interface GeneratedFilesListProps {
   files: GeneratedFileProps[];
   onDownload?: (id: string) => void;
+  onTagUpdate?: (fileId: string, tag: string | null, mediaId?: string) => Promise<void>;
   emptyMessage?: {
     title?: string;
     description?: string;
   };
 }
 
-export function GeneratedFilesList({ files, onDownload, emptyMessage }: GeneratedFilesListProps) {
+export function GeneratedFilesList({ files, onDownload, onTagUpdate, emptyMessage }: GeneratedFilesListProps) {
   if (files.length === 0) {
     const defaultTitle = emptyMessage?.title || 'No files yet';
     const defaultDescription = emptyMessage?.description || 'Files will appear here';
@@ -33,6 +34,7 @@ export function GeneratedFilesList({ files, onDownload, emptyMessage }: Generate
           key={file.id}
           {...file}
           onDownload={onDownload}
+          onTagUpdate={onTagUpdate}
         />
       ))}
     </div>

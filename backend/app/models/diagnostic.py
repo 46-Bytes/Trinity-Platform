@@ -54,6 +54,9 @@ class Diagnostic(Base):
     ai_model_used = Column(String(100), nullable=True, comment="AI model used for analysis (e.g., gpt-4-turbo)")
     ai_tokens_used = Column(Integer, nullable=True, comment="Total tokens used in AI processing")
     
+    # Document tag (advisor-only)
+    tag = Column(String(255), nullable=True, comment="Document tag for organization (advisor-only)")
+    
     # Timestamps
     created_at = Column(DateTime, nullable=False, server_default=func.current_timestamp())
     started_at = Column(DateTime, nullable=True, comment="When user started filling it out")

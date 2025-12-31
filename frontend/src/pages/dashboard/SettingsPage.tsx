@@ -7,9 +7,9 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: User },
-  { id: 'security', label: 'Security', icon: Lock },
-  { id: 'notifications', label: 'Notifications', icon: Bell },
-  { id: 'appearance', label: 'Appearance', icon: Palette },
+  // { id: 'security', label: 'Security', icon: Lock },
+  // { id: 'notifications', label: 'Notifications', icon: Bell },
+  // { id: 'appearance', label: 'Appearance', icon: Palette },
 ];
 
 export default function SettingsPage() {

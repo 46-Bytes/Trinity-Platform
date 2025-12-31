@@ -54,7 +54,7 @@ async def upload_files(
             try:
                 diagnostic_uuid = UUID(diagnostic_id)
             except ValueError:
-                print(f"⚠️ Invalid diagnostic_id: {diagnostic_id}")
+                print(f"  Invalid diagnostic_id: {diagnostic_id}")
         
         # Upload files (pass diagnostic_id to use correct storage path)
         uploaded_media = await file_service.upload_files(
@@ -77,9 +77,9 @@ async def upload_files(
                         if media not in diagnostic.media:
                             diagnostic.media.append(media)
                     db.commit()
-                    print(f"✅ Attached {len(uploaded_media)} files to diagnostic {diagnostic_id}")
+                    print(f"  Attached {len(uploaded_media)} files to diagnostic {diagnostic_id}")
             except ValueError:
-                print(f"⚠️ Invalid diagnostic_id: {diagnostic_id}")
+                print(f"  Invalid diagnostic_id: {diagnostic_id}")
         
         return {
             "success": True,

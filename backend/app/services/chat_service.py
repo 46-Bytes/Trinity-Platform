@@ -64,7 +64,7 @@ class ChatService:
         self.db.commit()
         self.db.refresh(conversation)
         
-        logger.info(f"✅ Created new conversation: {conversation.id}")
+        logger.info(f"  Created new conversation: {conversation.id}")
         logger.info(f"   Title: {conversation.title}")
         
         # Link diagnostic to conversation if provided
@@ -76,9 +76,9 @@ class ChatService:
             if diagnostic:
                 diagnostic.conversation_id = conversation.id
                 self.db.commit()
-                logger.info(f"✅ Linked diagnostic {diagnostic_id} to conversation {conversation.id}")
+                logger.info(f"  Linked diagnostic {diagnostic_id} to conversation {conversation.id}")
             else:
-                logger.warning(f"⚠️ Diagnostic {diagnostic_id} not found")
+                logger.warning(f"  Diagnostic {diagnostic_id} not found")
         
         # For non-diagnostic categories, create a welcome message
         # Note: Welcome message creation is skipped for now to avoid async complexity
@@ -156,16 +156,15 @@ class ChatService:
             Assistant Message model with the AI response
         """
         logger.info(f"📨 STEP 1: Starting send_message for conversation {conversation_id}, user {user_id}")
-        logger.info(f"   Message length: {len(message_text)} characters")
-        logger.info(f"   Engagement ID: {engagement_id}")
+
         
         # STEP 2: Verify conversation belongs to user
         logger.info(f"📨 STEP 2: Verifying conversation ownership")
         conversation = self.get_conversation(conversation_id, user_id)
         if not conversation:
-            logger.error(f"❌ Conversation {conversation_id} not found or unauthorized for user {user_id}")
+            logger.error(f"  Conversation {conversation_id} not found or unauthorized for user {user_id}")
             raise ValueError(f"Conversation {conversation_id} not found or unauthorized")
-        logger.info(f"✅ Conversation verified: category={conversation.category}, user_id={conversation.user_id}")
+        logger.info(f"  Conversation verified: category={conversation.category}, user_id={conversation.user_id}")
         
         # STEP 3: Save user message
         logger.info(f"📨 STEP 3: Saving user message to database")
@@ -177,20 +176,18 @@ class ChatService:
         self.db.add(user_message)
         self.db.commit()
         self.db.refresh(user_message)
-        logger.info(f"✅ User message saved: message_id={user_message.id}")
+        logger.info(f"  User message saved: message_id={user_message.id}")
         
         # STEP 4: Get conversation history
         logger.info(f"📨 STEP 4: Retrieving conversation history (limit={limit})")
         previous_messages = self.db.query(Message).filter(
             Message.conversation_id == conversation_id
         ).order_by(Message.created_at.asc()).limit(limit).all()
-        logger.info(f"✅ Retrieved {len(previous_messages)} previous messages")
+        logger.info(f"  Retrieved {len(previous_messages)} previous messages")
         
         # STEP 5: Build GPT context
         logger.info(f"📨 STEP 5: Building GPT context")
-        logger.info(f"   - Conversation category: {conversation.category}")
-        logger.info(f"   - Previous messages: {len(previous_messages)}")
-        logger.info(f"   - Engagement ID: {engagement_id}")
+
         
         messages = self._build_gpt_context(
             conversation=conversation,
@@ -199,10 +196,8 @@ class ChatService:
             engagement_id=engagement_id
         )
         
-        logger.info(f"✅ GPT context built: {len(messages)} total messages")
-        logger.info(f"   - System message: {len(messages[0]['content']) if messages else 0} characters")
-        logger.info(f"   - Conversation history: {len(previous_messages)} messages")
-        logger.info(f"   - Current message: {len(message_text)} characters")
+        logger.info(f"  GPT context built: {len(messages)} total messages")
+
         
         # STEP 6: Call OpenAI
         logger.info(f"📨 STEP 6: Calling OpenAI API")
@@ -220,15 +215,11 @@ class ChatService:
                 "completion_tokens": gpt_response.get("completion_tokens", 0),
             }
             
-            logger.info(f"✅ OpenAI response received")
-            logger.info(f"   - Model: {response_data.get('model')}")
-            logger.info(f"   - Response length: {len(response_text)} characters")
-            logger.info(f"   - Tokens used: {response_data.get('tokens_used')}")
-            logger.info(f"   - Prompt tokens: {response_data.get('prompt_tokens')}")
-            logger.info(f"   - Completion tokens: {response_data.get('completion_tokens')}")
+            logger.info(f"  OpenAI response received")
+
             
         except Exception as e:
-            logger.error(f"❌ Error calling OpenAI: {str(e)}", exc_info=True)
+            logger.error(f"  Error calling OpenAI: {str(e)}", exc_info=True)
             response_text = "I apologize, but I'm having trouble processing your request right now. Please try again later."
             response_data = {"error": str(e)}
         
@@ -249,9 +240,8 @@ class ChatService:
         
         self.db.commit()
         self.db.refresh(assistant_message)
-        logger.info(f"✅ Assistant message saved: message_id={assistant_message.id}")
-        logger.info(f"✅ Conversation updated: updated_at={conversation.updated_at}")
-        logger.info(f"🎉 Message processing complete!")
+        logger.info(f"  Assistant message saved: message_id={assistant_message.id}")
+        logger.info(f"  Conversation updated: updated_at={conversation.updated_at}")
         
         return assistant_message
     
@@ -341,7 +331,7 @@ class ChatService:
         })
         logger.info(f"   Current message: {current_message[:100]}...")
         
-        logger.info(f"✅ GPT context built: {len(messages)} total messages")
+        logger.info(f"  GPT context built: {len(messages)} total messages")
         return messages
     
     def _build_system_prompt(self, conversation: Conversation, engagement_id: Optional[UUID] = None) -> str:
@@ -362,9 +352,9 @@ class ChatService:
         logger.info(f"🔧 Loading base system prompt")
         try:
             base_prompt = load_prompt("system_prompt")
-            logger.info(f"✅ Base system prompt loaded from file ({len(base_prompt)} characters)")
+            logger.info(f"  Base system prompt loaded from file ({len(base_prompt)} characters)")
         except Exception as e:
-            logger.warning(f"⚠️ Could not load system_prompt.md, using default: {str(e)}")
+            logger.warning(f"  Could not load system_prompt.md, using default: {str(e)}")
             base_prompt = (
                 "You are Trinity, an expert business advisor. "
                 "You help business owners improve their operations, financial health, and prepare for sale. "
@@ -376,18 +366,18 @@ class ChatService:
         user = self.db.query(User).filter(User.id == conversation.user_id).first()
         if user and user.name:
             base_prompt += f"\n\nThe user's name is {user.name}."
-            logger.info(f"✅ User name added: {user.name}")
+            logger.info(f"  User name added: {user.name}")
         else:
-            logger.info(f"⚠️ User name not available")
+            logger.info(f"  User name not available")
         
         # Add category-specific prompt
         logger.info(f"🔧 Loading category prompt for: {conversation.category}")
         category_prompt = self._get_category_prompt(conversation.category)
         if category_prompt:
             base_prompt += f"\n\n{category_prompt}"
-            logger.info(f"✅ Category prompt added ({len(category_prompt)} characters)")
+            logger.info(f"  Category prompt added ({len(category_prompt)} characters)")
         else:
-            logger.warning(f"⚠️ No category prompt found for: {conversation.category}")
+            logger.warning(f"  No category prompt found for: {conversation.category}")
         
         # Add diagnostic context for ALL categories (if diagnostic is completed)
         # This ensures all conversations have access to diagnostic data
@@ -395,11 +385,11 @@ class ChatService:
         diagnostic_context = self._get_diagnostic_context(conversation, engagement_id=engagement_id)
         if diagnostic_context:
             base_prompt += f"\n\n{diagnostic_context}"
-            logger.info(f"✅ Diagnostic context added ({len(diagnostic_context)} characters)")
+            logger.info(f"  Diagnostic context added ({len(diagnostic_context)} characters)")
         else:
             logger.info(f"ℹ️ No diagnostic context available (diagnostic may not be completed)")
         
-        logger.info(f"✅ System prompt built: total length = {len(base_prompt)} characters")
+        logger.info(f"  System prompt built: total length = {len(base_prompt)} characters")
         return base_prompt
     
     def _get_category_prompt(self, category: str) -> Optional[str]:
@@ -418,10 +408,10 @@ class ChatService:
         try:
             # Try loading the prompt file directly
             prompt = load_prompt(f"category_prompt_{category}")
-            logger.info(f"✅ Category prompt loaded from: category_prompt_{category}.md ({len(prompt)} characters)")
+            logger.info(f"  Category prompt loaded from: category_prompt_{category}.md ({len(prompt)} characters)")
             return prompt
         except Exception as e:
-            logger.debug(f"⚠️ Could not load category_prompt_{category}.md: {str(e)}")
+            logger.debug(f"  Could not load category_prompt_{category}.md: {str(e)}")
             # If file doesn't exist, try alternative names
             # Handle common variations
             category_variations = {
@@ -451,12 +441,12 @@ class ChatService:
             
             try:
                 prompt = load_prompt(f"category_prompt_{normalized_category}")
-                logger.info(f"✅ Category prompt loaded from: category_prompt_{normalized_category}.md ({len(prompt)} characters)")
+                logger.info(f"  Category prompt loaded from: category_prompt_{normalized_category}.md ({len(prompt)} characters)")
                 return prompt
             except Exception as e2:
-                logger.warning(f"⚠️ Could not load category_prompt_{normalized_category}.md: {str(e2)}")
+                logger.warning(f"  Could not load category_prompt_{normalized_category}.md: {str(e2)}")
                 # Fallback to default prompts if file still doesn't exist
-                logger.warning(f"⚠️ Using default prompt for category: {category}")
+                logger.warning(f"  Using default prompt for category: {category}")
                 default_prompts = {
                     "general": "This is a general business advisory conversation. Provide helpful business advice.",
                     "financial": "This conversation focuses on financial matters. Provide financial advice and analysis.",
@@ -465,9 +455,9 @@ class ChatService:
                 }
                 default = default_prompts.get(normalized_category)
                 if default:
-                    logger.info(f"✅ Using default prompt ({len(default)} characters)")
+                    logger.info(f"  Using default prompt ({len(default)} characters)")
                 else:
-                    logger.warning(f"❌ No default prompt available for: {normalized_category}")
+                    logger.warning(f"  No default prompt available for: {normalized_category}")
                 return default
     
     def _get_diagnostic_context(self, conversation: Conversation, engagement_id: Optional[UUID] = None) -> Optional[str]:
@@ -494,7 +484,7 @@ class ChatService:
         ).order_by(Diagnostic.completed_at.desc()).first()
         
         if diagnostic:
-            logger.info(f"✅ Found diagnostic linked to conversation: {diagnostic.id}")
+            logger.info(f"  Found diagnostic linked to conversation: {diagnostic.id}")
         else:
             logger.info(f"ℹ️ No diagnostic linked to conversation")
         
@@ -507,7 +497,7 @@ class ChatService:
             ).order_by(Diagnostic.completed_at.desc()).first()
             
             if diagnostic:
-                logger.info(f"✅ Found diagnostic by engagement: {diagnostic.id}")
+                logger.info(f"  Found diagnostic by engagement: {diagnostic.id}")
             else:
                 logger.info(f"ℹ️ No diagnostic found for engagement")
         
@@ -520,15 +510,15 @@ class ChatService:
             ).order_by(Diagnostic.completed_at.desc()).first()
             
             if diagnostic:
-                logger.info(f"✅ Found user's most recent diagnostic: {diagnostic.id}")
+                logger.info(f"  Found user's most recent diagnostic: {diagnostic.id}")
             else:
                 logger.info(f"ℹ️ No completed diagnostic found for user")
         
         if not diagnostic:
-            logger.info(f"❌ No diagnostic context available")
+            logger.info(f"  No diagnostic context available")
             return None
         
-        logger.info(f"✅ Diagnostic found: {diagnostic.id}, building context")
+        logger.info(f"  Diagnostic found: {diagnostic.id}, building context")
         context_parts = []
         
         # Add diagnostic summary
@@ -537,11 +527,11 @@ class ChatService:
             summary = diagnostic.ai_analysis.get("summary", "")
             if summary:
                 context_parts.append(f"Diagnostic Summary:\n{summary}")
-                logger.info(f"✅ Summary added ({len(summary)} characters)")
+                logger.info(f"  Summary added ({len(summary)} characters)")
             else:
-                logger.warning(f"⚠️ No summary in ai_analysis")
+                logger.warning(f"  No summary in ai_analysis")
         else:
-            logger.warning(f"⚠️ ai_analysis is not a dict or missing")
+            logger.warning(f"  ai_analysis is not a dict or missing")
         
         # Add diagnostic advice
         logger.info(f"🔧 Extracting diagnostic advice")
@@ -549,18 +539,18 @@ class ChatService:
             advice = diagnostic.ai_analysis.get("advisorReport", "")
             if advice:
                 context_parts.append(f"Diagnostic Advice:\n{advice}")
-                logger.info(f"✅ Advice added ({len(advice)} characters)")
+                logger.info(f"  Advice added ({len(advice)} characters)")
             else:
-                logger.warning(f"⚠️ No advisorReport in ai_analysis")
+                logger.warning(f"  No advisorReport in ai_analysis")
         
         # Add Q&A extract if available (from user_responses)
         logger.info(f"🔧 Extracting Q&A data")
         if diagnostic.user_responses:
             qa_json = json.dumps(diagnostic.user_responses, indent=2)
             context_parts.append(f"Diagnostic Q&A Data:\n{qa_json}")
-            logger.info(f"✅ Q&A data added ({len(qa_json)} characters)")
+            logger.info(f"  Q&A data added ({len(qa_json)} characters)")
         else:
-            logger.warning(f"⚠️ No user_responses available")
+            logger.warning(f"  No user_responses available")
         
         if context_parts:
             context = (
@@ -568,11 +558,11 @@ class ChatService:
                 "Remind the user about significant information and events from their diagnostic.\n\n"
                 + "\n\n".join(context_parts)
             )
-            logger.info(f"✅ Diagnostic context built: {len(context)} total characters")
+            logger.info(f"  Diagnostic context built: {len(context)} total characters")
             logger.info(f"   - Parts included: {len(context_parts)}")
             return context
         
-        logger.warning(f"⚠️ No context parts available, returning None")
+        logger.warning(f"  No context parts available, returning None")
         return None
     
     async def _generate_welcome_message(self, category: str) -> Optional[str]:

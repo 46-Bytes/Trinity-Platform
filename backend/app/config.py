@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     AUTH0_CLIENT_SECRET: str = os.getenv("AUTH0_CLIENT_SECRET")
     AUTH0_AUDIENCE: str = os.getenv("AUTH0_AUDIENCE")
     AUTH0_ALGORITHMS: str = "RS256"
+    AUTH0_USERNAME_NAMESPACE: str = os.getenv("AUTH0_USERNAME_NAMESPACE", "https://your-app.com/username")
     
     # Frontend
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:8080")

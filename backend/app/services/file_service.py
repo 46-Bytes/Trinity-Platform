@@ -148,9 +148,9 @@ class FileService:
                     media.openai_purpose = openai_file.get('purpose') or "user_data"
                     from datetime import datetime
                     media.openai_uploaded_at = datetime.utcnow()
-                    print(f"✅ File uploaded to OpenAI: {media.openai_file_id}")
+                    print(f"  File uploaded to OpenAI: {media.openai_file_id}")
             except Exception as e:
-                print(f"⚠️ Failed to upload file to OpenAI: {str(e)}")
+                print(f"  Failed to upload file to OpenAI: {str(e)}")
                 # Continue even if OpenAI upload fails
         
         self.db.commit()
@@ -193,7 +193,7 @@ class FileService:
                 )
                 media_list.append(media)
             except Exception as e:
-                print(f"⚠️ Failed to upload file {file.filename}: {str(e)}")
+                print(f"  Failed to upload file {file.filename}: {str(e)}")
                 # Continue with other files
         
         return media_list
@@ -260,7 +260,7 @@ class FileService:
                 if os.path.exists(media.file_path):
                     os.remove(media.file_path)
             except Exception as e:
-                print(f"⚠️ Failed to delete physical file: {str(e)}")
+                print(f"  Failed to delete physical file: {str(e)}")
             
             # Delete from database
             self.db.delete(media)

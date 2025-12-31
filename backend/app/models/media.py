@@ -50,6 +50,7 @@ class Media(Base):
     description = Column(Text, nullable=True, comment="User-provided description")
     question_field_name = Column(String(255), nullable=True, 
                                 comment="Which diagnostic question this file answers")
+    tag = Column(String(255), nullable=True, comment="Document tag for organization (advisor-only)")
     is_active = Column(Boolean, nullable=False, server_default='true')
     
     # Timestamps
@@ -75,6 +76,7 @@ class Media(Base):
             "openai_file_id": self.openai_file_id,
             "description": self.description,
             "question_field_name": self.question_field_name,
+            "tag": self.tag,
             "created_at": self.created_at.isoformat() if self.created_at else None
         }
 

@@ -13,18 +13,18 @@ export function MultipleTextQuestion({ question, value, onChange }) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full min-w-0">
       <div>
-        <Label className="text-lg font-semibold">{question.title}</Label>
+        <Label className="text-lg font-semibold break-words">{question.title}</Label>
         {question.description && (
-          <p className="text-sm text-muted-foreground mt-1">{question.description}</p>
+          <p className="text-sm text-muted-foreground mt-1 break-words">{question.description}</p>
         )}
       </div>
       
-      <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
+      <div className="space-y-4 border rounded-lg p-4 bg-muted/30 w-full min-w-0">
         {question.items.map((item) => (
-          <div key={item.name} className="space-y-2">
-            <Label htmlFor={`${question.name}-${item.name}`} className="font-medium">
+          <div key={item.name} className="space-y-2 w-full min-w-0">
+            <Label htmlFor={`${question.name}-${item.name}`} className="font-medium break-words">
               {item.title}
             </Label>
             <Input

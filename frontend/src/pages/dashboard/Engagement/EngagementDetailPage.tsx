@@ -541,14 +541,14 @@ export default function EngagementDetailPage() {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Engagement Details</h1>
-        <p className="text-muted-foreground mt-1">Manage your client engagement</p>
+    <div className="w-full mx-auto px-0 sm:px-1 md:px-3 lg:px-6 py-2 sm:py-3 md:py-6" style={{ width: '100%', boxSizing: 'border-box', maxWidth: '100vw', overflowX: 'clip', paddingLeft: 'clamp(0px, 1vw, 24px)', paddingRight: 'clamp(0px, 1vw, 24px)' }}>
+      <div className="mb-4 sm:mb-6" style={{ width: '100%', maxWidth: '100%' }}>
+        <h1 className="text-2xl sm:text-3xl font-bold break-words" style={{ maxWidth: '100%' }}>Engagement Details</h1>
+        <p className="text-muted-foreground mt-1 break-words" style={{ maxWidth: '100%' }}>Manage your client engagement</p>
       </div>
       
-      <Tabs defaultValue="overview" className="w-full">
-        <div className="flex items-center gap-4 mb-4">
+      <Tabs defaultValue="overview" className="w-full min-w-0">
+        <div className="flex items-center gap-4 mb-4 flex-wrap">
           <Button
             variant="ghost"
             size="sm"
@@ -628,8 +628,8 @@ export default function EngagementDetailPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="diagnostic" className="mt-6">
-          <div className="card-trinity p-6">
+        <TabsContent value="diagnostic" className="mt-4 sm:mt-6 w-full" style={{ width: '100%', maxWidth: '100%', overflowX: 'clip' }}>
+          <div className="card-trinity px-0 sm:px-1 md:px-3 lg:px-6 py-2 sm:py-3 md:py-6 w-full" style={{ width: '100%', boxSizing: 'border-box', maxWidth: '100%', overflowX: 'clip', paddingLeft: 'clamp(0px, 1vw, 24px)', paddingRight: 'clamp(0px, 1vw, 24px)' }}>
             <ToolSurvey engagementId={engagementId} toolType="diagnostic" />
           </div>
         </TabsContent>

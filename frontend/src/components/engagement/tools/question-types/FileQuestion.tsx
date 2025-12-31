@@ -222,16 +222,16 @@ export function FileQuestion({ question, value, onChange, diagnosticId, engageme
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full min-w-0">
       <div>
-        <Label>{question.title}</Label>
+        <Label className="break-words">{question.title}</Label>
         {question.description && (
-          <p className="text-sm text-muted-foreground mt-1">{question.description}</p>
+          <p className="text-sm text-muted-foreground mt-1 break-words">{question.description}</p>
         )}
       </div>
 
       {/* File Input */}
-      <div className="border-2 border-dashed rounded-lg p-6 text-center">
+      <div className="border-2 border-dashed rounded-lg p-6 text-center w-full min-w-0">
         <input
           type="file"
           id={`file-input-${question.name}`}
@@ -261,13 +261,13 @@ export function FileQuestion({ question, value, onChange, diagnosticId, engageme
 
       {/* Uploaded Files List */}
       {files.length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-2 w-full min-w-0">
           <Label className="text-sm">Uploaded Files ({files.length})</Label>
-          <div className="space-y-2">
+          <div className="space-y-2 w-full min-w-0">
             {files.map((file, index) => (
               <div
                 key={index}
-                className="flex items-center justify-between p-3 border rounded-lg bg-muted/30"
+                className="flex items-center justify-between p-3 border rounded-lg bg-muted/30 w-full min-w-0"
               >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <File className="w-5 h-5 text-muted-foreground flex-shrink-0" />

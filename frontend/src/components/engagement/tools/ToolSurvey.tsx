@@ -301,7 +301,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
   // Show loading state
   if (isLoading && !diagnostic) {
     return (
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="w-full px-0 sm:px-1 md:px-3 lg:px-6 py-2 sm:py-3 md:py-6" style={{ width: '100%', boxSizing: 'border-box', maxWidth: '100%' }}>
         <div className="flex items-center justify-center py-12">
           <p className="text-muted-foreground">Loading diagnostic...</p>
         </div>
@@ -312,7 +312,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
   // Show error state
   if (error && !diagnostic) {
     return (
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="w-full px-0 sm:px-1 md:px-3 lg:px-6 py-2 sm:py-3 md:py-6" style={{ width: '100%', boxSizing: 'border-box', maxWidth: '100%' }}>
         <div className="text-center py-12">
           <p className="text-destructive mb-2">Error loading diagnostic</p>
           <p className="text-sm text-muted-foreground">{error}</p>
@@ -324,7 +324,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
   // Show message if diagnostic not found
   if (!diagnostic) {
     return (
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="w-full px-0 sm:px-1 md:px-3 lg:px-6 py-2 sm:py-3 md:py-6" style={{ width: '100%', boxSizing: 'border-box', maxWidth: '100%' }}>
         <div className="text-center py-12">
           <p className="text-muted-foreground">No diagnostic found for this engagement.</p>
           <p className="text-sm text-muted-foreground mt-2">
@@ -336,17 +336,17 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="w-full mx-auto px-0 sm:px-1 md:px-3 lg:px-6 py-2 sm:py-3 md:py-6" style={{ width: '100%', boxSizing: 'border-box', maxWidth: '100%', overflowX: 'clip', paddingLeft: 'clamp(0px, 1vw, 24px)', paddingRight: 'clamp(0px, 1vw, 24px)' }}>
       {/* If diagnostic is completed, show completion message and download button - Hidden for admins */}
       {diagnostic.status === 'completed' && !isAdmin && (
-        <div className="mb-8 rounded-lg border border-green-200 bg-green-50 p-4">
-          <p className="font-semibold text-green-800">
+        <div className="mb-6 sm:mb-8 rounded-lg border border-green-200 bg-green-50 p-3 sm:p-4" style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+          <p className="font-semibold text-green-800 break-words" style={{ maxWidth: '100%' }}>
             Diagnostic completed and analyzed.
           </p>
-          <p className="mt-1 text-sm text-green-900">
+          <p className="mt-1 text-sm text-green-900 break-words" style={{ maxWidth: '100%' }}>
             You can download the full diagnostic report as a PDF.
           </p>
-          <div className="mt-4">
+          <div className="mt-3 sm:mt-4">
             <Button
               variant="default"
               onClick={async () => {
@@ -403,17 +403,17 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
 
       {/* Progress Bar */}
       {!isSubmitting && diagnostic.status !== 'processing' && (
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-2">
-            <h2 className="text-2xl font-bold">{currentPageData.title}</h2>
-            <span className="text-sm text-muted-foreground">
+        <div className="mb-6 sm:mb-8 w-full" style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+          <div className="flex justify-between items-center mb-2 gap-2 flex-wrap">
+            <h2 className="text-xl sm:text-2xl font-bold break-words flex-1 min-w-0" style={{ maxWidth: '100%' }}>{currentPageData.title}</h2>
+            <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap flex-shrink-0">
               Page {currentPage + 1} of {totalPages}
             </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full bg-gray-200 rounded-full h-2" style={{ maxWidth: '100%' }}>
             <div 
               className="bg-accent h-2 rounded-full transition-all"
-              style={{ width: `${progress}%` }}
+              style={{ width: `${progress}%`, maxWidth: '100%' }}
             />
           </div>
         </div>
@@ -436,7 +436,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
       ) : (
         <>
           {/* Questions */}
-          <div className="space-y-6">
+          <div className="space-y-6 w-full" style={{ width: '100%', boxSizing: 'border-box', maxWidth: '100%', overflowX: 'clip' }}>
             {currentPageData.elements.map((element) => {
               // Get value from merged responses (includes both saved and local changes)
               const value = responses[element.name];
@@ -457,16 +457,21 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
           </div>
 
           {/* Navigation */}
-          <div className="flex justify-between mt-8">
+          <div className="flex justify-between mt-6 sm:mt-8 gap-2" style={{ width: '100%', maxWidth: '100%' }}>
             <Button
               variant="outline"
               onClick={handlePrevPage}
               disabled={currentPage === 0 || isSaving || isLoading}
+              className="flex-shrink-0"
             >
               Previous
             </Button>
             
-            <Button onClick={handleNextPage} disabled={isSaving || isLoading || !diagnostic?.id}>
+            <Button 
+              onClick={handleNextPage} 
+              disabled={isSaving || isLoading || !diagnostic?.id}
+              className="flex-shrink-0"
+            >
               {isSaving 
                 ? 'Saving...' 
                 : currentPage === totalPages - 1 

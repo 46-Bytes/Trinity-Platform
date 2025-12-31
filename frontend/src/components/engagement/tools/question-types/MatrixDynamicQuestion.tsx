@@ -38,66 +38,68 @@ export function MatrixDynamicQuestion({ question, value, onChange }) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full" style={{ maxWidth: '100%', width: '100%', boxSizing: 'border-box' }}>
       <div>
-        <Label className="text-lg font-semibold">{question.title}</Label>
+        <Label className="text-lg font-semibold break-words">{question.title}</Label>
         {question.description && (
-          <p className="text-sm text-muted-foreground mt-1">{question.description}</p>
+          <p className="text-sm text-muted-foreground mt-1 break-words">{question.description}</p>
         )}
       </div>
 
-      <div className="border rounded-lg overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12">#</TableHead>
-              {question.columns.map((column) => (
-                <TableHead key={column.name}>{column.title}</TableHead>
-              ))}
-              <TableHead className="w-16">Action</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {currentValue.length === 0 ? (
+      <div className="w-full" style={{ maxWidth: '100%', width: '100%', overflow: 'visible', boxSizing: 'border-box' }}>
+        <div className="border rounded-lg overflow-x-auto w-full" style={{ maxWidth: '100%', width: '100%', WebkitOverflowScrolling: 'touch', boxSizing: 'border-box' }}>
+          <Table style={{ width: 'max-content', minWidth: '100%' }}>
+            <TableHeader>
               <TableRow>
-                <TableCell 
-                  colSpan={question.columns.length + 2} 
-                  className="text-center text-muted-foreground py-8"
-                >
-                  No entries yet. Click "Add Row" to start.
-                </TableCell>
+                <TableHead className="min-w-[3rem] px-2" style={{ width: '48px' }}>#</TableHead>
+                {question.columns.map((column) => (
+                  <TableHead key={column.name} className="px-2 break-words" style={{ minWidth: '120px', maxWidth: '200px', whiteSpace: 'normal', wordWrap: 'break-word' }}>{column.title}</TableHead>
+                ))}
+                <TableHead className="min-w-[4rem] px-2" style={{ width: '64px' }}>Action</TableHead>
               </TableRow>
-            ) : (
-              currentValue.map((row, rowIndex) => (
-                <TableRow key={rowIndex}>
-                  <TableCell className="font-medium">{rowIndex + 1}</TableCell>
-                  {question.columns.map((column) => (
-                    <TableCell key={column.name}>
-                      <Input
-                        type="text"
-                        value={row[column.name] || ''}
-                        onChange={(e) => handleCellChange(rowIndex, column.name, e.target.value)}
-                        placeholder={`Enter ${column.title.toLowerCase()}`}
-                        className="min-w-[150px]"
-                      />
-                    </TableCell>
-                  ))}
-                  <TableCell>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleRemoveRow(rowIndex)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+            </TableHeader>
+            <TableBody>
+              {currentValue.length === 0 ? (
+                <TableRow>
+                  <TableCell 
+                    colSpan={question.columns.length + 2} 
+                    className="text-center text-muted-foreground py-8"
+                  >
+                    No entries yet. Click "Add Row" to start.
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                currentValue.map((row, rowIndex) => (
+                  <TableRow key={rowIndex}>
+                    <TableCell className="font-medium w-12">{rowIndex + 1}</TableCell>
+                      {question.columns.map((column) => (
+                        <TableCell key={column.name} className="px-2" style={{ minWidth: '120px', maxWidth: '200px' }}>
+                          <Input
+                            type="text"
+                            value={row[column.name] || ''}
+                            onChange={(e) => handleCellChange(rowIndex, column.name, e.target.value)}
+                            placeholder={`Enter ${column.title.toLowerCase()}`}
+                            className="w-full"
+                          />
+                        </TableCell>
+                      ))}
+                    <TableCell className="w-16">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveRow(rowIndex)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       <Button

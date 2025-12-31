@@ -3,10 +3,10 @@ import { Input } from "@/components/ui/input";
 
 export function TextQuestion({ question, value, onChange }) {
   return (
-    <div className="space-y-2">
-      <Label>{question.title}</Label>
+    <div className="space-y-2 w-full min-w-0">
+      <Label className="break-words">{question.title}</Label>
       {question.description && (
-        <p className="text-sm text-muted-foreground">{question.description}</p>
+        <p className="text-sm text-muted-foreground break-words">{question.description}</p>
       )}
       
       <Input

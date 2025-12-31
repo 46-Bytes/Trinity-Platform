@@ -138,22 +138,22 @@ export default function ClientsPage() {
   const isLoadingData = isLoading || engagementsLoading;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-2xl font-bold text-foreground">Clients</h1>
-          <p className="text-muted-foreground mt-1">Manage your client relationships</p>
+    <div className="space-y-6 w-full min-w-0" style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 w-full min-w-0">
+        <div className="w-full min-w-0">
+          <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground break-words">Clients</h1>
+          <p className="text-muted-foreground mt-1 break-words">Manage your client relationships</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="stat-card">
-          <p className="text-sm text-muted-foreground">Total Clients</p>
-          <p className="text-2xl font-heading font-bold mt-1">{totalClientsCount}</p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 w-full min-w-0">
+        <div className="stat-card w-full min-w-0" style={{ maxWidth: '100%' }}>
+          <p className="text-sm text-muted-foreground break-words">Total Clients</p>
+          <p className="text-xl sm:text-2xl font-heading font-bold mt-1 break-words">{totalClientsCount}</p>
         </div>
-        <div className="stat-card">
-          <p className="text-sm text-muted-foreground">Active Clients</p>
-          <p className="text-2xl font-heading font-bold mt-1">{activeClientsCount}</p>
+        <div className="stat-card w-full min-w-0" style={{ maxWidth: '100%' }}>
+          <p className="text-sm text-muted-foreground break-words">Active Clients</p>
+          <p className="text-xl sm:text-2xl font-heading font-bold mt-1 break-words">{activeClientsCount}</p>
         </div>
       </div>
 
@@ -165,9 +165,9 @@ export default function ClientsPage() {
       )}
 
       {!isLoadingData && (
-        <div className="card-trinity p-6">
-          <div className="mb-6">
-            <div className="relative max-w-md">
+        <div className="card-trinity p-3 sm:p-4 md:p-6 w-full min-w-0" style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+          <div className="mb-4 sm:mb-6 w-full min-w-0">
+            <div className="relative w-full max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 type="text"
@@ -175,41 +175,42 @@ export default function ClientsPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="input-trinity pl-10 w-full"
+                style={{ maxWidth: '100%' }}
               />
             </div>
           </div>
 
           {filteredClients.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-muted-foreground">No clients found</p>
+              <p className="text-muted-foreground break-words">No clients found</p>
               {searchQuery && (
-                <p className="text-sm text-muted-foreground mt-2">
+                <p className="text-sm text-muted-foreground mt-2 break-words">
                   Try adjusting your search
                 </p>
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 w-full min-w-0">
               {filteredClients.map((client) => (
-                <div key={client.id} className="card-trinity p-5 hover:shadow-trinity-md cursor-pointer group">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                        <Building2 className="w-6 h-6 text-primary" />
+                <div key={client.id} className="card-trinity p-3 sm:p-4 md:p-5 hover:shadow-trinity-md cursor-pointer group w-full min-w-0" style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+                  <div className="flex items-start justify-between mb-3 sm:mb-4 gap-2 w-full min-w-0">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <Building2 className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-foreground group-hover:text-accent transition-colors truncate">
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <h3 className="font-semibold text-sm sm:text-base text-foreground group-hover:text-accent transition-colors truncate break-words" style={{ maxWidth: '100%' }}>
                           {client.name}
                         </h3>
-                        <p className="text-sm text-muted-foreground truncate">{client.email}</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground truncate break-words" style={{ maxWidth: '100%' }}>{client.email}</p>
                         {client.industry && (
-                          <p className="text-sm text-muted-foreground mt-1">{client.industry}</p>
+                          <p className="text-xs sm:text-sm text-muted-foreground mt-1 break-words" style={{ maxWidth: '100%' }}>{client.industry}</p>
                         )}
                       </div>
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button className="p-1.5 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100">
+                        <button className="p-1.5 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0">
                           <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
                         </button>
                       </DropdownMenuTrigger>
@@ -226,21 +227,21 @@ export default function ClientsPage() {
                     </DropdownMenu>
                   </div>
 
-                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-border gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className={cn(
-                        "status-badge",
+                        "status-badge text-xs",
                         client.status === 'Active' ? "status-success" : "status-warning"
                       )}>
                         {client.status}
                       </span>
                       {!client.email_verified && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 whitespace-nowrap">
                           Unverified
                         </span>
                       )}
                     </div>
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
                       {client.engagements} {client.engagements === 1 ? 'engagement' : 'engagements'}
                     </span>
                   </div>

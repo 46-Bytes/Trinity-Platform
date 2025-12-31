@@ -27,13 +27,13 @@ export function DashboardLayout() {
       />
       
       <div className={cn(
-        "flex-1 flex flex-col transition-all duration-300",
+        "flex-1 flex flex-col transition-all duration-300 overflow-x-hidden",
         sidebarCollapsed ? "ml-[72px]" : "ml-[260px]"
-      )}>
+      )} style={{ width: '100%', maxWidth: '100vw', boxSizing: 'border-box' }}>
         <TopBar onMenuClick={() => setSidebarCollapsed(!sidebarCollapsed)} />
         
-        <main className="flex-1 p-6 overflow-auto">
-          <div className="max-w-7xl mx-auto animate-fade-in">
+        <main className="flex-1 p-0 sm:p-1 md:p-2 lg:p-4 xl:p-6 overflow-auto overflow-x-hidden" style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+          <div className="w-full mx-auto animate-fade-in" style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
             <Outlet />
           </div>
         </main>

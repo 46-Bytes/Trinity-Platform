@@ -35,11 +35,11 @@ export function CheckboxQuestion({ question, value, onChange }: CheckboxQuestion
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full min-w-0">
       <div>
-        <Label>{question.title}</Label>
+        <Label className="break-words">{question.title}</Label>
         {question.description && (
-          <p className="text-sm text-muted-foreground mt-1">{question.description}</p>
+          <p className="text-sm text-muted-foreground mt-1 break-words">{question.description}</p>
         )}
       </div>
 

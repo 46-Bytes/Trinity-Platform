@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, Calendar, User, AlertCircle, CheckCircle2, Clock, Circle, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, capitalizeFirstLetter } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchTasks, updateTask, Task, TaskUpdatePayload } from '@/store/slices/tasksReducer';
 import { useNavigate } from 'react-router-dom';
@@ -237,7 +237,7 @@ export default function TasksPage() {
                               task.priority === 'medium' && "bg-warning/10 text-warning",
                               task.priority === 'low' && "bg-muted text-muted-foreground"
                             )}>
-                              {task.priority}
+                              {capitalizeFirstLetter(task.priority)}
                             </span>
                           </div>
                         </div>
@@ -306,7 +306,7 @@ export default function TasksPage() {
                   <label className="text-sm font-medium text-muted-foreground">Priority</label>
                   <div className="mt-1">
                     <Badge variant={getPriorityBadgeVariant(selectedTask.priority)}>
-                      {selectedTask.priority}
+                      {capitalizeFirstLetter(selectedTask.priority)}
                     </Badge>
                   </div>
                 </div>

@@ -1,6 +1,6 @@
 import { FileText, Download, Calendar, User, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn, capitalizeFirstLetter } from '@/lib/utils';
 
 export interface GeneratedFileProps {
   id: string;
@@ -73,7 +73,7 @@ export function GeneratedFile({
             </span>
             {toolType && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-accent/20 text-accent">
-                {toolType}
+                {capitalizeFirstLetter(toolType)}
               </span>
             )}
             {isProcessing && (

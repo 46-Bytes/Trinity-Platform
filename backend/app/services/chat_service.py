@@ -156,8 +156,7 @@ class ChatService:
             Assistant Message model with the AI response
         """
         logger.info(f"📨 STEP 1: Starting send_message for conversation {conversation_id}, user {user_id}")
-        logger.info(f"   Message length: {len(message_text)} characters")
-        logger.info(f"   Engagement ID: {engagement_id}")
+
         
         # STEP 2: Verify conversation belongs to user
         logger.info(f"📨 STEP 2: Verifying conversation ownership")
@@ -188,9 +187,7 @@ class ChatService:
         
         # STEP 5: Build GPT context
         logger.info(f"📨 STEP 5: Building GPT context")
-        logger.info(f"   - Conversation category: {conversation.category}")
-        logger.info(f"   - Previous messages: {len(previous_messages)}")
-        logger.info(f"   - Engagement ID: {engagement_id}")
+
         
         messages = self._build_gpt_context(
             conversation=conversation,
@@ -200,9 +197,7 @@ class ChatService:
         )
         
         logger.info(f"✅ GPT context built: {len(messages)} total messages")
-        logger.info(f"   - System message: {len(messages[0]['content']) if messages else 0} characters")
-        logger.info(f"   - Conversation history: {len(previous_messages)} messages")
-        logger.info(f"   - Current message: {len(message_text)} characters")
+
         
         # STEP 6: Call OpenAI
         logger.info(f"📨 STEP 6: Calling OpenAI API")
@@ -221,11 +216,7 @@ class ChatService:
             }
             
             logger.info(f"✅ OpenAI response received")
-            logger.info(f"   - Model: {response_data.get('model')}")
-            logger.info(f"   - Response length: {len(response_text)} characters")
-            logger.info(f"   - Tokens used: {response_data.get('tokens_used')}")
-            logger.info(f"   - Prompt tokens: {response_data.get('prompt_tokens')}")
-            logger.info(f"   - Completion tokens: {response_data.get('completion_tokens')}")
+
             
         except Exception as e:
             logger.error(f"❌ Error calling OpenAI: {str(e)}", exc_info=True)
@@ -251,7 +242,6 @@ class ChatService:
         self.db.refresh(assistant_message)
         logger.info(f"✅ Assistant message saved: message_id={assistant_message.id}")
         logger.info(f"✅ Conversation updated: updated_at={conversation.updated_at}")
-        logger.info(f"🎉 Message processing complete!")
         
         return assistant_message
     

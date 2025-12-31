@@ -162,17 +162,12 @@ class OpenAIService:
                 params["tools"] = normalized_tools
             
             logger.info(f"[OpenAI API] Making API call to responses.create()")
-            logger.info(f"[OpenAI API] Model: {params.get('model')}")
-            logger.info(f"[OpenAI API] Reasoning effort: {params.get('reasoning', {}).get('effort', 'none')}")
-            logger.info(f"[OpenAI API] JSON mode: {json_mode}")
             logger.info(f"[OpenAI API] Input messages count: {len(params.get('input', []))}")
             logger.info(f"[OpenAI API] File attachments: {len(file_ids) if file_ids else 0}")
-            logger.info(f"[OpenAI API] Tools enabled: {tools if tools else 'none'}")
             
             # Make API call using Responses API
             # Run in thread pool to avoid blocking the event loop
             logger.info("[OpenAI API] ⏳ Waiting for OpenAI API response (this may take several minutes)...")
-            logger.info("[OpenAI API] Running in thread pool to avoid blocking other requests...")
             start_time = time.time()
             
             # Run the blocking OpenAI call in a thread pool
@@ -360,15 +355,12 @@ class OpenAIService:
             Dictionary containing scoring results, roadmap, and advisor report
         """
         logger.info("[OpenAI] ========== Starting process_scoring ==========")
-        logger.info(f"[OpenAI] Model: {self.model}")
-        logger.info(f"[OpenAI] Reasoning effort: {reasoning_effort}")
         logger.info(f"[OpenAI] File IDs provided: {len(file_ids) if file_ids else 0}")
         if file_ids:
             logger.info(f"[OpenAI] File IDs: {file_ids}")
         logger.info(f"[OpenAI] File context length: {len(file_context) if file_context else 0} characters")
         logger.info(f"[OpenAI] User responses count: {len(user_responses)}")
-        logger.info(f"[OpenAI] Scoring map entries: {len(scoring_map)}")
-        logger.info(f"[OpenAI] Task library entries: {len(task_library)}")
+
         
         # Build file context message if files are present
         file_context_msg = ""
@@ -427,8 +419,6 @@ class OpenAIService:
                 tools=tools
             )
             logger.info("[OpenAI] ✅ generate_json_completion completed successfully")
-            logger.info(f"[OpenAI] Response content length: {len(result.get('content', ''))} characters")
-            logger.info(f"[OpenAI] Parsed content keys: {list(result.get('parsed_content', {}).keys())}")
             return result
         except Exception as e:
             logger.error(f"[OpenAI] ❌ generate_json_completion failed: {str(e)}", exc_info=True)

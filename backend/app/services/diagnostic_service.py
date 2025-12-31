@@ -400,14 +400,10 @@ class DiagnosticService:
         
         # Load scoring prompt
         scoring_prompt = load_prompt("scoring_prompt")
-        logger.info(f"[Scoring] Scoring prompt loaded: {len(scoring_prompt)} characters")
-        logger.info(f"[Scoring] Scoring map loaded: {len(scoring_map)} entries")
-        logger.info(f"[Scoring] Task library loaded: {len(task_library)} entries")
-        logger.info(f"[Scoring] User responses count: {len(user_responses)} responses")
+
         
         # Call OpenAI API for scoring
         logger.info("[Scoring] Calling OpenAI API for scoring (this may take several minutes)...")
-        logger.info(f"[Scoring] Model: {openai_service.model}, Reasoning effort: high")
         
         try:
             scoring_result = await openai_service.process_scoring(
@@ -426,18 +422,12 @@ class DiagnosticService:
                     else None
                 )
             )
-            logger.info("[Scoring] ✅ OpenAI API call completed successfully")
-            logger.info(f"[Scoring] Tokens used: {scoring_result.get('tokens_used', 0)}")
-            logger.info(f"[Scoring] Prompt tokens: {scoring_result.get('prompt_tokens', 0)}")
-            logger.info(f"[Scoring] Completion tokens: {scoring_result.get('completion_tokens', 0)}")
         except Exception as e:
             logger.error(f"[Scoring] ❌ OpenAI API call failed: {str(e)}", exc_info=True)
             raise
         
         # Extract scoring data
-        logger.info("[Scoring] Extracting scoring data from API response...")
         scoring_data = scoring_result["parsed_content"]
-        logger.info(f"[Scoring] Scoring data extracted. Keys: {list(scoring_data.keys())}")
         
         # ===== STEP 4: Calculate and Validate Scores =====
         # Check for shutdown after step 3 (scoring)
@@ -454,36 +444,18 @@ class DiagnosticService:
         client_summary = scoring_data.get("clientSummary", "")
         advisor_report = scoring_data.get("advisorReport", "")
         
-        logger.info(f"[Scoring Data] Scored rows count: {len(scored_rows)}")
-        logger.info(f"[Scoring Data] Roadmap items count: {len(roadmap) if isinstance(roadmap, (list, tuple)) else 'N/A (not a list)'}")
-        logger.info(f"[Scoring Data] Client summary length: {len(client_summary) if client_summary else 0} characters")
-        logger.info(f"[Scoring Data] Advisor report length: {len(advisor_report) if advisor_report else 0} characters")
-        
-        if scored_rows and isinstance(scored_rows, (list, tuple)) and len(scored_rows) > 0:
-            logger.info(f"[Scoring Data] Sample scored row: {scored_rows[0]}")
-        if roadmap and isinstance(roadmap, (list, tuple)) and len(roadmap) > 0:
-            logger.info(f"[Scoring Data] Sample roadmap item: {roadmap[0]}")
-        elif roadmap:
-            logger.info(f"[Scoring Data] Roadmap type: {type(roadmap)}, value: {roadmap}")
         
         # Calculate module scores
         logger.info("[Scoring Data] Calculating module scores...")
         module_scores = scoring_service.calculate_module_scores(scored_rows)
-        logger.info(f"[Scoring Data] Module scores calculated: {len(module_scores)} modules")
-        for module, score_data in module_scores.items():
-            logger.info(f"[Scoring Data]   Module {module}: score={score_data.get('score', 'N/A')}, count={score_data.get('count', 0)}")
         
         # Rank modules
         logger.info("[Scoring Data] Ranking modules...")
         ranked_modules = scoring_service.rank_modules(module_scores)
-        logger.info(f"[Scoring Data] Modules ranked: {len(ranked_modules)} modules")
-        for idx, module in enumerate(ranked_modules[:5], 1):  # Log top 5
-            logger.info(f"[Scoring Data]   Rank {idx}: {module.get('module', 'N/A')} - Score: {module.get('score', 'N/A')}")
-        
+
         # Calculate overall score
         logger.info("[Scoring Data] Calculating overall score...")
         overall_score = scoring_service.calculate_overall_score(module_scores)
-        logger.info(f"[Scoring Data] Overall score: {overall_score}")
         
         # Validate scoring data
         logger.info("[Scoring Data] Validating scoring data...")
@@ -492,11 +464,7 @@ class DiagnosticService:
             user_responses=user_responses,
             scoring_map=scoring_map
         )
-        logger.info(f"[Scoring Data] Validation result: {validation.get('is_valid', False)}")
-        if not validation.get('is_valid', True):
-            logger.warning(f"[Scoring Data] Validation warnings: {validation.get('warnings', [])}")
-            logger.warning(f"[Scoring Data] Validation errors: {validation.get('errors', [])}")
-        
+
         logger.info("=" * 60)
         logger.info("STEP 4: Scoring Data Processing Completed")
         logger.info("=" * 60)

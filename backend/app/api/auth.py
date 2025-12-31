@@ -67,8 +67,6 @@ async def callback(
     try:
         # Get the access token from Auth0
         token = await oauth.auth0.authorize_access_token(request)
-        logger.info(f"Token: {token}")
-        print(f"Token: {token}")
         # Get user information from the token
         user_info = token.get('userinfo')
         
@@ -90,12 +88,7 @@ async def callback(
         
         if not user_info:
             raise HTTPException(status_code=400, detail="Failed to get user information")
-        
-        logger.info(f"🔍 [SIGNUP/LOGIN] Starting username extraction process")
-        logger.info(f"🔍 [SIGNUP/LOGIN] User info keys: {list(user_info.keys())}")
-        logger.info(f"🔍 [SIGNUP/LOGIN] User info email: {user_info.get('email')}")
-        logger.info(f"🔍 [SIGNUP/LOGIN] User info nickname: {user_info.get('nickname')}")
-        logger.info(f"🔍 [SIGNUP/LOGIN] User info user_metadata: {user_info.get('user_metadata')}")
+    
         
         # Extract username from ID token custom claim
         id_token = token.get('id_token')
@@ -105,23 +98,11 @@ async def callback(
                 from jose import jwt
                 # Decode ID token to get custom claims
                 id_token_payload = jwt.get_unverified_claims(id_token)
-                logger.info(f"🔍 [SIGNUP/LOGIN] ID token payload keys: {list(id_token_payload.keys())}")
-                logger.info(f"🔍 [SIGNUP/LOGIN] Looking for username in namespace: {settings.AUTH0_USERNAME_NAMESPACE}")
+
                 
                 # Extract username from custom claim
                 username_from_token = id_token_payload.get(settings.AUTH0_USERNAME_NAMESPACE)
                 
-                # Also check for username in standard fields
-                standard_username = id_token_payload.get('username')
-                standard_nickname = id_token_payload.get('nickname')
-                
-                logger.info(f"📝 [SIGNUP/LOGIN] Username from custom claim ({settings.AUTH0_USERNAME_NAMESPACE}): {username_from_token}")
-                logger.info(f"📝 [SIGNUP/LOGIN] Username from standard 'username' field: {standard_username}")
-                logger.info(f"📝 [SIGNUP/LOGIN] Username from standard 'nickname' field: {standard_nickname}")
-                
-                if not username_from_token:
-                    logger.warning(f"⚠️ [SIGNUP/LOGIN] No username found in custom claim namespace: {settings.AUTH0_USERNAME_NAMESPACE}")
-                    logger.warning(f"⚠️ [SIGNUP/LOGIN] Available custom claim keys (filtered): {[k for k in id_token_payload.keys() if 'username' in k.lower() or 'nickname' in k.lower()]}")
             except Exception as e:
                 logger.error(f"❌ [SIGNUP/LOGIN] Could not decode ID token for username: {e}")
                 import traceback
@@ -132,21 +113,13 @@ async def callback(
         # Add username to user_info if found in token
         if username_from_token:
             user_info['username'] = username_from_token
-            logger.info(f"✅ [SIGNUP/LOGIN] Added username to user_info: {username_from_token}")
-        else:
-            logger.warning(f"⚠️ [SIGNUP/LOGIN] No username found in token, user_info will not have 'username' key")
         
-        logger.info(f"🔍 [SIGNUP/LOGIN] User info after username extraction - keys: {list(user_info.keys())}")
-        logger.info(f"🔍 [SIGNUP/LOGIN] User info username field: {user_info.get('username')}")
-        
-        # Create or update user in database (THIS SAVES USER DATA TO DATABASE)
+        # Create or update user in database
         user = AuthService.get_or_create_user(db, user_info)
-        
-        print(f"✅ User authenticated: {user.email}, auth0_id: {user.auth0_id}, role: {user.role}, nickname/username: {user.nickname}")
         
         # Get the ID token (JWT) from Auth0 - frontend will use this
         if not id_token:
-            print("❌ No id_token in Auth0 response")
+            logger.error(f"❌ No id_token in Auth0 response")
             raise Exception("No id_token received from Auth0")
         
         # URL encode the token to handle special characters
@@ -155,7 +128,6 @@ async def callback(
         # Redirect to frontend callback page with token
         # Frontend will store token in localStorage and redirect to dashboard
         callback_url = f"{settings.FRONTEND_URL}/auth/callback?token={encoded_token}"
-        print(f"✅ Redirecting to callback (token length: {len(id_token)})")
         
         response = RedirectResponse(
             url=callback_url,
@@ -165,7 +137,7 @@ async def callback(
         return response
         
     except Exception as e:
-        print(f"Callback error: {str(e)}")
+        logger.error(f"Callback error: {str(e)}")
         import traceback
         traceback.print_exc()
         # Redirect to frontend with error
@@ -193,7 +165,6 @@ async def logout(request: Request):
     }
     
     logout_url = f"https://{settings.AUTH0_DOMAIN}/v2/logout?{urlencode(params, quote_via=quote_plus)}"
-    print(f"🚪 Logging out, redirecting to: {logout_url}")
     
     return RedirectResponse(url=logout_url)
 
@@ -211,41 +182,35 @@ async def get_current_user_endpoint(
     """
     # Get token from Authorization header
     auth_header = request.headers.get('Authorization')
-    print(f"🔍 /api/auth/user called, Authorization header: {auth_header[:50] if auth_header else 'None'}...")
     
     if not auth_header or not auth_header.startswith('Bearer '):
-        print("❌ No Authorization header or invalid format")
+        logger.error(f"❌ No Authorization header or invalid format")
         raise HTTPException(status_code=401, detail="Not authenticated")
     
     token = auth_header.split(' ')[1]
-    print(f"✅ Token extracted, length: {len(token)}")
     
     try:
         # Decode the ID token to get user info (no signature verification for simplicity)
         from jose import jwt
         payload = jwt.get_unverified_claims(token)
-        print(f"✅ Token decoded, payload keys: {list(payload.keys())}")
         
         # Get auth0_id from the 'sub' claim
         auth0_id = payload.get('sub')
         
         # Extract username from custom claim for logging
         username = payload.get(settings.AUTH0_USERNAME_NAMESPACE)
-        print(f"🔍 Auth0 ID from token: {auth0_id}, username: {username}")
         
         if not auth0_id:
-            print("❌ No 'sub' claim in token")
+            logger.error(f"❌ No 'sub' claim in token")
             raise HTTPException(status_code=401, detail="Invalid token")
         
         # Find user in database
         user = db.query(User).filter(User.auth0_id == auth0_id).first()
         if not user:
-            print(f"❌ User not found in database for auth0_id: {auth0_id}")
+            logger.error(f"❌ User not found in database for auth0_id: {auth0_id}")
             raise HTTPException(status_code=401, detail="User not found")
         
-        print(f"✅ User found: {user.email}, role: {user.role}, nickname/username: {user.nickname}")
         user_dict = user.to_dict()
-        print(f"📋 User dict nickname: {user_dict.get('nickname')}")
         return {
             "authenticated": True,
             "user": user_dict

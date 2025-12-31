@@ -70,9 +70,7 @@ async def create_conversation(
     logger = logging.getLogger(__name__)
     
     logger.info(f"🚀 API: Creating/getting conversation")
-    logger.info(f"   User ID: {current_user.id}")
-    logger.info(f"   Category: {conversation_data.category}")
-    logger.info(f"   Diagnostic ID: {conversation_data.diagnostic_id}")
+
     
     chat_service = get_chat_service(db)
     
@@ -83,9 +81,6 @@ async def create_conversation(
     )
     
     logger.info(f"✅ API: Conversation created/retrieved: {conversation.id}")
-    logger.info(f"   User ID: {conversation.user_id}")
-    logger.info(f"   Category: {conversation.category}")
-    logger.info(f"   Title: {conversation.title}")
     
     # Build response manually to avoid model_validate issues
     return {
@@ -205,10 +200,7 @@ async def send_message(
     
     try:
         logger.info(f"🚀 API: Sending message to conversation")
-        logger.info(f"   Conversation ID: {conversation_id}")
-        logger.info(f"   User ID: {current_user.id}")
-        logger.info(f"   Message length: {len(message_data.message)} characters")
-        logger.info(f"   Engagement ID: {engagement_id}")
+
         
         assistant_message = await chat_service.send_message(
             conversation_id=conversation_id,
@@ -219,8 +211,7 @@ async def send_message(
         )
         
         logger.info(f"✅ API: Message sent successfully")
-        logger.info(f"   Assistant message ID: {assistant_message.id}")
-        logger.info(f"   Response length: {len(assistant_message.message)} characters")
+
         
         # Build response manually to avoid model_validate issues
         return {

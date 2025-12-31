@@ -185,8 +185,8 @@ class AuthService:
             user.updated_at = datetime.utcnow()
         else:
             # Create new user
-            # Use Auth0 role if available, otherwise default to CLIENT (safer default than advisor)
-            default_role = auth0_role if auth0_role is not None else UserRole.CLIENT
+            # Use Auth0 role if available, otherwise default to ADVISOR
+            default_role = auth0_role if auth0_role is not None else UserRole.ADVISOR
             print(f"👤 Creating new user with role: {default_role.value} (from Auth0: {auth0_role.value if auth0_role else 'None'})")
             
             # Use extracted username (from custom claim or fallback)
@@ -210,7 +210,7 @@ class AuthService:
                 nickname=username,  # Store username in nickname field
                 picture=user_info.get('picture'),
                 email_verified=user_info.get('email_verified', False),
-                role=default_role,  # Use Auth0 role or default to CLIENT
+                role=default_role,  # Use Auth0 role or default to ADVISOR
                 last_login=datetime.utcnow(),
             )
             db.add(user)

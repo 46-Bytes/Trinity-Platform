@@ -1,6 +1,7 @@
 """
 Auth0 authentication service.
 """
+import logging
 from authlib.integrations.starlette_client import OAuth
 from sqlalchemy.orm import Session
 from datetime import datetime
@@ -8,6 +9,8 @@ from ..models.user import User, UserRole
 from ..schemas.user import UserCreate
 from ..config import settings
 import requests
+
+logger = logging.getLogger(__name__)
 
 
 class AuthService:
@@ -103,6 +106,33 @@ class AuthService:
         # Extract role from Auth0 (may be None if not set in Auth0)
         auth0_role = AuthService.extract_role_from_auth0(user_info)
         
+        # Extract username from custom claim or fallback to standard fields
+        # Priority: 1. username from user_info (set from token custom claim), 
+        #           2. user_metadata.username, 3. nickname, 4. username field
+        logger.info(f"🔍 [USER_CREATE/UPDATE] Starting username extraction for user: {email}")
+        logger.info(f"🔍 [USER_CREATE/UPDATE] user_info keys: {list(user_info.keys())}")
+        
+        username_from_custom_claim = user_info.get('username')  # From custom claim (added in callback)
+        username_from_metadata = user_info.get('user_metadata', {}).get('username')
+        username_from_nickname = user_info.get('nickname')
+        username_direct = user_info.get('username')  # Direct username field if present
+        
+        logger.info(f"📝 [USER_CREATE/UPDATE] Username sources:")
+        logger.info(f"   - From custom claim (user_info['username']): {username_from_custom_claim}")
+        logger.info(f"   - From user_metadata.username: {username_from_metadata}")
+        logger.info(f"   - From nickname: {username_from_nickname}")
+        logger.info(f"   - Direct username field: {username_direct}")
+        
+        username = (
+            username_from_custom_claim or
+            username_from_metadata or
+            username_from_nickname or
+            username_direct
+        )
+        
+        logger.info(f"✅ [USER_CREATE/UPDATE] Final extracted username: {username}")
+        logger.info(f"📝 [USER_CREATE/UPDATE] User info - email: {email}, username: {username}")
+        
         # Try to find existing user by auth0_id first
         user = db.query(User).filter(User.auth0_id == auth0_id).first()
         
@@ -121,12 +151,22 @@ class AuthService:
             user.name = user_info.get('name')
             user.given_name = user_info.get('given_name')
             user.family_name = user_info.get('family_name')
-            # Extract username from nickname (Auth0 default) or user_metadata.username (custom field)
-            nickname = user_info.get('nickname')
-            user_metadata = user_info.get('user_metadata', {})
-            username = user_metadata.get('username') or nickname
-            user.nickname = username
-            print(f"🔤 Updated nickname: {username} (from nickname: {nickname}, user_metadata.username: {user_metadata.get('username')})")
+            
+            # Use extracted username (from custom claim or fallback)
+            if username:
+                user.nickname = username
+                logger.info(f"✅ [USER_UPDATE] Updated nickname/username: {username}")
+            else:
+                # Fallback to existing logic if username not found
+                nickname = user_info.get('nickname')
+                user_metadata = user_info.get('user_metadata', {})
+                fallback_username = user_metadata.get('username') or nickname
+                if fallback_username:
+                    user.nickname = fallback_username
+                    logger.info(f"✅ [USER_UPDATE] Updated nickname (fallback): {fallback_username}")
+                else:
+                    logger.warning(f"⚠️ [USER_UPDATE] No username found, nickname not updated")
+            
             user.picture = user_info.get('picture')
             
             # IMPORTANT: Only update email_verified if it's True (don't unverify)
@@ -153,11 +193,17 @@ class AuthService:
             default_role = auth0_role if auth0_role is not None else UserRole.CLIENT
             print(f"👤 Creating new user with role: {default_role.value} (from Auth0: {auth0_role.value if auth0_role else 'None'})")
             
-            # Extract username from nickname (Auth0 default) or user_metadata.username (custom field)
-            nickname = user_info.get('nickname')
-            user_metadata = user_info.get('user_metadata', {})
-            username = user_metadata.get('username') or nickname
-            print(f"🔤 New user nickname: {username} (from nickname: {nickname}, user_metadata.username: {user_metadata.get('username')})")
+            # Use extracted username (from custom claim or fallback)
+            if not username:
+                # Fallback to existing logic if username not found
+                nickname = user_info.get('nickname')
+                user_metadata = user_info.get('user_metadata', {})
+                username = user_metadata.get('username') or nickname
+                logger.info(f"✅ [USER_CREATE] New user username (fallback): {username} (from nickname: {nickname}, user_metadata.username: {user_metadata.get('username')})")
+            else:
+                logger.info(f"✅ [USER_CREATE] New user username: {username}")
+            
+            logger.info(f"✅ [USER_CREATE] Creating user with - email: {email}, username/nickname: {username}, role: {default_role.value}")
             
             user = User(
                 auth0_id=auth0_id,
@@ -165,7 +211,7 @@ class AuthService:
                 name=user_info.get('name'),
                 given_name=user_info.get('given_name'),
                 family_name=user_info.get('family_name'),
-                nickname=username,
+                nickname=username,  # Store username in nickname field
                 picture=user_info.get('picture'),
                 email_verified=user_info.get('email_verified', False),
                 role=default_role,  # Use Auth0 role or default to CLIENT

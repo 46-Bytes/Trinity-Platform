@@ -121,12 +121,41 @@ class AuthService:
             user.name = user_info.get('name')
             user.given_name = user_info.get('given_name')
             user.family_name = user_info.get('family_name')
-            # Extract username from nickname (Auth0 default) or user_metadata.username (custom field)
-            nickname = user_info.get('nickname')
+            
+            # Extract username from Auth0 - check multiple possible fields
+            # Auth0 signup form might store username in different places:
+            # 1. user_metadata.username (custom field from signup form)
+            # 2. nickname (Auth0 default field, but defaults to email prefix)
+            # 3. preferred_username (sometimes used by Auth0)
             user_metadata = user_info.get('user_metadata', {})
-            username = user_metadata.get('username') or nickname
-            user.nickname = username
-            print(f"🔤 Updated nickname: {username} (from nickname: {nickname}, user_metadata.username: {user_metadata.get('username')})")
+            app_metadata = user_info.get('app_metadata', {})
+            nickname = user_info.get('nickname')
+            preferred_username = user_info.get('preferred_username')
+            
+            # Log all possible username fields for debugging
+            print(f"🔍 Auth0 username fields:")
+            print(f"   - user_metadata: {user_metadata}")
+            print(f"   - app_metadata: {app_metadata}")
+            print(f"   - nickname: {nickname}")
+            print(f"   - preferred_username: {preferred_username}")
+            print(f"   - name: {user_info.get('name')}")
+            
+            # Priority: user_metadata.username > preferred_username > nickname (if not email prefix) > name
+            email_prefix = email.split('@')[0] if email else None
+            username = (
+                user_metadata.get('username') or 
+                preferred_username or 
+                (nickname if nickname and '@' not in nickname and nickname != email_prefix else None) or
+                user_info.get('name')
+            )
+            
+            # Only update nickname if we found a valid username (not just email prefix)
+            if username:
+                user.nickname = username
+                print(f"🔤 Updated nickname to: {username}")
+            else:
+                print(f"⚠️  No valid username found in Auth0 data, keeping existing nickname: {user.nickname}")
+            
             user.picture = user_info.get('picture')
             
             # IMPORTANT: Only update email_verified if it's True (don't unverify)
@@ -153,11 +182,30 @@ class AuthService:
             default_role = auth0_role if auth0_role is not None else UserRole.CLIENT
             print(f"👤 Creating new user with role: {default_role.value} (from Auth0: {auth0_role.value if auth0_role else 'None'})")
             
-            # Extract username from nickname (Auth0 default) or user_metadata.username (custom field)
-            nickname = user_info.get('nickname')
+            # Extract username from Auth0 - check multiple possible fields
             user_metadata = user_info.get('user_metadata', {})
-            username = user_metadata.get('username') or nickname
-            print(f"🔤 New user nickname: {username} (from nickname: {nickname}, user_metadata.username: {user_metadata.get('username')})")
+            app_metadata = user_info.get('app_metadata', {})
+            nickname = user_info.get('nickname')
+            preferred_username = user_info.get('preferred_username')
+            
+            # Log all possible username fields for debugging
+            print(f"🔍 Auth0 username fields (new user):")
+            print(f"   - user_metadata: {user_metadata}")
+            print(f"   - app_metadata: {app_metadata}")
+            print(f"   - nickname: {nickname}")
+            print(f"   - preferred_username: {preferred_username}")
+            print(f"   - name: {user_info.get('name')}")
+            
+            # Priority: user_metadata.username > preferred_username > nickname (if not email prefix) > name
+            email_prefix = email.split('@')[0] if email else None
+            username = (
+                user_metadata.get('username') or 
+                preferred_username or 
+                (nickname if nickname and '@' not in nickname and nickname != email_prefix else None) or
+                user_info.get('name')
+            )
+            
+            print(f"🔤 New user nickname: {username}")
             
             user = User(
                 auth0_id=auth0_id,

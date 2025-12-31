@@ -89,6 +89,62 @@ async def callback(
         if not user_info:
             raise HTTPException(status_code=400, detail="Failed to get user information")
         
+        # Log complete user_info from Auth0 for debugging
+        import json
+        logger.info(f"📋 Complete Auth0 user_info: {json.dumps(user_info, indent=2, default=str)}")
+        print(f"📋 Complete Auth0 user_info:")
+        print(json.dumps(user_info, indent=2, default=str))
+        
+        # Try to extract username from ID token custom claims (set by Auth0 Action)
+        # This is the preferred method - username should be added to token via Auth0 Action
+        id_token = token.get('id_token')
+        if id_token:
+            try:
+                from jose import jwt
+                # Decode ID token without verification (we already trust Auth0)
+                id_token_payload = jwt.get_unverified_claims(id_token)
+                print(f"🔑 ID Token payload keys: {list(id_token_payload.keys())}")
+                
+                # Check for username in custom claims (different possible namespaces)
+                # Common patterns: https://yourdomain.com/username or custom/username or just username
+                possible_username_keys = [
+                    f'https://{settings.AUTH0_DOMAIN}/username',  # Namespace with Auth0 domain
+                    f'https://{settings.AUTH0_DOMAIN.replace(".us.auth0.com", "")}/username',  # Domain without .us.auth0.com
+                    'custom:username',  # Some Auth0 configurations
+                    'username',  # Direct claim (if Auth0 includes it)
+                ]
+                
+                username_from_token = None
+                for key in possible_username_keys:
+                    if key in id_token_payload:
+                        username_from_token = id_token_payload[key]
+                        print(f"✅ Found username in ID token claim '{key}': {username_from_token}")
+                        break
+                
+                # Also check if username is directly in the payload (Auth0 sometimes includes it)
+                if not username_from_token and 'username' in id_token_payload:
+                    username_from_token = id_token_payload['username']
+                    print(f"✅ Found username directly in ID token: {username_from_token}")
+                
+                # If we found username in token, add it to user_info as user_metadata.username
+                if username_from_token:
+                    if 'user_metadata' not in user_info:
+                        user_info['user_metadata'] = {}
+                    user_info['user_metadata']['username'] = username_from_token
+                    print(f"✅ Added username from ID token to user_metadata: {username_from_token}")
+                    
+                    # Also update nickname if it's different from email prefix
+                    email_prefix = user_info.get('email', '').split('@')[0] if user_info.get('email') else None
+                    if username_from_token and username_from_token != email_prefix:
+                        user_info['nickname'] = username_from_token
+                        print(f"✅ Updated nickname from ID token username: {username_from_token}")
+                else:
+                    print(f"⚠️  No username found in ID token custom claims. Make sure you have an Auth0 Action that adds username to the token.")
+            except Exception as e:
+                print(f"⚠️  Error decoding ID token: {str(e)}")
+                import traceback
+                traceback.print_exc()
+        
         # Create or update user in database (THIS SAVES USER DATA TO DATABASE)
         user = AuthService.get_or_create_user(db, user_info)
         

@@ -212,3 +212,68 @@ async def get_user_files(
             detail=f"Failed to retrieve files: {str(e)}"
         )
 
+
+@router.patch("/{file_id}/tag")
+async def update_file_tag(
+    file_id: UUID,
+    tag: str = Form(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Update tag for a file (advisor-only).
+    
+    Args:
+        file_id: UUID of the file
+        tag: Tag text (null to remove tag)
+        
+    Returns:
+        Updated file metadata
+    """
+    from app.models.user import UserRole
+    
+    # Check if user is advisor
+    if current_user.role not in [UserRole.ADVISOR, UserRole.FIRM_ADVISOR, UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only advisors can tag documents"
+        )
+    
+    # Find the media file
+    media = db.query(Media).filter(Media.id == file_id).first()
+    if not media:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found"
+        )
+    
+    # Check if advisor has access to this file through an engagement
+    # (File must be attached to a diagnostic in an engagement where advisor has access)
+    from app.models.diagnostic import Diagnostic
+    from app.models.engagement import Engagement
+    from app.services.role_check import check_engagement_access
+    
+    has_access = False
+    for diagnostic in media.diagnostics:
+        if diagnostic.engagement_id:
+            engagement = db.query(Engagement).filter(Engagement.id == diagnostic.engagement_id).first()
+            if engagement and check_engagement_access(engagement, current_user):
+                has_access = True
+                break
+    
+    if not has_access and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to tag this file"
+        )
+    
+    # Update tag
+    media.tag = tag.strip() if tag and tag.strip() else None
+    db.commit()
+    db.refresh(media)
+    
+    return {
+        "success": True,
+        "message": "Tag updated successfully",
+        "file": media.to_dict()
+    }

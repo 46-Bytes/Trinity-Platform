@@ -9,8 +9,9 @@ import { GeneratedFilesList } from '@/components/engagement/overview';
 import type { GeneratedFileProps } from '@/components/engagement/overview';
 import { TasksList } from '@/components/engagement/tasks';
 import { toast } from 'sonner';
-import { useAppSelector } from '@/store/hooks';
+import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { useAuth } from '@/context/AuthContext';
+import { fetchMediaTags, updateMediaTag, updateDiagnosticTag } from '@/store/slices/tagReducer';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -27,10 +28,14 @@ interface FileMetadata {
 export default function EngagementDetailPage() {
   const { engagementId } = useParams<{ engagementId: string }>();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { user } = useAuth();
   const [diagnostics, setDiagnostics] = useState<any[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  
+  // Get tags from Redux store
+  const { mediaTags, diagnosticTags } = useAppSelector((state) => state.tag);
   
   // Check user role for file filtering
   const isAdmin = user?.role === 'admin' || user?.role === 'firm_admin';
@@ -121,6 +126,14 @@ export default function EngagementDetailPage() {
       setIsLoadingFiles(false);
     }
   }, [engagementId]);
+
+  // Fetch media tags for uploaded files using Redux
+  useEffect(() => {
+    if (diagnostics.length > 0) {
+      const diagnosticIds = diagnostics.map((d: any) => d.id);
+      dispatch(fetchMediaTags(diagnosticIds));
+    }
+  }, [diagnostics, dispatch]);
 
   // Initial fetch
   useEffect(() => {
@@ -331,6 +344,7 @@ export default function EngagementDetailPage() {
           toolType: 'diagnostic',
           diagnosticId: diagnostic.id, // Store diagnostic ID for download
           isProcessing: status === 'processing', // Mark as processing - show chip and hide download
+          tag: diagnosticTags[diagnostic.id] || (diagnostic as any).tag || undefined, // Include tag from Redux store or diagnostic
         });
       }
     });
@@ -339,7 +353,7 @@ export default function EngagementDetailPage() {
 
     // Sort by date (newest first)
     return extractedFiles.sort((a, b) => b.generatedAt.getTime() - a.generatedAt.getTime());
-  }, [diagnostics, isAdmin, user?.id]);
+  }, [diagnostics, isAdmin, user?.id, diagnosticTags]);
 
   // Extract uploaded files from diagnostic user_responses
   const uploadedFiles: GeneratedFileProps[] = useMemo(() => {
@@ -447,8 +461,12 @@ export default function EngagementDetailPage() {
           // Support both snake_case and camelCase for relative_path
           const relativePath = fileMeta.relative_path || fileMeta.relativePath;
 
+          const mediaId = fileMeta.media_id || fileMeta.mediaId;
+          // Get tag from Redux store (mediaTags) or from fileMeta as fallback
+          const fileTag = mediaId ? (mediaTags[mediaId] || fileMeta.tag || undefined) : (fileMeta.tag || undefined);
+          
           extractedFiles.push({
-            id: fileMeta.media_id || fileMeta.mediaId || `${diagnostic.id}-${fieldName}-${fileName}-${Date.now()}`,
+            id: mediaId || `${diagnostic.id}-${fieldName}-${fileName}-${Date.now()}`,
             name: fileName,
             type: fileType,
             generatedAt: new Date(diagnostic.created_at || diagnostic.updated_at || diagnostic.createdAt || diagnostic.updatedAt || new Date()),
@@ -456,6 +474,8 @@ export default function EngagementDetailPage() {
             size: fileSize,
             toolType: 'diagnostic',
             relativePath: relativePath, // Store for download
+            mediaId: mediaId, // Store media ID for tag updates
+            tag: fileTag, // Include tag from Media model or metadata
           });
         });
       });
@@ -463,7 +483,31 @@ export default function EngagementDetailPage() {
 
     // Sort by date (newest first)
     return extractedFiles.sort((a, b) => b.generatedAt.getTime() - a.generatedAt.getTime());
-  }, [diagnostics, isAdmin, user?.id]);
+  }, [diagnostics, isAdmin, user?.id, mediaTags]);
+
+  const handleTagUpdate = async (fileId: string, tag: string | null, mediaId?: string) => {
+    try {
+      // If it's an uploaded file (has mediaId), update via Redux
+      if (mediaId) {
+        await dispatch(updateMediaTag({ mediaId, tag })).unwrap();
+        // Refresh media tags to ensure we have the latest
+        const diagnosticIds = diagnostics.map((d: any) => d.id);
+        dispatch(fetchMediaTags(diagnosticIds));
+        toast.success('Tag updated successfully');
+      } else {
+        // For generated files (diagnostic reports), use diagnostic tag API
+        // Extract diagnostic ID from fileId (format: diagnostic-report-{diagnosticId})
+        const diagnosticId = fileId.replace('diagnostic-report-', '');
+        await dispatch(updateDiagnosticTag({ diagnosticId, tag })).unwrap();
+        // Refresh diagnostics to get updated tag
+        await fetchDiagnostics();
+        toast.success('Tag updated successfully');
+      }
+    } catch (error) {
+      console.error('Failed to update tag:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update tag');
+    }
+  };
 
   const handleDownload = async (fileId: string) => {
     // Find the file in either generated or uploaded files
@@ -592,7 +636,11 @@ export default function EngagementDetailPage() {
               {isLoadingFiles ? (
                 <div className="text-center py-8 text-muted-foreground">Loading files...</div>
               ) : (
-                <GeneratedFilesList files={generatedFiles} onDownload={handleDownload} />
+                <GeneratedFilesList 
+                  files={generatedFiles} 
+                  onDownload={handleDownload}
+                  onTagUpdate={handleTagUpdate}
+                />
               )}
             </div>
 
@@ -612,6 +660,7 @@ export default function EngagementDetailPage() {
                 <GeneratedFilesList 
                   files={uploadedFiles} 
                   onDownload={handleDownload}
+                  onTagUpdate={handleTagUpdate}
                   emptyMessage={{
                     title: 'No uploaded files yet',
                     description: 'Files uploaded during the diagnostic will appear here'

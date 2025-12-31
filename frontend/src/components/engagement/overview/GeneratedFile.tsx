@@ -1,6 +1,9 @@
-import { FileText, Download, Calendar, User, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { FileText, Download, Calendar, User, Loader2, Tag, X, Edit2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { cn, capitalizeFirstLetter } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
 
 export interface GeneratedFileProps {
   id: string;
@@ -12,8 +15,11 @@ export interface GeneratedFileProps {
   toolType?: string; // e.g., 'business-plan', 'diagnostic', 'position-description'
   relativePath?: string; // Path for downloading the file
   diagnosticId?: string; // Diagnostic ID for report downloads
+  mediaId?: string; // Media ID for uploaded files
   isProcessing?: boolean; // Whether the file is currently being processed
+  tag?: string; // Document tag
   onDownload?: (id: string) => void;
+  onTagUpdate?: (fileId: string, tag: string | null, mediaId?: string) => Promise<void>;
 }
 
 const fileTypeIcons = {
@@ -41,8 +47,22 @@ export function GeneratedFile({
   size,
   toolType,
   isProcessing,
+  tag,
+  mediaId,
   onDownload,
+  onTagUpdate,
 }: GeneratedFileProps) {
+  const { user } = useAuth();
+  const isAdvisor = user?.role === 'advisor' || user?.role === 'firm_advisor';
+  const [isEditingTag, setIsEditingTag] = useState(false);
+  const [tagValue, setTagValue] = useState(tag || '');
+  const [isSavingTag, setIsSavingTag] = useState(false);
+
+  // Update tagValue when tag prop changes (after refresh)
+  useEffect(() => {
+    setTagValue(tag || '');
+  }, [tag]);
+
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat('en-US', {
       month: 'short',
@@ -51,6 +71,40 @@ export function GeneratedFile({
       hour: '2-digit',
       minute: '2-digit',
     }).format(date);
+  };
+
+  const handleTagSave = async () => {
+    if (!onTagUpdate) return;
+    
+    setIsSavingTag(true);
+    try {
+      const tagToSave = tagValue.trim() || null;
+      await onTagUpdate(id, tagToSave, mediaId);
+      setIsEditingTag(false);
+    } catch (error) {
+      console.error('Failed to save tag:', error);
+    } finally {
+      setIsSavingTag(false);
+    }
+  };
+
+  const handleTagCancel = () => {
+    setTagValue(tag || '');
+    setIsEditingTag(false);
+  };
+
+  const handleTagDelete = async () => {
+    if (!onTagUpdate) return;
+    
+    setIsSavingTag(true);
+    try {
+      await onTagUpdate(id, null, mediaId);
+      setTagValue('');
+    } catch (error) {
+      console.error('Failed to delete tag:', error);
+    } finally {
+      setIsSavingTag(false);
+    }
   };
 
   return (
@@ -66,7 +120,7 @@ export function GeneratedFile({
 
         {/* File Info */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <h3 className="font-semibold text-foreground truncate">{name}</h3>
             <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground uppercase">
               {type}
@@ -81,6 +135,85 @@ export function GeneratedFile({
                 <Loader2 className="w-3 h-3 animate-spin" />
                 Processing
               </span>
+            )}
+            {/* Tag Display/Edit for Advisors */}
+            {isAdvisor && !isProcessing && (
+              <div className="flex items-center gap-1">
+                {isEditingTag ? (
+                  <div className="flex items-center gap-1">
+                    <Input
+                      value={tagValue}
+                      onChange={(e) => setTagValue(e.target.value)}
+                      placeholder="Enter tag..."
+                      className="h-6 text-xs px-2 py-0 w-24"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleTagSave();
+                        } else if (e.key === 'Escape') {
+                          handleTagCancel();
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={handleTagSave}
+                      disabled={isSavingTag}
+                    >
+                      <Check className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={handleTagCancel}
+                      disabled={isSavingTag}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1">
+                    {tag ? (
+                      <>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary flex items-center gap-1">
+                          <Tag className="w-3 h-3" />
+                          {tag}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => setIsEditingTag(true)}
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={handleTagDelete}
+                          disabled={isSavingTag}
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1"
+                        onClick={() => setIsEditingTag(true)}
+                      >
+                        <Tag className="w-3 h-3" />
+                        Add tag
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
           

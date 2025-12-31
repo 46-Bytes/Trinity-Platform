@@ -1,7 +1,7 @@
 """
 Diagnostic API endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, BackgroundTasks, Response
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, BackgroundTasks, Response, Form
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from typing import List
@@ -749,6 +749,68 @@ async def regenerate_diagnostic_report(
 
 
 # ==================== DOWNLOAD REPORT ====================
+
+@router.patch("/{diagnostic_id}/tag")
+async def update_diagnostic_tag(
+    diagnostic_id: UUID,
+    tag: str = Form(None, description="Tag text (null to remove tag)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Update tag for a diagnostic report (advisor-only).
+    
+    Args:
+        diagnostic_id: UUID of the diagnostic
+        tag: Tag text (null to remove tag)
+        
+    Returns:
+        Success message
+    """
+    from app.models.user import UserRole
+    from app.services.role_check import check_engagement_access
+    
+    # Check if user is advisor
+    if current_user.role not in [UserRole.ADVISOR, UserRole.FIRM_ADVISOR, UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only advisors can tag documents"
+        )
+    
+    # Find the diagnostic
+    diagnostic = db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
+    if not diagnostic:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Diagnostic not found"
+        )
+    
+    # Check if advisor has access to this diagnostic's engagement
+    engagement = db.query(Engagement).filter(Engagement.id == diagnostic.engagement_id).first()
+    if not engagement:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Engagement not found"
+        )
+    
+    if not check_engagement_access(engagement, current_user) and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to tag this diagnostic"
+        )
+    
+    # Update tag
+    diagnostic.tag = tag.strip() if tag and tag.strip() else None
+    db.commit()
+    db.refresh(diagnostic)
+    
+    return {
+        "success": True,
+        "message": "Tag updated successfully",
+        "diagnostic_id": str(diagnostic_id),
+        "tag": diagnostic.tag
+    }
+
 
 @router.get("/{diagnostic_id}/download")
 async def download_diagnostic_report(

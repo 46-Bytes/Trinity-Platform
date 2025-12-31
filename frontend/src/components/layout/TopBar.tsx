@@ -1,8 +1,7 @@
 import { useAuth } from '@/context/AuthContext';
-import { roleLabels, roleColors, UserRole } from '@/types/auth';
-import { Bell, Search, Menu, LogOut, ChevronDown } from 'lucide-react';
+import { roleLabels, roleColors } from '@/types/auth';
+import { Bell, Menu, LogOut, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,10 +16,7 @@ interface TopBarProps {
 }
 
 export function TopBar({ onMenuClick }: TopBarProps) {
-  const { user, logout, switchRole } = useAuth();
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const roles: UserRole[] = ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'];
+  const { user, logout } = useAuth();
 
   return (
     <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6 sticky top-0 z-40">
@@ -35,36 +31,15 @@ export function TopBar({ onMenuClick }: TopBarProps) {
       </div>
 
       <div className="flex items-center gap-3">
-        {/* Role Switcher (Demo only) */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className={cn(
-              "status-badge cursor-pointer hover:opacity-80 transition-opacity",
-              user && roleColors[user.role]
-            )}>
-              {user && roleLabels[user.role]}
-              <ChevronDown className="w-3 h-3 ml-1" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel className="text-xs text-muted-foreground">Switch Role (Demo)</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {roles.map((role) => (
-              <DropdownMenuItem 
-                key={role} 
-                onClick={() => switchRole(role)}
-                className={cn(
-                  "cursor-pointer",
-                  user?.role === role && "bg-muted"
-                )}
-              >
-                <span className={cn("status-badge text-xs mr-2", roleColors[role])}>
-                  {roleLabels[role]}
-                </span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Current Role Display */}
+        {user && (
+          <span className={cn(
+            "status-badge",
+            roleColors[user.role]
+          )}>
+            {roleLabels[user.role]}
+          </span>
+        )}
 
         {/* Notifications */}
         <button className="relative p-2 rounded-lg hover:bg-muted transition-colors">

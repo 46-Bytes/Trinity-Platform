@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Search, MoreHorizontal, Building2, Loader2, Eye, FileText } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getUniqueClientIds } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchEngagements } from '@/store/slices/engagementReducer';
+import { useAuth } from '@/context/AuthContext';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,19 +27,88 @@ interface Client {
 
 export default function ClientsPage() {
   const dispatch = useAppDispatch();
+  const { user } = useAuth();
   const { engagements, isLoading: engagementsLoading } = useAppSelector((state) => state.engagement);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
 
-  // Fetch engagements and clients on mount
-  useEffect(() => {
-    dispatch(fetchEngagements(undefined));
-    fetchClients();
-  }, [dispatch]);
+  // Check if user is advisor (including firm_advisor)
+  const isAdvisor = user?.role === 'advisor' || user?.role === 'firm_advisor';
+  // Check if user is admin (can access users API)
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
 
-  const fetchClients = async () => {
+  // Build clients from engagements for advisors
+  const buildClientsFromEngagements = useCallback(() => {
+    if (!isAdvisor || engagements.length === 0) {
+      return [];
+    }
+
+    // Create a map of unique clients from engagements
+    const clientMap = new Map<string, {
+      id: string;
+      name: string;
+      email: string;
+      engagements: number;
+    }>();
+
+    engagements.forEach(engagement => {
+      const clientId = engagement.clientId;
+      if (!clientMap.has(clientId)) {
+        const clientName = engagement.clientName || 'Unknown Client';
+        // Try to extract email from name, or create a reasonable default
+        let email = clientName;
+        if (!clientName.includes('@')) {
+          // Create a placeholder email from the name
+          email = `${clientName.toLowerCase().replace(/[^a-z0-9]/g, '.').replace(/\.+/g, '.').replace(/^\.|\.$/g, '')}@client.local`;
+        }
+        
+        clientMap.set(clientId, {
+          id: clientId,
+          name: clientName,
+          email: email,
+          engagements: 0,
+        });
+      }
+      const client = clientMap.get(clientId)!;
+      client.engagements += 1;
+    });
+
+    return Array.from(clientMap.values()).map(client => ({
+      id: client.id,
+      name: client.name,
+      email: client.email,
+      industry: '', // Will be set in clientsWithEngagements
+      status: 'Active' as const,
+      engagements: client.engagements,
+      is_active: true,
+      email_verified: false,
+      role: 'client',
+    }));
+  }, [isAdvisor, engagements]);
+
+  const fetchClients = useCallback(async () => {
+    // For advisors, build clients from engagements instead of calling API
+    if (isAdvisor) {
+      setIsLoading(true);
+      try {
+        const clientsFromEngagements = buildClientsFromEngagements();
+        setClients(clientsFromEngagements);
+      } catch (error) {
+        console.error('Error building clients from engagements:', error);
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    // For admins, fetch from API
+    if (!isAdmin) {
+      setClients([]);
+      return;
+    }
+
     setIsLoading(true);
     try {
       const token = localStorage.getItem('auth_token');
@@ -61,13 +131,29 @@ export default function ClientsPage() {
         setClients(filteredUsers);
       } else {
         console.error('Failed to fetch clients');
+        setClients([]);
       }
     } catch (error) {
       console.error('Error fetching clients:', error);
+      setClients([]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isAdvisor, isAdmin, buildClientsFromEngagements]);
+
+  // Fetch engagements on mount
+  useEffect(() => {
+    if (user) {
+      dispatch(fetchEngagements(undefined));
+    }
+  }, [dispatch, user]);
+
+  // Fetch clients when engagements are loaded (especially important for advisors)
+  useEffect(() => {
+    if (user && !engagementsLoading) {
+      fetchClients();
+    }
+  }, [user, engagementsLoading, fetchClients, engagements.length]);
 
   // Merge client data with engagement data
   const clientsWithEngagements = useMemo<Client[]>(() => {

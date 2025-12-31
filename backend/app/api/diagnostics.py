@@ -29,7 +29,7 @@ from app.services.file_service import get_file_service
 from app.services.report_service import ReportService
 from app.utils.file_loader import load_diagnostic_questions
 from app.utils.background_task_manager import background_task_manager
-from app.api.auth import get_current_user
+from app.utils.auth import get_current_user
 from app.models.user import User
 from app.models.diagnostic import Diagnostic
 from app.models.engagement import Engagement

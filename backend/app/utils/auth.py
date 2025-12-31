@@ -33,7 +33,7 @@ def get_current_user(
     auth_header = request.headers.get('Authorization')
     if auth_header and auth_header.startswith('Bearer '):
         token = auth_header.split(' ')[1]
-        print(f"🔑 Bearer token found, length: {len(token)}")
+        # print(f" Bearer token found, length: {len(token)}")
         
         try:
             # Decode the ID token to get user info (no signature verification for simplicity)
@@ -42,7 +42,6 @@ def get_current_user(
             
             # Extract username from token for logging
             username = payload.get(settings.AUTH0_USERNAME_NAMESPACE)
-            print(f"✅ Token decoded, auth0_id: {auth0_id}, username: {username}")
             
             if not auth0_id:
                 raise HTTPException(
@@ -50,7 +49,6 @@ def get_current_user(
                     detail="Invalid token: missing 'sub' claim"
                 )
         except JWTError as e:
-            print(f"❌ Token decode error: {e}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token"
@@ -59,16 +57,12 @@ def get_current_user(
     # Method 2: Check for session-based authentication
     if not auth0_id:
         user_session = request.session.get('user')
-        print(f"🍪 Session check - keys: {list(request.session.keys())}")
-        print(f"🍪 User session exists: {user_session is not None}")
         
         if user_session:
             auth0_id = user_session.get('auth0_id')
-            print(f"✅ Session auth0_id: {auth0_id}")
     
     # If no authentication method worked
     if not auth0_id:
-        print("❌ No valid authentication found (neither Bearer token nor session)")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated"
@@ -78,7 +72,6 @@ def get_current_user(
     user = db.query(User).filter(User.auth0_id == auth0_id).first()
     
     if not user:
-        print(f"❌ User not found in database for auth0_id: {auth0_id}")
         if request.session.get('user'):
             request.session.clear()
         raise HTTPException(
@@ -87,13 +80,12 @@ def get_current_user(
         )
     
     if not user.is_active:
-        print(f"❌ User account inactive: {user.email}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is inactive"
         )
     
-    print(f"✅ User authenticated: {user.email}, username/nickname: {user.nickname}, role: {user.role}")
+    print(f" User authenticated: {user.email}, username/nickname: {user.nickname}, role: {user.role}")
     return user
 
 

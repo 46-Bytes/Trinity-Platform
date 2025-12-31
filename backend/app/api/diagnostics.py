@@ -1,7 +1,7 @@
 """
 Diagnostic API endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, BackgroundTasks, Response, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, BackgroundTasks, Form
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from typing import List
@@ -14,7 +14,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from app.database import get_db
+from app.database import get_db, SessionLocal
 from app.schemas.diagnostic import (
     DiagnosticCreate,
     DiagnosticResponse,
@@ -27,20 +27,18 @@ from app.schemas.diagnostic import (
 from app.services.diagnostic_service import get_diagnostic_service
 from app.services.file_service import get_file_service
 from app.services.report_service import ReportService
+from app.services.role_check import check_engagement_access
 from app.utils.file_loader import load_diagnostic_questions
 from app.utils.background_task_manager import background_task_manager
 from app.api.auth import get_current_user
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.diagnostic import Diagnostic
 from app.models.engagement import Engagement
-from app.database import SessionLocal
 import asyncio
 
 
 router = APIRouter(prefix="/diagnostics", tags=["diagnostics"])
 
-
-# ==================== CREATE DIAGNOSTIC ====================
 
 @router.post("/create", response_model=DiagnosticResponse, status_code=status.HTTP_201_CREATED)
 async def create_diagnostic(
@@ -92,8 +90,6 @@ async def create_diagnostic(
             detail=f"Failed to create diagnostic: {str(e)}"
         )
 
-
-# ==================== UPDATE RESPONSES ====================
 
 @router.patch("/{diagnostic_id}/responses", response_model=DiagnosticDetail)
 async def update_diagnostic_responses(
@@ -148,8 +144,6 @@ async def update_diagnostic_responses(
             detail=f"Failed to update responses: {str(e)}"
         )
 
-
-# ==================== UPLOAD SUPPORTING FILES ====================
 
 @router.post("/{diagnostic_id}/upload-file")
 async def upload_diagnostic_file(
@@ -223,8 +217,6 @@ async def upload_diagnostic_file(
         "uploaded_by_user_id": str(media.user_id),  # Include uploader's user_id for filtering
     }
 
-
-# ==================== DELETE SUPPORTING FILE ====================
 
 @router.delete("/{diagnostic_id}/delete-file", response_model=DiagnosticDetail)
 async def delete_diagnostic_file(
@@ -372,8 +364,6 @@ async def delete_diagnostic_file(
             detail=f"Failed to delete file: {str(e)}"
         )
 
-
-# ==================== SUBMIT DIAGNOSTIC ====================
 
 @router.post("/{diagnostic_id}/submit", response_model=DiagnosticResponse)
 async def submit_diagnostic(
@@ -580,8 +570,6 @@ async def submit_diagnostic(
     return diagnostic
 
 
-# ==================== GET DIAGNOSTIC STATUS ====================
-
 @router.get("/{diagnostic_id}/status")
 async def get_diagnostic_status(
     diagnostic_id: UUID,
@@ -616,8 +604,6 @@ async def get_diagnostic_status(
     }
 
 
-# ==================== GET DIAGNOSTIC ====================
-
 @router.get("/{diagnostic_id}", response_model=DiagnosticDetail)
 async def get_diagnostic(
     diagnostic_id: UUID,
@@ -647,8 +633,6 @@ async def get_diagnostic(
     
     return diagnostic
 
-
-# ==================== GET DIAGNOSTIC RESULTS ====================
 
 @router.get("/{diagnostic_id}/results", response_model=DiagnosticResults)
 async def get_diagnostic_results(
@@ -686,8 +670,6 @@ async def get_diagnostic_results(
     return diagnostic
 
 
-# ==================== LIST DIAGNOSTICS ====================
-
 @router.get("/engagement/{engagement_id}", response_model=List[DiagnosticListItem])
 async def list_engagement_diagnostics(
     engagement_id: UUID,
@@ -709,8 +691,6 @@ async def list_engagement_diagnostics(
     
     return diagnostics
 
-
-# ==================== REGENERATE REPORT ====================
 
 @router.post("/{diagnostic_id}/regenerate-report", response_model=DiagnosticResponse)
 async def regenerate_diagnostic_report(
@@ -748,8 +728,6 @@ async def regenerate_diagnostic_report(
         )
 
 
-# ==================== DOWNLOAD REPORT ====================
-
 @router.patch("/{diagnostic_id}/tag")
 async def update_diagnostic_tag(
     diagnostic_id: UUID,
@@ -767,17 +745,13 @@ async def update_diagnostic_tag(
     Returns:
         Success message
     """
-    from app.models.user import UserRole
-    from app.services.role_check import check_engagement_access
     
-    # Check if user is advisor
     if current_user.role not in [UserRole.ADVISOR, UserRole.FIRM_ADVISOR, UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only advisors can tag documents"
         )
     
-    # Find the diagnostic
     diagnostic = db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
     if not diagnostic:
         raise HTTPException(
@@ -785,7 +759,6 @@ async def update_diagnostic_tag(
             detail="Diagnostic not found"
         )
     
-    # Check if advisor has access to this diagnostic's engagement
     engagement = db.query(Engagement).filter(Engagement.id == diagnostic.engagement_id).first()
     if not engagement:
         raise HTTPException(
@@ -799,7 +772,6 @@ async def update_diagnostic_tag(
             detail="You don't have access to tag this diagnostic"
         )
     
-    # Update tag
     diagnostic.tag = tag.strip() if tag and tag.strip() else None
     db.commit()
     db.refresh(diagnostic)
@@ -835,7 +807,6 @@ async def download_diagnostic_report(
         PDF file download
     """
     try:
-        # Get diagnostic
         diagnostic = db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
         
         if not diagnostic:
@@ -844,22 +815,12 @@ async def download_diagnostic_report(
                 detail="Diagnostic not found"
             )
         
-        # Check access (user must be creator, advisor on engagement, or admin)
-        # from app.utils.auth import check_engagement_access
-        # if not check_engagement_access(diagnostic.engagement, current_user):
-        #     raise HTTPException(
-        #         status_code=status.HTTP_403_FORBIDDEN,
-        #         detail="You do not have access to this diagnostic"
-        #     )
-        
-        # Check if diagnostic is completed
         if diagnostic.status != "completed":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Diagnostic must be completed before downloading report"
             )
         
-        # Build question text map from diagnostic questions
         question_text_map = {}
         diagnostic_questions = diagnostic.questions or {}
         
@@ -870,24 +831,20 @@ async def download_diagnostic_report(
                 if element_name:
                     question_text_map[element_name] = element_title
         
-        # Get user for report (use completed_by_user_id if available, else created_by_user_id)
         report_user_id = diagnostic.completed_by_user_id or diagnostic.created_by_user_id
         report_user = db.query(User).filter(User.id == report_user_id).first()
         
         if not report_user:
-            report_user = current_user  # Fallback to current user
+            report_user = current_user
         
-        # Generate PDF
         pdf_bytes = ReportService.generate_pdf_report(
             diagnostic=diagnostic,
             user=report_user,
             question_text_map=question_text_map
         )
         
-        # Generate filename
         filename = ReportService.get_download_filename(diagnostic, report_user)
         
-        # Return PDF as download
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",

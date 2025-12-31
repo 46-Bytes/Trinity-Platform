@@ -8,10 +8,12 @@ from uuid import UUID
 
 from app.database import get_db
 from app.services.file_service import get_file_service
+from app.services.role_check import check_engagement_access
+from app.utils.auth import get_current_user
 from app.models.media import Media
 from app.models.diagnostic import Diagnostic
-from app.utils.auth import get_current_user
-from app.models.user import User
+from app.models.engagement import Engagement
+from app.models.user import User, UserRole
 
 
 router = APIRouter(prefix="/files", tags=["files"])
@@ -230,28 +232,18 @@ async def update_file_tag(
     Returns:
         Updated file metadata
     """
-    from app.models.user import UserRole
-    
-    # Check if user is advisor
     if current_user.role not in [UserRole.ADVISOR, UserRole.FIRM_ADVISOR, UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only advisors can tag documents"
         )
     
-    # Find the media file
     media = db.query(Media).filter(Media.id == file_id).first()
     if not media:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="File not found"
         )
-    
-    # Check if advisor has access to this file through an engagement
-    # (File must be attached to a diagnostic in an engagement where advisor has access)
-    from app.models.diagnostic import Diagnostic
-    from app.models.engagement import Engagement
-    from app.services.role_check import check_engagement_access
     
     has_access = False
     for diagnostic in media.diagnostics:
@@ -267,7 +259,6 @@ async def update_file_tag(
             detail="You don't have access to tag this file"
         )
     
-    # Update tag
     media.tag = tag.strip() if tag and tag.strip() else None
     db.commit()
     db.refresh(media)

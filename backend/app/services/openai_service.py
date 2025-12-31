@@ -167,7 +167,7 @@ class OpenAIService:
             
             # Make API call using Responses API
             # Run in thread pool to avoid blocking the event loop
-            logger.info("[OpenAI API] ⏳ Waiting for OpenAI API response (this may take several minutes)...")
+            logger.info("[OpenAI API]  Waiting for OpenAI API response (this may take several minutes)...")
             start_time = time.time()
             
             # Run the blocking OpenAI call in a thread pool
@@ -187,13 +187,13 @@ class OpenAIService:
             except Exception as executor_error:
                 elapsed_time = time.time() - start_time
                 error_msg = str(executor_error)
-                logger.error(f"[OpenAI API] ❌ Exception in run_in_executor after {elapsed_time:.2f} seconds: {error_msg}", exc_info=True)
+                logger.error(f"[OpenAI API]  Exception in run_in_executor after {elapsed_time:.2f} seconds: {error_msg}", exc_info=True)
                 logger.error(f"[OpenAI API] Exception type: {type(executor_error).__name__}")
                 # Re-raise to be caught by outer exception handler
                 raise
             
             elapsed_time = time.time() - start_time
-            logger.info(f"[OpenAI API] ✅ Completed in {elapsed_time:.2f}s ({elapsed_time/60:.2f} minutes)")    
+            logger.info(f"[OpenAI API]  Completed in {elapsed_time:.2f}s ({elapsed_time/60:.2f} minutes)")    
             # Extract data
             content = response.output_text
             logger.info(f"[OpenAI API] Response received: {len(content)} characters")
@@ -219,7 +219,7 @@ class OpenAIService:
             
         except Exception as e:
             error_msg = str(e)
-            logger.error(f"[OpenAI API] ❌ API call failed: {error_msg}", exc_info=True)
+            logger.error(f"[OpenAI API]  API call failed: {error_msg}", exc_info=True)
             
             # Check for timeout errors
             if "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
@@ -269,10 +269,10 @@ class OpenAIService:
             # Try to parse as JSON
             parsed_content = json.loads(result["content"])
             result["parsed_content"] = parsed_content
-            logger.info("[OpenAI] ✅ JSON parsed successfully (direct parse)")
+            logger.info("[OpenAI]  JSON parsed successfully (direct parse)")
             logger.info(f"[OpenAI] Parsed content keys: {list(parsed_content.keys()) if isinstance(parsed_content, dict) else 'Not a dict'}")
         except json.JSONDecodeError as e:
-            logger.warning(f"[OpenAI] ⚠️ Direct JSON parse failed: {str(e)}")
+            logger.warning(f"[OpenAI]   Direct JSON parse failed: {str(e)}")
             logger.info("[OpenAI] Attempting to extract JSON from markdown...")
             
             # If JSON parsing fails, try to extract JSON from markdown
@@ -289,10 +289,10 @@ class OpenAIService:
             try:
                 parsed_content = json.loads(content)
                 result["parsed_content"] = parsed_content
-                logger.info("[OpenAI] ✅ JSON parsed successfully (from markdown)")
+                logger.info("[OpenAI]  JSON parsed successfully (from markdown)")
                 logger.info(f"[OpenAI] Parsed content keys: {list(parsed_content.keys()) if isinstance(parsed_content, dict) else 'Not a dict'}")
             except json.JSONDecodeError as e2:
-                logger.error(f"[OpenAI] ❌ JSON parsing failed after markdown extraction: {str(e2)}")
+                logger.error(f"[OpenAI]  JSON parsing failed after markdown extraction: {str(e2)}")
                 logger.error(f"[OpenAI] Content preview (first 500 chars): {content[:500]}")
                 raise Exception(f"Failed to parse JSON response: {str(e2)}\nContent preview: {content[:500]}...")
         
@@ -418,10 +418,10 @@ class OpenAIService:
                 file_ids=file_ids if file_ids else None,
                 tools=tools
             )
-            logger.info("[OpenAI] ✅ generate_json_completion completed successfully")
+            logger.info("[OpenAI]  generate_json_completion completed successfully")
             return result
         except Exception as e:
-            logger.error(f"[OpenAI] ❌ generate_json_completion failed: {str(e)}", exc_info=True)
+            logger.error(f"[OpenAI]  generate_json_completion failed: {str(e)}", exc_info=True)
             raise
     
     async def generate_advice(
@@ -535,10 +535,10 @@ class OpenAIService:
             # Verify file exists before uploading
             import os
             if not os.path.exists(file_path):
-                print(f"❌ File not found at path: {file_path}")
+                print(f" File not found at path: {file_path}")
                 raise FileNotFoundError(f"File not found: {file_path}")
             
-            print(f"✅ File found at path: {file_path}")
+            print(f" File found at path: {file_path}")
             
             # Run file upload in thread pool to avoid blocking
             # loop = asyncio.get_event_loop()
@@ -558,7 +558,7 @@ class OpenAIService:
                     file=file,
                     purpose=purpose
                 )
-            logger.info(f"[OpenAI] ✅ File uploaded: {response.id}")
+            logger.info(f"[OpenAI]  File uploaded: {response.id}")
             return {
                 "id": response.id,
                 "filename": response.filename,
@@ -568,7 +568,7 @@ class OpenAIService:
             }
             
         except Exception as e:
-            logger.error(f"[OpenAI] ❌ File upload error: {str(e)}", exc_info=True)
+            logger.error(f"[OpenAI]  File upload error: {str(e)}", exc_info=True)
             return None
 
 

@@ -304,7 +304,7 @@ class DiagnosticService:
         
         # Check for shutdown before starting
         if check_shutdown and background_task_manager.is_shutting_down():
-            logger.warning(f"⚠️ Shutdown detected before starting diagnostic pipeline for {diagnostic.id}")
+            logger.warning(f"  Shutdown detected before starting diagnostic pipeline for {diagnostic.id}")
             raise asyncio.CancelledError("Shutdown detected")
         
         # Load required data files
@@ -323,7 +323,7 @@ class DiagnosticService:
         
         # Check for shutdown after step 1
         if check_shutdown and background_task_manager.is_shutting_down():
-            logger.warning(f"⚠️ Shutdown detected after Q&A extract for diagnostic {diagnostic.id}")
+            logger.warning(f"  Shutdown detected after Q&A extract for diagnostic {diagnostic.id}")
             raise asyncio.CancelledError("Shutdown detected")
         
         # ===== STEP 2: Generate Summary =====
@@ -337,7 +337,7 @@ class DiagnosticService:
         
         # Check for shutdown after step 2
         if check_shutdown and background_task_manager.is_shutting_down():
-            logger.warning(f"⚠️ Shutdown detected after summary generation for diagnostic {diagnostic.id}")
+            logger.warning(f"  Shutdown detected after summary generation for diagnostic {diagnostic.id}")
             raise asyncio.CancelledError("Shutdown detected")
         
         # ===== STEP 3: Process Scores with GPT (including uploaded files) =====
@@ -423,7 +423,7 @@ class DiagnosticService:
                 )
             )
         except Exception as e:
-            logger.error(f"[Scoring] ❌ OpenAI API call failed: {str(e)}", exc_info=True)
+            logger.error(f"[Scoring]   OpenAI API call failed: {str(e)}", exc_info=True)
             raise
         
         # Extract scoring data
@@ -432,7 +432,7 @@ class DiagnosticService:
         # ===== STEP 4: Calculate and Validate Scores =====
         # Check for shutdown after step 3 (scoring)
         if check_shutdown and background_task_manager.is_shutting_down():
-            logger.warning(f"⚠️ Shutdown detected after scoring for diagnostic {diagnostic.id}")
+            logger.warning(f"  Shutdown detected after scoring for diagnostic {diagnostic.id}")
             raise asyncio.CancelledError("Shutdown detected")
         
         logger.info("=" * 60)
@@ -471,7 +471,7 @@ class DiagnosticService:
         
         # Check for shutdown after step 4
         if check_shutdown and background_task_manager.is_shutting_down():
-            logger.warning(f"⚠️ Shutdown detected after scoring data processing for diagnostic {diagnostic.id}")
+            logger.warning(f"  Shutdown detected after scoring data processing for diagnostic {diagnostic.id}")
             raise asyncio.CancelledError("Shutdown detected")
         
         # ===== STEP 5: Generate Advice (Optional) =====
@@ -501,7 +501,7 @@ class DiagnosticService:
             
             # Check for shutdown after step 6
             if check_shutdown and background_task_manager.is_shutting_down():
-                logger.warning(f"⚠️ Shutdown detected after task generation for diagnostic {diagnostic.id}")
+                logger.warning(f"  Shutdown detected after task generation for diagnostic {diagnostic.id}")
                 raise asyncio.CancelledError("Shutdown detected")
         except Exception as e:
             print(f"Warning: Could not generate tasks: {str(e)}")
@@ -750,7 +750,7 @@ class DiagnosticService:
         context += f"The user has uploaded {len(files)} document(s) for this diagnostic.\n"
         
         if files_with_ids > 0:
-            context += f"✅ {files_with_ids} document(s) are attached to this request and available for you to read directly.\n\n"
+            context += f"  {files_with_ids} document(s) are attached to this request and available for you to read directly.\n\n"
         
         context += "Documents uploaded:\n\n"
         
@@ -759,9 +759,9 @@ class DiagnosticService:
             context += f"   Type: {file_info['type']}\n"
             context += f"   Question: {file_info['question']}\n"
             if file_info['openai_file_id']:
-                context += f"   Status: ✅ Attached for analysis\n"
+                context += f"   Status:   Attached for analysis\n"
             else:
-                context += f"   Status: ⚠️ Metadata only (not attached)\n"
+                context += f"   Status:   Metadata only (not attached)\n"
             context += "\n"
         
         if files_with_ids > 0:

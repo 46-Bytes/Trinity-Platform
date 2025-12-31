@@ -457,7 +457,7 @@ async def submit_diagnostic(
             
             # Check if shutdown was initiated before starting
             if background_task_manager.is_shutting_down():
-                logger.warning(f"⚠️ Shutdown detected before starting diagnostic {diagnostic_id} processing")
+                logger.warning(f"  Shutdown detected before starting diagnostic {diagnostic_id} processing")
                 # Update status back to draft or leave as processing
                 try:
                     diagnostic_obj = background_db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
@@ -479,7 +479,7 @@ async def submit_diagnostic(
             diagnostic_obj = background_service.get_diagnostic(diagnostic_id)
             
             if not diagnostic_obj:
-                logger.error(f"❌ Diagnostic {diagnostic_id} not found in background task")
+                logger.error(f"  Diagnostic {diagnostic_id} not found in background task")
                 return
             
             # Process the diagnostic pipeline (with shutdown checks)
@@ -510,12 +510,12 @@ async def submit_diagnostic(
                         user=report_user,
                         question_text_map=question_text_map
                     )
-                    logger.info(f"✅ PDF report generated successfully ({len(pdf_bytes)} bytes)")
+                    logger.info(f"  PDF report generated successfully ({len(pdf_bytes)} bytes)")
                 else:
-                    logger.warning(f"⚠️ Could not find user for PDF generation")
+                    logger.warning(f"  Could not find user for PDF generation")
                     
             except Exception as pdf_error:
-                logger.error(f"⚠️ PDF generation failed (non-critical): {str(pdf_error)}", exc_info=True)
+                logger.error(f"  PDF generation failed (non-critical): {str(pdf_error)}", exc_info=True)
                 # Don't fail the whole process if PDF generation fails
             
             # Update status to completed
@@ -530,52 +530,52 @@ async def submit_diagnostic(
                 engagement.status = "completed"
                 if not engagement.completed_at:
                     engagement.completed_at = datetime.utcnow()
-                logger.info(f"✅ Updated engagement {engagement.id} status to 'completed'")
+                logger.info(f"  Updated engagement {engagement.id} status to 'completed'")
             
             background_db.commit()
-            logger.info(f"✅ Background processing completed successfully for diagnostic {diagnostic_id}")
+            logger.info(f"  Background processing completed successfully for diagnostic {diagnostic_id}")
             
         except asyncio.CancelledError:
-            logger.warning(f"⚠️ Background processing cancelled for diagnostic {diagnostic_id} (shutdown detected)")
+            logger.warning(f"  Background processing cancelled for diagnostic {diagnostic_id} (shutdown detected)")
             # Update status to indicate it was cancelled
             try:
                 diagnostic_obj = background_db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
                 if diagnostic_obj:
                     diagnostic_obj.status = "draft"  # Reset to draft so user can resubmit after redeploy
                     background_db.commit()
-                    logger.info(f"✅ Updated diagnostic {diagnostic_id} status to 'draft' (cancelled due to shutdown)")
+                    logger.info(f"  Updated diagnostic {diagnostic_id} status to 'draft' (cancelled due to shutdown)")
             except Exception as update_error:
-                logger.error(f"❌ Failed to update diagnostic status after cancellation: {str(update_error)}")
+                logger.error(f"  Failed to update diagnostic status after cancellation: {str(update_error)}")
             raise  # Re-raise to properly handle cancellation
         except Exception as e:
             # Check if shutdown was the cause
             if background_task_manager.is_shutting_down():
-                logger.warning(f"⚠️ Background processing interrupted for diagnostic {diagnostic_id} (shutdown detected)")
+                logger.warning(f"  Background processing interrupted for diagnostic {diagnostic_id} (shutdown detected)")
                 try:
                     diagnostic_obj = background_db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
                     if diagnostic_obj:
                         diagnostic_obj.status = "draft"
                         background_db.commit()
                 except Exception as update_error:
-                    logger.error(f"❌ Failed to update diagnostic status: {str(update_error)}")
+                    logger.error(f"  Failed to update diagnostic status: {str(update_error)}")
             else:
-                logger.error(f"❌ Background processing failed for diagnostic {diagnostic_id}: {str(e)}", exc_info=True)
+                logger.error(f"  Background processing failed for diagnostic {diagnostic_id}: {str(e)}", exc_info=True)
                 # Update status to failed
                 try:
                     diagnostic_obj = background_service.get_diagnostic(diagnostic_id)
                     if diagnostic_obj:
                         diagnostic_obj.status = "failed"
                         background_db.commit()
-                        logger.info(f"✅ Updated diagnostic {diagnostic_id} status to 'failed'")
+                        logger.info(f"  Updated diagnostic {diagnostic_id} status to 'failed'")
                 except Exception as update_error:
-                    logger.error(f"❌ Failed to update diagnostic status to 'failed': {str(update_error)}")
+                    logger.error(f"  Failed to update diagnostic status to 'failed': {str(update_error)}")
         finally:
             background_db.close()
     
     # Add the background task
     background_tasks.add_task(process_diagnostic_background)
     
-    logger.info(f"✅ Diagnostic {diagnostic_id} submitted, processing in background")
+    logger.info(f"  Diagnostic {diagnostic_id} submitted, processing in background")
     
     return diagnostic
 

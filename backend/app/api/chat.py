@@ -80,7 +80,7 @@ async def create_conversation(
         diagnostic_id=conversation_data.diagnostic_id
     )
     
-    logger.info(f"✅ API: Conversation created/retrieved: {conversation.id}")
+    logger.info(f"  API: Conversation created/retrieved: {conversation.id}")
     
     # Build response manually to avoid model_validate issues
     return {
@@ -210,7 +210,7 @@ async def send_message(
             engagement_id=engagement_id
         )
         
-        logger.info(f"✅ API: Message sent successfully")
+        logger.info(f"  API: Message sent successfully")
 
         
         # Build response manually to avoid model_validate issues

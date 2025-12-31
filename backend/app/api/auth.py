@@ -9,9 +9,8 @@ from urllib.parse import urlencode, quote_plus
 from ..database import get_db
 from ..services.auth_service import AuthService
 from ..config import settings
-from ..utils.auth import get_current_user, get_token_expiry_time
 from ..models.user import User
-from starlette.middleware.sessions import SessionMiddleware
+from jose import jwt
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +94,6 @@ async def callback(
         username_from_token = None
         if id_token:
             try:
-                from jose import jwt
                 # Decode ID token to get custom claims
                 id_token_payload = jwt.get_unverified_claims(id_token)
 
@@ -104,11 +102,11 @@ async def callback(
                 username_from_token = id_token_payload.get(settings.AUTH0_USERNAME_NAMESPACE)
                 
             except Exception as e:
-                logger.error(f"❌ [SIGNUP/LOGIN] Could not decode ID token for username: {e}")
+                logger.error(f" [SIGNUP/LOGIN] Could not decode ID token for username: {e}")
                 import traceback
-                logger.error(f"❌ [SIGNUP/LOGIN] Traceback: {traceback.format_exc()}")
+                logger.error(f"  [SIGNUP/LOGIN] Traceback: {traceback.format_exc()}")
         else:
-            logger.warning(f"⚠️ [SIGNUP/LOGIN] No ID token found in Auth0 response")
+            logger.warning(f"  [SIGNUP/LOGIN] No ID token found in Auth0 response")
         
         # Add username to user_info if found in token
         if username_from_token:
@@ -119,7 +117,7 @@ async def callback(
         
         # Get the ID token (JWT) from Auth0 - frontend will use this
         if not id_token:
-            logger.error(f"❌ No id_token in Auth0 response")
+            logger.error(f"  No id_token in Auth0 response")
             raise Exception("No id_token received from Auth0")
         
         # URL encode the token to handle special characters
@@ -184,14 +182,14 @@ async def get_current_user_endpoint(
     auth_header = request.headers.get('Authorization')
     
     if not auth_header or not auth_header.startswith('Bearer '):
-        logger.error(f"❌ No Authorization header or invalid format")
+        logger.error(f"  No Authorization header or invalid format")
         raise HTTPException(status_code=401, detail="Not authenticated")
     
     token = auth_header.split(' ')[1]
     
     try:
         # Decode the ID token to get user info (no signature verification for simplicity)
-        from jose import jwt
+        
         payload = jwt.get_unverified_claims(token)
         
         # Get auth0_id from the 'sub' claim
@@ -201,13 +199,13 @@ async def get_current_user_endpoint(
         username = payload.get(settings.AUTH0_USERNAME_NAMESPACE)
         
         if not auth0_id:
-            logger.error(f"❌ No 'sub' claim in token")
+            logger.error(f"  No 'sub' claim in token")
             raise HTTPException(status_code=401, detail="Invalid token")
         
         # Find user in database
         user = db.query(User).filter(User.auth0_id == auth0_id).first()
         if not user:
-            logger.error(f"❌ User not found in database for auth0_id: {auth0_id}")
+            logger.error(f"  User not found in database for auth0_id: {auth0_id}")
             raise HTTPException(status_code=401, detail="User not found")
         
         user_dict = user.to_dict()
@@ -218,7 +216,7 @@ async def get_current_user_endpoint(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Token validation error: {type(e).__name__}: {e}")
+        print(f"  Token validation error: {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=401, detail="Invalid token")

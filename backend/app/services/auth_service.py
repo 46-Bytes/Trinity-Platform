@@ -109,8 +109,7 @@ class AuthService:
         # Extract username from custom claim or fallback to standard fields
         # Priority: 1. username from user_info (set from token custom claim), 
         #           2. user_metadata.username, 3. nickname, 4. username field
-        logger.info(f"🔍 [USER_CREATE/UPDATE] Starting username extraction for user: {email}")
-        logger.info(f"🔍 [USER_CREATE/UPDATE] user_info keys: {list(user_info.keys())}")
+
         
         username_from_custom_claim = user_info.get('username')  # From custom claim (added in callback)
         username_from_metadata = user_info.get('user_metadata', {}).get('username')
@@ -118,10 +117,7 @@ class AuthService:
         username_direct = user_info.get('username')  # Direct username field if present
         
         logger.info(f"📝 [USER_CREATE/UPDATE] Username sources:")
-        logger.info(f"   - From custom claim (user_info['username']): {username_from_custom_claim}")
-        logger.info(f"   - From user_metadata.username: {username_from_metadata}")
-        logger.info(f"   - From nickname: {username_from_nickname}")
-        logger.info(f"   - Direct username field: {username_direct}")
+
         
         username = (
             username_from_custom_claim or
@@ -130,7 +126,7 @@ class AuthService:
             username_direct
         )
         
-        logger.info(f"✅ [USER_CREATE/UPDATE] Final extracted username: {username}")
+        logger.info(f"  [USER_CREATE/UPDATE] Final extracted username: {username}")
         logger.info(f"📝 [USER_CREATE/UPDATE] User info - email: {email}, username: {username}")
         
         # Try to find existing user by auth0_id first
@@ -155,7 +151,7 @@ class AuthService:
             # Use extracted username (from custom claim or fallback)
             if username:
                 user.nickname = username
-                logger.info(f"✅ [USER_UPDATE] Updated nickname/username: {username}")
+                logger.info(f"  [USER_UPDATE] Updated nickname/username: {username}")
             else:
                 # Fallback to existing logic if username not found
                 nickname = user_info.get('nickname')
@@ -163,9 +159,9 @@ class AuthService:
                 fallback_username = user_metadata.get('username') or nickname
                 if fallback_username:
                     user.nickname = fallback_username
-                    logger.info(f"✅ [USER_UPDATE] Updated nickname (fallback): {fallback_username}")
+                    logger.info(f"  [USER_UPDATE] Updated nickname (fallback): {fallback_username}")
                 else:
-                    logger.warning(f"⚠️ [USER_UPDATE] No username found, nickname not updated")
+                    logger.warning(f"  [USER_UPDATE] No username found, nickname not updated")
             
             user.picture = user_info.get('picture')
             
@@ -183,7 +179,7 @@ class AuthService:
                 print(f"🔄 Updating role from Auth0: {user.role.value} -> {auth0_role.value}")
                 user.role = auth0_role
             else:
-                print(f"✅ Preserving existing role: {user.role.value} (no role in Auth0 metadata)")
+                print(f"  Preserving existing role: {user.role.value} (no role in Auth0 metadata)")
             
             user.last_login = datetime.utcnow()
             user.updated_at = datetime.utcnow()
@@ -199,11 +195,11 @@ class AuthService:
                 nickname = user_info.get('nickname')
                 user_metadata = user_info.get('user_metadata', {})
                 username = user_metadata.get('username') or nickname
-                logger.info(f"✅ [USER_CREATE] New user username (fallback): {username} (from nickname: {nickname}, user_metadata.username: {user_metadata.get('username')})")
+                logger.info(f"  [USER_CREATE] New user username (fallback): {username} (from nickname: {nickname}, user_metadata.username: {user_metadata.get('username')})")
             else:
-                logger.info(f"✅ [USER_CREATE] New user username: {username}")
+                logger.info(f"  [USER_CREATE] New user username: {username}")
             
-            logger.info(f"✅ [USER_CREATE] Creating user with - email: {email}, username/nickname: {username}, role: {default_role.value}")
+            logger.info(f"  [USER_CREATE] Creating user with - email: {email}, username/nickname: {username}, role: {default_role.value}")
             
             user = User(
                 auth0_id=auth0_id,

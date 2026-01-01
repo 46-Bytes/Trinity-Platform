@@ -428,15 +428,64 @@ class ReportService:
             )
             
             if is_matrix:
-                # Matrix data: show "See table below" in main row, then nested table
-                rows_html += f"""
+                # Check if this is file data (has file-related fields)
+                # Check both snake_case and humanized field names
+                file_indicators = [
+                    'media_id', 'Media Id', 'mediaId',
+                    'file_name', 'File Name', 'fileName', 'filename',
+                    'file_type', 'File Type', 'fileType',
+                    'openai_file_id', 'Openai File Id', 'openaiFileId',
+                    'relative_path', 'Relative Path', 'relativePath'
+                ]
+                is_file_data = any(
+                    isinstance(row, dict) and any(indicator in row for indicator in file_indicators)
+                    for row in answer
+                )
+                
+                if is_file_data:
+                    # For file data, show simplified version (just file names)
+                    file_names = []
+                    for row in answer:
+                        if isinstance(row, dict):
+                            # Try different possible field names (snake_case, humanized, camelCase)
+                            file_name = (
+                                row.get('file_name') or 
+                                row.get('File Name') or 
+                                row.get('fileName') or
+                                row.get('filename') or 
+                                row.get('Filename') or
+                                ''
+                            )
+                            if file_name:
+                                file_names.append(file_name)
+                    
+                    if file_names:
+                        # Show file names as a simple list
+                        files_list = ', '.join([ReportService._escape_html(fn) for fn in file_names])
+                        rows_html += f"""
+            <tr>
+                <td style="text-align: center;">{idx}</td>
+                <td style="text-align: left;">{question}</td>
+                <td style="text-align: left;">{files_list}</td>
+            </tr>"""
+                    else:
+                        # Fallback: show "Files uploaded" if no file names found
+                        rows_html += f"""
+            <tr>
+                <td style="text-align: center;">{idx}</td>
+                <td style="text-align: left;">{question}</td>
+                <td style="text-align: left;">Files uploaded</td>
+            </tr>"""
+                else:
+                    # Regular matrix data: show "See table below" in main row, then nested table
+                    rows_html += f"""
             <tr>
                 <td style="text-align: center;">{idx}</td>
                 <td style="text-align: left;">{question}</td>
                 <td style="text-align: left;">See table below</td>
             </tr>
             <tr>
-                <td colspan="3" style="padding: 0; border: none;">
+                <td colspan="3" style="padding: 0; border: none; text-align: center;">
                     {ReportService._format_matrix_table(answer)}
                 </td>
             </tr>"""
@@ -505,13 +554,13 @@ class ReportService:
         # Get column names from first row
         cols = list(matrix_data[0].keys())
         
-        # Build table header
+        # Build table header - center aligned
         header_html = "".join([
-            f"<th style=\"text-align: left; padding: 4px;\">{ReportService._escape_html(ReportService._humanize_label(col))}</th>"
+            f"<th style=\"text-align: center; padding: 4px;\">{ReportService._escape_html(ReportService._humanize_label(col))}</th>"
             for col in cols
         ])
         
-        # Build table rows
+        # Build table rows - center aligned
         rows_html = ""
         for row in matrix_data:
             # Check if row has any non-empty data
@@ -527,11 +576,11 @@ class ReportService:
                     if isinstance(val, (dict, list)):
                         val = json.dumps(val)
                     val_str = ReportService._escape_html(str(val))
-                    cells_html += f"<td style=\"padding: 4px;\">{val_str}</td>"
+                    cells_html += f"<td style=\"text-align: center; padding: 4px;\">{val_str}</td>"
                 rows_html += f"<tr>{cells_html}</tr>"
         
         return f"""
-                    <table class="sub-table" style="width: 100%; border-collapse: collapse; table-layout: fixed; border: 1px solid #444;">
+                    <table class="sub-table" style="width: 100%; border-collapse: collapse; table-layout: fixed; border: 1px solid #444; margin: 0 auto;">
                         <thead>
                             <tr>{header_html}</tr>
                         </thead>

@@ -81,7 +81,6 @@ async def callback(
                     )
                     if response.status_code == 200:
                         user_info = response.json()
-                        logger.info(f"userinfooooo: {user_info}")
                 except Exception as e:
                     print(f"Error fetching userinfo: {str(e)}")
         

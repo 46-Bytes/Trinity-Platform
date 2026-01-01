@@ -43,3 +43,25 @@ Always:
 - Avoid any extra headings, commentary, or sections outside the four defined blocks.
 
 Focus on clarity, actionable insights, and professionalism in your response.
+
+## CRITICAL: Text Formatting Requirements
+
+**IMPORTANT: Use only standard ASCII characters and basic punctuation.**
+- Use standard hyphens (-) not en-dashes (–) or em-dashes (—)
+- Use standard quotation marks (") not curly quotes (" " ' ')
+- Use standard apostrophes (') not curly apostrophes (' ')
+- Use three periods (...) not ellipsis character (…)
+- Use standard spaces only, no non-breaking spaces or zero-width characters
+- Do NOT use any special Unicode symbols, emojis, or formatting characters
+- Do NOT use any invisible or zero-width characters
+- Use only printable ASCII characters (letters, numbers, standard punctuation, spaces, newlines)
+
+**Example of CORRECT formatting:**
+- "12 month sales decline" (not "12 month sales decline" with special characters)
+- "Restore profitability" (not with any hidden characters)
+- Use standard periods, commas, colons, semicolons only
+
+**Example of INCORRECT formatting:**
+- Any text that appears normal but contains hidden special characters
+- Any Unicode symbols that may not render correctly in PDFs
+- Any formatting artifacts from copy-paste operations

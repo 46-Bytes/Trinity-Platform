@@ -11,6 +11,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
 interface TopBarProps {
   onMenuClick: () => void;
 }
@@ -51,8 +53,25 @@ export function TopBar({ onMenuClick }: TopBarProps) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-muted transition-colors">
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-medium text-sm">
-                {user?.name.charAt(0)}
+              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-medium text-sm overflow-hidden relative">
+                {user?.avatar ? (
+                  <img
+                    src={user.avatar.startsWith('http') ? user.avatar : `${API_BASE_URL}${user.avatar}`}
+                    alt={user.nickname || user.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Fallback to initial if image fails to load
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      const parent = target.parentElement;
+                      if (parent) {
+                        parent.textContent = (user?.nickname || user?.name || 'U').charAt(0);
+                      }
+                    }}
+                  />
+                ) : (
+                  (user?.nickname || user?.name || 'U').charAt(0)
+                )}
               </div>
               <ChevronDown className="w-4 h-4 text-muted-foreground hidden sm:block" />
             </button>
@@ -60,7 +79,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>
               <div className="flex flex-col">
-                <span>{user?.name}</span>
+                <span>{user?.nickname || user?.name || 'User'}</span>
                 <span className="text-xs font-normal text-muted-foreground">{user?.email}</span>
               </div>
             </DropdownMenuLabel>

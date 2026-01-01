@@ -112,18 +112,12 @@ class AuthService:
 
         
         username_from_custom_claim = user_info.get('username')  # From custom claim (added in callback)
-        username_from_metadata = user_info.get('user_metadata', {}).get('username')
         username_from_nickname = user_info.get('nickname')
-        username_direct = user_info.get('username')  # Direct username field if present
-        
-        logger.info(f"📝 [USER_CREATE/UPDATE] Username sources:")
 
-        
+
         username = (
             username_from_custom_claim or
-            username_from_metadata or
-            username_from_nickname or
-            username_direct
+            username_from_nickname
         )
         
         logger.info(f"  [USER_CREATE/UPDATE] Final extracted username: {username}")
@@ -144,26 +138,63 @@ class AuthService:
         if user:
             # Update existing user information
             user.email = email
-            user.name = user_info.get('name')
-            user.given_name = user_info.get('given_name')
-            user.family_name = user_info.get('family_name')
             
-            # Use extracted username (from custom claim or fallback)
+            # Extract first_name and last_name from Auth0
+            first_name = user_info.get('first_name') or user_info.get('given_name')
+            last_name = user_info.get('last_name') or user_info.get('family_name')
+            
+            # Store in first_name/last_name fields
+            user.first_name = first_name
+            user.last_name = last_name
+            
+ 
             if username:
-                user.nickname = username
-                logger.info(f"  [USER_UPDATE] Updated nickname/username: {username}")
+                if hasattr(user, 'username'):
+                    user.username = username
+                    user.nickname = username  
+                    logger.info(f"  [USER_UPDATE] Updated username: {username}")
+                else:
+               
+                    user.nickname = username
+                    logger.info(f"  [USER_UPDATE] Updated nickname (username): {username}")
+                user.name = username
             else:
                 # Fallback to existing logic if username not found
                 nickname = user_info.get('nickname')
                 user_metadata = user_info.get('user_metadata', {})
                 fallback_username = user_metadata.get('username') or nickname
                 if fallback_username:
-                    user.nickname = fallback_username
-                    logger.info(f"  [USER_UPDATE] Updated nickname (fallback): {fallback_username}")
+                    if hasattr(user, 'username'):
+                        user.username = fallback_username
+                        user.nickname = fallback_username 
+                        logger.info(f"  [USER_UPDATE] Updated username (fallback): {fallback_username}")
+                    else:
+                        user.nickname = fallback_username
+                        logger.info(f"  [USER_UPDATE] Updated nickname (fallback): {fallback_username}")
+                    user.name = fallback_username
                 else:
-                    logger.warning(f"  [USER_UPDATE] No username found, nickname not updated")
+                    logger.warning(f"  [USER_UPDATE] No username found, username not updated")
+                    if not user.name:
+                        user.name = email
             
-            user.picture = user_info.get('picture')
+            auth0_picture = user_info.get('picture')
+            current_picture = user.picture
+            
+            # Check if current picture is user-uploaded (stored in our filesystem in profilepicture directory)
+            is_user_uploaded = current_picture and (
+                f'/users/{str(user.id)}/profilepicture/' in current_picture or
+                current_picture.startswith('/files/uploads/users/') and '/profilepicture/' in current_picture
+            )
+            
+            if is_user_uploaded:
+                # Never overwrite user-uploaded pictures
+                logger.info(f"  [USER_UPDATE] Preserving user-uploaded picture (not overwriting with Auth0)")
+            elif auth0_picture:
+                # Only update if no existing picture or existing picture is from Auth0
+                user.picture = auth0_picture
+                logger.info(f"  [USER_UPDATE] Updated picture from Auth0")
+            else:
+                logger.info(f"  [USER_UPDATE] No picture from Auth0, preserving existing picture")
             
             # IMPORTANT: Only update email_verified if it's True (don't unverify)
             # If user already has verified email, keep it verified
@@ -199,20 +230,53 @@ class AuthService:
             else:
                 logger.info(f"  [USER_CREATE] New user username: {username}")
             
-            logger.info(f"  [USER_CREATE] Creating user with - email: {email}, username/nickname: {username}, role: {default_role.value}")
+            # Extract first_name and last_name from Auth0
+            first_name = user_info.get('first_name') or user_info.get('given_name')
+            last_name = user_info.get('last_name') or user_info.get('family_name')
             
-            user = User(
-                auth0_id=auth0_id,
-                email=email,
-                name=user_info.get('name'),
-                given_name=user_info.get('given_name'),
-                family_name=user_info.get('family_name'),
-                nickname=username,  # Store username in nickname field
-                picture=user_info.get('picture'),
-                email_verified=user_info.get('email_verified', False),
-                role=default_role,  # Use Auth0 role or default to ADVISOR
-                last_login=datetime.utcnow(),
-            )
+            logger.info(f"  [USER_CREATE] Creating user with - email: {email}, username: {username}, first_name: {first_name}, last_name: {last_name}, role: {default_role.value}")
+            
+            # Determine the name to use (username/nickname, not email)
+            display_name = username
+            if not display_name:
+                # Fallback to nickname or user_metadata.username
+                nickname = user_info.get('nickname')
+                user_metadata = user_info.get('user_metadata', {})
+                display_name = user_metadata.get('username') or nickname or email  # Use email as last resort
+            
+            # Create user with first_name/last_name
+            user_data = {
+                'auth0_id': auth0_id,
+                'email': email,
+                'name': display_name,  # Store username/nickname in name field, not email
+                'first_name': first_name,
+                'last_name': last_name,
+                'picture': user_info.get('picture'),
+                'email_verified': user_info.get('email_verified', False),
+                'role': default_role,
+                'last_login': datetime.utcnow(),
+            }
+            
+            # Add username if field exists, otherwise use nickname
+            if username:
+                if hasattr(User, 'username'):
+                    user_data['username'] = username
+                    user_data['nickname'] = username  # Also store in nickname for compatibility
+                else:
+                    user_data['nickname'] = username
+            else:
+                # Fallback to nickname if no username
+                nickname = user_info.get('nickname')
+                user_metadata = user_info.get('user_metadata', {})
+                fallback_username = user_metadata.get('username') or nickname
+                if fallback_username:
+                    if hasattr(User, 'username'):
+                        user_data['username'] = fallback_username
+                        user_data['nickname'] = fallback_username  # Also store in nickname for compatibility
+                    else:
+                        user_data['nickname'] = fallback_username
+            
+            user = User(**user_data)
             db.add(user)
         
         db.commit()

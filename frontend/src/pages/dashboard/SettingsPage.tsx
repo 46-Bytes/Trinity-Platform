@@ -13,7 +13,7 @@ const tabs = [
 ];
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -88,9 +88,18 @@ export default function SettingsPage() {
       }
 
       const data = await response.json();
-      // For now, simplest is to refresh user data by reloading
+      
+      // Update preview URL if profile picture was uploaded
+      if (file && data.picture) {
+        const avatarUrl = data.picture.startsWith('http') 
+          ? data.picture 
+          : `${API_BASE_URL}${data.picture}`;
+        setPreviewUrl(avatarUrl);
+      }
+      
+      // Refresh user data in context to update sidebar and other components
+      await refreshUser();
       setSuccess('Profile updated successfully');
-      // Optional: window.location.reload();
     } catch (err) {
       console.error('Failed to save profile', err);
       setError(err instanceof Error ? err.message : 'Failed to save profile');

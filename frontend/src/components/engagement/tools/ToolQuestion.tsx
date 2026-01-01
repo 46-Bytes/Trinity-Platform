@@ -20,8 +20,16 @@ interface ToolQuestionProps {
   engagementId?: string;
 }
 
-// Helper to evaluate conditional visibility
-function evaluateCondition(condition: string, responses: Record<string, any>): boolean {
+// Helper to evaluate a single condition expression
+function evaluateSingleCondition(condition: string, responses: Record<string, any>): boolean {
+  // Handle notempty: "{field} notempty"
+  const notemptyMatch = condition.match(/\{(\w+)\}\s+notempty/);
+  if (notemptyMatch) {
+    const [, fieldName] = notemptyMatch;
+    const value = responses[fieldName];
+    return value !== undefined && value !== null && value !== '';
+  }
+  
   // Handle equality comparisons: "{business_founded_by_you} == 'No'"
   const equalityMatch = condition.match(/\{(\w+)\}\s*==\s*'([^']+)'/);
   if (equalityMatch) {
@@ -109,6 +117,42 @@ function evaluateCondition(condition: string, responses: Record<string, any>): b
   
   // If no pattern matches, default to showing the question (safer than hiding)
   return true;
+}
+
+// Helper to evaluate conditional visibility with support for 'or', 'and', and parentheses
+function evaluateCondition(condition: string, responses: Record<string, any>): boolean {
+  if (!condition || condition.trim() === '') return true;
+  
+  // Remove outer whitespace
+  condition = condition.trim();
+  
+  // Handle parentheses first - find and evaluate innermost parentheses
+  let parenMatch = condition.match(/\(([^()]+)\)/);
+  while (parenMatch) {
+    const innerCondition = parenMatch[1];
+    const innerResult = evaluateCondition(innerCondition, responses);
+    condition = condition.replace(parenMatch[0], innerResult ? 'true' : 'false');
+    parenMatch = condition.match(/\(([^()]+)\)/);
+  }
+  
+  // Handle 'and' operator (higher precedence than 'or')
+  if (condition.includes(' and ')) {
+    const parts = condition.split(/\s+and\s+/);
+    return parts.every(part => evaluateCondition(part.trim(), responses));
+  }
+  
+  // Handle 'or' operator
+  if (condition.includes(' or ')) {
+    const parts = condition.split(/\s+or\s+/);
+    return parts.some(part => evaluateCondition(part.trim(), responses));
+  }
+  
+  // Handle boolean literals from parentheses evaluation
+  if (condition === 'true') return true;
+  if (condition === 'false') return false;
+  
+  // Evaluate single condition
+  return evaluateSingleCondition(condition, responses);
 }
 
 export function ToolQuestion({ question, value, onChange, onFieldChange, allResponses, diagnosticId, engagementId }: ToolQuestionProps) {

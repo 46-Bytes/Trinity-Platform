@@ -64,17 +64,17 @@ async def update_profile(
 
     # Update basic fields
     if first_name is not None:
-        user.given_name = first_name.strip() or None
+        user.first_name = first_name.strip() or None
     if last_name is not None:
-        user.family_name = last_name.strip() or None
+        user.last_name = last_name.strip() or None
 
     # Keep full name in sync if we have first/last
     if first_name is not None or last_name is not None:
         parts = []
-        if user.given_name:
-            parts.append(user.given_name)
-        if user.family_name:
-            parts.append(user.family_name)
+        if user.first_name:
+            parts.append(user.first_name)
+        if user.last_name:
+            parts.append(user.last_name)
         user.name = " ".join(parts) if parts else user.name
 
     if email is not None:
@@ -89,21 +89,25 @@ async def update_profile(
     if profile_picture is not None:
         # Base files directory (backend/files)
         base_dir = Path(__file__).resolve().parents[2] / "files"
-        uploads_dir = base_dir / "uploads" / "users" / str(user.id)
-        uploads_dir.mkdir(parents=True, exist_ok=True)
+        # Store profile pictures in files/uploads/users/{user_id}/profilepicture/
+        profile_picture_dir = base_dir / "uploads" / "users" / str(user.id) / "profilepicture"
+        profile_picture_dir.mkdir(parents=True, exist_ok=True)
 
-        for existing in uploads_dir.iterdir():
+        # Remove any existing profile pictures in this directory
+        for existing in profile_picture_dir.iterdir():
             if existing.is_file():
                 try:
                     existing.unlink()
                 except Exception:
                     pass
 
-        # Sanitize filename
-        original_name = os.path.basename(profile_picture.filename or "profile-picture")
-        safe_name = original_name.replace("..", "_").replace("/", "_").replace("\\", "_")
+        # Get file extension from uploaded file
+        original_name = os.path.basename(profile_picture.filename or "profilepicture")
+        file_ext = os.path.splitext(original_name)[1] or ".jpg"
+        # Use consistent filename: profilepicture.{ext}
+        filename = f"profilepicture{file_ext}"
 
-        destination = uploads_dir / safe_name
+        destination = profile_picture_dir / filename
 
         try:
             with destination.open("wb") as buffer:

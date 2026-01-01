@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, Calendar, User, AlertCircle, CheckCircle2, Clock, Circle, Loader2 } from 'lucide-react';
-import { cn, capitalizeFirstLetter } from '@/lib/utils';
+import { cn, capitalizeFirstLetter, getPriorityBadgeClassName } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchTasks, updateTask, Task, TaskUpdatePayload } from '@/store/slices/tasksReducer';
 import { useNavigate } from 'react-router-dom';
@@ -89,18 +89,6 @@ export default function TasksPage() {
     }
   };
 
-  const getPriorityBadgeVariant = (priority: string) => {
-    switch (priority) {
-      case 'critical':
-        return 'destructive';
-      case 'high':
-        return 'default';
-      case 'medium':
-        return 'secondary';
-      default:
-        return 'outline';
-    }
-  };
 
   const getStatusLabel = (status: string) => {
     switch (status) {
@@ -231,14 +219,9 @@ export default function TasksPage() {
                             {task.taskType === 'diagnostic_generated' && (
                               <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-accent/10 text-accent">AI</span>
                             )}
-                            <span className={cn(
-                              "px-1.5 py-0.5 rounded text-[10px] font-medium",
-                              (task.priority === 'urgent' || task.priority === 'high') && "bg-destructive/10 text-destructive",
-                              task.priority === 'medium' && "bg-warning/10 text-warning",
-                              task.priority === 'low' && "bg-muted text-muted-foreground"
-                            )}>
+                            <Badge className={cn("text-[10px] font-medium", getPriorityBadgeClassName(task.priority))}>
                               {capitalizeFirstLetter(task.priority)}
-                            </span>
+                            </Badge>
                           </div>
                         </div>
 
@@ -305,7 +288,7 @@ export default function TasksPage() {
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Priority</label>
                   <div className="mt-1">
-                    <Badge variant={getPriorityBadgeVariant(selectedTask.priority)}>
+                    <Badge className={getPriorityBadgeClassName(selectedTask.priority)}>
                       {capitalizeFirstLetter(selectedTask.priority)}
                     </Badge>
                   </div>

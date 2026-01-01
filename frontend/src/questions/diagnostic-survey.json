@@ -1478,7 +1478,7 @@
           {
             "type": "radiogroup",
             "name": "performance_issues_description",
-            "visibleIf": "{financial_performance_since_acquisition} allof ['Same','Worse']",
+            "visibleIf": "{financial_performance_since_acquisition} == 'Worse' or {financial_performance_since_acquisition} == 'Same'",
             "title": "What are the reasons for this performance?",
             "choices": [
               "Market conditions have affected the business",
@@ -1490,7 +1490,7 @@
           {
             "type": "comment",
             "name": "detailed_explanation_performance_issues",
-            "visibleIf": "{performance_issues_description} notempty",
+            "visibleIf": "{performance_issues_description} notempty and ({financial_performance_since_acquisition} == 'Worse' or {financial_performance_since_acquisition} == 'Same')",
             "title": "Please explain in more detail.",
             "maxLength": 500
           },

@@ -141,16 +141,16 @@ class User(Base):
         comment="User's full name"
     )
     
-    given_name = Column(
+    first_name = Column(
         String(255),
         nullable=True,
-        comment="User's first/given name"
+        comment="User's first name"
     )
     
-    family_name = Column(
+    last_name = Column(
         String(255),
         nullable=True,
-        comment="User's last/family name"
+        comment="User's last name"
     )
     
     nickname = Column(
@@ -230,8 +230,8 @@ class User(Base):
             "auth0_id": self.auth0_id,
             "email": self.email,
             "name": self.name,
-            "given_name": self.given_name,
-            "family_name": self.family_name,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
             "nickname": self.nickname,
             "picture": self.picture,
             "bio": self.bio,

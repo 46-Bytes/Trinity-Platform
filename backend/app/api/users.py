@@ -59,8 +59,8 @@ async def list_users(
             auth0_id=u.auth0_id,
             email=u.email,
             name=u.name,
-            given_name=u.given_name,
-            family_name=u.family_name,
+            first_name=u.first_name,
+            last_name=u.last_name,
             nickname=u.nickname,
             picture=u.picture,
             email_verified=u.email_verified,
@@ -135,18 +135,18 @@ async def create_user(
     # The user will need to link their Auth0 account later
     manual_auth0_id = f"manual-{uuid4()}"
     
-    # Split name into given_name and family_name if possible
+    # Split name into first_name and last_name if possible
     name_parts = user_data.name.split(" ", 1)
-    given_name = name_parts[0] if name_parts else user_data.name
-    family_name = name_parts[1] if len(name_parts) > 1 else None
+    first_name = name_parts[0] if name_parts else user_data.name
+    last_name = name_parts[1] if len(name_parts) > 1 else None
     
     # Create new user
     new_user = User(
         auth0_id=manual_auth0_id,
         email=user_data.email,
         name=user_data.name,
-        given_name=given_name,
-        family_name=family_name,
+        first_name=first_name,
+        last_name=last_name,
         email_verified=False,  # Manual users need to verify email
         role=role_enum,
         is_active=True,
@@ -161,8 +161,8 @@ async def create_user(
         auth0_id=new_user.auth0_id,
         email=new_user.email,
         name=new_user.name,
-        given_name=new_user.given_name,
-        family_name=new_user.family_name,
+        first_name=new_user.first_name,
+        last_name=new_user.last_name,
         nickname=new_user.nickname,
         picture=new_user.picture,
         email_verified=new_user.email_verified,
@@ -201,8 +201,8 @@ async def get_user(
         auth0_id=user.auth0_id,
         email=user.email,
         name=user.name,
-        given_name=user.given_name,
-        family_name=user.family_name,
+        first_name=user.first_name,
+        last_name=user.last_name,
         nickname=user.nickname,
         picture=user.picture,
         email_verified=user.email_verified,
@@ -242,10 +242,10 @@ async def update_user(
     # Update fields if provided
     if name is not None:
         user.name = name
-        # Update given_name and family_name
+        # Update first_name and last_name
         name_parts = name.split(" ", 1)
-        user.given_name = name_parts[0] if name_parts else name
-        user.family_name = name_parts[1] if len(name_parts) > 1 else None
+        user.first_name = name_parts[0] if name_parts else name
+        user.last_name = name_parts[1] if len(name_parts) > 1 else None
     
     if role is not None:
         try:
@@ -268,8 +268,8 @@ async def update_user(
         auth0_id=user.auth0_id,
         email=user.email,
         name=user.name,
-        given_name=user.given_name,
-        family_name=user.family_name,
+        first_name=user.first_name,
+        last_name=user.last_name,
         nickname=user.nickname,
         picture=user.picture,
         email_verified=user.email_verified,

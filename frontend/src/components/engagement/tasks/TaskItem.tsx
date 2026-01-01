@@ -9,7 +9,7 @@ import { NoteForm } from './NoteForm';
 import { NotesList } from './NotesList';
 import { useAppDispatch } from '@/store/hooks';
 import { createNote, fetchNotes } from '@/store/slices/notesReducer';
-import { capitalizeFirstLetter } from '@/lib/utils';
+import { capitalizeFirstLetter, getPriorityBadgeClassName } from '@/lib/utils';
 
 interface TaskItemProps {
   task: Task;
@@ -59,18 +59,6 @@ export function TaskItem({ task, onEdit, onDelete, onStatusChange, onClick }: Ta
     }
   };
 
-  const getPriorityBadgeVariant = (priority: string) => {
-    switch (priority) {
-      case 'urgent':
-        return 'destructive';
-      case 'high':
-        return 'default';
-      case 'medium':
-        return 'secondary';
-      default:
-        return 'outline';
-    }
-  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -110,7 +98,7 @@ export function TaskItem({ task, onEdit, onDelete, onStatusChange, onClick }: Ta
                 <div className="flex items-center gap-2 mb-1">
                   <h3 className="font-semibold text-lg">{task.title}</h3>
                   <Badge variant={getStatusBadgeVariant(task.status)}>{capitalizeFirstLetter(task.status)}</Badge>
-                  <Badge variant={getPriorityBadgeVariant(task.priority)}>{capitalizeFirstLetter(task.priority)}</Badge>
+                  <Badge className={getPriorityBadgeClassName(task.priority)}>{capitalizeFirstLetter(task.priority)}</Badge>
                 </div>
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   {task.assignedToName && (

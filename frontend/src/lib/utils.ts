@@ -30,3 +30,23 @@ export function capitalizeFirstLetter(str: string): string {
 export function getUniqueClientIds(engagements: Array<{ clientId: string }>): Set<string> {
   return new Set(engagements.map(e => e.clientId));
 }
+
+/**
+ * Gets the className for priority badges based on priority level.
+ * @param priority - The priority level (critical, high, medium, low)
+ * @returns Tailwind CSS classes for the priority badge
+ */
+export function getPriorityBadgeClassName(priority: string): string {
+  switch (priority) {
+    case 'critical':
+      return 'border-transparent bg-red-500 text-white hover:bg-red-600';
+    case 'high':
+      return 'border-transparent bg-orange-500 text-white hover:bg-orange-600';
+    case 'medium':
+      return 'border-transparent bg-yellow-500 text-white hover:bg-yellow-600';
+    case 'low':
+      return 'border-transparent bg-gray-500 text-white hover:bg-gray-600';
+    default:
+      return 'border-transparent bg-gray-500 text-white hover:bg-gray-600';
+  }
+}

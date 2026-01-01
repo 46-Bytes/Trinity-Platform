@@ -68,7 +68,6 @@ async def callback(
         token = await oauth.auth0.authorize_access_token(request)
         # Get user information from the token
         user_info = token.get('userinfo')
-        
         # If userinfo is not in token, fetch it from Auth0 userinfo endpoint
         if not user_info:
             access_token = token.get('access_token')
@@ -82,14 +81,17 @@ async def callback(
                     )
                     if response.status_code == 200:
                         user_info = response.json()
+                        logger.info(f"userinfooooo: {user_info}")
                 except Exception as e:
                     print(f"Error fetching userinfo: {str(e)}")
         
         if not user_info:
             raise HTTPException(status_code=400, detail="Failed to get user information")
+            
     
         
         # Extract username from ID token custom claim
+        logger.info(f"token: {token}")
         id_token = token.get('id_token')
         username_from_token = None
         if id_token:
@@ -102,7 +104,6 @@ async def callback(
                 username_from_token = id_token_payload.get(settings.AUTH0_USERNAME_NAMESPACE)
                 
             except Exception as e:
-                logger.error(f" [SIGNUP/LOGIN] Could not decode ID token for username: {e}")
                 import traceback
                 logger.error(f"  [SIGNUP/LOGIN] Traceback: {traceback.format_exc()}")
         else:

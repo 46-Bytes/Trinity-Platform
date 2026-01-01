@@ -5,6 +5,7 @@ interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   switchRole: (role: UserRole) => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -139,7 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [loadCurrentUser]);
 
   return (
-    <AuthContext.Provider value={{ ...authState, login, logout, switchRole }}>
+    <AuthContext.Provider value={{ ...authState, login, logout, switchRole, refreshUser: loadCurrentUser }}>
       {children}
     </AuthContext.Provider>
   );

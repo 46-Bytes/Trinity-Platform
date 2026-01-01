@@ -313,22 +313,6 @@ function AdvisorDashboard() {
             </div>
           </div>
 
-          <div className="card-trinity p-6">
-            <h3 className="font-heading font-semibold text-lg mb-4">Quick Actions</h3>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: 'New Client', icon: Users },
-                { label: 'Create Task', icon: CheckSquare },
-                { label: 'AI Tools', icon: Brain },
-                { label: 'Upload', icon: FileText },
-              ].map((action, i) => (
-                <button key={i} className="flex flex-col items-center gap-2 p-4 rounded-lg bg-muted/30 hover:bg-accent/10 hover:text-accent transition-all">
-                  <action.icon className="w-5 h-5" />
-                  <span className="text-xs font-medium">{action.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>

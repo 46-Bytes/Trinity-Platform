@@ -11,8 +11,8 @@ class UserBase(BaseModel):
     """Base user schema with common fields."""
     email: EmailStr
     name: Optional[str] = None
-    given_name: Optional[str] = None
-    family_name: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     nickname: Optional[str] = None
     picture: Optional[str] = None
 

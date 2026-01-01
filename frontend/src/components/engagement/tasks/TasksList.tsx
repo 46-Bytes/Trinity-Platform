@@ -11,7 +11,8 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { Plus, Search } from 'lucide-react';
 import { TaskForm } from './TaskForm';
 import { TaskItem } from './TaskItem';
-import { capitalizeFirstLetter } from '@/lib/utils';
+import { capitalizeFirstLetter, getPriorityBadgeClassName } from '@/lib/utils';
+import { sortTasksByStatus } from '@/lib/taskUtils';
 
 interface TasksListProps {
   engagementId: string;
@@ -58,7 +59,8 @@ export function TasksList({ engagementId }: TasksListProps) {
       result = result.filter((task) => task.priority === priorityFilter);
     }
 
-    return result;
+    // Sort by status: pending -> in_progress -> completed -> cancelled
+    return sortTasksByStatus(result);
   }, [engagementTasks, searchQuery, statusFilter, priorityFilter]);
 
   // Calculate pagination
@@ -127,18 +129,6 @@ export function TasksList({ engagementId }: TasksListProps) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const getPriorityBadgeVariant = (priority: string) => {
-    switch (priority) {
-      case 'critical':
-        return 'destructive';
-      case 'high':
-        return 'default';
-      case 'medium':
-        return 'secondary';
-      default:
-        return 'outline';
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -406,7 +396,7 @@ export function TasksList({ engagementId }: TasksListProps) {
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Priority</label>
                   <div className="mt-1">
-                    <Badge variant={getPriorityBadgeVariant(selectedTask.priority)}>
+                    <Badge className={getPriorityBadgeClassName(selectedTask.priority)}>
                       {capitalizeFirstLetter(selectedTask.priority)}
                     </Badge>
                   </div>

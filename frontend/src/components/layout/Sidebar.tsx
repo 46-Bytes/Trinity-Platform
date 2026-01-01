@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { UserRole } from '@/types/auth';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
@@ -126,8 +128,25 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {!collapsed && user && (
         <div className="p-4 border-t border-sidebar-border">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-sidebar-accent flex items-center justify-center text-sidebar-foreground font-medium">
-              {(user.nickname || user.name).charAt(0)}
+            <div className="w-9 h-9 rounded-full bg-sidebar-accent flex items-center justify-center text-sidebar-foreground font-medium overflow-hidden relative">
+              {user.avatar ? (
+                <img
+                  src={user.avatar.startsWith('http') ? user.avatar : `${API_BASE_URL}${user.avatar}`}
+                  alt={user.nickname || user.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    // Fallback to initial if image fails to load
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    if (parent) {
+                      parent.textContent = (user.nickname || user.name).charAt(0);
+                    }
+                  }}
+                />
+              ) : (
+                (user.nickname || user.name).charAt(0)
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-sidebar-foreground truncate">

@@ -218,10 +218,6 @@ export function GeneratedFile({
           </div>
           
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5" />
-              Generated {formatDate(generatedAt)}
-            </span>
             {generatedBy && (
               <span className="flex items-center gap-1.5">
                 <User className="w-3.5 h-3.5" />

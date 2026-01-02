@@ -35,7 +35,16 @@ export default function SettingsPage() {
       // bio is optional and may not exist on the typed User object
       const anyUser: any = user;
       setBio(anyUser.bio || '');
-      setPreviewUrl(user.avatar || null);
+      
+      // Prepend API_BASE_URL if avatar doesn't start with http
+      if (user.avatar) {
+        const avatarUrl = user.avatar.startsWith('http') 
+          ? user.avatar 
+          : `${API_BASE_URL}${user.avatar}`;
+        setPreviewUrl(avatarUrl);
+      } else {
+        setPreviewUrl(null);
+      }
     }
   }, [user]);
 
@@ -151,7 +160,13 @@ export default function SettingsPage() {
                   {previewUrl || user?.avatar ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={previewUrl || user?.avatar}
+                      src={
+                        previewUrl || 
+                        (user?.avatar ? 
+                          (user.avatar.startsWith('http') ? user.avatar : `${API_BASE_URL}${user.avatar}`) 
+                          : ''
+                        )
+                      }
                       alt="Profile"
                       className="w-20 h-20 rounded-full object-cover"
                       onError={(e) => {

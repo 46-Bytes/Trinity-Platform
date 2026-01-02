@@ -9,6 +9,7 @@ from .note import Note
 from .media import Media
 from .conversation import Conversation
 from .message import Message
+from .adv_client import AdvisorClient
 
 __all__ = [
     "User",
@@ -19,6 +20,7 @@ __all__ = [
     "Media",
     "Conversation",
     "Message",
+    "AdvisorClient",
 ]
 
 

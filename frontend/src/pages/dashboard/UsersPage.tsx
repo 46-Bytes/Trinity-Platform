@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { roleLabels, roleColors, UserRole } from '@/types/auth';
-import { Search, Plus, MoreHorizontal, Filter, Mail, Shield, Loader2 } from 'lucide-react';
+import { Search, Plus, MoreHorizontal, Loader2, Edit, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchUsers, createUser } from '@/store/slices/userReducer';
@@ -29,6 +29,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { AdvisorClientDialog } from '@/components/users/AdvisorClientDialog';
+import type { User } from '@/store/slices/userReducer';
 
 export default function UsersPage() {
   const { user } = useAuth();
@@ -38,6 +40,8 @@ export default function UsersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedAdvisor, setSelectedAdvisor] = useState<User | null>(null);
+  const [isAssociationDialogOpen, setIsAssociationDialogOpen] = useState(false);
   
   // Form state
   const [newUserEmail, setNewUserEmail] = useState('');
@@ -203,13 +207,21 @@ export default function UsersPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem className="cursor-pointer">
-                              <Mail className="w-4 h-4 mr-2" />
-                              Send Email
+                              <Edit className="w-4 h-4 mr-2" />
+                              Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="cursor-pointer">
-                              <Shield className="w-4 h-4 mr-2" />
-                              Change Role
-                            </DropdownMenuItem>
+                            {u.role === 'advisor' && (
+                              <DropdownMenuItem
+                                className="cursor-pointer"
+                                onClick={() => {
+                                  setSelectedAdvisor(u);
+                                  setIsAssociationDialogOpen(true);
+                                }}
+                              >
+                                <UserPlus className="w-4 h-4 mr-2" />
+                                Associate Client
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>
@@ -311,6 +323,20 @@ export default function UsersPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Advisor-Client Association Dialog */}
+      {selectedAdvisor && (
+        <AdvisorClientDialog
+          open={isAssociationDialogOpen}
+          onOpenChange={(open) => {
+            setIsAssociationDialogOpen(open);
+            if (!open) {
+              setSelectedAdvisor(null);
+            }
+          }}
+          advisor={selectedAdvisor}
+        />
+      )}
     </div>
   );
 }

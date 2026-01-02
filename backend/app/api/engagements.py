@@ -14,6 +14,7 @@ from ..models.user import User, UserRole
 from ..models.diagnostic import Diagnostic
 from ..models.task import Task
 from ..models.note import Note
+from ..models.adv_client import AdvisorClient
 from ..schemas.engagement import (
     EngagementCreate,
     EngagementUpdate,
@@ -282,12 +283,24 @@ async def get_user_role_data(
     - For clients: List of advisors they can work with
     - For admins: Both lists
     """
-    if current_user.role == UserRole.ADVISOR:
-        # Get all clients (for now - can be filtered by firm later)
-        clients = db.query(User).filter(
-            User.role == UserRole.CLIENT,
-            User.is_active == True
+    if current_user.role in [UserRole.ADVISOR, UserRole.FIRM_ADVISOR]:
+        # Get only clients that are associated with this advisor
+        # Get all active associations for this advisor
+        associations = db.query(AdvisorClient).filter(
+            AdvisorClient.advisor_id == current_user.id,
+            AdvisorClient.status == 'active'
         ).all()
+        
+        associated_client_ids = [assoc.client_id for assoc in associations]
+        
+        if associated_client_ids:
+            clients = db.query(User).filter(
+                User.id.in_(associated_client_ids),
+                User.role == UserRole.CLIENT,
+                User.is_active == True
+            ).all()
+        else:
+            clients = []
         
         return {
             "user_role": "advisor",

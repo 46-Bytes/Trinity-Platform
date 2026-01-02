@@ -6,6 +6,7 @@ import noteReducer from './slices/notesReducer';
 import diagnosticReducer from './slices/diagnosticReducer';
 import userReducer from './slices/userReducer';
 import tagReducer from './slices/tagReducer';
+import advisorClientReducer from './slices/advisorClientReducer';
 // Import other reducers as you create them
 // import appReducer from './slices/appSlice';
 
@@ -18,6 +19,7 @@ export const store = configureStore({
     diagnostic: diagnosticReducer,
     user: userReducer,
     tag: tagReducer,
+    advisorClient: advisorClientReducer,
     // Add other reducers here
     // app: appReducer,
   },

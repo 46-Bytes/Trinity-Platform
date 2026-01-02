@@ -12,7 +12,7 @@ import { Plus, Search } from 'lucide-react';
 import { TaskForm } from './TaskForm';
 import { TaskItem } from './TaskItem';
 import { capitalizeFirstLetter, getPriorityBadgeClassName } from '@/lib/utils';
-import { sortTasksByStatus } from '@/lib/taskUtils';
+import { sortTasksByUpdatedAt } from '@/lib/taskUtils';
 
 interface TasksListProps {
   engagementId: string;
@@ -59,8 +59,8 @@ export function TasksList({ engagementId }: TasksListProps) {
       result = result.filter((task) => task.priority === priorityFilter);
     }
 
-    // Sort by status: pending -> in_progress -> completed -> cancelled
-    return sortTasksByStatus(result);
+    // Sort by updatedAt: most recently updated first
+    return sortTasksByUpdatedAt(result);
   }, [engagementTasks, searchQuery, statusFilter, priorityFilter]);
 
   // Calculate pagination

@@ -90,7 +90,6 @@ async def callback(
     
         
         # Extract username from ID token custom claim
-        logger.info(f"token: {token}")
         id_token = token.get('id_token')
         username_from_token = None
         if id_token:

@@ -106,16 +106,8 @@ class AuthService:
         # Extract role from Auth0 (may be None if not set in Auth0)
         auth0_role = AuthService.extract_role_from_auth0(user_info)
         
-        username_from_custom_claim = user_info.get('username')
-        username_from_nickname = user_info.get('nickname')
-
-        username = (
-            username_from_custom_claim or
-            username_from_nickname
-        )
-        
-        logger.info(f"  [USER_CREATE/UPDATE] Final extracted username: {username}")
-        logger.info(f"📝 [USER_CREATE/UPDATE] User info - email: {email}, username: {username}")
+        # Get username directly from Auth0 (source of truth)
+        username = user_info.get('username') or user_info.get('nickname')
         
         # Try to find existing user by auth0_id first
         user = db.query(User).filter(User.auth0_id == auth0_id).first()
@@ -134,80 +126,33 @@ class AuthService:
             user.email = email
             
             if not user.first_name:
-                # Only set if not already set by user
-                first_name = user_info.get('first_name') or user_info.get('given_name')
+                first_name = user_info.get('first_name')
                 if first_name:
                     user.first_name = first_name
             
             if not user.last_name:
-                # Only set if not already set by user
-                last_name = user_info.get('last_name') or user_info.get('family_name')
+                last_name = user_info.get('last_name')
                 if last_name:
                     user.last_name = last_name
             
+            # Always update username from Auth0 (source of truth)
             if username:
                 if hasattr(user, 'username'):
                     user.username = username
-                    user.nickname = username  
-                else:
-               
-                    user.nickname = username
-                
-                if not user.first_name and not user.last_name:
-                    user.name = username
-                else:
-                    # Reconstruct name from first_name and last_name if they exist
-                    name_parts = []
-                    if user.first_name:
-                        name_parts.append(user.first_name)
-                    if user.last_name:
-                        name_parts.append(user.last_name)
-                    if name_parts:
-                        user.name = " ".join(name_parts)
-                    else:
-                        user.name = username
-            else:
-                # Fallback to existing logic if username not found
-                nickname = user_info.get('nickname')
-                user_metadata = user_info.get('user_metadata', {})
-                fallback_username = user_metadata.get('username') or nickname
-                if fallback_username:
-                    if hasattr(user, 'username'):
-                        user.username = fallback_username
-                        user.nickname = fallback_username 
-                    else:
-                        user.nickname = fallback_username
-                    
-                    # Only update name field if user hasn't set first_name/last_name
-                    if not user.first_name and not user.last_name:
-                        user.name = fallback_username
-                    else:
-                        # Reconstruct name from first_name and last_name if they exist
-                        name_parts = []
-                        if user.first_name:
-                            name_parts.append(user.first_name)
-                        if user.last_name:
-                            name_parts.append(user.last_name)
-                        if name_parts:
-                            user.name = " ".join(name_parts)
-                        else:
-                            user.name = fallback_username
-                else:
-                    if not user.name:
-                        # If no name and no first/last, use email as fallback
-                        if not user.first_name and not user.last_name:
-                            user.name = email
-                        else:
-                            # Construct name from first_name and last_name
-                            name_parts = []
-                            if user.first_name:
-                                name_parts.append(user.first_name)
-                            if user.last_name:
-                                name_parts.append(user.last_name)
-                            if name_parts:
-                                user.name = " ".join(name_parts)
-                            else:
-                                user.name = email
+                user.nickname = username
+            
+            name_parts = []
+            if user.first_name:
+                name_parts.append(user.first_name)
+            if user.last_name:
+                name_parts.append(user.last_name)
+            
+            if name_parts:
+                user.name = " ".join(name_parts)
+            elif username:
+                user.name = username
+            elif not user.name:
+                user.name = email
             
             auth0_picture = user_info.get('picture')
             current_picture = user.picture
@@ -228,21 +173,14 @@ class AuthService:
             else:
                 logger.info(f"  [USER_UPDATE] No picture from Auth0, preserving existing picture")
             
-            # IMPORTANT: Only update email_verified if it's True (don't unverify)
-            # If user already has verified email, keep it verified
-            # Only update if Auth0 says it's verified (prevents unverifying)
             auth0_email_verified = user_info.get('email_verified', False)
             if auth0_email_verified:
                 user.email_verified = True  # Update to verified
-            # If False, don't change existing verified status (preserve verified state)
-            
-            # IMPORTANT: Only update role from Auth0 if Auth0 has a role set
-            # This preserves manually set roles in the database
             if auth0_role is not None:
-                print(f"🔄 Updating role from Auth0: {user.role.value} -> {auth0_role.value}")
+                print(f" Updating role from Auth0: {user.role.value} -> {auth0_role.value}")
                 user.role = auth0_role
             else:
-                print(f"  Preserving existing role: {user.role.value} (no role in Auth0 metadata)")
+                print(f" Preserving existing role: {user.role.value} (no role in Auth0 metadata)")
             
             user.last_login = datetime.utcnow()
             user.updated_at = datetime.utcnow()
@@ -252,25 +190,15 @@ class AuthService:
             default_role = auth0_role if auth0_role is not None else UserRole.ADVISOR
             print(f"👤 Creating new user with role: {default_role.value} (from Auth0: {auth0_role.value if auth0_role else 'None'})")
             
-            # Use extracted username (from custom claim or fallback)
-            if not username:
-                # Fallback to existing logic if username not found
-                nickname = user_info.get('nickname')
-                user_metadata = user_info.get('user_metadata', {})
-                username = user_metadata.get('username') or nickname
+            # Username comes from Auth0 (already extracted above)
 
             first_name = user_info.get('first_name') or user_info.get('given_name')
             last_name = user_info.get('last_name') or user_info.get('family_name')
             
             logger.info(f"  [USER_CREATE] Creating user with - email: {email}, username: {username}, first_name: {first_name}, last_name: {last_name}, role: {default_role.value}")
             
-            # Determine the name to use (username/nickname, not email)
-            display_name = username
-            if not display_name:
-                # Fallback to nickname or user_metadata.username
-                nickname = user_info.get('nickname')
-                user_metadata = user_info.get('user_metadata', {})
-                display_name = user_metadata.get('username') or nickname or email  # Use email as last resort
+            # Determine the name to use (username from Auth0, or email as fallback)
+            display_name = username or email
             
 
             user_data = {
@@ -285,24 +213,11 @@ class AuthService:
                 'last_login': datetime.utcnow(),
             }
             
-            # Add username if field exists, otherwise use nickname
+            # Add username from Auth0 if available
             if username:
                 if hasattr(User, 'username'):
                     user_data['username'] = username
-                    user_data['nickname'] = username  # Also store in nickname for compatibility
-                else:
-                    user_data['nickname'] = username
-            else:
-                # Fallback to nickname if no username
-                nickname = user_info.get('nickname')
-                user_metadata = user_info.get('user_metadata', {})
-                fallback_username = user_metadata.get('username') or nickname
-                if fallback_username:
-                    if hasattr(User, 'username'):
-                        user_data['username'] = fallback_username
-                        user_data['nickname'] = fallback_username  # Also store in nickname for compatibility
-                    else:
-                        user_data['nickname'] = fallback_username
+                user_data['nickname'] = username
             
             user = User(**user_data)
             db.add(user)

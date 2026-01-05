@@ -16,7 +16,8 @@ import {
   ChevronRight,
   BarChart3,
   Shield,
-  MessageSquare
+  MessageSquare,
+  CreditCard
 } from 'lucide-react';
 import { UserRole } from '@/types/auth';
 
@@ -37,6 +38,8 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
   { label: 'Users', href: '/dashboard/users', icon: Users, roles: ['super_admin', 'admin'] },
+  { label: 'Firms', href: '/dashboard/firms', icon: Building2, roles: ['super_admin'] },
+  { label: 'Subscriptions', href: '/dashboard/subscriptions', icon: CreditCard, roles: ['super_admin'] },
   { label: 'Clients', href: '/dashboard/clients', icon: UserCircle, roles: ['super_admin', 'admin', 'advisor', 'firm_admin', 'firm_advisor'] },
   { label: 'Engagements', href: '/dashboard/engagements', icon: FolderOpen, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
   { label: 'Tasks', href: '/dashboard/tasks', icon: CheckSquare, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },

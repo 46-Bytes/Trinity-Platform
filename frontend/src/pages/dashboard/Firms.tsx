@@ -1,0 +1,201 @@
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { Search, Loader2, Building2, Users, Briefcase, Mail } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { fetchFirms } from '@/store/slices/firmReducer';
+import { toast } from 'sonner';
+
+export default function FirmsPage() {
+  const { user } = useAuth();
+  const dispatch = useAppDispatch();
+  const { firms, isLoading, error } = useAppSelector((state) => state.firm);
+  
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Check if user is superadmin
+  const isSuperAdmin = user?.role === 'super_admin';
+
+  // Fetch firms on mount (only for superadmin)
+  useEffect(() => {
+    if (isSuperAdmin) {
+      dispatch(fetchFirms());
+    }
+  }, [dispatch, isSuperAdmin]);
+
+  // Show error toast if there's an error
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
+
+  // Filter firms based on search query
+  const filteredFirms = firms.filter(firm => {
+    const matchesSearch = !searchQuery || 
+      firm.firm_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      firm.firm_admin_email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      firm.billing_email?.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSearch;
+  });
+
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch {
+      return 'N/A';
+    }
+  };
+
+  // If not superadmin, show access denied
+  if (!isSuperAdmin) {
+    return (
+      <div className="space-y-6">
+        <div className="card-trinity p-6">
+          <div className="text-center py-12">
+            <p className="text-destructive mb-2">Access Denied</p>
+            <p className="text-sm text-muted-foreground">
+              You need super admin privileges to view this page.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-2xl font-bold text-foreground">Firm Management</h1>
+          <p className="text-muted-foreground mt-1">View and manage all firms on the platform</p>
+        </div>
+      </div>
+
+      <div className="card-trinity p-6">
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search firms by name, admin email, or billing email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="input-trinity pl-10 w-full"
+            />
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-6 h-6 animate-spin text-accent" />
+            <span className="ml-2 text-muted-foreground">Loading firms...</span>
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="table-trinity">
+                <thead>
+                  <tr>
+                    <th>Firm</th>
+                    <th>Admin</th>
+                    <th>Seats</th>
+                    <th>Advisors</th>
+                    <th>Clients</th>
+                    <th>Billing Email</th>
+                    <th>Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredFirms.map((firm) => (
+                    <tr key={firm.id} className="group">
+                      <td>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
+                            <Building2 className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{firm.firm_name}</p>
+                            <p className="text-sm text-muted-foreground">ID: {firm.id.slice(0, 8)}...</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div>
+                          <p className="font-medium">{firm.firm_admin_name || 'N/A'}</p>
+                          {firm.firm_admin_email && (
+                            <p className="text-sm text-muted-foreground">{firm.firm_admin_email}</p>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <span className={cn(
+                            "font-medium",
+                            firm.seats_used >= firm.seat_count && "text-destructive"
+                          )}>
+                            {firm.seats_used} / {firm.seat_count}
+                          </span>
+                          {firm.seats_used >= firm.seat_count && (
+                            <span className="status-badge bg-red-100 text-red-700 text-xs">
+                              Full
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <Users className="w-4 h-4 text-muted-foreground" />
+                          <span className="font-medium">{firm.advisors_count || 0}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <Briefcase className="w-4 h-4 text-muted-foreground" />
+                          <span className="font-medium">{firm.clients_count || 0}</span>
+                        </div>
+                      </td>
+                      <td>
+                        {firm.billing_email ? (
+                          <div className="flex items-center gap-2">
+                            <Mail className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm">{firm.billing_email}</span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">N/A</span>
+                        )}
+                      </td>
+                      <td className="text-muted-foreground text-sm">
+                        {formatDate(firm.created_at)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {filteredFirms.length === 0 && !isLoading && (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">No firms found</p>
+                {searchQuery && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Try adjusting your search query
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
+              <p className="text-sm text-muted-foreground">
+                Showing {filteredFirms.length} of {firms.length} firms
+              </p>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+

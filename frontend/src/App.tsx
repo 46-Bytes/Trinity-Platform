@@ -25,6 +25,8 @@ import TasksPage from "./pages/dashboard/TasksPage";
 import DocumentsPage from "./pages/dashboard/DocumentsPage";
 import AIToolsPage from "./pages/dashboard/AIToolsPage";
 import SettingsPage from "./pages/dashboard/SettingsPage";
+import FirmsPage from "./pages/dashboard/Firms";
+import SubscriptionsPage from "./pages/dashboard/Subscriptions";
 
 const queryClient = new QueryClient();
 
@@ -65,6 +67,8 @@ function AppRoutes() {
         <Route path="documents" element={<DocumentsPage />} />
         <Route path="ai-tools" element={<AIToolsPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="firms" element={<FirmsPage />} />
+        <Route path="subscriptions" element={<SubscriptionsPage />} />
         {/* Placeholder routes */}
         <Route path="chat" element={<DashboardHome />} />
         <Route path="analytics" element={<DashboardHome />} />

@@ -187,13 +187,14 @@ export default function TasksPage() {
       {!isLoading && !error && (
         <>
           {/* Kanban Board View */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            {(Object.keys(tasksByStatus) as TaskStatus[]).map((status) => {
-              const config = statusConfig[status];
-              const statusTasks = tasksByStatus[status];
+          <div className="overflow-x-auto -mx-4 px-4">
+            <div className="grid grid-cols-4 gap-4 min-w-[1000px]">
+              {(Object.keys(tasksByStatus) as TaskStatus[]).map((status) => {
+                const config = statusConfig[status];
+                const statusTasks = tasksByStatus[status];
 
-              return (
-                <div key={status} className="space-y-3">
+                return (
+                  <div key={status} className="space-y-3 min-w-0">
                   <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                     <div className="flex items-center gap-2">
                       <config.icon className={cn("w-4 h-4", config.color)} />
@@ -256,6 +257,7 @@ export default function TasksPage() {
                 </div>
               );
             })}
+            </div>
           </div>
         </>
       )}

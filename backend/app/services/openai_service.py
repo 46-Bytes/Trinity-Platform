@@ -109,7 +109,8 @@ class OpenAIService:
         reasoning_effort: Optional[str] = None,
         file_ids: Optional[List[str]] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
-        model: str = "gpt-5-nano"
+        model: str = "gpt-5.1",
+        max_output_tokens: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Generate completion from OpenAI using Responses API.
@@ -135,6 +136,7 @@ class OpenAIService:
             params = {
                 "model": model,
                 "input": input_messages,
+                "max_output_tokens": max_output_tokens,
             }
             
             # Note: OpenAI Responses API does not support temperature parameter

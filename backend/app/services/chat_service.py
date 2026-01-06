@@ -136,7 +136,7 @@ class ChatService:
         message_text: str,
         limit: int = 50,
         engagement_id: Optional[UUID] = None,
-        model: str = "gpt-5-nano"
+        model: str = "gpt-5.1"
     ) -> Message:
         """
         Send a message in a conversation and get AI response.
@@ -194,7 +194,8 @@ class ChatService:
             gpt_response = await openai_service.generate_completion(
                 messages=messages,
                 temperature=0.3,
-                model=model
+                model=model,
+                max_output_tokens=500,
             )
             t6 = time.time()
             logger.info(f"[TIMESTAMP] Before OpenAI: {t5:.3f}s | After OpenAI: {t6:.3f}s | OpenAI elapsed: {t6-t5:.3f}s")
@@ -518,6 +519,7 @@ class ChatService:
     async def _generate_welcome_message(self, category: str) -> Optional[str]:
         """
         Generate a welcome message for a new conversation.
+        This version is fully static (no LLM call) to avoid latency and cost.
         
         Args:
             category: Conversation category
@@ -525,30 +527,48 @@ class ChatService:
         Returns:
             Welcome message string or None
         """
-        try:
-            # Try to load category-specific welcome prompt
-            welcome_prompt = load_prompt(f"welcome_prompt_{category}")
-            result = await openai_service.generate_completion(
-                messages=[{
-                    "role": "system",
-                    "content": welcome_prompt
-                }, {
-                    "role": "user",
-                    "content": ""
-                }],
-                temperature=0.7,
-                model="gpt-5-nano"
-            )
-            return result.get("content", "")
-        except:
-            # Default welcome messages
-            welcome_messages = {
-                "general": "Hello! I'm Trinity, your business advisor. How can I help you today?",
-                "finance": "Hello! I'm Trinity, and I'm here to help with your financial questions. What would you like to discuss?",
-                "legal": "Hello! I'm Trinity, and I'm here to help with legal and compliance matters. What would you like to discuss?",
-                "operations": "Hello! I'm Trinity, and I'm here to help with your business operations. What would you like to discuss?",
-            }
-            return welcome_messages.get(category.lower(), "Hello! I'm Trinity, your business advisor. How can I help you today?")
+        # Normalize category names similar to _get_category_prompt
+        normalized = (category or "").lower()
+        category_variations = {
+            "financial": "financial",
+            "finance": "financial",
+            "legal": "legal-licensing",
+            "legal-licensing": "legal-licensing",
+            "operations": "operations",
+            "ops": "operations",
+            "human-resources": "human-resources",
+            "hr": "human-resources",
+            "people": "human-resources",
+            "customers": "customers",
+            "customer": "customers",
+            "tax": "tax",
+            "due-diligence": "due-diligence",
+            "dd": "due-diligence",
+            "brand-ip-intangibles": "brand-ip-intangibles",
+            "brand": "brand-ip-intangibles",
+            "ip": "brand-ip-intangibles",
+            "intangibles": "brand-ip-intangibles",
+            "general": "general",
+        }
+        normalized = category_variations.get(normalized, normalized or "general")
+
+        welcome_messages = {
+            "general": "Hello! I'm Trinity, your business advisor. How can I help you today?",
+            "financial": "Hello! I'm Trinity, and I'm here to help with your financial questions. What would you like to discuss?",
+            "legal-licensing": "Hello! I'm Trinity, and I'm here to help with legal, licensing, and compliance matters. What would you like to discuss?",
+            "operations": "Hello! I'm Trinity, and I'm here to help with your business operations. What would you like to discuss?",
+            "human-resources": "Hello! I'm Trinity, and I'm here to help with your team and HR questions. What would you like to discuss?",
+            "customers": "Hello! I'm Trinity, and I'm here to help with your customers, sales, and retention. What would you like to discuss?",
+            "tax": "Hello! I'm Trinity, and I'm here to help with tax and related planning questions. What would you like to discuss?",
+            "due-diligence": "Hello! I'm Trinity, and I'm here to help you think through due diligence and preparation. What would you like to discuss?",
+            "brand-ip-intangibles": "Hello! I'm Trinity, and I'm here to help with your brand, IP, and other intangibles. What would you like to discuss?",
+            "diagnostic": "Hello! I'm Trinity. I can help you interpret your diagnostic results and next steps. What would you like to focus on first?",
+        }
+
+        return welcome_messages.get(
+            normalized,
+            "Hello! I'm Trinity, your business advisor. How can I help you today?",
+        )
     
     # ==================== TASK/NOTE CREATION FROM MESSAGES ====================
     

@@ -136,7 +136,7 @@ class ChatService:
         message_text: str,
         limit: int = 50,
         engagement_id: Optional[UUID] = None,
-        model: str = "gpt-5.1"
+        model: str = "gpt-5-nano"
     ) -> Message:
         """
         Send a message in a conversation and get AI response.
@@ -195,6 +195,7 @@ class ChatService:
                 messages=messages,
                 temperature=0.7,
                 model=model,
+                reasoning_effort="minimal",
                 max_output_tokens=1000,
             )
             t6 = time.time()

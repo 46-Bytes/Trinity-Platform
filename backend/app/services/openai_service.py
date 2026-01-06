@@ -17,26 +17,45 @@ logger = logging.getLogger(__name__)
 class OpenAIService:
     """Service for interacting with OpenAI Responses API"""
     
+    # Class-level client that will be initialized once at startup
+    _client: Optional[AsyncOpenAI] = None
+    
     def __init__(self):
-        """Initialize OpenAI client with configurable timeout"""
-        # Set timeout (default: 3600 seconds = 1 hour for long-running processes)
-        self.client = AsyncOpenAI(  # ← Changed from OpenAI to AsyncOpenAI
-            api_key=settings.OPENAI_API_KEY,
-            timeout=httpx.Timeout(
-                connect=10.0,
-                read=1800.0,      # ← 30 minutes for long requests
-                write=10.0,
-                pool=10.0
-            ),
-            max_retries=2
-        )
+        """Initialize OpenAI service (client is initialized separately at startup)"""
         self.temperature = settings.OPENAI_TEMPERATURE
-        # Safely format timeout string (handle None case)
-        if settings.OPENAI_TIMEOUT is not None:
-            timeout_str = f"{settings.OPENAI_TIMEOUT} seconds ({settings.OPENAI_TIMEOUT/60:.1f} minutes)"
-        else:
-            timeout_str = "no timeout"
-        logger.info(f"OpenAI client initialized with timeout: {timeout_str}")
+    
+    @classmethod
+    def initialize_client(cls):
+        """Initialize the OpenAI client once at application startup"""
+        if cls._client is None:
+            # Set timeout (default: 3600 seconds = 1 hour for long-running processes)
+            cls._client = AsyncOpenAI(  # ← Changed from OpenAI to AsyncOpenAI
+                api_key=settings.OPENAI_API_KEY,
+                timeout=httpx.Timeout(
+                    connect=10.0,
+                    read=1800.0,      # ← 30 minutes for long requests
+                    write=10.0,
+                    pool=10.0
+                ),
+                max_retries=2
+            )
+            # Safely format timeout string (handle None case)
+            if settings.OPENAI_TIMEOUT is not None:
+                timeout_str = f"{settings.OPENAI_TIMEOUT} seconds ({settings.OPENAI_TIMEOUT/60:.1f} minutes)"
+            else:
+                timeout_str = "no timeout"
+            logger.info(f"OpenAI client initialized with timeout: {timeout_str}")
+        return cls._client
+    
+    @property
+    def client(self) -> AsyncOpenAI:
+        """Get the shared OpenAI client instance"""
+        if OpenAIService._client is None:
+            raise RuntimeError(
+                "OpenAI client not initialized. Call OpenAIService.initialize_client() "
+                "at application startup (e.g., in main.py startup event)."
+            )
+        return OpenAIService._client
     
     def _convert_messages_to_input(
         self, 

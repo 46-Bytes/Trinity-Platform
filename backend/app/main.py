@@ -19,6 +19,7 @@ from .api.chat import router as chat_router
 from .api.users import router as users_router
 
 from .database import engine, Base
+from .services.openai_service import OpenAIService
 
 # Configure logging
 logging.basicConfig(
@@ -88,6 +89,19 @@ files_dir = base_dir / "files"
 files_dir.mkdir(exist_ok=True)  # Create directory if it doesn't exist
 
 app.mount("/files", StaticFiles(directory=str(files_dir)), name="files")
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services at application startup"""
+    logger = logging.getLogger(__name__)
+    logger.info("🚀 Application startup - initializing services...")
+    
+    # Initialize OpenAI client once at startup
+    OpenAIService.initialize_client()
+    logger.info("✅ OpenAI client initialized")
+    
+    logger.info("✅ Application startup complete")
 
 
 

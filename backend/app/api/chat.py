@@ -194,13 +194,9 @@ async def send_message(
         Assistant message with AI response
     """
     import logging
-    import time
     logger = logging.getLogger(__name__)
     
-    t0 = time.time()
     chat_service = get_chat_service(db)
-    t1 = time.time()
-    logger.info(f"[TIMESTAMP] API Start: {t0:.3f}s | After get_chat_service: {t1:.3f}s | Elapsed: {t1-t0:.3f}s")
     
     try:
         assistant_message = await chat_service.send_message(
@@ -210,9 +206,6 @@ async def send_message(
             limit=10,
             engagement_id=engagement_id
         )
-        
-        t2 = time.time()
-        logger.info(f"[TIMESTAMP] After send_message: {t2:.3f}s | Total elapsed: {t2-t0:.3f}s")
 
         
         # Build response manually to avoid model_validate issues

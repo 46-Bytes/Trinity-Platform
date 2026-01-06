@@ -158,20 +158,13 @@ class OpenAIService:
                 "max_output_tokens": max_output_tokens,
             }
             
-            # Note: OpenAI Responses API does not support temperature parameter
-            # Temperature is not included in the API call
-            
-            # Add JSON mode if specified
             if json_mode:
                 params["text"] = {"format": {"type": "json_object"}}
             
-            # Add reasoning effort if specified
             if reasoning_effort:
                 params["reasoning"] = {"effort": reasoning_effort}
 
-            # Add tools if specified (e.g., code_interpreter for CSV/text processing)
             if tools:
-                # Some tool types (e.g., code_interpreter) require a container field in newer Responses API versions.
                 normalized_tools: List[Dict[str, Any]] = []
                 for t in tools:
                     if not isinstance(t, dict):
@@ -182,21 +175,12 @@ class OpenAIService:
                         normalized_tools.append(t)
                 params["tools"] = normalized_tools
             
-            t0 = time.time()
-            logger.info(f"[TIMESTAMP] OpenAI API call start: {t0:.3f}s")
-            
             try:
                 response = await self.client.responses.create(**params)
             except Exception as executor_error:
-                t_error = time.time()
-                elapsed_time = t_error - t0
-                logger.info(f"[TIMESTAMP] OpenAI API error: {t_error:.3f}s | Elapsed: {elapsed_time:.3f}s")
                 error_msg = str(executor_error)
                 raise
             
-            t1 = time.time()
-            elapsed_time = t1 - t0
-            logger.info(f"[TIMESTAMP] OpenAI API complete: {t1:.3f}s | Elapsed: {elapsed_time:.3f}s")    
             # Extract data
             content = response.output_text
             

@@ -22,10 +22,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { createEngagement, updateEngagement, fetchUserRoleData } from "@/store/slices/engagementReducer";
+import { createEngagement, updateEngagement, fetchUserRoleData, fetchEngagements } from "@/store/slices/engagementReducer";
 import type { Engagement } from "@/store/slices/engagementReducer";
 
-// Base schema fields
+// Base schema fields (common fields for all roles)
 const baseSchemaFields = {
   businessName: z.string().min(2, {
     message: "Business name must be at least 2 characters.",
@@ -39,12 +39,6 @@ const baseSchemaFields = {
   description: z.string().min(10, {
     message: "Description must be at least 10 characters.",
   }),
-  // Client must always be selected
-  clientId: z.string().min(1, {
-    message: "Please select a client.",
-  }),
-  // Primary advisor is required at runtime for firm admins, but optional in schema
-  primaryAdvisorId: z.string().optional(),
   tool: z.enum(['diagnostic', 'kpi_builder'], {
     message: "Please select a tool.",
   }),
@@ -62,7 +56,18 @@ const createSchema = (userRole?: string) => {
         message: "Please select an advisor.",
       }),
     });
+  } else if (userRole === 'firm_admin') {
+    return z.object({
+      ...baseSchemaFields,
+      clientId: z.string().min(1, {
+        message: "Please select a client.",
+      }),
+      primaryAdvisorId: z.string().min(1, {
+        message: "Please select a primary advisor.",
+      }),
+    });
   } else {
+    // For advisor/client roles, use clientOrAdvisorId instead of clientId
     return z.object({
       ...baseSchemaFields,
       clientOrAdvisorId: z.string().min(1, {
@@ -89,11 +94,20 @@ export function EngagementForm({
   mode = 'create',
   refreshUserData = false
 }: EngagementFormProps) {
+  console.log('=== EngagementForm COMPONENT RENDERED ===');
+  console.log('Props:', { mode, refreshUserData, hasEngagement: !!engagement });
+  
   const dispatch = useAppDispatch();
   const { isLoading, userRoleData } = useAppSelector((state) => state.engagement);
   
+  console.log('Redux state:', { isLoading, hasUserRoleData: !!userRoleData });
+  
   const isEditMode = mode === 'edit' || !!engagement;
-  const isAdmin = userRoleData?.user_role === 'admin' || userRoleData?.user_role === 'super_admin';
+  const userRole = userRoleData?.user_role;
+  const isAdmin = userRole === 'admin' || (userRole as string) === 'super_admin';
+  const isFirmAdmin = userRole === 'firm_admin';
+  
+  console.log('User role detection:', { userRole, isAdmin, isFirmAdmin });
   
   // Create dynamic schema based on user role
   const schema = useMemo(() => createSchema(userRoleData?.user_role), [userRoleData?.user_role]);
@@ -108,6 +122,15 @@ export function EngagementForm({
           description: "",
           clientId: "",
           advisorId: "",
+          tool: "diagnostic" as const,
+        }
+      : isFirmAdmin
+      ? {
+          businessName: "",
+          industryName: "",
+          engagementName: "",
+          description: "",
+          clientId: "",
           tool: "diagnostic" as const,
         }
       : {
@@ -144,6 +167,16 @@ export function EngagementForm({
           advisorId: (engagement as any).primaryAdvisorId || "",
           tool: (engagement.tool as 'diagnostic' | 'kpi_builder') || "diagnostic",
         });
+      } else if (isFirmAdmin) {
+        form.reset({
+          businessName: engagement.businessName || "",
+          industryName: engagement.industryName || "",
+          engagementName: engagement.title || "",
+          description: engagement.description || "",
+          clientId: engagement.clientId || "",
+          primaryAdvisorId: (engagement as any).primaryAdvisorId || "",
+          tool: (engagement.tool as 'diagnostic' | 'kpi_builder') || "diagnostic",
+        });
       } else {
         form.reset({
           businessName: engagement.businessName || "",
@@ -155,51 +188,142 @@ export function EngagementForm({
         });
       }
     }
-  }, [engagement, isEditMode, form, isAdmin]);
+  }, [engagement, isEditMode, form, isAdmin, isFirmAdmin]);
+
+  // Add click handler to button to debug
+  const handleButtonClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    console.log('=== BUTTON CLICKED ===');
+    console.log('Button type:', e.currentTarget.type);
+    console.log('Button disabled:', e.currentTarget.disabled);
+    console.log('Is loading:', isLoading);
+    console.log('Form state:', {
+      isValid: form.formState.isValid,
+      errors: form.formState.errors,
+      isSubmitting: form.formState.isSubmitting,
+      isDirty: form.formState.isDirty,
+      touchedFields: Object.keys(form.formState.touchedFields),
+    });
+    console.log('Form values:', JSON.stringify(form.getValues(), null, 2));
+    
+    // Check if form has validation errors
+    const errors = form.formState.errors;
+    if (Object.keys(errors).length > 0) {
+      console.error('=== FORM VALIDATION ERRORS DETECTED ===');
+      console.error(JSON.stringify(errors, null, 2));
+      console.error('These errors will prevent form submission!');
+    } else {
+      console.log('No validation errors - form should submit');
+    }
+    
+    // Don't prevent default - let the form submit normally
+  };
 
   const handleFormSubmit = async (values: EngagementFormValues) => {
+    console.log('=== FORM SUBMISSION STARTED ===');
+    console.log('Form submitted with values:', JSON.stringify(values, null, 2));
+    console.log('User role data:', JSON.stringify(userRoleData, null, 2));
+    console.log('Is admin:', isAdmin, 'Is firm admin:', isFirmAdmin);
+    console.log('Is edit mode:', isEditMode);
+    console.log('Is loading:', isLoading);
+    
     if (onSubmit) {
+      console.log('Custom onSubmit handler provided, calling it...');
       onSubmit(values);
       return;
     }
 
     try {
+      console.log('=== PROCESSING FORM VALUES ===');
       let clientId: string;
       let clientName: string = "Unknown";
       let advisorId: string | undefined;
       let advisorName: string | undefined;
 
       if (isAdmin && 'clientId' in values && 'advisorId' in values) {
+        console.log('Processing as ADMIN mode');
         // Admin mode: both client and advisor selected
         clientId = values.clientId;
         advisorId = values.advisorId;
+        console.log('Admin - Client ID:', clientId, 'Advisor ID:', advisorId);
         
         if (userRoleData?.clients) {
           const selectedClient = userRoleData.clients.find(c => c.id === values.clientId);
           clientName = selectedClient?.name || "Unknown Client";
+          console.log('Selected client:', clientName);
         }
         if (userRoleData?.advisors) {
           const selectedAdvisor = userRoleData.advisors.find(a => a.id === values.advisorId);
           advisorName = selectedAdvisor?.name || "Unknown Advisor";
+          console.log('Selected advisor:', advisorName);
+        }
+      } else if (isFirmAdmin && 'clientId' in values) {
+        console.log('Processing as FIRM_ADMIN mode');
+        // Firm Admin mode: client selected, primary advisor optional
+        clientId = values.clientId;
+        advisorId = 'primaryAdvisorId' in values ? values.primaryAdvisorId : undefined;
+        console.log('Firm Admin - Client ID:', clientId, 'Primary Advisor ID:', advisorId);
+        console.log('Has primaryAdvisorId in values:', 'primaryAdvisorId' in values);
+        if ('primaryAdvisorId' in values) {
+          console.log('primaryAdvisorId value:', values.primaryAdvisorId);
+        }
+        
+        if (userRoleData?.clients) {
+          const selectedClient = userRoleData.clients.find(c => c.id === values.clientId);
+          clientName = selectedClient?.name || "Unknown Client";
+          console.log('Selected client:', clientName);
+        } else {
+          console.warn('No clients available in userRoleData');
+        }
+        if (advisorId && userRoleData?.advisors) {
+          const selectedAdvisor = userRoleData.advisors.find(a => a.id === advisorId);
+          advisorName = selectedAdvisor?.name || "Unknown Advisor";
+          console.log('Selected advisor:', advisorName);
+        } else if (advisorId) {
+          console.warn('Advisor ID provided but no advisors in userRoleData');
+        } else {
+          console.warn('No advisor ID provided for firm admin');
         }
       } else if ('clientOrAdvisorId' in values) {
+        console.log('Processing as NON-ADMIN mode (advisor/client)');
         // Non-admin mode: single selection
         if (userRoleData?.user_role === 'advisor' && userRoleData.clients) {
           const selectedClient = userRoleData.clients.find(c => c.id === values.clientOrAdvisorId);
           clientId = values.clientOrAdvisorId;
           clientName = selectedClient?.name || "Unknown Client";
+          console.log('Advisor mode - Client ID:', clientId, 'Client Name:', clientName);
         } else if (userRoleData?.advisors) {
           const selectedAdvisor = userRoleData.advisors.find(a => a.id === values.clientOrAdvisorId);
           clientId = values.clientOrAdvisorId; // For client role, this is actually advisor
           clientName = selectedAdvisor?.name || "Unknown Advisor";
+          console.log('Client mode - Advisor ID:', clientId, 'Advisor Name:', clientName);
         } else {
           clientId = values.clientOrAdvisorId;
+          console.log('Fallback - Client/Advisor ID:', clientId);
         }
       } else {
+        console.error('Invalid form values - no matching condition');
+        console.error('Values keys:', Object.keys(values));
+        console.error('Is admin:', isAdmin, 'Is firm admin:', isFirmAdmin);
         throw new Error('Invalid form values');
       }
+      
+      console.log('=== EXTRACTED VALUES ===');
+      console.log('Final Client ID:', clientId);
+      console.log('Final Client Name:', clientName);
+      console.log('Final Advisor ID:', advisorId);
+      console.log('Final Advisor Name:', advisorName);
 
       if (isEditMode && engagement) {
+        console.log('=== UPDATE MODE ===');
+        console.log('Engagement ID:', engagement.id);
+        console.log('Update payload:', {
+          businessName: values.businessName,
+          title: values.engagementName,
+          description: values.description,
+          industryName: values.industryName,
+          clientId: clientId,
+          clientName: clientName,
+        });
         await dispatch(updateEngagement({
           id: engagement.id,
           updates: {
@@ -211,38 +335,111 @@ export function EngagementForm({
             clientName: clientName,
           }
         })).unwrap();
+        console.log('Update successful');
       } else {
-        // Create mode - need to call API with both client_id and primary_advisor_id for admin
+        console.log('=== CREATE MODE ===');
+        // Create mode - need to call API with both client_id and primary_advisor_id for admin/firm_admin
         const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
         const token = localStorage.getItem('auth_token');
         
-        if (isAdmin && advisorId) {
-          // Admin: create with both client_id and primary_advisor_id
+        console.log('API Base URL:', API_BASE_URL);
+        console.log('Token exists:', !!token);
+        console.log('Token length:', token?.length);
+        
+        // Get primary advisor ID (for admin or firm_admin)
+        const primaryAdvisorId = advisorId || (isFirmAdmin && 'primaryAdvisorId' in values ? values.primaryAdvisorId : undefined);
+        
+        console.log('=== PRIMARY ADVISOR ID RESOLUTION ===');
+        console.log('advisorId from extraction:', advisorId);
+        console.log('isFirmAdmin:', isFirmAdmin);
+        console.log('Has primaryAdvisorId in values:', 'primaryAdvisorId' in values);
+        if ('primaryAdvisorId' in values) {
+          console.log('primaryAdvisorId from values:', values.primaryAdvisorId);
+        }
+        console.log('Final primaryAdvisorId:', primaryAdvisorId);
+        
+        // For admin or firm_admin, always use direct API call (firm_id will be auto-set by backend for firm_admin)
+        if (isAdmin || isFirmAdmin) {
+          console.log('=== ADMIN/FIRM_ADMIN PATH ===');
+          // Validate that primaryAdvisorId is provided for firm_admin
+          if (isFirmAdmin && !primaryAdvisorId) {
+            console.error('ERROR: Primary advisor is required for firm admin users but was not provided');
+            console.error('Available advisors:', userRoleData?.advisors);
+            throw new Error('Primary advisor is required for firm admin users');
+          }
+          
+          const requestPayload = {
+            engagement_name: values.engagementName,
+            business_name: values.businessName,
+            industry: values.industryName,
+            description: values.description,
+            tool: values.tool,
+            status: 'draft',
+            client_id: clientId,
+            primary_advisor_id: primaryAdvisorId,
+          };
+          
+          console.log('=== API REQUEST PAYLOAD ===');
+          console.log(JSON.stringify(requestPayload, null, 2));
+          
+          // Validate all required fields
+          const missingFields = [];
+          if (!requestPayload.engagement_name) missingFields.push('engagement_name');
+          if (!requestPayload.business_name) missingFields.push('business_name');
+          if (!requestPayload.industry) missingFields.push('industry');
+          if (!requestPayload.description) missingFields.push('description');
+          if (!requestPayload.tool) missingFields.push('tool');
+          if (!requestPayload.client_id) missingFields.push('client_id');
+          if (!requestPayload.primary_advisor_id) missingFields.push('primary_advisor_id');
+          
+          if (missingFields.length > 0) {
+            console.error('ERROR: Missing required fields:', missingFields);
+            throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+          }
+          
+          console.log('Making API request to:', `${API_BASE_URL}/api/engagements`);
+          // Admin or Firm Admin: create with both client_id and primary_advisor_id
           const response = await fetch(`${API_BASE_URL}/api/engagements`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              engagement_name: values.engagementName,
-              business_name: values.businessName,
-              industry: values.industryName,
-              description: values.description,
-              tool: values.tool,
-              status: 'draft',
-              client_id: clientId,
-              primary_advisor_id: advisorId,
-            }),
+            body: JSON.stringify(requestPayload),
           });
 
+          console.log('=== API RESPONSE ===');
+          console.log('Status:', response.status);
+          console.log('Status Text:', response.statusText);
+          console.log('OK:', response.ok);
+          
           if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Failed to create engagement');
+            const errorData = await response.json().catch(async () => {
+              const text = await response.text();
+              console.error('Failed to parse error response as JSON. Response text:', text);
+              return { detail: 'Failed to create engagement' };
+            });
+            console.error('API Error Response:', JSON.stringify(errorData, null, 2));
+            throw new Error(errorData.detail || `HTTP ${response.status}: Failed to create engagement`);
           }
+          
+          const responseData = await response.json();
+          console.log('API Success Response:', JSON.stringify(responseData, null, 2));
+          console.log('Engagement created successfully with ID:', responseData.id);
+          
+          // Call onSuccess callback to close dialog and refresh list
+          if (onSuccess) {
+            console.log('Calling onSuccess callback for admin/firm_admin...');
+            onSuccess();
+          }
+          
+          // Also refresh engagements list directly
+          console.log('Refreshing engagements list...');
+          await dispatch(fetchEngagements({}));
+          console.log('Engagements list refreshed');
         } else {
-          // Non-admin: use existing Redux action
-          await dispatch(createEngagement({
+          console.log('=== NON-ADMIN PATH (Redux Action) ===');
+          const reduxPayload = {
             clientId: clientId,
             clientName: clientName,
             businessName: values.businessName,
@@ -250,26 +447,93 @@ export function EngagementForm({
             description: values.description,
             industryName: values.industryName,
             tool: values.tool,
-            status: 'draft',
-          })).unwrap();
+            status: 'draft' as const,
+          };
+          
+          console.log('Redux payload:', JSON.stringify(reduxPayload, null, 2));
+          
+          // Validate all required fields
+          const missingFields = [];
+          if (!reduxPayload.clientId) missingFields.push('clientId');
+          if (!reduxPayload.businessName) missingFields.push('businessName');
+          if (!reduxPayload.title) missingFields.push('title');
+          if (!reduxPayload.description) missingFields.push('description');
+          if (!reduxPayload.industryName) missingFields.push('industryName');
+          if (!reduxPayload.tool) missingFields.push('tool');
+          
+          if (missingFields.length > 0) {
+            console.error('ERROR: Missing required fields for Redux action:', missingFields);
+            throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+          }
+          
+          console.log('Dispatching createEngagement Redux action...');
+          await dispatch(createEngagement(reduxPayload)).unwrap();
+          console.log('Redux action completed successfully');
         }
       }
       
-      if (onSuccess) {
+      console.log('=== SUCCESS HANDLERS ===');
+      // onSuccess is already called above for admin/firm_admin paths after API call
+      // Only call it here for non-admin paths (advisor/client) that use Redux action
+      if (onSuccess && !isAdmin && !isFirmAdmin) {
+        console.log('Calling onSuccess callback (non-admin path)...');
         onSuccess();
       }
       
       if (!isEditMode) {
+        console.log('Resetting form...');
         form.reset();
       }
+      
+      console.log('=== FORM SUBMISSION COMPLETED SUCCESSFULLY ===');
     } catch (error) {
-      console.error('Failed to save engagement:', error);
+      console.error('=== FORM SUBMISSION ERROR ===');
+      console.error('Error type:', error?.constructor?.name);
+      console.error('Error message:', error instanceof Error ? error.message : String(error));
+      console.error('Full error object:', error);
+      
+      if (error instanceof Error) {
+        console.error('Error stack:', error.stack);
+      }
+      
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save engagement';
+      console.error('Showing error alert to user:', errorMessage);
+      
+      // Show error to user - using alert for now, but could use toast notification
+      alert(errorMessage);
+      
+      // Re-throw to prevent form from closing on error
+      throw error;
     }
   };
 
+  // Log form state changes to catch validation issues
+  useEffect(() => {
+    const formState = form.formState;
+    if (Object.keys(formState.errors).length > 0) {
+      console.log('=== FORM VALIDATION ERRORS DETECTED ===');
+      console.log('Errors:', JSON.stringify(formState.errors, null, 2));
+      console.log('Form values:', form.getValues());
+    }
+  }, [form.formState.errors, form]);
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
+      <form 
+        onSubmit={(e) => {
+          console.log('=== FORM ONSUBMIT EVENT FIRED ===');
+          console.log('Event:', e);
+          console.log('Form state before submit:', {
+            isValid: form.formState.isValid,
+            errors: form.formState.errors,
+            values: form.getValues(),
+          });
+          
+          // Call the form's handleSubmit
+          form.handleSubmit(handleFormSubmit)(e);
+        }} 
+        className="space-y-6"
+      >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
@@ -311,8 +575,8 @@ export function EngagementForm({
             )}
           />
 
-          {/* Admin: Show both Client and Advisor dropdowns */}
-          {isAdmin && userRoleData && (
+          {/* Admin or Firm Admin: Show Client dropdown */}
+          {(isAdmin || isFirmAdmin) && userRoleData && (
             <>
               <FormField
                 control={form.control}
@@ -320,7 +584,7 @@ export function EngagementForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Select Client</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a client" />
@@ -346,60 +610,67 @@ export function EngagementForm({
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="advisorId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Select Advisor</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select an advisor" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {userRoleData.advisors && userRoleData.advisors.length > 0 ? (
-                          userRoleData.advisors.map((advisor) => (
-                            <SelectItem key={advisor.id} value={advisor.id}>
-                              {advisor.name}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem value="none" disabled>No advisors available</SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      Choose the primary advisor for this engagement.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Only show advisor dropdown for super_admin/admin, not firm_admin */}
+              {isAdmin && (
+                <FormField
+                  control={form.control}
+                  name="advisorId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Select Advisor</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select an advisor" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {userRoleData.advisors && userRoleData.advisors.length > 0 ? (
+                            userRoleData.advisors.map((advisor) => (
+                              <SelectItem key={advisor.id} value={advisor.id}>
+                                {advisor.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="none" disabled>No advisors available</SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Choose the primary advisor for this engagement.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </>
           )}
 
-          {/* Non-admin: Show single dropdown */}
-          {!isAdmin && userRoleData && (
+          {/* Non-admin and non-firm-admin: Show single dropdown (for advisor/client roles) */}
+          {!isAdmin && !isFirmAdmin && userRoleData && (
             <FormField
               control={form.control}
-              name="clientId"
+              name="clientOrAdvisorId"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Select Client</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a client" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {userRoleData.clients.map((client) => (
-                        <SelectItem key={client.id} value={client.id}>
-                          {client.name}
-                        </SelectItem>
-                      ))}
+                      {userRoleData.clients && userRoleData.clients.length > 0 ? (
+                        userRoleData.clients.map((client) => (
+                          <SelectItem key={client.id} value={client.id}>
+                            {client.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="none" disabled>No clients available</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                   <FormDescription>
@@ -411,26 +682,30 @@ export function EngagementForm({
             />
           )}
 
-          {/* Primary Advisor Dropdown - visible for firm/admin roles */}
-          {userRoleData && userRoleData.advisors && (
+          {/* Primary Advisor Dropdown - visible for firm_admin role only */}
+          {isFirmAdmin && userRoleData && userRoleData.advisors && (
             <FormField
               control={form.control}
               name="primaryAdvisorId"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Select Primary Advisor</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a primary advisor" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {userRoleData.advisors.map((advisor) => (
-                        <SelectItem key={advisor.id} value={advisor.id}>
-                          {advisor.name}
-                        </SelectItem>
-                      ))}
+                      {userRoleData.advisors.length > 0 ? (
+                        userRoleData.advisors.map((advisor) => (
+                          <SelectItem key={advisor.id} value={advisor.id}>
+                            {advisor.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="none" disabled>No advisors available</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                   <FormDescription>
@@ -468,7 +743,7 @@ export function EngagementForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Tool</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a tool" />
@@ -509,13 +784,19 @@ export function EngagementForm({
           )}
         />
 
-        <Button type="submit" disabled={isLoading}>
-          {isLoading ? (
-            isEditMode ? "Updating..." : "Creating..."
-          ) : (
-            isEditMode ? "Update Engagement" : "Create Engagement"
-          )}
-        </Button>
+        <div className="flex justify-end gap-2 pt-4">
+          <Button 
+            type="submit" 
+            disabled={isLoading}
+            onClick={handleButtonClick}
+          >
+            {isLoading ? (
+              isEditMode ? "Updating..." : "Creating..."
+            ) : (
+              isEditMode ? "Update Engagement" : "Create Engagement"
+            )}
+          </Button>
+        </div>
       </form>
     </Form>
   );

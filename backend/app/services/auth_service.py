@@ -122,7 +122,7 @@ class AuthService:
                 user.auth0_id = auth0_id
         
         if user:
-            # Update existing user information
+            # Update existing user information (DATABASE IS SOURCE OF TRUTH FOR ROLE)
             user.email = email
             
             if not user.first_name:
@@ -176,15 +176,17 @@ class AuthService:
             auth0_email_verified = user_info.get('email_verified', False)
             if auth0_email_verified:
                 user.email_verified = True  # Update to verified
-            if auth0_role is not None:
-                print(f" Updating role from Auth0: {user.role.value} -> {auth0_role.value}")
+
+            # IMPORTANT: Do NOT overwrite existing user's role from Auth0.
+            # The database role is the source of truth once the user exists.
+            # This ensures roles set via the app (e.g., firm_admin) are preserved
+            # even if Auth0 metadata has a different or stale role.
+            if auth0_role is not None and user.role is None:
+                # Extremely rare: backfill role only if it's somehow missing in DB
+                print(f" Backfilling missing role from Auth0: {auth0_role.value}")
                 user.role = auth0_role
             else:
-                print(f" Preserving existing role: {user.role.value} (no role in Auth0 metadata)")
-            
-            # IMPORTANT: Don't overwrite existing user's role from database
-            # The database role is the source of truth - keep it as-is
-            # Only update role for brand new users (handled in else block below)
+                print(f" Preserving existing role from DB: {user.role.value}")
             
             user.last_login = datetime.utcnow()
             user.updated_at = datetime.utcnow()

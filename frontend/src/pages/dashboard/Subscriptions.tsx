@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Search, Loader2, CreditCard, Building2, Calendar, DollarSign, Plus } from 'lucide-react';
+import { Search, Loader2, CreditCard, DollarSign, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchSubscriptions } from '@/store/slices/subscriptionReducer';
@@ -37,7 +37,6 @@ export default function SubscriptionsPage() {
   const filteredSubscriptions = subscriptions.filter(subscription => {
     const matchesSearch = !searchQuery || 
       subscription.plan_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      subscription.firm_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       subscription.id.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || subscription.status === statusFilter;
@@ -56,10 +55,10 @@ export default function SubscriptionsPage() {
   };
 
   // Format currency
-  const formatCurrency = (amount: number, currency: string = 'USD') => {
+  const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: currency,
+      currency: 'USD',
     }).format(amount);
   };
 
@@ -124,7 +123,7 @@ export default function SubscriptionsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search subscriptions by plan name, firm, or ID..."
+              placeholder="Search subscriptions by plan name or ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="input-trinity pl-10 w-full"
@@ -156,14 +155,11 @@ export default function SubscriptionsPage() {
                 <thead>
                   <tr>
                     <th>Subscription</th>
-                    <th>Firm</th>
                     <th>Plan</th>
                     <th>Seats</th>
-                    <th>Billing</th>
-                    <th>Price</th>
+                    <th>Monthly Price</th>
                     <th>Status</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
+                    <th>Created</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -177,20 +173,10 @@ export default function SubscriptionsPage() {
                           <div>
                             <p className="font-medium">ID: {subscription.id.slice(0, 8)}...</p>
                             <p className="text-sm text-muted-foreground">
-                              {subscription.billing_period === 'monthly' ? 'Monthly' : 'Annual'}
+                              {formatDate(subscription.created_at)}
                             </p>
                           </div>
                         </div>
-                      </td>
-                      <td>
-                        {subscription.firm_name ? (
-                          <div className="flex items-center gap-2">
-                            <Building2 className="w-4 h-4 text-muted-foreground" />
-                            <span className="font-medium">{subscription.firm_name}</span>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">Standalone</span>
-                        )}
                       </td>
                       <td>
                         <span className="font-medium">{subscription.plan_name}</span>
@@ -199,13 +185,10 @@ export default function SubscriptionsPage() {
                         <span className="font-medium">{subscription.seat_count}</span>
                       </td>
                       <td>
-                        <span className="text-sm capitalize">{subscription.billing_period}</span>
-                      </td>
-                      <td>
                         <div className="flex items-center gap-2">
                           <DollarSign className="w-4 h-4 text-muted-foreground" />
                           <span className="font-medium">
-                            {formatCurrency(subscription.price, subscription.currency)}
+                            {formatCurrency(subscription.monthly_price)}
                           </span>
                         </div>
                       </td>
@@ -214,21 +197,10 @@ export default function SubscriptionsPage() {
                           {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
                         </span>
                       </td>
-                      <td className="text-muted-foreground text-sm">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4" />
-                          {formatDate(subscription.start_date)}
-                        </div>
-                      </td>
-                      <td className="text-muted-foreground text-sm">
-                        {subscription.end_date ? (
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4" />
-                            {formatDate(subscription.end_date)}
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">No end date</span>
-                        )}
+                      <td>
+                        <span className="text-sm text-muted-foreground">
+                          {formatDate(subscription.created_at)}
+                        </span>
                       </td>
                     </tr>
                   ))}

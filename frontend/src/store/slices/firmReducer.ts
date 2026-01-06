@@ -32,8 +32,8 @@ export interface Client {
   id: string;
   email: string;
   name: string;
-  given_name?: string;
-  family_name?: string;
+  first_name?: string;
+  last_name?: string;
   role: 'client';
   is_active: boolean;
   created_at: string;
@@ -326,7 +326,7 @@ export const fetchFirmClients = createAsyncThunk(
 
 export const addClientToFirm = createAsyncThunk(
   'firm/addClientToFirm',
-  async ({ firmId, email, name, given_name, family_name }: { firmId: string; email: string; name?: string; given_name?: string; family_name?: string }, { rejectWithValue }) => {
+  async ({ firmId, email, name, first_name, last_name }: { firmId: string; email: string; name?: string; first_name?: string; last_name?: string }, { rejectWithValue }) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/firms/${firmId}/clients`, {
         method: 'POST',
@@ -334,7 +334,7 @@ export const addClientToFirm = createAsyncThunk(
           ...getAuthHeaders(),
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, name, given_name, family_name }),
+        body: JSON.stringify({ email, name, first_name, last_name }),
       });
 
       if (!response.ok) {
@@ -346,6 +346,61 @@ export const addClientToFirm = createAsyncThunk(
       return client;
     } catch (error) {
       return rejectWithValue(error instanceof Error ? error.message : 'Failed to add client');
+    }
+  }
+);
+
+export const createFirm = createAsyncThunk(
+  'firm/createFirm',
+  async (firmData: { 
+    firm_name: string; 
+    admin_name: string;
+    admin_email: string;
+    subscription_id: string;
+    billing_email?: string; 
+  }, { rejectWithValue }) => {
+    try {
+      const headers = getAuthHeaders();
+
+      // 1) Create a new user with firm_admin role
+      const userResponse = await fetch(`${API_BASE_URL}/api/users`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          email: firmData.admin_email,
+          name: firmData.admin_name,
+          role: 'firm_admin',
+        }),
+      });
+
+      if (!userResponse.ok) {
+        const errorData = await userResponse.json().catch(() => ({ detail: 'Failed to create firm admin user' }));
+        throw new Error(errorData.detail || 'Failed to create firm admin user');
+      }
+
+      const adminUser = await userResponse.json() as { id: string };
+
+      // 2) Create the firm, assigning the new firm_admin
+      const response = await fetch(`${API_BASE_URL}/api/firms`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          firm_name: firmData.firm_name,
+          firm_admin_id: adminUser.id,
+          subscription_id: firmData.subscription_id,
+          billing_email: firmData.billing_email,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to create firm' }));
+        throw new Error(errorData.detail || 'Failed to create firm');
+      }
+
+      const firm = await response.json() as Firm;
+      return firm;
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to create firm');
     }
   }
 );
@@ -516,6 +571,22 @@ const firmSlice = createSlice({
         }
       })
       .addCase(addClientToFirm.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      });
+
+    // Create firm
+    builder
+      .addCase(createFirm.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(createFirm.fulfilled, (state, action) => {
+        state.isLoading = false;
+        // Add new firm to the list
+        state.firms.push(action.payload);
+      })
+      .addCase(createFirm.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
       });

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { createSubscription } from '@/store/slices/subscriptionReducer';
-import { fetchFirms } from '@/store/slices/firmReducer';
 import {
   Dialog,
   DialogContent,
@@ -30,14 +29,11 @@ interface CreateSubscriptionDialogProps {
 }
 
 interface SubscriptionFormData {
-  firm_id: string;
   plan_name: string;
   seat_count: number;
   billing_period: 'monthly' | 'annual';
   price: number;
   currency: string;
-  start_date: string;
-  end_date?: string;
 }
 
 export function CreateSubscriptionDialog({
@@ -47,7 +43,6 @@ export function CreateSubscriptionDialog({
 }: CreateSubscriptionDialogProps) {
   const dispatch = useAppDispatch();
   const { isCreating, error } = useAppSelector((state) => state.subscription);
-  const { firms } = useAppSelector((state) => state.firm);
 
   const {
     register,
@@ -58,24 +53,15 @@ export function CreateSubscriptionDialog({
     watch,
   } = useForm<SubscriptionFormData>({
     defaultValues: {
-      firm_id: '',
       plan_name: '',
       seat_count: 5,
       billing_period: 'monthly',
       price: 0,
       currency: 'USD',
-      start_date: new Date().toISOString().split('T')[0],
     },
   });
 
   const selectedBillingPeriod = watch('billing_period');
-
-  // Fetch firms when dialog opens
-  useEffect(() => {
-    if (open) {
-      dispatch(fetchFirms());
-    }
-  }, [open, dispatch]);
 
   // Reset form when dialog closes
   useEffect(() => {
@@ -94,14 +80,11 @@ export function CreateSubscriptionDialog({
   const onSubmit = async (data: SubscriptionFormData) => {
     try {
       await dispatch(createSubscription({
-        firm_id: data.firm_id || undefined,
         plan_name: data.plan_name,
         seat_count: Number(data.seat_count),
         billing_period: data.billing_period,
         price: Number(data.price),
         currency: data.currency,
-        start_date: data.start_date,
-        end_date: data.end_date || undefined,
       })).unwrap();
 
       toast.success('Subscription created successfully');
@@ -120,32 +103,10 @@ export function CreateSubscriptionDialog({
         <DialogHeader>
           <DialogTitle>Create New Subscription</DialogTitle>
           <DialogDescription>
-            Create a new subscription for a firm. All fields are required unless marked optional.
+            Create a new subscription. Subscriptions are independent and can be assigned to firms later. All fields are required unless marked optional.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="firm_id">Firm *</Label>
-            <Select
-              value={watch('firm_id')}
-              onValueChange={(value) => setValue('firm_id', value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a firm" />
-              </SelectTrigger>
-              <SelectContent>
-                {firms.map((firm) => (
-                  <SelectItem key={firm.id} value={firm.id}>
-                    {firm.firm_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.firm_id && (
-              <p className="text-sm text-destructive">{errors.firm_id.message}</p>
-            )}
-          </div>
-
           <div className="space-y-2">
             <Label htmlFor="plan_name">Plan Name *</Label>
             <Input
@@ -234,34 +195,6 @@ export function CreateSubscriptionDialog({
                   <SelectItem value="CAD">CAD</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="start_date">Start Date *</Label>
-              <Input
-                id="start_date"
-                type="date"
-                {...register('start_date', {
-                  required: 'Start date is required',
-                })}
-              />
-              {errors.start_date && (
-                <p className="text-sm text-destructive">{errors.start_date.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="end_date">End Date (Optional)</Label>
-              <Input
-                id="end_date"
-                type="date"
-                {...register('end_date')}
-              />
-              {errors.end_date && (
-                <p className="text-sm text-destructive">{errors.end_date.message}</p>
-              )}
             </div>
           </div>
 

@@ -223,7 +223,17 @@ class User(Base):
         comment="When the user last logged in"
     )
     
+    # Firm relationship (for firm_admin and firm_advisor roles)
+    firm_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("firms.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="Foreign key to firms table (for firm_admin and firm_advisor users)"
+    )
+    
     # Relationships
+    firm = relationship("Firm", back_populates="advisors")
     media = relationship("Media", back_populates="user")
     conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
     

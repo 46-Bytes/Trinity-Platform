@@ -24,7 +24,7 @@ class Firm(Base):
     firm_admin_id = Column(UUID(as_uuid=True), nullable=False,unique=True,index=True,comment="Foreign key to users (the Firm Admin)")  
     
     # Subscription & Billing
-    subscription_id = Column(UUID(as_uuid=True), ForeignKey("subscriptions.id", ondelete="SET NULL"), nullable=True, unique=True, index=True, comment="Foreign key to subscriptions")
+    subscription_id = Column(UUID(as_uuid=True), ForeignKey("subscriptions.id", ondelete="SET NULL"), nullable=True, index=True, comment="Foreign key to subscriptions")
     subscription_plan = Column(String(50),nullable=True,comment="Subscription plan name (e.g., 'professional', 'enterprise')")
     seat_count = Column(Integer,nullable=False,default=5,comment="Number of seats purchased (minimum 5)")  
     seats_used = Column( Integer, nullable=False, default=1, comment="Number of active advisor seats in use")  

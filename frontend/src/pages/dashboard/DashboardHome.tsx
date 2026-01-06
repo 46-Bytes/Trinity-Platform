@@ -1,6 +1,4 @@
 import { useAuth } from '@/context/AuthContext';
-import { useEffect } from 'react';
-import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchFirm, fetchFirmAdvisors, fetchFirmClients, fetchFirmStats } from '@/store/slices/firmReducer';
 import { StatCard } from '@/components/ui/stat-card';
 import { 

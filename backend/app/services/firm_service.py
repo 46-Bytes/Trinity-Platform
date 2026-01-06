@@ -3,6 +3,7 @@ Firm service for managing firm accounts and advisors.
 """
 from typing import List, Optional, Dict, Any
 from uuid import UUID
+import uuid as uuid_lib
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, text
 from datetime import datetime, timedelta
@@ -32,7 +33,8 @@ class FirmService:
         firm_name: str,
         firm_admin_id: UUID,
         seat_count: int = 5,
-        billing_email: Optional[str] = None
+        billing_email: Optional[str] = None,
+        subscription_id: Optional[UUID] = None
     ) -> Firm:
         """
         Create a new firm account.
@@ -42,6 +44,7 @@ class FirmService:
             firm_admin_id: User ID of the Firm Admin
             seat_count: Number of seats (minimum 5)
             billing_email: Email for billing notifications
+            subscription_plan: Subscription plan name (e.g., 'professional', 'enterprise')
             
         Returns:
             Created Firm model
@@ -57,6 +60,16 @@ class FirmService:
         if seat_count < 5:
             raise ValueError("Minimum seat count is 5")
         
+        # If subscription_id is provided, use existing subscription
+        if subscription_id:
+            subscription = self.db.query(Subscription).filter(Subscription.id == subscription_id).first()
+            if not subscription:
+                raise ValueError(f"Subscription {subscription_id} not found")
+            # Use subscription details (multiple firms can share the same subscription)
+            plan_name = subscription.plan_name
+        else:
+            raise ValueError("subscription_id is required when creating a firm")
+        
         # Create firm
         firm = Firm(
             firm_name=firm_name,
@@ -64,6 +77,7 @@ class FirmService:
             seat_count=seat_count,
             seats_used=1,  # Just the Firm Admin
             billing_email=billing_email or firm_admin.email,
+            subscription_plan=plan_name,
             is_active=True
         )
         
@@ -74,20 +88,7 @@ class FirmService:
         firm_admin.firm_id = firm.id
         firm_admin.role = UserRole.FIRM_ADMIN
         
-        # Create initial subscription
-        subscription = Subscription(
-            firm_id=firm.id,
-            plan_name="professional",
-            seat_count=seat_count,
-            monthly_price=299.00,  # Base price per month
-            status="active",
-            current_period_start=datetime.utcnow(),
-            current_period_end=datetime.utcnow() + timedelta(days=30)
-        )
-        self.db.add(subscription)
-        self.db.flush()  # Get subscription.id
-        
-        # Link subscription to firm
+        # Link existing subscription to firm
         firm.subscription_id = subscription.id
         
         self.db.commit()
@@ -430,17 +431,18 @@ class FirmService:
         # Update firm seat count
         firm.seat_count = new_seat_count
         
-        # Update subscription
-        subscription = self.db.query(Subscription).filter(
-            Subscription.firm_id == firm_id
-        ).first()
-        
-        if subscription:
-            # Recalculate monthly price (example: $299 base + $50 per additional seat)
-            base_price = 299.00
-            additional_seats = max(0, new_seat_count - 5)
-            subscription.monthly_price = base_price + (additional_seats * 50.00)
-            subscription.seat_count = new_seat_count
+        # Update subscription via firm's subscription_id
+        if firm.subscription_id:
+            subscription = self.db.query(Subscription).filter(
+                Subscription.id == firm.subscription_id
+            ).first()
+            
+            if subscription:
+                # Recalculate monthly price (example: $299 base + $50 per additional seat)
+                base_price = 299.00
+                additional_seats = max(0, new_seat_count - 5)
+                subscription.monthly_price = base_price + (additional_seats * 50.00)
+                subscription.seat_count = new_seat_count
         
         self.db.commit()
         self.db.refresh(firm)
@@ -507,8 +509,8 @@ class FirmService:
         firm_id: UUID,
         email: str,
         name: Optional[str] = None,
-        given_name: Optional[str] = None,
-        family_name: Optional[str] = None,
+        first_name: Optional[str] = None,
+        last_name: Optional[str] = None,
         added_by: UUID = None
     ) -> User:
         """
@@ -522,8 +524,8 @@ class FirmService:
             firm_id: ID of the firm
             email: Email address of the client
             name: Full name of the client (optional)
-            given_name: First name (optional)
-            family_name: Last name (optional)
+            first_name: First name (optional)
+            last_name: Last name (optional)
             added_by: ID of the user adding the client (for permissions)
             
         Returns:
@@ -554,10 +556,10 @@ class FirmService:
             client.firm_id = firm_id
             if name:
                 client.name = name
-            if given_name:
-                client.given_name = given_name
-            if family_name:
-                client.family_name = family_name
+            if first_name:
+                client.first_name = first_name
+            if last_name:
+                client.last_name = last_name
             if client.role != UserRole.CLIENT:
                 client.role = UserRole.CLIENT
         else:
@@ -566,8 +568,8 @@ class FirmService:
                 email=email,
                 auth0_id=f"temp_client_{uuid_lib.uuid4()}",
                 name=name,
-                given_name=given_name,
-                family_name=family_name,
+                first_name=first_name,
+                last_name=last_name,
                 role=UserRole.CLIENT,
                 firm_id=firm_id,
                 email_verified=False,

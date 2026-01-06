@@ -49,30 +49,51 @@ async def create_firm(
     """
     Create a new firm account.
     
-    Only advisors (solo) or super admins can create firms.
-    The creator becomes the Firm Admin.
+    - Advisors (solo): Can create firms and become the Firm Admin themselves
+    - Super Admins: Can create firms and assign any user (without firm_id) as Firm Admin
     """
     # Check permissions
     if current_user.role not in [UserRole.ADVISOR, UserRole.SUPER_ADMIN]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only advisors can create firm accounts"
+            detail="Only advisors or super admins can create firm accounts"
         )
     
-    # Check if user is already in a firm
-    if current_user.firm_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User is already part of a firm"
-        )
+    # Determine firm admin ID
+    if current_user.role == UserRole.SUPER_ADMIN:
+        # Super admin can select a different user as firm admin
+        if firm_data.firm_admin_id:
+            firm_admin_id = firm_data.firm_admin_id
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="firm_admin_id is required when creating firm as super admin"
+            )
+    else:
+        # Regular advisor becomes the firm admin
+        if firm_data.firm_admin_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Advisors cannot specify firm_admin_id. They become the firm admin automatically."
+            )
+        # Check if user is already in a firm
+        if current_user.firm_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User is already part of a firm"
+            )
+        firm_admin_id = current_user.id
     
     try:
         firm_service = get_firm_service(db)
+        # Use default seat_count of 5 if not provided (seat count is managed in subscription)
+        seat_count = firm_data.seat_count if firm_data.seat_count else 5
         firm = firm_service.create_firm(
             firm_name=firm_data.firm_name,
-            firm_admin_id=current_user.id,
-            seat_count=firm_data.seat_count,
-            billing_email=firm_data.billing_email
+            firm_admin_id=firm_admin_id,
+            seat_count=seat_count,
+            billing_email=firm_data.billing_email,
+            subscription_id=firm_data.subscription_id
         )
         
         return FirmResponse.model_validate(firm)
@@ -99,7 +120,7 @@ async def list_firms(
     """
     query = db.query(Firm)
     
-    if current_user.role == UserRole.SUPER_ADMIN or current_user.role == UserRole.ADMIN:
+    if current_user.role == UserRole.SUPER_ADMIN:
         # Admins see all firms
         pass
     elif current_user.role == UserRole.FIRM_ADMIN:
@@ -112,7 +133,47 @@ async def list_firms(
         )
     
     firms = query.order_by(Firm.created_at.desc()).offset(skip).limit(limit).all()
-    return [FirmResponse.model_validate(firm) for firm in firms]
+
+    # Enrich firm data with admin name/email and basic counts for UI
+    from ..models.user import User
+    from sqlalchemy import func
+
+    enriched_firms: List[FirmResponse] = []
+    for firm in firms:
+        # Get firm admin user
+        admin_user = db.query(User).filter(User.id == firm.firm_admin_id).first()
+        firm_admin_name = admin_user.name or admin_user.email if admin_user else None
+        firm_admin_email = admin_user.email if admin_user else None
+
+        # Count firm advisors (FIRM_ADVISOR only)
+        advisors_count = db.query(func.count(User.id)).filter(
+            User.firm_id == firm.id,
+            User.role == UserRole.FIRM_ADVISOR,
+        ).scalar() or 0
+
+        # Count clients from firm's clients array
+        clients_count = len(firm.clients or [])
+
+        enriched_firms.append(
+            FirmResponse(
+                id=firm.id,
+                firm_name=firm.firm_name,
+                firm_admin_id=firm.firm_admin_id,
+                firm_admin_name=firm_admin_name,
+                firm_admin_email=firm_admin_email,
+                advisors_count=advisors_count,
+                clients_count=clients_count,
+                subscription_plan=firm.subscription_plan,
+                seat_count=firm.seat_count,
+                seats_used=firm.seats_used,
+                billing_email=firm.billing_email,
+                is_active=firm.is_active,
+                created_at=firm.created_at,
+                updated_at=firm.updated_at,
+            )
+        )
+
+    return enriched_firms
 
 
 @router.get("/{firm_id}", response_model=FirmDetailResponse)
@@ -399,8 +460,8 @@ async def add_client(
             firm_id=firm_id,
             email=client_data.email,
             name=client_data.name,
-            given_name=client_data.given_name,
-            family_name=client_data.family_name,
+            first_name=client_data.first_name,
+            last_name=client_data.last_name,
             added_by=current_user.id
         )
         
@@ -519,7 +580,11 @@ async def get_subscription(
                 detail="Only Firm Admins can view subscription details"
             )
     
-    subscription = db.query(Subscription).filter(Subscription.firm_id == firm_id).first()
+    # Get subscription via firm's subscription_id
+    firm = db.query(Firm).filter(Firm.id == firm_id).first()
+    subscription = None
+    if firm and firm.subscription_id:
+        subscription = db.query(Subscription).filter(Subscription.id == firm.subscription_id).first()
     
     if not subscription:
         raise HTTPException(

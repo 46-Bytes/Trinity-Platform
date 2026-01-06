@@ -3,7 +3,7 @@ import { Search, MoreHorizontal, Building2, Loader2, Eye, FileText, Plus, Mail, 
 import { cn, getUniqueClientIds } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchEngagements } from '@/store/slices/engagementReducer';
-import { fetchFirmClients, addClientToFirm } from '@/store/slices/firmReducer';
+import { fetchFirmClients, addClientToFirm, fetchFirm } from '@/store/slices/firmReducer';
 import { useAuth } from '@/context/AuthContext';
 import {
   DropdownMenu,
@@ -44,7 +44,7 @@ export default function ClientsPage() {
   const dispatch = useAppDispatch();
   const { user } = useAuth();
   const { engagements, isLoading: engagementsLoading } = useAppSelector((state) => state.engagement);
-  const { clients: firmClients, isLoading: firmClientsLoading, error: firmError } = useAppSelector((state) => state.firm);
+  const { firm, clients: firmClients, isLoading: firmClientsLoading, error: firmError } = useAppSelector((state) => state.firm);
   const { toast } = useToast();
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -55,8 +55,8 @@ export default function ClientsPage() {
   const [formData, setFormData] = useState({
     email: '',
     name: '',
-    given_name: '',
-    family_name: '',
+    first_name: '',
+    last_name: '',
   });
 
   // Check if user is advisor (including firm_advisor)
@@ -174,6 +174,13 @@ export default function ClientsPage() {
     }
   }, [isAdvisor, isAdmin, isFirmAdmin, buildClientsFromEngagements, dispatch]);
 
+  // Fetch firm for firm admin
+  useEffect(() => {
+    if (user && isFirmAdmin && !firm) {
+      dispatch(fetchFirm());
+    }
+  }, [dispatch, user, isFirmAdmin, firm]);
+
   // Fetch engagements on mount
   useEffect(() => {
     if (user && !isFirmAdmin) {
@@ -290,16 +297,39 @@ export default function ClientsPage() {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      // For firm admin, we need to get the firm ID first
-      // This would need to be implemented based on your API
+    // Get firm ID from firm state or user's firmId
+    const firmId = firm?.id || user?.firmId;
+    if (!firmId) {
       toast({
         title: 'Error',
-        description: 'Add client functionality needs firm ID',
+        description: 'Firm ID not found. Please refresh the page.',
         variant: 'destructive',
       });
-      setIsAddDialogOpen(false);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = await dispatch(addClientToFirm({
+        firmId,
+        email: formData.email,
+        name: formData.name || undefined,
+        first_name: formData.first_name || undefined,
+        last_name: formData.last_name || undefined,
+      }));
+
+      if (addClientToFirm.fulfilled.match(result)) {
+        toast({
+          title: 'Success',
+          description: 'Client added successfully',
+        });
+        setIsAddDialogOpen(false);
+        setFormData({ email: '', name: '', first_name: '', last_name: '' });
+        // Refresh clients list
+        dispatch(fetchFirmClients());
+      } else {
+        throw new Error(result.payload as string || 'Failed to add client');
+      }
     } catch (error) {
       toast({
         title: 'Error',
@@ -356,20 +386,20 @@ export default function ClientsPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="given_name">First Name</Label>
+                    <Label htmlFor="first_name">First Name</Label>
                     <Input
-                      id="given_name"
-                      value={formData.given_name}
-                      onChange={(e) => setFormData({ ...formData, given_name: e.target.value })}
+                      id="first_name"
+                      value={formData.first_name}
+                      onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
                       placeholder="John"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="family_name">Last Name</Label>
+                    <Label htmlFor="last_name">Last Name</Label>
                     <Input
-                      id="family_name"
-                      value={formData.family_name}
-                      onChange={(e) => setFormData({ ...formData, family_name: e.target.value })}
+                      id="last_name"
+                      value={formData.last_name}
+                      onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
                       placeholder="Doe"
                     />
                   </div>

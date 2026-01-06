@@ -12,8 +12,10 @@ from uuid import UUID
 class FirmCreate(BaseModel):
     """Schema for creating a new firm."""
     firm_name: str = Field(..., min_length=2, max_length=255, description="Name of the firm/organization")
-    seat_count: int = Field(default=5, ge=5, description="Number of seats (minimum 5)")
+    seat_count: Optional[int] = Field(default=5, ge=5, description="Number of seats (minimum 5, defaults to 5)")
     billing_email: Optional[EmailStr] = Field(None, description="Email for billing notifications")
+    firm_admin_id: Optional[UUID] = Field(None, description="User ID to assign as firm admin (superadmin only)")
+    subscription_id: Optional[UUID] = Field(None, description="Subscription ID to attach to the firm (superadmin only)")
 
 
 class FirmUpdate(BaseModel):
@@ -30,6 +32,12 @@ class FirmResponse(BaseModel):
     id: UUID
     firm_name: str
     firm_admin_id: UUID
+    # Extra fields for admin display in superadmin firms list
+    firm_admin_name: Optional[str] = None
+    firm_admin_email: Optional[str] = None
+    # Optional aggregate counts for UI
+    advisors_count: Optional[int] = None
+    clients_count: Optional[int] = None
     subscription_plan: Optional[str] = None
     seat_count: int
     seats_used: int
@@ -57,8 +65,8 @@ class FirmClientAdd(BaseModel):
     """Schema for adding a client to a firm."""
     email: EmailStr = Field(..., description="Email address of the client")
     name: Optional[str] = Field(None, max_length=255, description="Full name of the client")
-    given_name: Optional[str] = Field(None, max_length=255, description="First name of the client")
-    family_name: Optional[str] = Field(None, max_length=255, description="Last name of the client")
+    first_name: Optional[str] = Field(None, max_length=255, description="First name of the client")
+    last_name: Optional[str] = Field(None, max_length=255, description="Last name of the client")
 
 
 class FirmClientResponse(BaseModel):
@@ -68,8 +76,8 @@ class FirmClientResponse(BaseModel):
     id: UUID
     email: str
     name: Optional[str] = None
-    given_name: Optional[str] = None
-    family_name: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     role: str
     is_active: bool
     firm_id: Optional[UUID] = None
@@ -124,13 +132,11 @@ class SubscriptionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     
     id: UUID
-    firm_id: UUID
+    firm_id: Optional[UUID] = None
     plan_name: str
     seat_count: int
     monthly_price: float
     status: str
-    current_period_start: datetime
-    current_period_end: datetime
     cancel_at_period_end: bool
     cancelled_at: Optional[datetime] = None
     created_at: datetime

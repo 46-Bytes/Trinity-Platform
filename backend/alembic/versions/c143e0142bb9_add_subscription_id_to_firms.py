@@ -1,7 +1,7 @@
 """add_subscription_id_to_firms
 
 Revision ID: c143e0142bb9
-Revises: 686ebbdaca62
+Revises: b2465e2f298a
 Create Date: 2025-12-22 11:13:44.159497
 
 """
@@ -12,7 +12,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = 'c143e0142bb9'
-down_revision = '686ebbdaca62'
+down_revision = 'b2465e2f298a'
 branch_labels = None
 depends_on = None
 

@@ -193,9 +193,9 @@ class ChatService:
             t5 = time.time()
             gpt_response = await openai_service.generate_completion(
                 messages=messages,
-                temperature=0.3,
+                temperature=0.7,
                 model=model,
-                max_output_tokens=500,
+                max_output_tokens=1000,
             )
             t6 = time.time()
             logger.info(f"[TIMESTAMP] Before OpenAI: {t5:.3f}s | After OpenAI: {t6:.3f}s | OpenAI elapsed: {t6-t5:.3f}s")

@@ -30,7 +30,6 @@ class OpenAIService:
             ),
             max_retries=2
         )
-        self.model = settings.OPENAI_MODEL
         self.temperature = settings.OPENAI_TEMPERATURE
         # Safely format timeout string (handle None case)
         if settings.OPENAI_TIMEOUT is not None:
@@ -109,7 +108,8 @@ class OpenAIService:
         json_mode: bool = False,
         reasoning_effort: Optional[str] = None,
         file_ids: Optional[List[str]] = None,
-        tools: Optional[List[Dict[str, Any]]] = None
+        tools: Optional[List[Dict[str, Any]]] = None,
+        model: str = "gpt-5-nano"
     ) -> Dict[str, Any]:
         """
         Generate completion from OpenAI using Responses API.
@@ -121,7 +121,7 @@ class OpenAIService:
             json_mode: Enable JSON mode output
             reasoning_effort: Reasoning effort level ("low", "medium", "high")
             file_ids: Optional list of OpenAI file IDs to attach to the last user message
-            
+            model: Model to use for the response
         Returns:
             Dictionary containing response and metadata
         """
@@ -129,11 +129,11 @@ class OpenAIService:
             # Convert messages to input format (with files if provided)
             input_messages = self._convert_messages_to_input(messages, file_ids=file_ids)
 
-            
+            logger.info(f"GPT Model: {model}")
             
             # Prepare parameters
             params = {
-                "model": self.model,
+                "model": model,
                 "input": input_messages,
             }
             
@@ -161,42 +161,23 @@ class OpenAIService:
                         normalized_tools.append(t)
                 params["tools"] = normalized_tools
             
-            logger.info(f"[OpenAI API] Making API call to responses.create()")
-            logger.info(f"[OpenAI API] Input messages count: {len(params.get('input', []))}")
-            logger.info(f"[OpenAI API] File attachments: {len(file_ids) if file_ids else 0}")
+            t0 = time.time()
+            logger.info(f"[TIMESTAMP] OpenAI API call start: {t0:.3f}s")
             
-            # Make API call using Responses API
-            # Run in thread pool to avoid blocking the event loop
-            logger.info("[OpenAI API]  Waiting for OpenAI API response (this may take several minutes)...")
-            start_time = time.time()
-            
-            # Run the blocking OpenAI call in a thread pool
-            # This allows other requests to be processed while waiting for OpenAI
-
-            logger.info("[OpenAI API] Making async API call...")
-            start_time = time.time()
-
-            # loop = asyncio.get_event_loop()
             try:
-                # response = await loop.run_in_executor(
-                #     None,  # Use default ThreadPoolExecutor
-                #     lambda: asyncio.run(self.client.responses.create(**params))
-                # )
                 response = await self.client.responses.create(**params)
-
             except Exception as executor_error:
-                elapsed_time = time.time() - start_time
+                t_error = time.time()
+                elapsed_time = t_error - t0
+                logger.info(f"[TIMESTAMP] OpenAI API error: {t_error:.3f}s | Elapsed: {elapsed_time:.3f}s")
                 error_msg = str(executor_error)
-                logger.error(f"[OpenAI API]  Exception in run_in_executor after {elapsed_time:.2f} seconds: {error_msg}", exc_info=True)
-                logger.error(f"[OpenAI API] Exception type: {type(executor_error).__name__}")
-                # Re-raise to be caught by outer exception handler
                 raise
             
-            elapsed_time = time.time() - start_time
-            logger.info(f"[OpenAI API]  Completed in {elapsed_time:.2f}s ({elapsed_time/60:.2f} minutes)")    
+            t1 = time.time()
+            elapsed_time = t1 - t0
+            logger.info(f"[TIMESTAMP] OpenAI API complete: {t1:.3f}s | Elapsed: {elapsed_time:.3f}s")    
             # Extract data
             content = response.output_text
-            logger.info(f"[OpenAI API] Response received: {len(content)} characters")
             
             # Extract token usage
             tokens_used = getattr(response.usage, 'total_tokens', 0) if hasattr(response, 'usage') else 0
@@ -210,7 +191,7 @@ class OpenAIService:
             # Return structured response
             return {
                 "content": content,
-                "model": self.model,
+                "model": model,
                 "tokens_used": tokens_used,
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
@@ -260,7 +241,8 @@ class OpenAIService:
             json_mode=True,
             reasoning_effort=reasoning_effort,
             file_ids=file_ids,
-            tools=tools
+            tools=tools,
+            model=settings.OPENAI_MODEL
         )
         
         # Parse JSON content
@@ -322,7 +304,8 @@ class OpenAIService:
         
         return await self.generate_completion(
             messages=messages,
-            reasoning_effort=reasoning_effort
+            reasoning_effort=reasoning_effort,
+            model=settings.OPENAI_MODEL
         )
     
     async def process_scoring(
@@ -448,7 +431,8 @@ class OpenAIService:
         
         return await self.generate_completion(
             messages=messages,
-            reasoning_effort=reasoning_effort
+            reasoning_effort=reasoning_effort,
+            model=settings.OPENAI_MODEL
         )
     
     async def generate_tasks(
@@ -513,7 +497,8 @@ class OpenAIService:
         
         return await self.generate_json_completion(
             messages=messages,
-            reasoning_effort=reasoning_effort
+            reasoning_effort=reasoning_effort,
+            model=settings.OPENAI_MODEL
         )
     
     async def upload_file(

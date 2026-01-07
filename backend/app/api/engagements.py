@@ -150,7 +150,8 @@ async def list_engagements(
     
     Returns engagements based on user role:
     - Super Admin/Admin: All engagements
-    - Advisor: Engagements where they are primary or secondary advisor
+    - Firm Admin: All engagements within their firm
+    - Advisor/Firm Advisor: Engagements where they are primary or secondary advisor
     - Client: Engagements where they are the client
     """
     # Build base query
@@ -159,8 +160,15 @@ async def list_engagements(
     if current_user.role in [UserRole.SUPER_ADMIN, UserRole.ADMIN]:
         # Admins see all engagements
         pass
-    elif current_user.role in [UserRole.ADVISOR, UserRole.FIRM_ADVISOR, UserRole.FIRM_ADMIN]:
-        # Advisors and firm roles see engagements where they are primary or secondary advisor
+    elif current_user.role == UserRole.FIRM_ADMIN:
+        # Firm Admin sees all engagements within their firm
+        if current_user.firm_id:
+            query = query.filter(Engagement.firm_id == current_user.firm_id)
+        else:
+            # If firm_admin has no firm_id, return empty result
+            query = query.filter(False)
+    elif current_user.role in [UserRole.ADVISOR, UserRole.FIRM_ADVISOR]:
+        # Advisors and firm advisors see engagements where they are primary or secondary advisor
         query = query.filter(
             or_(
                 Engagement.primary_advisor_id == current_user.id,

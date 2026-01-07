@@ -63,11 +63,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   return (
     <aside className={cn(
-      "fixed left-0 top-0 h-screen bg-sidebar flex flex-col transition-all duration-300 z-50",
+      "fixed left-0 top-0 h-screen max-h-screen bg-sidebar flex flex-col transition-all duration-300 z-50",
       collapsed ? "w-[72px]" : "w-[260px]"
     )}>
       {/* Logo */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
+      <div className="h-16 flex-shrink-0 flex items-center justify-between px-4 border-b border-sidebar-border">
         {!collapsed && (
           <div className="flex items-center gap-3">
             <img 
@@ -96,7 +96,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+      <nav className="flex-1 min-h-0 p-3 space-y-1 overflow-y-auto overflow-x-hidden">
         {filteredItems.map((item, index) => {
           const isActive = location.pathname === item.href || 
             (item.href !== '/dashboard' && location.pathname.startsWith(item.href));
@@ -121,7 +121,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Expand button when collapsed */}
       {collapsed && (
-        <div className="p-3 border-t border-sidebar-border">
+        <div className="flex-shrink-0 p-3 border-t border-sidebar-border">
           <button
             onClick={onToggle}
             className="w-full p-2 rounded-lg text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors flex items-center justify-center"
@@ -133,7 +133,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* User info */}
       {!collapsed && user && (
-        <div className="p-4 border-t border-sidebar-border">
+        <div className="flex-shrink-0 p-4 border-t border-sidebar-border">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-sidebar-accent flex items-center justify-center text-sidebar-foreground font-medium overflow-hidden relative">
               {user.avatar ? (

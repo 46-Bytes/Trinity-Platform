@@ -226,7 +226,6 @@ export default function ClientsPage() {
         engagementCount: 0,
       };
 
-      // Determine client status: Active if any engagement is active/draft, or if client is active with no engagements
       const hasActiveEngagement = Array.from(clientEngagements.engagementStatuses).some(
         status => status === 'active' || status === 'draft'
       );
@@ -234,7 +233,6 @@ export default function ClientsPage() {
         ? 'Active' 
         : 'Pending';
       
-      // Use the first industry found (or empty string if none)
       const industry = clientEngagements.industries.size > 0 
         ? Array.from(clientEngagements.industries)[0] 
         : '';

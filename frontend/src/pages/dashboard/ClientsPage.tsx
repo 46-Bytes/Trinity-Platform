@@ -4,6 +4,7 @@ import { cn, getUniqueClientIds } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchEngagements } from '@/store/slices/engagementReducer';
 import { fetchFirmClients, addClientToFirm, fetchFirm } from '@/store/slices/firmReducer';
+import { fetchClientUsers } from '@/store/slices/clientReducer';
 import { useAuth } from '@/context/AuthContext';
 import {
   DropdownMenu,
@@ -45,10 +46,10 @@ export default function ClientsPage() {
   const { user } = useAuth();
   const { engagements, isLoading: engagementsLoading } = useAppSelector((state) => state.engagement);
   const { firm, clients: firmClients, isLoading: firmClientsLoading, error: firmError } = useAppSelector((state) => state.firm);
+  const { clients: adminClients, isLoading: adminClientsLoading, error: adminClientsError } = useAppSelector((state) => state.client);
   const { toast } = useToast();
   
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -66,55 +67,6 @@ export default function ClientsPage() {
   // Check if user is firm admin
   const isFirmAdmin = user?.role === 'firm_admin';
 
-  // Build clients from engagements for advisors
-  const buildClientsFromEngagements = useCallback(() => {
-    if (!isAdvisor || engagements.length === 0) {
-      return [];
-    }
-
-    // Create a map of unique clients from engagements
-    const clientMap = new Map<string, {
-      id: string;
-      name: string;
-      email: string;
-      engagements: number;
-    }>();
-
-    engagements.forEach(engagement => {
-      const clientId = engagement.clientId;
-      if (!clientMap.has(clientId)) {
-        const clientName = engagement.clientName || 'Unknown Client';
-        // Try to extract email from name, or create a reasonable default
-        let email = clientName;
-        if (!clientName.includes('@')) {
-          // Create a placeholder email from the name
-          email = `${clientName.toLowerCase().replace(/[^a-z0-9]/g, '.').replace(/\.+/g, '.').replace(/^\.|\.$/g, '')}@client.local`;
-        }
-        
-        clientMap.set(clientId, {
-          id: clientId,
-          name: clientName,
-          email: email,
-          engagements: 0,
-        });
-      }
-      const client = clientMap.get(clientId)!;
-      client.engagements += 1;
-    });
-
-    return Array.from(clientMap.values()).map(client => ({
-      id: client.id,
-      name: client.name,
-      email: client.email,
-      industry: '', // Will be set in clientsWithEngagements
-      status: 'Active' as const,
-      engagements: client.engagements,
-      is_active: true,
-      email_verified: false,
-      role: 'client',
-    }));
-  }, [isAdvisor, engagements]);
-
   const fetchClients = useCallback(async () => {
     // For firm admin, use firm reducer clients
     if (isFirmAdmin) {
@@ -122,57 +74,63 @@ export default function ClientsPage() {
       return;
     }
 
-    // For advisors, build clients from engagements instead of calling API
+    // For advisors, load clients from advisor-client associations API
     if (isAdvisor) {
-      setIsLoading(true);
       try {
-        const clientsFromEngagements = buildClientsFromEngagements();
-        setClients(clientsFromEngagements);
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+          setClients([]);
+          return;
+        }
+
+        const response = await fetch(
+          `${API_BASE_URL}/api/advisor-client?status_filter=active`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          },
+        );
+
+        if (!response.ok) {
+          console.error('Failed to fetch advisor clients');
+          setClients([]);
+          return;
+        }
+
+        const associations = await response.json();
+
+        // Map advisor-client associations to the Client shape used in this page
+        const advisorClients: Client[] = associations.map((assoc: any) => ({
+          id: assoc.client_id,
+          name: assoc.client_name || assoc.client_email || 'Unknown Client',
+          email: assoc.client_email || '',
+          industry: '',
+          status: 'Active',
+          engagements: 0, // Will be updated from engagements data below
+          is_active: true,
+          email_verified: false,
+          role: 'client',
+        }));
+
+        setClients(advisorClients);
       } catch (error) {
-        console.error('Error building clients from engagements:', error);
-      } finally {
-        setIsLoading(false);
+        console.error('Error fetching advisor clients:', error);
+        setClients([]);
       }
       return;
     }
 
-    // For admins, fetch from API
+    // For admins, load from client reducer
     if (!isAdmin) {
       setClients([]);
       return;
     }
 
-    setIsLoading(true);
-    try {
-      const token = localStorage.getItem('auth_token');
-      if (!token) return;
-
-      // Fetch all users with role='client'
-      const response = await fetch(`${API_BASE_URL}/api/users?role=client`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const users = await response.json();
-        // Filter out firm_admin and firm_advisor roles
-        const filteredUsers = users.filter((user: any) => 
-          user.role !== 'firm_admin' && user.role !== 'firm_advisor'
-        );
-        setClients(filteredUsers);
-      } else {
-        console.error('Failed to fetch clients');
-        setClients([]);
-      }
-    } catch (error) {
-      console.error('Error fetching clients:', error);
-      setClients([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isAdvisor, isAdmin, isFirmAdmin, buildClientsFromEngagements, dispatch]);
+    // Data will come from client reducer via adminClients selector
+    dispatch(fetchClientUsers());
+  }, [isAdvisor, isAdmin, isFirmAdmin, dispatch]);
 
   // Fetch firm for firm admin
   useEffect(() => {
@@ -195,24 +153,44 @@ export default function ClientsPage() {
     }
   }, [user, engagementsLoading, fetchClients, engagements.length, isFirmAdmin]);
 
-  // For firm admin, use clients from firm reducer
-  const clientsToUse = isFirmAdmin ? firmClients.map(client => ({
-    id: client.id,
-    name: client.name || 'Unknown',
-    email: client.email || '',
-    industry: '',
-    status: client.is_active ? 'Active' as const : 'Pending' as const,
-    engagements: 0,
-    is_active: client.is_active,
-    email_verified: false,
-    role: 'client',
-  })) : clients;
+  // Choose base clients by role
+  const baseClients: Client[] = useMemo(() => {
+    if (isFirmAdmin) {
+      return firmClients.map(client => ({
+        id: client.id,
+        name: client.name || 'Unknown',
+        email: client.email || '',
+        industry: '',
+        status: client.is_active ? 'Active' as const : 'Pending' as const,
+        engagements: 0,
+        is_active: client.is_active,
+        email_verified: false,
+        role: 'client',
+      }));
+    }
+
+    if (isAdmin) {
+      return adminClients.map(client => ({
+        id: client.id,
+        name: client.name || 'Unknown',
+        email: client.email || '',
+        industry: '',
+        status: client.is_active ? 'Active' as const : 'Pending' as const,
+        engagements: 0,
+        is_active: client.is_active,
+        email_verified: client.email_verified ?? false,
+        role: client.role || 'client',
+      }));
+    }
+
+    return clients;
+  }, [isFirmAdmin, isAdmin, firmClients, adminClients, clients]);
 
   // Merge client data with engagement data
   const clientsWithEngagements = useMemo<Client[]>(() => {
-    // For firm admin, return clients as-is
-    if (isFirmAdmin) {
-      return clientsToUse;
+    // For firm admin and admins, return base clients as-is (no engagement enrichment needed)
+    if (isFirmAdmin || isAdmin) {
+      return baseClients;
     }
 
     // Create a map of client engagements
@@ -241,14 +219,13 @@ export default function ClientsPage() {
     });
 
     // Merge client data with engagement data
-    return clientsToUse.map(client => {
+    return baseClients.map(client => {
       const clientEngagements = engagementMap.get(client.id) || {
         industries: new Set<string>(),
         engagementStatuses: new Set<string>(),
         engagementCount: 0,
       };
 
-      // Determine client status: Active if any engagement is active/draft, or if client is active with no engagements
       const hasActiveEngagement = Array.from(clientEngagements.engagementStatuses).some(
         status => status === 'active' || status === 'draft'
       );
@@ -256,7 +233,6 @@ export default function ClientsPage() {
         ? 'Active' 
         : 'Pending';
       
-      // Use the first industry found (or empty string if none)
       const industry = clientEngagements.industries.size > 0 
         ? Array.from(clientEngagements.industries)[0] 
         : '';
@@ -268,23 +244,24 @@ export default function ClientsPage() {
         engagements: clientEngagements.engagementCount,
       };
     });
-  }, [clientsToUse, engagements, isFirmAdmin]);
+  }, [baseClients, engagements, isFirmAdmin, isAdmin]);
 
-  const industries = ['all', ...new Set(clientsWithEngagements.map(c => c.industry).filter(Boolean))];
-  const [industryFilter, setIndustryFilter] = useState('all');
 
   const filteredClients = clientsWithEngagements.filter(c => {
     const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesIndustry = industryFilter === 'all' || c.industry === industryFilter;
-    return matchesSearch && matchesIndustry;
+    return matchesSearch
   });
 
   const activeClientsCount = clientsWithEngagements.filter(c => c.status === 'Active').length;
   const totalClientsCount = clientsWithEngagements.length;
 
-  const isLoadingData = isLoading || engagementsLoading || (isFirmAdmin && firmClientsLoading);
-  const error = isFirmAdmin ? firmError : null;
+  const isLoadingData =
+    engagementsLoading ||
+    (isFirmAdmin && firmClientsLoading) ||
+    (isAdmin && adminClientsLoading);
+
+  const error = isFirmAdmin ? firmError : isAdmin ? adminClientsError : null;
 
   const handleAddClient = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -466,18 +443,6 @@ export default function ClientsPage() {
                 style={{ maxWidth: '100%' }}
               />
             </div>
-            {industries.length > 1 && (
-              <select 
-                className="input-trinity w-full sm:w-48"
-                value={industryFilter}
-                onChange={(e) => setIndustryFilter(e.target.value)}
-              >
-                <option value="all">All Industries</option>
-                {industries.filter(i => i !== 'all').map((industry) => (
-                  <option key={industry} value={industry}>{industry}</option>
-                ))}
-              </select>
-            )}
           </div>
 
           {filteredClients.length === 0 ? (

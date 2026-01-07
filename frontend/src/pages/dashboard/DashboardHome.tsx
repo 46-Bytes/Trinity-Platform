@@ -1,5 +1,6 @@
 import { useAuth } from '@/context/AuthContext';
 import { fetchFirm, fetchFirmAdvisors, fetchFirmClients, fetchFirmStats } from '@/store/slices/firmReducer';
+import { fetchSubscriptions } from '@/store/slices/subscriptionReducer';
 import { StatCard } from '@/components/ui/stat-card';
 import { 
   Users, 
@@ -10,7 +11,8 @@ import {
   Clock,
   AlertCircle,
   ArrowRight,
-  Brain
+  Brain,
+  Calendar
 } from 'lucide-react';
 import { cn, getUniqueClientIds } from '@/lib/utils';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
@@ -509,6 +511,7 @@ function AdminDashboard() {
 function FirmAdminDashboard() {
   const dispatch = useAppDispatch();
   const { firm, advisors, clients, stats, isLoading } = useAppSelector((state) => state.firm);
+  const { subscriptions } = useAppSelector((state) => state.subscription);
 
   useEffect(() => {
     if (!firm) {
@@ -521,6 +524,7 @@ function FirmAdminDashboard() {
       dispatch(fetchFirmAdvisors(firm.id));
       dispatch(fetchFirmClients());
       dispatch(fetchFirmStats(firm.id));
+      dispatch(fetchSubscriptions());
     }
   }, [dispatch, firm?.id]);
 
@@ -533,6 +537,72 @@ function FirmAdminDashboard() {
   const availableSeats = stats?.seats_available ?? Math.max(seatCount - seatsUsed, 0);
   const totalClients = clients.length;
   const activeEngagements = stats?.active_engagements ?? 0;
+
+  // Calculate subscription days remaining
+  const calculateSubscriptionDays = () => {
+    // Find subscription for this firm (match by firm_id or check if firm has subscription_id)
+    const firmSubscription = subscriptions.find((sub) => 
+      sub.firm_id === firm?.id || sub.id === (firm as any)?.subscription_id
+    );
+    
+    if (!firmSubscription) {
+      return null;
+    }
+
+    // Use current_period_end if available, otherwise calculate from created_at + 30 days
+    let endDate: Date;
+    
+    if (firmSubscription.current_period_end) {
+      endDate = new Date(firmSubscription.current_period_end);
+    } else {
+      // Fallback: calculate from created_at + 30 days (monthly subscription)
+      const createdDate = new Date(firmSubscription.created_at);
+      endDate = new Date(createdDate);
+      endDate.setDate(endDate.getDate() + 30);
+    }
+
+    const now = new Date();
+    const diffTime = endDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    return diffDays;
+  };
+
+  const subscriptionDays = calculateSubscriptionDays();
+  
+  // Format subscription days display
+  const getSubscriptionDisplay = () => {
+    if (subscriptionDays === null) {
+      return { value: 'N/A', iconColor: 'text-muted-foreground' };
+    }
+    
+    if (subscriptionDays < 0) {
+      return { 
+        value: 'Expired', 
+        iconColor: 'text-destructive',
+        change: `${Math.abs(subscriptionDays)} days overdue`,
+        changeType: 'negative' as const
+      };
+    }
+    
+    if (subscriptionDays < 3) {
+      return { 
+        value: `${subscriptionDays} ${subscriptionDays === 1 ? 'day' : 'days'}`,
+        iconColor: 'text-orange-500',
+        change: 'Expiring soon',
+        changeType: 'negative' as const
+      };
+    }
+    
+    return { 
+      value: `${subscriptionDays} ${subscriptionDays === 1 ? 'day' : 'days'}`,
+      iconColor: 'text-accent',
+      change: 'Remaining',
+      changeType: 'neutral' as const
+    };
+  };
+
+  const subscriptionDisplay = getSubscriptionDisplay();
 
   return (
     <div className="space-y-6">
@@ -555,9 +625,12 @@ function FirmAdminDashboard() {
           icon={FolderOpen}
         />
         <StatCard 
-          title="Monthly Usage" 
-          value="$2,450" 
-          icon={TrendingUp}
+          title="Subscription Days" 
+          value={subscriptionDisplay.value}
+          change={subscriptionDisplay.change}
+          changeType={subscriptionDisplay.changeType}
+          icon={Calendar}
+          iconColor={subscriptionDisplay.iconColor}
         />
       </div>
 

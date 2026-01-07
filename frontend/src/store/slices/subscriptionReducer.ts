@@ -10,6 +10,7 @@ export interface Subscription {
   status: 'active' | 'cancelled' | 'expired' | 'pending' | 'suspended';
   created_at: string;
   updated_at: string;
+  current_period_end?: string; // End date of current billing period
 }
 
 interface SubscriptionState {

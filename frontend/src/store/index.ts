@@ -9,6 +9,7 @@ import tagReducer from './slices/tagReducer';
 import advisorClientReducer from './slices/advisorClientReducer';
 import firmReducer from './slices/firmReducer';
 import subscriptionReducer from './slices/subscriptionReducer';
+import clientReducer from './slices/clientReducer';
 // Import other reducers as you create them
 // import appReducer from './slices/appSlice';
 
@@ -24,6 +25,7 @@ export const store = configureStore({
     advisorClient: advisorClientReducer,
     firm: firmReducer,
     subscription: subscriptionReducer,
+    client: clientReducer,
     // Add other reducers here
     // app: appReducer,
   },

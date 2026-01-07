@@ -17,6 +17,8 @@ from .api.files import router as files_router
 from .api import auth_router, engagements_router, notes_router, tasks_router, settings_router, adv_client_router
 from .api.chat import router as chat_router
 from .api.users import router as users_router
+from .api.firms import router as firms_router
+from .api.subscriptions import router as subscriptions_router
 
 from .database import engine, Base
 from .services.openai_service import OpenAIService
@@ -82,6 +84,8 @@ app.include_router(settings_router)
 app.include_router(chat_router)
 app.include_router(users_router)
 app.include_router(adv_client_router)
+app.include_router(firms_router)
+app.include_router(subscriptions_router)
 
 # Mount static files directory for serving uploaded files
 # This allows /files/... URLs to be served directly

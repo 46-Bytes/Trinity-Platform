@@ -26,6 +26,7 @@ function mapBackendUserToFrontend(backendUser: any): User {
     role: role,
     avatar: backendUser.picture || undefined,
     bio: backendUser.bio || undefined,
+    firmId: backendUser.firm_id || undefined,
     createdAt: backendUser.created_at || new Date().toISOString(),
   };
 }
@@ -37,9 +38,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isLoading: true,  // Start as true so ProtectedRoute waits for auth check
   });
 
-  const login = useCallback(async (email: string, password: string) => {
-    // We ignore email/password because Auth0 handles credentials.
-    // Redirect to backend Auth0 login endpoint which then redirects to Universal Login.
+  const login = useCallback(async (_email: string, _password: string) => {
+    // Frontend does not handle credentials.
+    // Always redirect to Auth0 Universal Login via backend.
     window.location.href = `${API_BASE_URL}/api/auth/login`;
   }, []);
 

@@ -3,19 +3,13 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 // Types
 export interface Subscription {
   id: string;
-  firm_id?: string;
-  firm_name?: string;
+  firm_id?: string | null;
   plan_name: string;
   seat_count: number;
+  monthly_price: number;
   status: 'active' | 'cancelled' | 'expired' | 'pending' | 'suspended';
-  billing_period: 'monthly' | 'annual';
-  price: number;
-  currency?: string;
-  start_date: string;
-  end_date?: string;
-  next_billing_date?: string;
   created_at: string;
-  updated_at?: string;
+  updated_at: string;
 }
 
 interface SubscriptionState {
@@ -62,14 +56,11 @@ export const fetchSubscriptions = createAsyncThunk(
 export const createSubscription = createAsyncThunk(
   'subscription/createSubscription',
   async (subscriptionData: {
-    firm_id?: string;
     plan_name: string;
     seat_count: number;
     billing_period: 'monthly' | 'annual';
     price: number;
     currency?: string;
-    start_date: string;
-    end_date?: string;
   }, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem('auth_token');

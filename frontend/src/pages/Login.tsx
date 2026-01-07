@@ -27,8 +27,9 @@ export default function Login() {
     localStorage.removeItem('auth_token');
     
     // Show error message if authentication failed
+    // Note: This is expected behavior when redirected from failed auth, not a real error
     if (error === 'authentication_failed') {
-      console.error('Authentication failed. Please try again.');
+      // Error is already displayed in the UI below, no need to log to console
     }
   }, [error]);
 

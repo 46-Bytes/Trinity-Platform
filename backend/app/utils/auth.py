@@ -28,22 +28,29 @@ def get_current_user(
         HTTPException: If user is not authenticated
     """
     auth0_id = None
+    user_id = None  # For email/password tokens
     
     # Method 1: Check for Bearer token in Authorization header
     auth_header = request.headers.get('Authorization')
+    user_id = None  # For email/password tokens
     if auth_header and auth_header.startswith('Bearer '):
         token = auth_header.split(' ')[1]
         # print(f" Bearer token found, length: {len(token)}")
         
         try:
-            # Decode the ID token to get user info (no signature verification for simplicity)
-            payload = jwt.get_unverified_claims(token)
-            auth0_id = payload.get('sub')
+            # Decode the token to get user info
+            # Try to verify with SECRET_KEY first (email/password tokens)
+            try:
+                payload = jwt.decode(token, settings.SECRET_KEY or 'your-secret-key-change-in-production', algorithms=["HS256"])
+                user_id = payload.get('sub')  # For email/password, sub is user ID
+                print(f"✅ Email/password token decoded, user_id: {user_id}")
+            except JWTError:
+                # If verification fails, try unverified (Auth0 tokens)
+                payload = jwt.get_unverified_claims(token)
+                auth0_id = payload.get('sub')  # For Auth0, sub is auth0_id
+                print(f"✅ Auth0 token decoded, auth0_id: {auth0_id}")
             
-            # Extract username from token for logging
-            username = payload.get(settings.AUTH0_USERNAME_NAMESPACE)
-            
-            if not auth0_id:
+            if not auth0_id and not user_id:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid token: missing 'sub' claim"
@@ -69,9 +76,15 @@ def get_current_user(
         )
     
     # Get user from database
-    user = db.query(User).filter(User.auth0_id == auth0_id).first()
+    # If we have user_id (email/password token), use that; otherwise use auth0_id
+    if user_id:
+        user = db.query(User).filter(User.id == user_id).first()
+    else:
+        user = db.query(User).filter(User.auth0_id == auth0_id).first()
     
     if not user:
+        identifier = user_id if user_id else auth0_id
+        print(f"❌ User not found in database for identifier: {identifier}")
         if request.session.get('user'):
             request.session.clear()
         raise HTTPException(

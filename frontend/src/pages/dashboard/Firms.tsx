@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Search, Loader2, Building2, Users, Briefcase, Mail } from 'lucide-react';
+import { Search, Loader2, Building2, Users, Briefcase, Mail, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchFirms } from '@/store/slices/firmReducer';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { CreateFirmDialog } from '@/components/firms/CreateFirmDialog';
 
 export default function FirmsPage() {
   const { user } = useAuth();
@@ -12,6 +14,7 @@ export default function FirmsPage() {
   const { firms, isLoading, error } = useAppSelector((state) => state.firm);
   
   const [searchQuery, setSearchQuery] = useState('');
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   // Check if user is superadmin
   const isSuperAdmin = user?.role === 'super_admin';
@@ -65,6 +68,10 @@ export default function FirmsPage() {
     );
   }
 
+  const handleCreateSuccess = () => {
+    dispatch(fetchFirms());
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -72,6 +79,10 @@ export default function FirmsPage() {
           <h1 className="font-heading text-2xl font-bold text-foreground">Firm Management</h1>
           <p className="text-muted-foreground mt-1">View and manage all firms on the platform</p>
         </div>
+        <Button onClick={() => setIsCreateDialogOpen(true)} className="flex items-center gap-2">
+          <Plus className="w-4 h-4" />
+          Create Firm
+        </Button>
       </div>
 
       <div className="card-trinity p-6">
@@ -125,9 +136,6 @@ export default function FirmsPage() {
                       <td>
                         <div>
                           <p className="font-medium">{firm.firm_admin_name || 'N/A'}</p>
-                          {firm.firm_admin_email && (
-                            <p className="text-sm text-muted-foreground">{firm.firm_admin_email}</p>
-                          )}
                         </div>
                       </td>
                       <td>
@@ -195,6 +203,12 @@ export default function FirmsPage() {
           </>
         )}
       </div>
+
+      <CreateFirmDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        onSuccess={handleCreateSuccess}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 """
 User model for PostgreSQL database.
 """
-from sqlalchemy import Column, String, DateTime, Boolean, Text, Enum, TypeDecorator
+from sqlalchemy import Column, String, DateTime, Boolean, Text, Enum, ForeignKey, TypeDecorator
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -121,9 +121,16 @@ class User(Base):
     auth0_id = Column(
         String(255),
         unique=True,
-        nullable=False,
+        nullable=True,  # Allow NULL for users created with email/password
         index=True,
-        comment="Auth0 user ID (sub claim from token)"
+        comment="Auth0 user ID (sub claim from token). NULL for email/password users."
+    )
+    
+    # Password (for email/password authentication)
+    hashed_password = Column(
+        String(255),
+        nullable=True,
+        comment="Hashed password for email/password authentication"
     )
     
     # Basic Information
@@ -216,7 +223,17 @@ class User(Base):
         comment="When the user last logged in"
     )
     
+    # Firm relationship (for firm_admin and firm_advisor roles)
+    firm_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("firms.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="Foreign key to firms table (for firm_admin and firm_advisor users)"
+    )
+    
     # Relationships
+    firm = relationship("Firm", back_populates="advisors")
     media = relationship("Media", back_populates="user")
     conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
     

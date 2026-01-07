@@ -39,10 +39,10 @@ async def create_engagement(
     """
     Create a new engagement.
     
-    Only advisors, admins, and super admins can create engagements.
+    Only advisors, admins, super admins, firm admins, and firm advisors can create engagements.
     """
     # Check permissions
-    if current_user.role not in [UserRole.ADVISOR, UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+    if current_user.role not in [UserRole.ADVISOR, UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN, UserRole.FIRM_ADVISOR]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only advisors and admins can create engagements."
@@ -59,10 +59,10 @@ async def create_engagement(
             detail="Client not found or invalid client ID."
         )
     
-    # Verify primary advisor exists
+    # Verify primary advisor exists (can be ADVISOR, FIRM_ADVISOR, or FIRM_ADMIN)
     primary_advisor = db.query(User).filter(
         User.id == engagement_data.primary_advisor_id,
-        User.role == UserRole.ADVISOR
+        User.role.in_([UserRole.ADVISOR, UserRole.FIRM_ADVISOR, UserRole.FIRM_ADMIN])
     ).first()
     if not primary_advisor:
         raise HTTPException(
@@ -70,17 +70,22 @@ async def create_engagement(
             detail="Primary advisor not found or invalid advisor ID."
         )
     
-    # Verify secondary advisors if provided
+    # Verify secondary advisors if provided (can be ADVISOR, FIRM_ADVISOR, or FIRM_ADMIN)
     if engagement_data.secondary_advisor_ids:
         secondary_advisors = db.query(User).filter(
             User.id.in_(engagement_data.secondary_advisor_ids),
-            User.role == UserRole.ADVISOR
+            User.role.in_([UserRole.ADVISOR, UserRole.FIRM_ADVISOR, UserRole.FIRM_ADMIN])
         ).all()
         if len(secondary_advisors) != len(engagement_data.secondary_advisor_ids):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="One or more secondary advisors not found or invalid."
             )
+    
+    # Auto-set firm_id for firm_admin and firm_advisor users if not provided
+    firm_id = engagement_data.firm_id
+    if not firm_id and current_user.role in [UserRole.FIRM_ADMIN, UserRole.FIRM_ADVISOR]:
+        firm_id = current_user.firm_id
     
     # Create engagement
     engagement = Engagement(
@@ -92,7 +97,7 @@ async def create_engagement(
         status=engagement_data.status,
         client_id=engagement_data.client_id,
         primary_advisor_id=engagement_data.primary_advisor_id,
-        firm_id=engagement_data.firm_id,
+        firm_id=firm_id,
         secondary_advisor_ids=engagement_data.secondary_advisor_ids or [],
     )
     
@@ -151,9 +156,11 @@ async def list_engagements(
     # Build base query
     query = db.query(Engagement)
     
-    if current_user.role == UserRole.SUPER_ADMIN or current_user.role == UserRole.ADMIN:
+    if current_user.role in [UserRole.SUPER_ADMIN, UserRole.ADMIN]:
+        # Admins see all engagements
         pass
-    elif current_user.role == UserRole.ADVISOR:
+    elif current_user.role in [UserRole.ADVISOR, UserRole.FIRM_ADVISOR, UserRole.FIRM_ADMIN]:
+        # Advisors and firm roles see engagements where they are primary or secondary advisor
         query = query.filter(
             or_(
                 Engagement.primary_advisor_id == current_user.id,
@@ -307,6 +314,76 @@ async def get_user_role_data(
             "clients": [
                 {"id": str(client.id), "name": client.name or client.email}
                 for client in clients
+            ]
+        }
+    
+    elif current_user.role == UserRole.FIRM_ADMIN:
+        # Firm Admin gets all clients from the firm's clients array
+        # and all advisors in their firm
+        from ..models.firm import Firm
+        
+        firm = db.query(Firm).filter(Firm.id == current_user.firm_id).first()
+        client_ids_list = firm.clients if firm and firm.clients else []
+        
+        if client_ids_list:
+            clients = db.query(User).filter(
+                User.id.in_(client_ids_list),
+                User.role == UserRole.CLIENT,
+                User.is_active == True
+            ).all()
+        else:
+            clients = []
+        
+        advisors = db.query(User).filter(
+            User.firm_id == current_user.firm_id,
+            User.role.in_([UserRole.FIRM_ADMIN, UserRole.FIRM_ADVISOR]),
+            User.is_active == True
+        ).all()
+        
+        return {
+            "user_role": "firm_admin",
+            "clients": [
+                {"id": str(client.id), "name": client.name or client.email}
+                for client in clients
+            ],
+            "advisors": [
+                {"id": str(advisor.id), "name": advisor.name or advisor.email}
+                for advisor in advisors
+            ]
+        }
+    
+    elif current_user.role == UserRole.FIRM_ADVISOR:
+        # Firm Advisor gets clients from the firm's clients array
+        # and advisors in their firm
+        from ..models.firm import Firm
+        
+        firm = db.query(Firm).filter(Firm.id == current_user.firm_id).first()
+        client_ids_list = firm.clients if firm and firm.clients else []
+        
+        if client_ids_list:
+            clients = db.query(User).filter(
+                User.id.in_(client_ids_list),
+                User.role == UserRole.CLIENT,
+                User.is_active == True
+            ).all()
+        else:
+            clients = []
+        
+        advisors = db.query(User).filter(
+            User.firm_id == current_user.firm_id,
+            User.role.in_([UserRole.FIRM_ADMIN, UserRole.FIRM_ADVISOR]),
+            User.is_active == True
+        ).all()
+        
+        return {
+            "user_role": "firm_advisor",
+            "clients": [
+                {"id": str(client.id), "name": client.name or client.email}
+                for client in clients
+            ],
+            "advisors": [
+                {"id": str(advisor.id), "name": advisor.name or advisor.email}
+                for advisor in advisors
             ]
         }
     

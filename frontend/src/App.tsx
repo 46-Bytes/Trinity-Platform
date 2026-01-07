@@ -19,6 +19,7 @@ import { DashboardLayout } from "./components/layout/DashboardLayout";
 import DashboardHome from "./pages/dashboard/DashboardHome";
 import UsersPage from "./pages/dashboard/UsersPage";
 import ClientsPage from "./pages/dashboard/ClientsPage";
+import AdvisorsPage from "./pages/dashboard/AdvisorsPage";
 import EngagementsPage from "./pages/dashboard/Engagement/EngagementsPage";
 import EngagementDetailPage from "./pages/dashboard/Engagement/EngagementDetailPage";
 import TasksPage from "./pages/dashboard/TasksPage";
@@ -61,6 +62,7 @@ function AppRoutes() {
         <Route index element={<DashboardHome />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="clients" element={<ClientsPage />} />
+        <Route path="advisors" element={<AdvisorsPage />} />
         <Route path="engagements" element={<EngagementsPage />} />
         <Route path="engagements/:engagementId" element={<EngagementDetailPage />} />
         <Route path="tasks" element={<TasksPage />} />

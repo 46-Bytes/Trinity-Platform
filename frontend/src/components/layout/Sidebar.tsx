@@ -69,16 +69,19 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
         {!collapsed && (
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center">
-              <span className="text-sidebar-primary-foreground font-bold text-sm">T</span>
-            </div>
-            <span className="font-heading font-semibold text-sidebar-foreground">Trinity</span>
+            <img 
+              src="/logo.png" 
+              alt="Trinity Logo" 
+              className="w-30 h-24 object-contain"
+            />
           </div>
         )}
         {collapsed && (
-          <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center mx-auto">
-            <span className="text-sidebar-primary-foreground font-bold text-sm">T</span>
-          </div>
+          <img 
+            src="/logo.png" 
+            alt="Trinity Logo" 
+            className="w-30 h-24 object-contain mx-auto"
+          />
         )}
         <button
           onClick={onToggle}

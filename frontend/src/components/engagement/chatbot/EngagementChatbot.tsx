@@ -134,7 +134,7 @@ export function EngagementChatbot({ engagementId }: EngagementChatbotProps) {
       );
 
       if (messagesResponse.ok) {
-        const messagesData = await messagesResponse.json();
+        const messagesData = await messagesResponse.json();        
         const formattedMessages: Message[] = messagesData.map((msg: any) => ({
           id: msg.id,
           role: msg.role,
@@ -167,6 +167,11 @@ export function EngagementChatbot({ engagementId }: EngagementChatbotProps) {
         }
 
         setMessages(formattedMessages);
+        console.log('Messages set in state:', formattedMessages.length, 'messages');
+      } else {
+        const errorText = await messagesResponse.text();
+        console.error('Failed to fetch messages:', messagesResponse.status, errorText);
+        setMessages([]);
       }
     } catch (err) {
       console.error('Error initializing chat:', err);

@@ -199,18 +199,13 @@ async def send_message(
     chat_service = get_chat_service(db)
     
     try:
-        logger.info(f"🚀 API: Sending message to conversation")
-
-        
         assistant_message = await chat_service.send_message(
             conversation_id=conversation_id,
             user_id=current_user.id,
             message_text=message_data.message,
-            limit=50,
+            limit=10,
             engagement_id=engagement_id
         )
-        
-        logger.info(f"  API: Message sent successfully")
 
         
         # Build response manually to avoid model_validate issues

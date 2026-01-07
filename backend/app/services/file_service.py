@@ -12,7 +12,7 @@ from pathlib import Path
 
 from app.models.media import Media
 from app.models.user import User
-from app.services.openai_service import OpenAIService
+from app.services.openai_service import openai_service
 from app.config import settings
 
 
@@ -36,7 +36,8 @@ class FileService:
     
     def __init__(self, db: Session):
         self.db = db
-        self.openai_service = OpenAIService()
+        # Use the singleton openai_service instance
+        self.openai_service = openai_service
         # Use files/uploads as the base upload directory
         # Path(__file__) = backend/app/services/file_service.py
         # .parents[2] = backend/

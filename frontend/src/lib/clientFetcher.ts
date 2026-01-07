@@ -29,8 +29,6 @@ export async function fetchFirmAdvisorClientsFromEngagements(
   engagements: Engagement[],
   currentUserId: string
 ): Promise<Client[]> {
-  // We need to fetch raw engagement data to get primary_advisor_id and secondary_advisor_ids
-  // Since the frontend Engagement interface doesn't include these, we'll fetch them directly
   const token = localStorage.getItem('auth_token');
   if (!token) {
     return [];
@@ -155,9 +153,7 @@ export async function fetchAdvisorClientsFromAssociations(): Promise<Client[]> {
   }
 }
 
-/**
- * Determines which client fetching strategy to use based on user role
- */
+
 export function getClientFetchingStrategy(user: User | null) {
   const isAdvisor = user?.role === 'advisor';
   const isFirmAdvisor = user?.role === 'firm_advisor';

@@ -10,7 +10,7 @@ from .media import Media
 from .conversation import Conversation
 from .message import Message
 from .adv_client import AdvisorClient
-from .subscriptions import Subscription
+from .subscription import Subscription
 
 __all__ = [
     "User",

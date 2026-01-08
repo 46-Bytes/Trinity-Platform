@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Search, MoreHorizontal, Building2, Loader2, Eye, FileText, Plus, Mail, Phone } from 'lucide-react';
 import { cn, getUniqueClientIds } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -6,6 +6,12 @@ import { fetchEngagements } from '@/store/slices/engagementReducer';
 import { fetchFirmClients, addClientToFirm, fetchFirm } from '@/store/slices/firmReducer';
 import { fetchClientUsers } from '@/store/slices/clientReducer';
 import { useAuth } from '@/context/AuthContext';
+import {
+  fetchFirmAdvisorClientsFromEngagements,
+  fetchAdvisorClientsFromAssociations,
+  getClientFetchingStrategy,
+  type Client as ClientType,
+} from '@/lib/clientFetcher';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,102 +66,87 @@ export default function ClientsPage() {
     last_name: '',
   });
 
-  // Check if user is advisor (including firm_advisor)
-  const isAdvisor = user?.role === 'advisor' || user?.role === 'firm_advisor';
-  // Check if user is admin (can access users API)
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
-  // Check if user is firm admin
-  const isFirmAdmin = user?.role === 'firm_admin';
+  // Get client fetching strategy based on user role - memoize to prevent infinite loops
+  const strategy = useMemo(() => getClientFetchingStrategy(user), [user?.role]);
+  
+  // Extract individual boolean values to use as stable dependencies
+  const shouldUseFirmClients = strategy.shouldUseFirmClients;
+  const shouldUseEngagements = strategy.shouldUseEngagements;
+  const shouldUseAssociations = strategy.shouldUseAssociations;
+  const shouldUseAdminClients = strategy.shouldUseAdminClients;
 
   const fetchClients = useCallback(async () => {
     // For firm admin, use firm reducer clients
-    if (isFirmAdmin) {
+    if (shouldUseFirmClients) {
       dispatch(fetchFirmClients());
       return;
     }
 
-    // For advisors, load clients from advisor-client associations API
-    if (isAdvisor) {
+    // For firm_advisor, load clients from engagements only (not adv_client table)
+    if (shouldUseEngagements && user?.id) {
       try {
-        const token = localStorage.getItem('auth_token');
-        if (!token) {
-          setClients([]);
-          return;
-        }
-
-        const response = await fetch(
-          `${API_BASE_URL}/api/advisor-client?status_filter=active`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          },
-        );
-
-        if (!response.ok) {
-          console.error('Failed to fetch advisor clients');
-          setClients([]);
-          return;
-        }
-
-        const associations = await response.json();
-
-        // Map advisor-client associations to the Client shape used in this page
-        const advisorClients: Client[] = associations.map((assoc: any) => ({
-          id: assoc.client_id,
-          name: assoc.client_name || assoc.client_email || 'Unknown Client',
-          email: assoc.client_email || '',
-          industry: '',
-          status: 'Active',
-          engagements: 0, // Will be updated from engagements data below
-          is_active: true,
-          email_verified: false,
-          role: 'client',
-        }));
-
+        const advisorClients = await fetchFirmAdvisorClientsFromEngagements(engagements, user.id);
         setClients(advisorClients);
       } catch (error) {
-        console.error('Error fetching advisor clients:', error);
+        console.error('Error fetching firm advisor clients from engagements:', error);
+        setClients([]);
+      }
+      return;
+    }
+
+    // For regular advisor, load clients from advisor-client associations API
+    if (shouldUseAssociations) {
+      try {
+        const advisorClients = await fetchAdvisorClientsFromAssociations();
+        setClients(advisorClients);
+      } catch (error) {
+        console.error('Error fetching advisor clients from associations:', error);
         setClients([]);
       }
       return;
     }
 
     // For admins, load from client reducer
-    if (!isAdmin) {
-      setClients([]);
+    if (shouldUseAdminClients) {
+      dispatch(fetchClientUsers());
       return;
     }
 
-    // Data will come from client reducer via adminClients selector
-    dispatch(fetchClientUsers());
-  }, [isAdvisor, isAdmin, isFirmAdmin, dispatch]);
+    setClients([]);
+  }, [shouldUseFirmClients, shouldUseEngagements, shouldUseAssociations, shouldUseAdminClients, user?.id, dispatch]);
 
   // Fetch firm for firm admin
   useEffect(() => {
-    if (user && isFirmAdmin && !firm) {
+    if (user && shouldUseFirmClients && !firm) {
       dispatch(fetchFirm());
     }
-  }, [dispatch, user, isFirmAdmin, firm]);
+  }, [dispatch, user?.id, shouldUseFirmClients, firm]);
 
-  // Fetch engagements on mount
+  // Fetch engagements on mount (needed for firm_advisor and regular advisor)
   useEffect(() => {
-    if (user && !isFirmAdmin) {
+    if (user && (shouldUseEngagements || shouldUseAssociations)) {
       dispatch(fetchEngagements(undefined));
     }
-  }, [dispatch, user, isFirmAdmin]);
+  }, [dispatch, user?.id, shouldUseEngagements, shouldUseAssociations]);
 
-  // Fetch clients when engagements are loaded (especially important for advisors)
+  // Track if we've already fetched clients to prevent infinite loops
+  const hasFetchedClientsRef = useRef(false);
+  
   useEffect(() => {
-    if (user && !engagementsLoading && !isFirmAdmin) {
+    if (user && !engagementsLoading && (shouldUseEngagements || shouldUseAssociations) && !hasFetchedClientsRef.current) {
+      hasFetchedClientsRef.current = true;
       fetchClients();
     }
-  }, [user, engagementsLoading, fetchClients, engagements.length, isFirmAdmin]);
+    // Reset flag when user or strategy changes
+    if (!shouldUseEngagements && !shouldUseAssociations) {
+      hasFetchedClientsRef.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, engagementsLoading, shouldUseEngagements, shouldUseAssociations]);
 
   // Choose base clients by role
   const baseClients: Client[] = useMemo(() => {
-    if (isFirmAdmin) {
+    if (strategy.shouldUseFirmClients) {
       return firmClients.map(client => ({
         id: client.id,
         name: client.name || 'Unknown',
@@ -169,7 +160,7 @@ export default function ClientsPage() {
       }));
     }
 
-    if (isAdmin) {
+    if (strategy.shouldUseAdminClients) {
       return adminClients.map(client => ({
         id: client.id,
         name: client.name || 'Unknown',
@@ -183,13 +174,12 @@ export default function ClientsPage() {
       }));
     }
 
+    // For firm_advisor and regular advisor, use clients from state
     return clients;
-  }, [isFirmAdmin, isAdmin, firmClients, adminClients, clients]);
+  }, [strategy.shouldUseFirmClients, strategy.shouldUseAdminClients, firmClients, adminClients, clients]);
 
-  // Merge client data with engagement data
   const clientsWithEngagements = useMemo<Client[]>(() => {
-    // For firm admin and admins, return base clients as-is (no engagement enrichment needed)
-    if (isFirmAdmin || isAdmin) {
+    if (strategy.shouldUseFirmClients || strategy.shouldUseAdminClients) {
       return baseClients;
     }
 
@@ -244,7 +234,7 @@ export default function ClientsPage() {
         engagements: clientEngagements.engagementCount,
       };
     });
-  }, [baseClients, engagements, isFirmAdmin, isAdmin]);
+  }, [baseClients, engagements, strategy.shouldUseFirmClients, strategy.shouldUseAdminClients]);
 
 
   const filteredClients = clientsWithEngagements.filter(c => {
@@ -258,14 +248,14 @@ export default function ClientsPage() {
 
   const isLoadingData =
     engagementsLoading ||
-    (isFirmAdmin && firmClientsLoading) ||
-    (isAdmin && adminClientsLoading);
+    (strategy.shouldUseFirmClients && firmClientsLoading) ||
+    (strategy.shouldUseAdminClients && adminClientsLoading);
 
-  const error = isFirmAdmin ? firmError : isAdmin ? adminClientsError : null;
+  const error = strategy.shouldUseFirmClients ? firmError : strategy.shouldUseAdminClients ? adminClientsError : null;
 
   const handleAddClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !isFirmAdmin) {
+    if (!user || !strategy.shouldUseFirmClients) {
       toast({
         title: 'Error',
         description: 'Only firm admins can add clients',
@@ -325,7 +315,7 @@ export default function ClientsPage() {
           <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground break-words">Clients</h1>
           <p className="text-muted-foreground mt-1 break-words">Manage your client relationships</p>
         </div>
-        {isFirmAdmin && (
+        {strategy.shouldUseFirmClients && (
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button className="btn-primary">

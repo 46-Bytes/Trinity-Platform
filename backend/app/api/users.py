@@ -11,6 +11,7 @@ from ..database import get_db
 from ..models.user import User, UserRole
 from ..schemas.user import UserResponse
 from ..utils.auth import get_current_user
+from ..services.auth_service import AuthService
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -88,18 +89,21 @@ async def create_user(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Create a new user (admin/super_admin only).
+    Create a new user via Admin invitation (admin/super_admin only).
     
-    This endpoint allows admins to manually create users (typically clients)
-    without requiring Auth0 authentication. 
+    This is FLOW 2: Admin-Invited Users
     
     WORKFLOW:
-    1. Admin creates user via this endpoint → User is created in database with placeholder auth0_id
-    2. User signs up via Auth0 using the same email → Auth0 account is created
-    3. Backend automatically links the accounts (matches by email) → User can now login
+    1. Admin creates user → Stored in local DB + Auth0
+    2. Auth0 automatically sends "Set Password" email to user
+    3. User clicks email link → Auth0's password setup page
+    4. User sets password + username → Email marked as verified
+    5. User auto-redirected to login page
+    6. User logs in → Backend links Auth0 account with local DB record
     
-    NOTE: The user MUST signup via Auth0 (not login) to create their Auth0 account first.
-    After signup, they can login normally. Login will fail if they haven't signed up yet.
+    This is different from FLOW 1 (Self-Signup):
+    - Advisors can still sign up on their own via Auth0 Universal Login
+    - That flow creates Auth0 account first, then DB record
     
     Args:
         email: User's email address
@@ -122,7 +126,7 @@ async def create_user(
             detail=f"Invalid role: {user_data.role}. Must be one of: client, advisor, admin, super_admin, firm_admin, firm_advisor"
         )
     
-    # Check if user with this email already exists
+    # Check if user with this email already exists in local DB
     existing_user = db.query(User).filter(User.email == user_data.email).first()
     if existing_user:
         raise HTTPException(
@@ -130,31 +134,26 @@ async def create_user(
             detail=f"User with email {user_data.email} already exists"
         )
     
-    # Generate a placeholder auth0_id for manual users
-    # Format: "manual-{uuid}" - this indicates the user was created manually
-    # The user will need to link their Auth0 account later
-    manual_auth0_id = f"manual-{uuid4()}"
-    
-    # Split name into first_name and last_name if possible
+    # Split name into first_name and last_name
     name_parts = user_data.name.split(" ", 1)
     first_name = name_parts[0] if name_parts else user_data.name
     last_name = name_parts[1] if len(name_parts) > 1 else None
     
-    # Create new user
-    new_user = User(
-        auth0_id=manual_auth0_id,
-        email=user_data.email,
-        name=user_data.name,
-        first_name=first_name,
-        last_name=last_name,
-        email_verified=False,  # Manual users need to verify email
-        role=role_enum,
-        is_active=True,
-    )
-    
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+    try:
+        # Create invited user (Flow 2)
+        new_user = AuthService.create_invited_user(
+            db=db,
+            email=user_data.email,
+            role=role_enum,
+            first_name=first_name,
+            last_name=last_name
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     
     return UserResponse(
         id=new_user.id,
@@ -172,7 +171,6 @@ async def create_user(
         updated_at=new_user.updated_at,
         last_login=new_user.last_login,
     )
-
 
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(

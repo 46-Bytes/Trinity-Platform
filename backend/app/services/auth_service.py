@@ -2,13 +2,13 @@
 Auth0 authentication service.
 """
 import logging
+from typing import Optional
 from authlib.integrations.starlette_client import OAuth
+from .auth0_management import Auth0Management
 from sqlalchemy.orm import Session
 from datetime import datetime
 from ..models.user import User, UserRole
-from ..schemas.user import UserCreate
 from ..config import settings
-import requests
 
 logger = logging.getLogger(__name__)
 
@@ -255,4 +255,87 @@ class AuthService:
         """
         return db.query(User).filter(User.email == email).first()
 
-
+    @staticmethod
+    def create_invited_user(
+        db: Session,
+        email: str,
+        role: UserRole,
+        first_name: Optional[str] = None,
+        last_name: Optional[str] = None
+    ) -> User:
+        """
+        Create a new user via Admin invitation (Flow 2).
+        
+        This is different from self-signup (Flow 1):
+        - Flow 1: User signs up → Auth0 account created → Backend creates DB record
+        - Flow 2: Admin invites → Auth0 account created → DB record created → Email sent
+        
+        This flow:
+        1. Check if user exists
+        2. Create user in Auth0 (triggers password setup email)
+        3. Store user in local database
+        4. User sets password via email link
+        5. User logs in and backend links Auth0 account with DB record
+        
+        Args:
+            db: Database session
+            email: User's email address
+            role: User's role
+            first_name: User's first name (optional)
+            last_name: User's last name (optional)
+            
+        Returns:
+            User: Created user object
+            
+        Raises:
+            Exception: If user already exists or creation fails
+        """
+        # Check if user already exists in local database
+        existing_user = db.query(User).filter(User.email == email).first()
+        if existing_user:
+            raise Exception(f"User with email {email} already exists in local database")
+        
+        # Create user in Auth0 (this also sends the password setup email)
+        try:
+            auth0_user = Auth0Management.create_user(
+                email=email,
+                role=role.value,
+                first_name=first_name,
+                last_name=last_name
+            )
+        except Exception as e:
+            logger.error(f"Failed to create user in Auth0: {e}")
+            raise
+        
+        # Extract Auth0 user ID
+        auth0_id = auth0_user["user_id"]
+        
+        # Determine display name
+        name_parts = []
+        if first_name:
+            name_parts.append(first_name)
+        if last_name:
+            name_parts.append(last_name)
+        display_name = " ".join(name_parts) if name_parts else email
+        
+        # Create user in local database
+        user_data = {
+            'auth0_id': auth0_id,
+            'email': email,
+            'name': display_name,
+            'first_name': first_name,
+            'last_name': last_name,
+            'email_verified': False,  # Will be verified after password setup
+            'role': role,
+            'is_active': True,
+            'picture': auth0_user.get('picture')
+        }
+        
+        user = User(**user_data)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        
+        logger.info(f"✅ Invited user created successfully: {email} with role {role.value}")
+        
+        return user

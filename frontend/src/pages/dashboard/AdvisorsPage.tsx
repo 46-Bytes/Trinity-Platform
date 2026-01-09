@@ -62,13 +62,18 @@ export default function AdvisorsPage() {
   const { firm, advisors, isLoading, error } = useAppSelector((state) => state.firm);
 
   useEffect(() => {
-    // Fetch firm first to get firm ID
-    dispatch(fetchFirm()).then((result) => {
-      if (fetchFirm.fulfilled.match(result) && result.payload) {
-        dispatch(fetchFirmAdvisors(result.payload.id));
-      }
-    });
-  }, [dispatch]);
+    // If firm already exists in state (e.g., from fetchFirmById for superadmin), use it
+    if (firm) {
+      dispatch(fetchFirmAdvisors(firm.id));
+    } else {
+      // Otherwise, fetch firm first to get firm ID (for firm_admin)
+      dispatch(fetchFirm()).then((result) => {
+        if (fetchFirm.fulfilled.match(result) && result.payload) {
+          dispatch(fetchFirmAdvisors(result.payload.id));
+        }
+      });
+    }
+  }, [dispatch, firm]);
 
   const filteredAdvisors = advisors.filter((advisor) => {
     const matchesSearch = 

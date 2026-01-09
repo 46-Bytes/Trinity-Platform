@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/context/AuthContext';
@@ -14,6 +15,7 @@ import {
   UserCircle,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   BarChart3,
   Shield,
   MessageSquare,
@@ -40,7 +42,7 @@ const navItems: NavItem[] = [
   { label: 'Users', href: '/dashboard/users', icon: Users, roles: ['super_admin', 'admin'] },
   { label: 'Firms', href: '/dashboard/firms', icon: Building2, roles: ['super_admin'] },
   { label: 'Subscriptions', href: '/dashboard/subscriptions', icon: CreditCard, roles: ['super_admin'] },
-  { label: 'Clients', href: '/dashboard/clients', icon: UserCircle, roles: ['super_admin', 'admin', 'advisor', 'firm_admin', 'firm_advisor'] },
+  { label: 'Clients', href: '/dashboard/clients', icon: UserCircle, roles: ['admin', 'advisor', 'firm_admin', 'firm_advisor'] },
   { label: 'Advisors', href: '/dashboard/advisors', icon: Users, roles: ['firm_admin'] },
   { label: 'Engagements', href: '/dashboard/engagements', icon: FolderOpen, roles: ['super_admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
   { label: 'Tasks', href: '/dashboard/tasks', icon: CheckSquare, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
@@ -56,10 +58,35 @@ const navItems: NavItem[] = [
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { user } = useAuth();
   const location = useLocation();
+  const [firmsExpanded, setFirmsExpanded] = useState(false);
 
   const filteredItems = navItems.filter(item => 
-    user && item.roles.includes(user.role)
+    user && item.roles.includes(user.role) && item.href !== '/dashboard/firm' // Remove firm admin dashboard from superadmin
   );
+
+  // Check if we're on a firm details page
+  const firmDetailsMatch = location.pathname.match(/^\/dashboard\/firms\/([^/]+)/);
+  const firmId = firmDetailsMatch ? firmDetailsMatch[1] : null;
+  const isOnFirmDetails = firmId !== null;
+  const isOnFirmsList = location.pathname === '/dashboard/firms';
+
+  // Auto-expand firms section when on firm details or firms list
+  useEffect(() => {
+    if (user?.role === 'super_admin' && (isOnFirmDetails || isOnFirmsList)) {
+      setFirmsExpanded(true);
+    }
+  }, [isOnFirmDetails, isOnFirmsList, user?.role]);
+
+  // Nested navigation items for firm details
+  const firmDetailsNavItems: NavItem[] = firmId ? [
+    { label: 'Overview', href: `/dashboard/firms/${firmId}`, icon: LayoutDashboard, roles: ['super_admin'] },
+    { label: 'Clients', href: `/dashboard/firms/${firmId}/clients`, icon: UserCircle, roles: ['super_admin'] },
+    { label: 'Advisors', href: `/dashboard/firms/${firmId}/advisors`, icon: Users, roles: ['super_admin'] },
+    { label: 'Engagements', href: `/dashboard/firms/${firmId}/engagements`, icon: FolderOpen, roles: ['super_admin'] },
+    { label: 'Tasks', href: `/dashboard/firms/${firmId}/tasks`, icon: CheckSquare, roles: ['super_admin'] },
+    { label: 'Analytics', href: `/dashboard/firms/${firmId}/analytics`, icon: BarChart3, roles: ['super_admin'] },
+    { label: 'Subscription', href: `/dashboard/firms/${firmId}/subscription`, icon: CreditCard, roles: ['super_admin'] },
+  ] : [];
 
   return (
     <aside className={cn(
@@ -98,8 +125,77 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 min-h-0 p-3 space-y-1 overflow-y-auto overflow-x-hidden">
         {filteredItems.map((item, index) => {
+          // Special handling for Firms section for superadmin
+          if (item.href === '/dashboard/firms' && user?.role === 'super_admin') {
+            const isFirmsActive = isOnFirmsList || isOnFirmDetails;
+            
+            return (
+              <div key={item.href} className="space-y-1">
+                {/* Firms parent item - clickable to toggle or navigate */}
+                <div className="flex items-center">
+                  <NavLink
+                    to={item.href}
+                    className={cn(
+                      "sidebar-item flex-1",
+                      isFirmsActive && "sidebar-item-active",
+                      collapsed && "justify-center px-0"
+                    )}
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
+                    <item.icon className={cn("w-5 h-5 flex-shrink-0", isFirmsActive && "text-sidebar-primary")} />
+                    {!collapsed && <span className="flex-1">{item.label}</span>}
+                  </NavLink>
+                  {!collapsed && isOnFirmDetails && (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setFirmsExpanded(!firmsExpanded);
+                      }}
+                      className="p-1.5 ml-1 rounded hover:bg-sidebar-accent transition-colors flex-shrink-0"
+                      aria-label={firmsExpanded ? "Collapse" : "Expand"}
+                    >
+                      {firmsExpanded ? (
+                        <ChevronDown className="w-4 h-4 text-sidebar-foreground/60 transition-transform" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-sidebar-foreground/60 transition-transform" />
+                      )}
+                    </button>
+                  )}
+                </div>
+                
+                {/* Nested firm details items */}
+                {!collapsed && isOnFirmDetails && firmsExpanded && firmDetailsNavItems.length > 0 && (
+                  <div className="ml-4 mt-1 space-y-0.5 border-l-2 border-sidebar-border/40 pl-3 transition-all duration-200">
+                    {firmDetailsNavItems.map((nestedItem, nestedIndex) => {
+                      const isNestedActive = location.pathname === nestedItem.href || 
+                        (nestedItem.href !== `/dashboard/firms/${firmId}` && location.pathname.startsWith(nestedItem.href));
+                      
+                      return (
+                        <NavLink
+                          key={nestedItem.href}
+                          to={nestedItem.href}
+                          className={cn(
+                            "sidebar-item pl-4 text-sm py-2 min-h-[36px]",
+                            isNestedActive && "sidebar-item-active bg-sidebar-accent/50"
+                          )}
+                          style={{ animationDelay: `${(index + nestedIndex + 1) * 30}ms` }}
+                        >
+                          <nestedItem.icon className={cn("w-4 h-4 flex-shrink-0", isNestedActive && "text-sidebar-primary")} />
+                          <span>{nestedItem.label}</span>
+                        </NavLink>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
+          
+          // Regular navigation items
           const isActive = location.pathname === item.href || 
-            (item.href !== '/dashboard' && location.pathname.startsWith(item.href));
+            (item.href !== '/dashboard' && location.pathname.startsWith(item.href) && 
+             !location.pathname.startsWith('/dashboard/firms/'));
           
           return (
             <NavLink

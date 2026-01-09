@@ -70,10 +70,12 @@ export default function ClientsPage() {
   const strategy = useMemo(() => getClientFetchingStrategy(user), [user?.role]);
   
   // Extract individual boolean values to use as stable dependencies
-  const shouldUseFirmClients = strategy.shouldUseFirmClients;
-  const shouldUseEngagements = strategy.shouldUseEngagements;
-  const shouldUseAssociations = strategy.shouldUseAssociations;
-  const shouldUseAdminClients = strategy.shouldUseAdminClients;
+  // For superadmin viewing a firm, use firm clients if firm exists in state
+  const isSuperAdminViewingFirm = user?.role === 'super_admin' && firm !== null;
+  const shouldUseFirmClients = strategy.shouldUseFirmClients || isSuperAdminViewingFirm;
+  const shouldUseEngagements = strategy.shouldUseEngagements && !isSuperAdminViewingFirm;
+  const shouldUseAssociations = strategy.shouldUseAssociations && !isSuperAdminViewingFirm;
+  const shouldUseAdminClients = strategy.shouldUseAdminClients && !isSuperAdminViewingFirm;
 
   const fetchClients = useCallback(async () => {
     // For firm admin, use firm reducer clients
@@ -115,7 +117,7 @@ export default function ClientsPage() {
     setClients([]);
   }, [shouldUseFirmClients, shouldUseEngagements, shouldUseAssociations, shouldUseAdminClients, user?.id, dispatch]);
 
-  // Fetch firm for firm admin
+  // Fetch firm for firm admin (only if not already in state, e.g., from fetchFirmById for superadmin)
   useEffect(() => {
     if (user && shouldUseFirmClients && !firm) {
       dispatch(fetchFirm());

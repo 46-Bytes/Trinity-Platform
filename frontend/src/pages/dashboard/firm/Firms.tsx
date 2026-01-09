@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { Search, Loader2, Building2, Users, Briefcase, Mail, Plus } from 'lucide-react';
+import { Search, Loader2, Building2, Users, Briefcase, Mail, Plus, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchFirms } from '@/store/slices/firmReducer';
@@ -12,6 +13,7 @@ export default function FirmsPage() {
   const { user } = useAuth();
   const dispatch = useAppDispatch();
   const { firms, isLoading, error } = useAppSelector((state) => state.firm);
+  const navigate = useNavigate();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -117,6 +119,7 @@ export default function FirmsPage() {
                     <th>Clients</th>
                     <th>Billing Email</th>
                     <th>Created</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -177,6 +180,17 @@ export default function FirmsPage() {
                       </td>
                       <td className="text-muted-foreground text-sm">
                         {formatDate(firm.created_at)}
+                      </td>
+                      <td>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigate(`/dashboard/firms/${firm.id}`)}
+                          className="h-8 w-8 p-0"
+                          title="View firm details"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
                       </td>
                     </tr>
                   ))}

@@ -14,7 +14,7 @@ Use the following template for EACH task:
 {
   "title": "",
   "description": "",
-  "category": "(personal, general, products-or-services, structure, financial, human-resources, operations, sales-marketing, customers, technology, future-proofing, legal-licensing)",
+  "category": "(general|legal-licensing|financial|operations|human-resources|customers|competitive-forces|due-diligence|tax)",
   "priority": "(low, medium, high, critical)"
 }
 ```

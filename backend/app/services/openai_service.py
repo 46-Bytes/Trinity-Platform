@@ -472,7 +472,7 @@ class OpenAIService:
             f"Priority Roadmap (Modules by Priority):\n{json.dumps(roadmap, indent=2)}\n\n"
             f"Focus on the highest priority modules (lowest rank = highest priority).\n\n"
             f"Template: {{\"tasks\": [{{"
-            f'"title": "Task Title", '
+            f'"title": "Task Title (Keep it short and concise)", '
             f'"description": "Task description with step-by-step instructions. Every step must be in a new line with 1. 2. 3. Numbering", '
             f'"category": "general|legal-licensing|financial|operations|human-resources|customers|competitive-forces|due-diligence|tax", '
             f'"priority": "low|medium|high|critical"'

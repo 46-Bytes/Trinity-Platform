@@ -246,9 +246,11 @@ async def list_tasks(
         query = query.filter(Task.engagement_id == engagement_id)
     else:
         # Filter by accessible engagements and user's tasks
-        if current_user.role in [UserRole.SUPER_ADMIN, UserRole.ADMIN]:
+        if current_user.role == UserRole.SUPER_ADMIN:
             # Admins see all tasks
             pass
+        elif current_user.role == UserRole.ADMIN:
+            query = query.filter(Task.engagement_id.in_(db.query(Engagement.id).filter(Engagement.firm_id.is_(None))))
         elif current_user.role == UserRole.ADVISOR:
             # Advisors see:
             # 1. Tasks they created (created_by_user_id = advisor)

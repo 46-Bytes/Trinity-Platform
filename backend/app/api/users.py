@@ -47,11 +47,10 @@ async def list_users(
             role_enum = UserRole(role.lower())
             query = query.filter(User.role == role_enum)
         except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid role: {role}"
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail=f"Invalid role: {role}")
     
+    if current_user.role == UserRole.ADMIN:
+        query = query.filter(User.firm_id.is_(None))
     users = query.offset(skip).limit(limit).all()
     # Convert users to response format with role as string
     return [

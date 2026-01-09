@@ -411,16 +411,8 @@ async def get_user_role_data(
         }
     
     elif current_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-        # Admins get both
-        clients = db.query(User).filter(
-            User.role == UserRole.CLIENT,
-            User.is_active == True
-        ).all()
-        
-        advisors = db.query(User).filter(
-            User.role == UserRole.ADVISOR,
-            User.is_active == True
-        ).all()
+        clients = db.query(User).filter(User.role == UserRole.CLIENT,User.is_active == True,User.firm_id.is_(None)).all()
+        advisors = db.query(User).filter( User.role == UserRole.ADVISOR,User.is_active == True).all()
         
         return {
             "user_role": "admin",

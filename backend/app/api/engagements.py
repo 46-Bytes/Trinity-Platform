@@ -157,9 +157,11 @@ async def list_engagements(
     # Build base query
     query = db.query(Engagement)
     
-    if current_user.role in [UserRole.SUPER_ADMIN, UserRole.ADMIN]:
+    if current_user.role == UserRole.SUPER_ADMIN:
         # Admins see all engagements
         pass
+    elif current_user.role == UserRole.ADMIN:
+        query = query.filter(Engagement.firm_id.is_(None))
     elif current_user.role == UserRole.FIRM_ADMIN:
         # Firm Admin sees all engagements within their firm
         if current_user.firm_id:

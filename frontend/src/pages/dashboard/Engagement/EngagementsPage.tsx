@@ -15,7 +15,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { EngagementForm } from "@/components/engagement/form";
 import { toast } from "sonner";
 
-export default function EngagementsPage() {
+interface EngagementsPageProps {
+  firmId?: string;
+}
+
+export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { engagements, isLoading, error } = useAppSelector((state) => state.engagement);
@@ -29,8 +33,9 @@ export default function EngagementsPage() {
     dispatch(fetchEngagements({
       status: statusFilter !== 'all' ? statusFilter : undefined,
       search: searchQuery || undefined,
+      firm_id: firmId,
     }));
-  }, [dispatch]); // Only fetch on mount
+  }, [dispatch, firmId]); // Only fetch on mount
 
   // Refetch when filters change (with debounce for search)
   useEffect(() => {
@@ -38,11 +43,12 @@ export default function EngagementsPage() {
       dispatch(fetchEngagements({
         status: statusFilter !== 'all' ? statusFilter : undefined,
         search: searchQuery || undefined,
+        firm_id: firmId,
       }));
     }, searchQuery ? 500 : 0); // Debounce search by 500ms
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery, statusFilter, dispatch]);
+  }, [searchQuery, statusFilter, dispatch, firmId]);
 
   // Filter engagements locally (backend already filters, but we can do additional client-side filtering)
   const filteredEngagements = engagements.filter(e => {
@@ -95,6 +101,7 @@ export default function EngagementsPage() {
     dispatch(fetchEngagements({
       status: statusFilter !== 'all' ? statusFilter : undefined,
       search: searchQuery || undefined,
+      firm_id: firmId,
     }));
   };
 
@@ -153,6 +160,7 @@ export default function EngagementsPage() {
               onClick={() => dispatch(fetchEngagements({
                 status: statusFilter !== 'all' ? statusFilter : undefined,
                 search: searchQuery || undefined,
+                firm_id: firmId,
               }))}
               className="btn-primary mt-4"
             >

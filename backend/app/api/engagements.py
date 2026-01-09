@@ -140,6 +140,7 @@ async def create_engagement(
 async def list_engagements(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user_from_token),
+    firm_id: Optional[UUID] = Query(None, description="Filter by firm ID (for superadmin viewing firm engagements)"),
     status_filter: Optional[str] = Query(None, description="Filter by status (active, paused, completed, archived)"),
     search: Optional[str] = Query(None, description="Search by engagement name or business name"),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
@@ -149,7 +150,10 @@ async def list_engagements(
     List engagements accessible to the current user.
     
     Returns engagements based on user role:
-    - Super Admin/Admin: All engagements
+    - Super Admin: 
+      * If firm_id is provided: engagements for that firm only
+      * If firm_id is NOT provided: engagements without firm_id only
+    - Admin: Engagements without firm_id only
     - Firm Admin: All engagements within their firm
     - Advisor/Firm Advisor: Engagements where they are primary or secondary advisor
     - Client: Engagements where they are the client
@@ -158,9 +162,12 @@ async def list_engagements(
     query = db.query(Engagement)
     
     if current_user.role == UserRole.SUPER_ADMIN:
-        # Admins see all engagements
-        pass
+        if firm_id:
+            query = query.filter(Engagement.firm_id == firm_id)
+        else:
+            query = query.filter(Engagement.firm_id.is_(None))
     elif current_user.role == UserRole.ADMIN:
+        # Admin only sees engagements without firm_id
         query = query.filter(Engagement.firm_id.is_(None))
     elif current_user.role == UserRole.FIRM_ADMIN:
         # Firm Admin sees all engagements within their firm

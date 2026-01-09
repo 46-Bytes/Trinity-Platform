@@ -185,7 +185,7 @@ export default function FirmsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => navigate(`/dashboard/firms/${firm.id}`)}
+                          onClick={() => navigate(`/dashboard/firms/${firm.id}/clients`)}
                           className="h-8 w-8 p-0"
                           title="View firm details"
                         >

@@ -83,7 +83,7 @@ export const fetchUserRoleData = createAsyncThunk(
 
 export const fetchEngagements = createAsyncThunk(
   'engagement/fetchEngagements',
-  async (params: { status?: string; search?: string } | undefined, { rejectWithValue }) => {
+  async (params: { status?: string; search?: string; firm_id?: string } | undefined, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem('auth_token');
       if (!token) {
@@ -97,6 +97,9 @@ export const fetchEngagements = createAsyncThunk(
       }
       if (params?.search) {
         queryParams.append('search', params.search);
+      }
+      if (params?.firm_id) {
+        queryParams.append('firm_id', params.firm_id);
       }
 
       const url = `${API_BASE_URL}/api/engagements${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;

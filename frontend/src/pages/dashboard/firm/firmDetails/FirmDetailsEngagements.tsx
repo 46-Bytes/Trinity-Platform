@@ -9,8 +9,7 @@ interface FirmDetailsContext {
 export default function FirmDetailsEngagements() {
   const { firmId } = useOutletContext<FirmDetailsContext>();
   
-  // The EngagementsPage will use engagements from Redux state
-  // Backend filters by user's firm, so for superadmin we need to use firm-specific endpoint
-  return <EngagementsPage />;
+  // Pass firmId to EngagementsPage so it can filter engagements for that firm
+  return <EngagementsPage firmId={firmId} />;
 }
 

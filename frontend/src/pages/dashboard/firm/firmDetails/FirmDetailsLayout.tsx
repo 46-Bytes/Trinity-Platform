@@ -106,7 +106,6 @@ export default function FirmDetailsLayout() {
           </div>
           <div>
             <h1 className="font-heading text-2xl font-bold text-foreground">{firm.firm_name}</h1>
-            <p className="text-sm text-muted-foreground">Firm ID: {firm.id.slice(0, 8)}...</p>
           </div>
         </div>
       </div>

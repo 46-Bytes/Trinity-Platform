@@ -49,9 +49,8 @@ const navItems: NavItem[] = [
   // { label: 'Documents', href: '/dashboard/documents', icon: FileText, roles: ['super_admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
   // { label: 'AI Tools', href: '/dashboard/ai-tools', icon: Brain, roles: ['super_admin', 'admin', 'advisor', 'firm_admin', 'firm_advisor'] },
   { label: 'Trinity Chat', href: '/dashboard/chat', icon: MessageSquare, roles: ['client'] },
-  { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, roles: ['super_admin', 'firm_admin'] },
+  // { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, roles: ['super_admin', 'firm_admin'] },
   { label: 'Firm Management', href: '/dashboard/firm', icon: Building2, roles: ['firm_admin'] },
-  { label: 'Security', href: '/dashboard/security', icon: Shield, roles: ['super_admin'] },
   { label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
 ];
 
@@ -79,12 +78,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   // Nested navigation items for firm details
   const firmDetailsNavItems: NavItem[] = firmId ? [
-    { label: 'Overview', href: `/dashboard/firms/${firmId}`, icon: LayoutDashboard, roles: ['super_admin'] },
     { label: 'Clients', href: `/dashboard/firms/${firmId}/clients`, icon: UserCircle, roles: ['super_admin'] },
     { label: 'Advisors', href: `/dashboard/firms/${firmId}/advisors`, icon: Users, roles: ['super_admin'] },
     { label: 'Engagements', href: `/dashboard/firms/${firmId}/engagements`, icon: FolderOpen, roles: ['super_admin'] },
     { label: 'Tasks', href: `/dashboard/firms/${firmId}/tasks`, icon: CheckSquare, roles: ['super_admin'] },
-    { label: 'Analytics', href: `/dashboard/firms/${firmId}/analytics`, icon: BarChart3, roles: ['super_admin'] },
     { label: 'Subscription', href: `/dashboard/firms/${firmId}/subscription`, icon: CreditCard, roles: ['super_admin'] },
   ] : [];
 

@@ -1,4 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import type { RootState } from '../index';
 
 // Types
 export interface Firm {
@@ -12,6 +13,7 @@ export interface Firm {
   clients_count?: number;
   advisors_count?: number;
   billing_email?: string;
+  clients?: string[]; // Array of client user IDs
   created_at: string;
   updated_at?: string;
 }
@@ -349,35 +351,62 @@ export const fetchFirmClients = createAsyncThunk(
 // Async thunk to fetch clients for a specific firm (for superadmin)
 export const fetchFirmClientsById = createAsyncThunk(
   'firm/fetchFirmClientsById',
-  async (firmId: string, { rejectWithValue }) => {
+  async (firmId: string, { rejectWithValue, getState }) => {
     try {
-      // First get the firm to access its clients array
-      const firmResponse = await fetch(`${API_BASE_URL}/api/firms/${firmId}`, {
-        headers: getAuthHeaders(),
-      });
+      // Try to get firm from Redux state first to avoid duplicate API call
+      const state = getState() as RootState;
+      let clientIds: string[] = [];
+      
+      if (state.firm?.firm?.id === firmId && state.firm.firm.clients) {
+        // Firm is already in state, use it
+        console.log('Using firm from Redux state');
+        clientIds = state.firm.firm.clients;
+      } else {
+        // Firm not in state, fetch it
+        console.log('Fetching firm from API');
+        const firmResponse = await fetch(`${API_BASE_URL}/api/firms/${firmId}`, {
+          headers: getAuthHeaders(),
+        });
 
-      if (!firmResponse.ok) {
-        throw new Error('Failed to fetch firm');
+        if (!firmResponse.ok) {
+          throw new Error('Failed to fetch firm');
+        }
+
+        const firmData = await firmResponse.json();
+        clientIds = firmData.clients || [];
       }
 
-      const firmData = await firmResponse.json();
-      const clientIds = firmData.clients || [];
-
       if (clientIds.length === 0) {
+        console.log('No clients found in firm');
         return [];
       }
 
+      // Convert UUIDs to strings (they might be UUID objects or strings)
+      const clientIdStrings = clientIds.map((id: any) => {
+        if (typeof id === 'string') {
+          return id;
+        }
+        // If it's a UUID object, convert to string
+        return String(id);
+      });
+
+      console.log('Fetching clients with IDs:', clientIdStrings);
+
       // Fetch client details
-      const clientsResponse = await fetch(`${API_BASE_URL}/api/users?role=client&ids=${clientIds.join(',')}`, {
+      const clientsResponse = await fetch(`${API_BASE_URL}/api/users?role=client&ids=${clientIdStrings.join(',')}`, {
         headers: getAuthHeaders(),
       });
 
       if (!clientsResponse.ok) {
+        const errorText = await clientsResponse.text();
+        console.error('Failed to fetch clients:', clientsResponse.status, errorText);
         // If bulk fetch fails, try fetching individually or return empty
         return [];
       }
 
       const clientsData = await clientsResponse.json();
+      console.log('Fetched clients data:', clientsData);
+      
       const clients: Client[] = (Array.isArray(clientsData) ? clientsData : []).map((client: any) => ({
         id: client.id,
         email: client.email || '',
@@ -389,8 +418,10 @@ export const fetchFirmClientsById = createAsyncThunk(
         created_at: client.created_at || new Date().toISOString(),
       }));
 
+      console.log('Mapped clients:', clients);
       return clients;
     } catch (error) {
+      console.error('Error in fetchFirmClientsById:', error);
       // Fallback: try to get clients from engagements endpoint
       try {
         const response = await fetch(`${API_BASE_URL}/api/firms/${firmId}/engagements`, {
@@ -406,10 +437,11 @@ export const fetchFirmClientsById = createAsyncThunk(
           });
 
           // For now, return empty array - we'd need a user lookup endpoint
+          console.warn('Fallback: Found client IDs from engagements but cannot fetch user details');
           return [];
         }
-      } catch {
-        // Ignore fallback error
+      } catch (fallbackError) {
+        console.error('Fallback also failed:', fallbackError);
       }
 
       return rejectWithValue(error instanceof Error ? error.message : 'Failed to fetch clients');

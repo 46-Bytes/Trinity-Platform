@@ -26,7 +26,15 @@ import TasksPage from "./pages/dashboard/TasksPage";
 import DocumentsPage from "./pages/dashboard/DocumentsPage";
 import AIToolsPage from "./pages/dashboard/AIToolsPage";
 import SettingsPage from "./pages/dashboard/SettingsPage";
-import FirmsPage from "./pages/dashboard/Firms";
+import FirmsPage from "./pages/dashboard/firm/Firms";
+import FirmDetailsLayout from "./pages/dashboard/firm/FirmDetailsLayout";
+import FirmDetailsOverview from "./pages/dashboard/firm/FirmDetailsOverview";
+import FirmDetailsAdvisors from "./pages/dashboard/firm/FirmDetailsAdvisors";
+import FirmDetailsClients from "./pages/dashboard/firm/FirmDetailsClients";
+import FirmDetailsEngagements from "./pages/dashboard/firm/FirmDetailsEngagements";
+import FirmDetailsTasks from "./pages/dashboard/firm/FirmDetailsTasks";
+import FirmDetailsAnalytics from "./pages/dashboard/firm/FirmDetailsAnalytics";
+import FirmDetailsSubscription from "./pages/dashboard/firm/FirmDetailsSubscription";
 import SubscriptionsPage from "./pages/dashboard/Subscriptions";
 
 const queryClient = new QueryClient();
@@ -70,6 +78,15 @@ function AppRoutes() {
         <Route path="ai-tools" element={<AIToolsPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="firms" element={<FirmsPage />} />
+        <Route path="firms/:firmId" element={<FirmDetailsLayout />}>
+          <Route index element={<FirmDetailsOverview />} />
+          <Route path="clients" element={<FirmDetailsClients />} />
+          <Route path="advisors" element={<FirmDetailsAdvisors />} />
+          <Route path="engagements" element={<FirmDetailsEngagements />} />
+          <Route path="tasks" element={<FirmDetailsTasks />} />
+          <Route path="analytics" element={<FirmDetailsAnalytics />} />
+          <Route path="subscription" element={<FirmDetailsSubscription />} />
+        </Route>
         <Route path="subscriptions" element={<SubscriptionsPage />} />
         {/* Placeholder routes */}
         <Route path="chat" element={<DashboardHome />} />

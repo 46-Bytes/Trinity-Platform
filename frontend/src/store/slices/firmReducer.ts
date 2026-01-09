@@ -122,6 +122,28 @@ export const fetchFirm = createAsyncThunk(
   }
 );
 
+// Async thunk to fetch firm by ID (for superadmin)
+export const fetchFirmById = createAsyncThunk(
+  'firm/fetchFirmById',
+  async (firmId: string, { rejectWithValue }) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/firms/${firmId}`, {
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to fetch firm' }));
+        throw new Error(errorData.detail || 'Failed to fetch firm');
+      }
+
+      const data = await response.json();
+      return data as Firm;
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to fetch firm');
+    }
+  }
+);
+
 export const fetchFirmAdvisors = createAsyncThunk(
   'firm/fetchFirmAdvisors',
   async (firmId: string, { rejectWithValue }) => {
@@ -324,6 +346,77 @@ export const fetchFirmClients = createAsyncThunk(
   }
 );
 
+// Async thunk to fetch clients for a specific firm (for superadmin)
+export const fetchFirmClientsById = createAsyncThunk(
+  'firm/fetchFirmClientsById',
+  async (firmId: string, { rejectWithValue }) => {
+    try {
+      // First get the firm to access its clients array
+      const firmResponse = await fetch(`${API_BASE_URL}/api/firms/${firmId}`, {
+        headers: getAuthHeaders(),
+      });
+
+      if (!firmResponse.ok) {
+        throw new Error('Failed to fetch firm');
+      }
+
+      const firmData = await firmResponse.json();
+      const clientIds = firmData.clients || [];
+
+      if (clientIds.length === 0) {
+        return [];
+      }
+
+      // Fetch client details
+      const clientsResponse = await fetch(`${API_BASE_URL}/api/users?role=client&ids=${clientIds.join(',')}`, {
+        headers: getAuthHeaders(),
+      });
+
+      if (!clientsResponse.ok) {
+        // If bulk fetch fails, try fetching individually or return empty
+        return [];
+      }
+
+      const clientsData = await clientsResponse.json();
+      const clients: Client[] = (Array.isArray(clientsData) ? clientsData : []).map((client: any) => ({
+        id: client.id,
+        email: client.email || '',
+        name: client.name || 'Unknown',
+        given_name: client.given_name,
+        family_name: client.family_name,
+        role: 'client' as const,
+        is_active: client.is_active !== false,
+        created_at: client.created_at || new Date().toISOString(),
+      }));
+
+      return clients;
+    } catch (error) {
+      // Fallback: try to get clients from engagements endpoint
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/firms/${firmId}/engagements`, {
+          headers: getAuthHeaders(),
+        });
+
+        if (response.ok) {
+          const engagements = await response.json();
+          // Extract unique client IDs from engagements
+          const clientIds = new Set<string>();
+          engagements.forEach((eng: any) => {
+            if (eng.client_id) clientIds.add(eng.client_id);
+          });
+
+          // For now, return empty array - we'd need a user lookup endpoint
+          return [];
+        }
+      } catch {
+        // Ignore fallback error
+      }
+
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to fetch clients');
+    }
+  }
+);
+
 export const addClientToFirm = createAsyncThunk(
   'firm/addClientToFirm',
   async ({ firmId, email, name, first_name, last_name }: { firmId: string; email: string; name?: string; first_name?: string; last_name?: string }, { rejectWithValue }) => {
@@ -456,6 +549,21 @@ const firmSlice = createSlice({
         state.error = action.payload as string;
       });
 
+    // Fetch firm by ID (for superadmin)
+    builder
+      .addCase(fetchFirmById.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchFirmById.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.firm = action.payload;
+      })
+      .addCase(fetchFirmById.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      });
+
     // Fetch advisors
     builder
       .addCase(fetchFirmAdvisors.pending, (state) => {
@@ -552,6 +660,21 @@ const firmSlice = createSlice({
         state.clients = action.payload;
       })
       .addCase(fetchFirmClients.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      });
+
+    // Fetch clients by firm ID
+    builder
+      .addCase(fetchFirmClientsById.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchFirmClientsById.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.clients = action.payload;
+      })
+      .addCase(fetchFirmClientsById.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
       });

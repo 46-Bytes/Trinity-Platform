@@ -128,7 +128,7 @@ class OpenAIService:
         reasoning_effort: Optional[str] = None,
         file_ids: Optional[List[str]] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
-        model: str = "gpt-5.1",
+        model: str = "gpt-5-nano",
         max_output_tokens: Optional[int] = None,
     ) -> Dict[str, Any]:
         """

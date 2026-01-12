@@ -7,7 +7,6 @@ import { fetchFirmClients, addClientToFirm, fetchFirm } from '@/store/slices/fir
 import { fetchClientUsers } from '@/store/slices/clientReducer';
 import { useAuth } from '@/context/AuthContext';
 import {
-  fetchFirmAdvisorClientsFromEngagements,
   fetchAdvisorClientsFromAssociations,
   getClientFetchingStrategy,
   type Client as ClientType,
@@ -91,19 +90,7 @@ export default function ClientsPage() {
       return;
     }
 
-    // For firm_advisor, load clients from engagements only (not adv_client table)
-    if (shouldUseEngagements && user?.id) {
-      try {
-        const advisorClients = await fetchFirmAdvisorClientsFromEngagements(engagements, user.id);
-        setClients(advisorClients);
-      } catch (error) {
-        console.error('Error fetching firm advisor clients from engagements:', error);
-        setClients([]);
-      }
-      return;
-    }
-
-    // For regular advisor, load clients from advisor-client associations API
+    // For both regular advisor and firm_advisor, load clients from advisor-client associations API
     if (shouldUseAssociations) {
       try {
         const advisorClients = await fetchAdvisorClientsFromAssociations();
@@ -138,27 +125,27 @@ export default function ClientsPage() {
     }
   }, [user?.id, shouldUseFirmClients, isSuperAdminViewingFirm, fetchClients]);
 
-  // Fetch engagements on mount (needed for firm_advisor and regular advisor)
+  // Fetch engagements on mount (needed for regular advisor, not for firm_advisor anymore)
   useEffect(() => {
-    if (user && (shouldUseEngagements || shouldUseAssociations)) {
+    if (user && shouldUseAssociations && user.role === 'advisor') {
       dispatch(fetchEngagements(undefined));
     }
-  }, [dispatch, user?.id, shouldUseEngagements, shouldUseAssociations]);
+  }, [dispatch, user?.id, user?.role, shouldUseAssociations]);
 
   // Track if we've already fetched clients to prevent infinite loops
   const hasFetchedClientsRef = useRef(false);
   
   useEffect(() => {
-    if (user && !engagementsLoading && (shouldUseEngagements || shouldUseAssociations) && !hasFetchedClientsRef.current) {
+    if (user && shouldUseAssociations && !hasFetchedClientsRef.current) {
       hasFetchedClientsRef.current = true;
       fetchClients();
     }
     // Reset flag when user or strategy changes
-    if (!shouldUseEngagements && !shouldUseAssociations) {
+    if (!shouldUseAssociations) {
       hasFetchedClientsRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, engagementsLoading, shouldUseEngagements, shouldUseAssociations]);
+  }, [user?.id, shouldUseAssociations]);
 
   // Choose base clients by role
   const baseClients: Client[] = useMemo(() => {

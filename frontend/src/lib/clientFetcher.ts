@@ -165,8 +165,8 @@ export function getClientFetchingStrategy(user: User | null) {
     isFirmAdvisor,
     isAdmin,
     isFirmAdmin,
-    shouldUseEngagements: isFirmAdvisor, // Only firm_advisor uses engagements
-    shouldUseAssociations: isAdvisor, // Regular advisor uses adv_client associations
+    shouldUseEngagements: false, // Firm advisors now use associations instead of engagements
+    shouldUseAssociations: isAdvisor || isFirmAdvisor, // Both regular and firm advisors use adv_client associations
     shouldUseFirmClients: isFirmAdmin, // Firm admin uses firm clients
     shouldUseAdminClients: isAdmin, // Admin uses all clients
   };

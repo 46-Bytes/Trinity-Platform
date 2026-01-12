@@ -32,7 +32,6 @@ class FirmResponse(BaseModel):
     id: UUID
     firm_name: str
     firm_admin_id: UUID
-    # Extra fields for admin display in superadmin firms list
     firm_admin_name: Optional[str] = None
     firm_admin_email: Optional[str] = None
     # Optional aggregate counts for UI

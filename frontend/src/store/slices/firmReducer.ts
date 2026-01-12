@@ -14,6 +14,7 @@ export interface Firm {
   advisors_count?: number;
   billing_email?: string;
   clients?: string[]; // Array of client user IDs
+  is_active?: boolean;
   created_at: string;
   updated_at?: string;
 }
@@ -475,6 +476,52 @@ export const addClientToFirm = createAsyncThunk(
   }
 );
 
+export const revokeFirm = createAsyncThunk(
+  'firm/revokeFirm',
+  async (firmId: string, { rejectWithValue }) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/firms/${firmId}`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ is_active: false }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to revoke firm' }));
+        throw new Error(errorData.detail || 'Failed to revoke firm');
+      }
+
+      const data = await response.json();
+      return data as Firm;
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to revoke firm');
+    }
+  }
+);
+
+export const reactivateFirm = createAsyncThunk(
+  'firm/reactivateFirm',
+  async (firmId: string, { rejectWithValue }) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/firms/${firmId}`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ is_active: true }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to reactivate firm' }));
+        throw new Error(errorData.detail || 'Failed to reactivate firm');
+      }
+
+      const data = await response.json();
+      return data as Firm;
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to reactivate firm');
+    }
+  }
+);
+
 export const createFirm = createAsyncThunk(
   'firm/createFirm',
   async (firmData: { 
@@ -742,6 +789,52 @@ const firmSlice = createSlice({
         state.firms.push(action.payload);
       })
       .addCase(createFirm.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      });
+
+    // Revoke firm
+    builder
+      .addCase(revokeFirm.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(revokeFirm.fulfilled, (state, action) => {
+        state.isLoading = false;
+        // Update firm in the list
+        const index = state.firms.findIndex(f => f.id === action.payload.id);
+        if (index !== -1) {
+          state.firms[index] = action.payload;
+        }
+        // Also update if it's the current firm
+        if (state.firm && state.firm.id === action.payload.id) {
+          state.firm = action.payload;
+        }
+      })
+      .addCase(revokeFirm.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      });
+
+    // Reactivate firm
+    builder
+      .addCase(reactivateFirm.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(reactivateFirm.fulfilled, (state, action) => {
+        state.isLoading = false;
+        // Update firm in the list
+        const index = state.firms.findIndex(f => f.id === action.payload.id);
+        if (index !== -1) {
+          state.firms[index] = action.payload;
+        }
+        // Also update if it's the current firm
+        if (state.firm && state.firm.id === action.payload.id) {
+          state.firm = action.payload;
+        }
+      })
+      .addCase(reactivateFirm.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
       });

@@ -16,9 +16,24 @@ export default function Login() {
     // This ensures a fresh login with no previous user data
     localStorage.removeItem('auth_token');
     
+    // If there's an error (especially firm_revoked), force Auth0 to show login page
+    // This allows user to try different credentials instead of auto-logging in
+    const forceLogin = error === 'firm_revoked';
+    
+    // If there's an error in the URL, remove it to allow fresh login attempt
+    if (error) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('error');
+      window.history.replaceState({}, '', url.toString());
+    }
+    
     // ALWAYS redirect to Auth0 Universal Login via backend
-    // This ensures we get fresh credentials and proper email verification
-    window.location.href = `${API_BASE_URL}/api/auth/login`;
+    // If forceLogin is true, backend will add prompt=login to force fresh login
+    const loginUrl = forceLogin 
+      ? `${API_BASE_URL}/api/auth/login?force_login=true`
+      : `${API_BASE_URL}/api/auth/login`;
+    
+    window.location.href = loginUrl;
   };
 
   useEffect(() => {
@@ -26,10 +41,9 @@ export default function Login() {
     // This ensures a fresh start with no previous user data
     localStorage.removeItem('auth_token');
     
-    // Show error message if authentication failed
-    // Note: This is expected behavior when redirected from failed auth, not a real error
-    if (error === 'authentication_failed') {
-      // Error is already displayed in the UI below, no need to log to console
+    if (error === 'firm_revoked') {
+      localStorage.removeItem('auth_token');
+      // The error message will be displayed, but user can try again with different credentials
     }
   }, [error]);
 
@@ -106,7 +120,9 @@ export default function Login() {
           {error && (
             <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
               <p className="text-sm text-destructive">
-                Authentication failed. Please try again.
+                {error === 'firm_revoked' 
+                  ? 'Your firm account has been revoked. Please contact support.'
+                  : 'Authentication failed. Please try again.'}
               </p>
             </div>
           )}

@@ -52,6 +52,15 @@ async def create_association(
     if client.role != UserRole.CLIENT:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The specified user is not a client.")
     
+    # Validate firm_id matching for FIRM_ADVISOR advisors
+    if advisor.role == UserRole.FIRM_ADVISOR:
+        if not advisor.firm_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="The advisor must belong to a firm.")
+        if not client.firm_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Client must belong to a firm to be associated with a firm advisor.")
+        if advisor.firm_id != client.firm_id:
+            raise HTTPException( status_code=status.HTTP_400_BAD_REQUEST,detail="Client must belong to the same firm as the advisor.")
+    
     existing = db.query(AdvisorClient).filter(AdvisorClient.advisor_id == association_data.advisor_id,AdvisorClient.client_id == association_data.client_id).first()
     
     if existing:
@@ -273,7 +282,7 @@ async def delete_association(
         )
     
     # Check permissions
-    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN]:
         if current_user.role in [UserRole.ADVISOR, UserRole.FIRM_ADVISOR]:
             # Advisors can only delete their own associations
             if association.advisor_id != current_user.id:

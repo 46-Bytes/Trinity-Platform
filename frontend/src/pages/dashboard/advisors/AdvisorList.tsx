@@ -9,6 +9,7 @@ interface AdvisorListProps {
   onReactivate: (advisorId: string) => void;
   onDelete: (advisorId: string) => void;
   onViewDetails?: (advisorId: string) => void;
+  onAssociateClients?: (advisorId: string) => void;
 }
 
 export default function AdvisorList({
@@ -19,6 +20,7 @@ export default function AdvisorList({
   onReactivate,
   onDelete,
   onViewDetails,
+  onAssociateClients,
 }: AdvisorListProps) {
   if (isLoading) {
     return (
@@ -39,7 +41,7 @@ export default function AdvisorList({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       {filteredAdvisors.map((advisor) => (
         <AdvisorCard
           key={advisor.id}
@@ -48,6 +50,7 @@ export default function AdvisorList({
           onReactivate={onReactivate}
           onDelete={onDelete}
           onViewDetails={onViewDetails}
+          onAssociateClients={onAssociateClients}
         />
       ))}
     </div>

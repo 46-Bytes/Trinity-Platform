@@ -247,12 +247,19 @@ async def list_tasks(
     else:
         # Filter by accessible engagements and user's tasks
         if current_user.role == UserRole.SUPER_ADMIN:
-            # Admins see all tasks
+            # Super Admins see all tasks
             pass
         elif current_user.role == UserRole.ADMIN:
+            # Admins see tasks from engagements without firm_id
             query = query.filter(Task.engagement_id.in_(db.query(Engagement.id).filter(Engagement.firm_id.is_(None))))
-        elif current_user.role == UserRole.ADVISOR:
-            # Advisors see:
+        elif current_user.role == UserRole.FIRM_ADMIN:
+            # Firm Admins see all tasks from engagements in their firm
+            if current_user.firm_id:
+                query = query.join(Engagement).filter(Engagement.firm_id == current_user.firm_id)
+            else:
+                query = query.filter(False)
+        elif current_user.role in [UserRole.ADVISOR, UserRole.FIRM_ADVISOR]:
+            # Advisors and Firm Advisors see:
             # 1. Tasks they created (created_by_user_id = advisor)
             # 2. Tasks assigned to them (assigned_to_user_id = advisor)
             # 3. Tasks from their engagements (primary or secondary advisor)
@@ -402,11 +409,15 @@ async def update_task(
     can_update = False
     if current_user.role in [UserRole.SUPER_ADMIN, UserRole.ADMIN]:
         can_update = True
+    elif current_user.role == UserRole.FIRM_ADMIN:
+        # Firm Admin can update tasks in their firm
+        if current_user.firm_id and engagement.firm_id == current_user.firm_id:
+            can_update = True
     elif task.created_by_user_id == current_user.id:
         can_update = True
     elif task.assigned_to_user_id == current_user.id:
         can_update = True
-    elif current_user.role == UserRole.ADVISOR:
+    elif current_user.role in [UserRole.ADVISOR, UserRole.FIRM_ADVISOR]:
         if engagement.primary_advisor_id == current_user.id:
             can_update = True
         elif engagement.secondary_advisor_ids and current_user.id in engagement.secondary_advisor_ids:
@@ -488,9 +499,13 @@ async def delete_task(
     can_delete = False
     if current_user.role in [UserRole.SUPER_ADMIN, UserRole.ADMIN]:
         can_delete = True
+    elif current_user.role == UserRole.FIRM_ADMIN:
+        # Firm Admin can delete tasks in their firm
+        if current_user.firm_id and engagement.firm_id == current_user.firm_id:
+            can_delete = True
     elif task.created_by_user_id == current_user.id:
         can_delete = True
-    elif current_user.role == UserRole.ADVISOR:
+    elif current_user.role in [UserRole.ADVISOR, UserRole.FIRM_ADVISOR]:
         if engagement.primary_advisor_id == current_user.id:
             can_delete = True
         elif engagement.secondary_advisor_ids and current_user.id in engagement.secondary_advisor_ids:

@@ -78,8 +78,15 @@ export default function ClientsPage() {
   const shouldUseAdminClients = strategy.shouldUseAdminClients && !isSuperAdminViewingFirm;
 
   const fetchClients = useCallback(async () => {
-    // For firm admin, use firm reducer clients
+    // For firm admin or superadmin viewing a firm, use firm reducer clients
     if (shouldUseFirmClients) {
+      // If superadmin is viewing a firm, clients should already be fetched by fetchFirmClientsById
+      // Don't call fetchFirmClients() which would overwrite with wrong data
+      if (isSuperAdminViewingFirm) {
+        // Clients are already in state from fetchFirmClientsById, just return
+        return;
+      }
+      // For firm admin, fetch their firm's clients
       dispatch(fetchFirmClients());
       return;
     }
@@ -115,7 +122,7 @@ export default function ClientsPage() {
     }
 
     setClients([]);
-  }, [shouldUseFirmClients, shouldUseEngagements, shouldUseAssociations, shouldUseAdminClients, user?.id, dispatch]);
+  }, [shouldUseFirmClients, shouldUseEngagements, shouldUseAssociations, shouldUseAdminClients, user?.id, dispatch, isSuperAdminViewingFirm]);
 
   // Fetch firm for firm admin (only if not already in state, e.g., from fetchFirmById for superadmin)
   useEffect(() => {
@@ -123,6 +130,13 @@ export default function ClientsPage() {
       dispatch(fetchFirm());
     }
   }, [dispatch, user?.id, shouldUseFirmClients, firm]);
+
+  // Fetch clients for firm admin (but not for superadmin viewing a firm - those are fetched by FirmDetailsClients)
+  useEffect(() => {
+    if (user && shouldUseFirmClients && !isSuperAdminViewingFirm) {
+      fetchClients();
+    }
+  }, [user?.id, shouldUseFirmClients, isSuperAdminViewingFirm, fetchClients]);
 
   // Fetch engagements on mount (needed for firm_advisor and regular advisor)
   useEffect(() => {
@@ -148,7 +162,7 @@ export default function ClientsPage() {
 
   // Choose base clients by role
   const baseClients: Client[] = useMemo(() => {
-    if (strategy.shouldUseFirmClients) {
+    if (shouldUseFirmClients) {
       return firmClients.map(client => ({
         id: client.id,
         name: client.name || 'Unknown',
@@ -178,10 +192,10 @@ export default function ClientsPage() {
 
     // For firm_advisor and regular advisor, use clients from state
     return clients;
-  }, [strategy.shouldUseFirmClients, strategy.shouldUseAdminClients, firmClients, adminClients, clients]);
+  }, [shouldUseFirmClients, strategy.shouldUseAdminClients, firmClients, adminClients, clients]);
 
   const clientsWithEngagements = useMemo<Client[]>(() => {
-    if (strategy.shouldUseFirmClients || strategy.shouldUseAdminClients) {
+    if (shouldUseFirmClients || strategy.shouldUseAdminClients) {
       return baseClients;
     }
 
@@ -236,7 +250,7 @@ export default function ClientsPage() {
         engagements: clientEngagements.engagementCount,
       };
     });
-  }, [baseClients, engagements, strategy.shouldUseFirmClients, strategy.shouldUseAdminClients]);
+  }, [baseClients, engagements, shouldUseFirmClients, strategy.shouldUseAdminClients]);
 
 
   const filteredClients = clientsWithEngagements.filter(c => {
@@ -250,10 +264,10 @@ export default function ClientsPage() {
 
   const isLoadingData =
     engagementsLoading ||
-    (strategy.shouldUseFirmClients && firmClientsLoading) ||
+    (shouldUseFirmClients && firmClientsLoading) ||
     (strategy.shouldUseAdminClients && adminClientsLoading);
 
-  const error = strategy.shouldUseFirmClients ? firmError : strategy.shouldUseAdminClients ? adminClientsError : null;
+  const error = shouldUseFirmClients ? firmError : strategy.shouldUseAdminClients ? adminClientsError : null;
 
   const handleAddClient = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -317,7 +331,7 @@ export default function ClientsPage() {
           <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground break-words">Clients</h1>
           <p className="text-muted-foreground mt-1 break-words">Manage your client relationships</p>
         </div>
-        {strategy.shouldUseFirmClients && (
+        {shouldUseFirmClients && (
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button className="btn-primary">

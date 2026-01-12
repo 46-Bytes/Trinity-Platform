@@ -42,6 +42,8 @@ class FirmResponse(BaseModel):
     seat_count: int
     seats_used: int
     billing_email: Optional[str] = None
+    # Clients array - list of client user IDs
+    clients: Optional[List[UUID]] = None
     is_active: bool
     created_at: datetime
     updated_at: datetime

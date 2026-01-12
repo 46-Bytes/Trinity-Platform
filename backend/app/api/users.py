@@ -1,7 +1,7 @@
 """
 Users API endpoints for user management.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from uuid import UUID, uuid4
@@ -21,6 +21,7 @@ async def list_users(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     role: Optional[str] = None,
+    ids: Optional[str] = Query(None, description="Comma-separated list of user IDs to filter by"),
     skip: int = 0,
     limit: int = 100,
 ):
@@ -29,6 +30,7 @@ async def list_users(
     
     Args:
         role: Optional role filter (client, advisor, admin, etc.)
+        ids: Optional comma-separated list of user IDs to filter by
         skip: Number of records to skip
         limit: Maximum number of records to return
     """
@@ -41,16 +43,40 @@ async def list_users(
     
     query = db.query(User)
     
+    # Track if we're filtering by specific IDs (for superadmin viewing firm clients)
+    filtering_by_ids = False
+    
+    # Filter by IDs if provided
+    if ids:
+        try:
+            # Parse comma-separated IDs
+            id_list = [UUID(id_str.strip()) for id_str in ids.split(',') if id_str.strip()]
+            if id_list:
+                query = query.filter(User.id.in_(id_list))
+                filtering_by_ids = True
+            else:
+                # If no valid IDs, return empty result
+                return []
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid user IDs format. Expected comma-separated UUIDs."
+            )
+    
     # Filter by role if provided
     if role:
         try:
             role_enum = UserRole(role.lower())
             query = query.filter(User.role == role_enum)
+
+            if role_enum == UserRole.CLIENT and current_user.role == UserRole.ADMIN and not filtering_by_ids:
+                query = query.filter(User.firm_id.is_(None))
         except ValueError:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail=f"Invalid role: {role}")
-    
-    if current_user.role == UserRole.ADMIN:
+    elif current_user.role == UserRole.ADMIN and not filtering_by_ids:
+
         query = query.filter(User.firm_id.is_(None))
+    
     users = query.offset(skip).limit(limit).all()
     # Convert users to response format with role as string
     return [

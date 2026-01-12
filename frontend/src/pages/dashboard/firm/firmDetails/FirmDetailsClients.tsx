@@ -16,7 +16,10 @@ export default function FirmDetailsClients() {
   // Fetch clients for this firm
   useEffect(() => {
     if (firmId) {
+      console.log('FirmDetailsClients: Fetching clients for firm:', firmId);
       dispatch(fetchFirmClientsById(firmId));
+    } else {
+      console.warn('FirmDetailsClients: No firmId provided');
     }
   }, [dispatch, firmId]);
   

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, MoreHorizontal, User, Mail, Trash2, X, AlertTriangle } from 'lucide-react';
+import { Search, Plus, Trash2, X, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchFirm, fetchFirmAdvisors, addAdvisorToFirm, removeAdvisorFromFirm, getAdvisorEngagements, suspendAdvisor, reactivateAdvisor } from '@/store/slices/firmReducer';
+import AdvisorList from './advisors/AdvisorList';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -407,85 +408,14 @@ export default function AdvisorsPage() {
           </div>
         </div>
 
-        {isLoading ? (
-          <div className="text-center py-8 text-muted-foreground">Loading advisors...</div>
-        ) : filteredAdvisors.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            {advisors.length === 0 ? 'No advisors yet. Add your first advisor to get started.' : 'No advisors match your search.'}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredAdvisors.map((advisor) => (
-              <div key={advisor.id} className="card-trinity p-5 hover:shadow-trinity-md group">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                      <User className="w-6 h-6 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-foreground group-hover:text-accent transition-colors">
-                        {advisor.name || 'Unknown'}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">{advisor.email}</p>
-                    </div>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button className="p-1.5 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100">
-                        <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem className="cursor-pointer">View Details</DropdownMenuItem>
-                      {advisor.is_active ? (
-                        <DropdownMenuItem 
-                          className="cursor-pointer text-warning"
-                          onClick={() => handleSuspendClick(advisor.id)}
-                        >
-                          Suspend Advisor
-                        </DropdownMenuItem>
-                      ) : (
-                        <DropdownMenuItem 
-                          className="cursor-pointer text-green-600 hover:text-green-700"
-                          onClick={() => handleReactivate(advisor.id)}
-                        >
-                          Reactivate Advisor
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem 
-                        className="cursor-pointer text-destructive"
-                        onClick={() => handleDeleteClick(advisor.id)}
-                      >
-                        Remove from Firm
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Mail className="w-4 h-4" />
-                    <span>{advisor.email}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
-                  <div className="flex items-center gap-2">
-                    <span className={cn(
-                      "status-badge",
-                      advisor.is_active ? "status-success" : "status-warning"
-                    )}>
-                      {advisor.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-                  <span className="text-xs text-muted-foreground capitalize">
-                    {advisor.role.replace('_', ' ')}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <AdvisorList
+          advisors={advisors}
+          filteredAdvisors={filteredAdvisors}
+          isLoading={isLoading}
+          onSuspend={handleSuspendClick}
+          onReactivate={handleReactivate}
+          onDelete={handleDeleteClick}
+        />
       </div>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

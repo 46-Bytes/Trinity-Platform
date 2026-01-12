@@ -26,3 +26,4 @@ def downgrade() -> None:
     # This is a merge migration - no schema changes needed
     pass
 
+

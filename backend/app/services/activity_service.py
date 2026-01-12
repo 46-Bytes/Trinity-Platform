@@ -101,3 +101,4 @@ def get_superadmin_activity_data(db: Session, days: int) -> ActivityDataResponse
     
     return ActivityDataResponse(data=data_points)
 
+

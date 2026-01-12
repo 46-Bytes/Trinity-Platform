@@ -7,6 +7,7 @@ import {
   type AdvisorClientAssociation,
 } from '@/store/slices/advisorClientReducer';
 import { fetchUsers, type User } from '@/store/slices/userReducer';
+import { fetchFirmClientsById, type Client } from '@/store/slices/firmReducer';
 import {
   Dialog,
   DialogContent,
@@ -20,22 +21,33 @@ import { Loader2, Plus, Trash2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
+// Union type to support both User and Advisor types
+type AdvisorLike = User | (User & { firm_id?: string });
+
 interface AdvisorClientDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  advisor: User;
+  advisor: AdvisorLike;
+  firmClients?: Client[];
 }
 
-export function AdvisorClientDialog({ open, onOpenChange, advisor }: AdvisorClientDialogProps) {
+export function AdvisorClientDialog({ open, onOpenChange, advisor, firmClients }: AdvisorClientDialogProps) {
   const dispatch = useAppDispatch();
   const { associations, isLoading, isCreating, isDeleting, error } = useAppSelector(
     (state) => state.advisorClient
   );
   const { users } = useAppSelector((state) => state.user);
+  const { clients: firmClientsFromStore } = useAppSelector((state) => state.firm);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string>('');
+
+  // Check if advisor has firm_id (for firm advisors)
+  const advisorFirmId = 'firm_id' in advisor ? advisor.firm_id : undefined;
+
+  // Determine which clients to use: prop > store > fetch
+  const clientsToUse = firmClients || (advisorFirmId ? firmClientsFromStore : null);
 
   // Fetch associations when dialog opens
   useEffect(() => {
@@ -44,12 +56,19 @@ export function AdvisorClientDialog({ open, onOpenChange, advisor }: AdvisorClie
     }
   }, [open, advisor.id, dispatch]);
 
-  // Fetch users if not already loaded
+  // Fetch firm clients if advisor has firm_id but firmClients not provided
   useEffect(() => {
-    if (open && users.length === 0) {
+    if (open && advisorFirmId && !firmClients && firmClientsFromStore.length === 0) {
+      dispatch(fetchFirmClientsById(advisorFirmId));
+    }
+  }, [open, advisorFirmId, firmClients, firmClientsFromStore.length, dispatch]);
+
+  // Fetch users if not already loaded and not using firm clients
+  useEffect(() => {
+    if (open && users.length === 0 && !clientsToUse) {
       dispatch(fetchUsers());
     }
-  }, [open, users.length, dispatch]);
+  }, [open, users.length, dispatch, clientsToUse]);
 
   // Show error toast
   useEffect(() => {
@@ -60,9 +79,25 @@ export function AdvisorClientDialog({ open, onOpenChange, advisor }: AdvisorClie
 
   // Get clients that are not yet associated with this advisor
   const associatedClientIds = new Set(associations.map((assoc) => assoc.client_id));
-  const availableClients = users.filter(
-    (user) => user.role === 'client' && !associatedClientIds.has(user.id)
-  );
+  
+  // Get set of firm client IDs to exclude for regular advisors
+  const firmClientIds = new Set(firmClientsFromStore.map((c) => c.id));
+  
+  // Use firmClients if provided or available in store, otherwise use users from store
+  let availableClients: Array<User | Client>;
+  
+  if (clientsToUse) {
+    availableClients = clientsToUse.filter(
+      (client) => !associatedClientIds.has(client.id)
+    );
+  } else {
+    availableClients = users.filter(
+      (user) => 
+        user.role === 'client' && 
+        !associatedClientIds.has(user.id) &&
+        !firmClientIds.has(user.id)  // Exclude clients that belong to firms
+    );
+  }
 
   // Helper function to get client details
   const getClientDetails = (association: AdvisorClientAssociation) => {
@@ -72,6 +107,15 @@ export function AdvisorClientDialog({ open, onOpenChange, advisor }: AdvisorClie
         email: association.client_email || '',
         name: association.client_name || '',
       };
+    }
+    if (clientsToUse) {
+      const client = clientsToUse.find((c) => c.id === association.client_id);
+      if (client) {
+        return {
+          email: client.email,
+          name: client.name,
+        };
+      }
     }
     // Fallback to users store
     const client = users.find((u) => u.id === association.client_id);
@@ -194,13 +238,12 @@ export function AdvisorClientDialog({ open, onOpenChange, advisor }: AdvisorClie
         </DialogContent>
       </Dialog>
 
-      {/* Add Client Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Client Association</DialogTitle>
             <DialogDescription>
-              Select a client to associate with {advisor.name}
+              Select a client to associate with {advisor.name || advisor.email}
             </DialogDescription>
           </DialogHeader>
 
@@ -216,8 +259,7 @@ export function AdvisorClientDialog({ open, onOpenChange, advisor }: AdvisorClie
               />
             </div>
 
-            {/* Client List */}
-            <div className="max-h-[300px] overflow-y-auto border rounded-lg">
+            <div className="max-h-[300px] overflow-y-auto border rounded-lg bg-background">
               {filteredAvailableClients.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">
                   {searchQuery ? (
@@ -227,19 +269,19 @@ export function AdvisorClientDialog({ open, onOpenChange, advisor }: AdvisorClie
                   )}
                 </div>
               ) : (
-                <div className="divide-y">
+                <div className="divide-y divide-border">
                   {filteredAvailableClients.map((client) => (
                     <button
                       key={client.id}
                       onClick={() => setSelectedClientId(client.id)}
                       className={cn(
-                        'w-full p-3 text-left hover:bg-muted transition-colors',
+                        'w-full p-3 text-left hover:bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                         selectedClientId === client.id && 'bg-muted'
                       )}
                     >
-                      <p className="font-medium">{client.email}</p>
+                      <p className="font-medium text-foreground">{client.email}</p>
                       {client.name && client.name !== client.email && (
-                        <p className="text-sm text-muted-foreground">{client.name}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{client.name}</p>
                       )}
                     </button>
                   ))}
@@ -248,7 +290,7 @@ export function AdvisorClientDialog({ open, onOpenChange, advisor }: AdvisorClie
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-4 border-t">
+          <div className="flex justify-end gap-2 pt-4 border-t border-border">
             <Button
               variant="outline"
               onClick={() => {

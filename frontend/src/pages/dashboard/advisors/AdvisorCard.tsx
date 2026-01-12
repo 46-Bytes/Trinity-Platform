@@ -14,6 +14,7 @@ interface AdvisorCardProps {
   onReactivate: (advisorId: string) => void;
   onDelete: (advisorId: string) => void;
   onViewDetails?: (advisorId: string) => void;
+  onAssociateClients?: (advisorId: string) => void;
 }
 
 export default function AdvisorCard({
@@ -22,6 +23,7 @@ export default function AdvisorCard({
   onReactivate,
   onDelete,
   onViewDetails,
+  onAssociateClients,
 }: AdvisorCardProps) {
   return (
     <div className="card-trinity p-5 hover:shadow-trinity-md group">
@@ -34,7 +36,6 @@ export default function AdvisorCard({
             <h3 className="font-semibold text-foreground group-hover:text-accent transition-colors">
               {advisor.name || 'Unknown'}
             </h3>
-            <p className="text-sm text-muted-foreground">{advisor.email}</p>
           </div>
         </div>
         <DropdownMenu>
@@ -50,6 +51,14 @@ export default function AdvisorCard({
                 onClick={() => onViewDetails(advisor.id)}
               >
                 View Details
+              </DropdownMenuItem>
+            )}
+            {onAssociateClients && (
+              <DropdownMenuItem 
+                className="cursor-pointer"
+                onClick={() => onAssociateClients(advisor.id)}
+              >
+                Associate Clients
               </DropdownMenuItem>
             )}
             {advisor.is_active ? (

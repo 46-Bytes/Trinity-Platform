@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { Search, Plus, Trash2, X, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { fetchFirm, fetchFirmAdvisors, addAdvisorToFirm, removeAdvisorFromFirm, getAdvisorEngagements, suspendAdvisor, reactivateAdvisor } from '@/store/slices/firmReducer';
+import { fetchFirm, fetchFirmAdvisors, addAdvisorToFirm, removeAdvisorFromFirm, getAdvisorEngagements, suspendAdvisor, reactivateAdvisor, fetchFirmClients } from '@/store/slices/firmReducer';
 import AdvisorList from './advisors/AdvisorList';
+import { AdvisorClientDialog } from '@/components/users/AdvisorClientDialog';
+import type { Advisor } from '@/store/slices/firmReducer';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,6 +53,8 @@ export default function AdvisorsPage() {
   const [advisorEngagements, setAdvisorEngagements] = useState<{ primary: any[]; secondary: any[] } | null>(null);
   const [reassignments, setReassignments] = useState<Record<string, string>>({});
   const [isLoadingEngagements, setIsLoadingEngagements] = useState(false);
+  const [associateDialogOpen, setAssociateDialogOpen] = useState(false);
+  const [selectedAdvisorForAssociation, setSelectedAdvisorForAssociation] = useState<Advisor | null>(null);
   const [formData, setFormData] = useState({
     email: '',
     name: '',
@@ -60,21 +64,26 @@ export default function AdvisorsPage() {
   const { toast } = useToast();
   
   const dispatch = useAppDispatch();
-  const { firm, advisors, isLoading, error } = useAppSelector((state) => state.firm);
+  const { firm, advisors, clients: firmClients, isLoading, error } = useAppSelector((state) => state.firm);
 
   useEffect(() => {
     // If firm already exists in state (e.g., from fetchFirmById for superadmin), use it
     if (firm) {
       dispatch(fetchFirmAdvisors(firm.id));
+      // Fetch firm clients if not already loaded
+      if (firmClients.length === 0) {
+        dispatch(fetchFirmClients());
+      }
     } else {
       // Otherwise, fetch firm first to get firm ID (for firm_admin)
       dispatch(fetchFirm()).then((result) => {
         if (fetchFirm.fulfilled.match(result) && result.payload) {
           dispatch(fetchFirmAdvisors(result.payload.id));
+          dispatch(fetchFirmClients());
         }
       });
     }
-  }, [dispatch, firm]);
+  }, [dispatch, firm, firmClients.length]);
 
   const filteredAdvisors = advisors.filter((advisor) => {
     const matchesSearch = 
@@ -280,6 +289,14 @@ export default function AdvisorsPage() {
     }
   };
 
+  const handleAssociateClients = (advisorId: string) => {
+    const advisor = advisors.find((a) => a.id === advisorId);
+    if (advisor) {
+      setSelectedAdvisorForAssociation(advisor);
+      setAssociateDialogOpen(true);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -415,6 +432,7 @@ export default function AdvisorsPage() {
           onSuspend={handleSuspendClick}
           onReactivate={handleReactivate}
           onDelete={handleDeleteClick}
+          onAssociateClients={handleAssociateClients}
         />
       </div>
 
@@ -623,6 +641,30 @@ export default function AdvisorsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Associate Clients Dialog */}
+      {selectedAdvisorForAssociation && (
+        <AdvisorClientDialog
+          open={associateDialogOpen}
+          onOpenChange={(open) => {
+            setAssociateDialogOpen(open);
+            if (!open) {
+              setSelectedAdvisorForAssociation(null);
+            }
+          }}
+          advisor={{
+            id: selectedAdvisorForAssociation.id,
+            name: selectedAdvisorForAssociation.name,
+            email: selectedAdvisorForAssociation.email,
+            role: selectedAdvisorForAssociation.role,
+            is_active: selectedAdvisorForAssociation.is_active,
+            email_verified: false,
+            created_at: selectedAdvisorForAssociation.created_at,
+            firm_id: selectedAdvisorForAssociation.firm_id,
+          }}
+          firmClients={firmClients}
+        />
+      )}
     </div>
   );
 }

@@ -360,7 +360,14 @@ async def get_user_role_data(
         return {
             "user_role": "firm_admin",
             "clients": [
-                {"id": str(client.id), "name": client.name or client.email}
+                {
+                    "id": str(client.id),
+                    "name": client.name or client.email,
+                    "email": client.email or "",
+                    "given_name": client.first_name,
+                    "family_name": client.last_name,
+                    "created_at": client.created_at.isoformat() if client.created_at else None
+                }
                 for client in clients
             ],
             "advisors": [
@@ -395,7 +402,14 @@ async def get_user_role_data(
         return {
             "user_role": "firm_advisor",
             "clients": [
-                {"id": str(client.id), "name": client.name or client.email}
+                {
+                    "id": str(client.id),
+                    "name": client.name or client.email,
+                    "email": client.email or "",
+                    "given_name": client.first_name,
+                    "family_name": client.last_name,
+                    "created_at": client.created_at.isoformat() if client.created_at else None
+                }
                 for client in clients
             ],
             "advisors": [

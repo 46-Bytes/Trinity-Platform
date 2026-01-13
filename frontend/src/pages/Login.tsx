@@ -16,9 +16,9 @@ export default function Login() {
     // This ensures a fresh login with no previous user data
     localStorage.removeItem('auth_token');
     
-    // If there's an error (especially firm_revoked), force Auth0 to show login page
+    // If there's an error (especially firm_revoked or account_suspended), force Auth0 to show login page
     // This allows user to try different credentials instead of auto-logging in
-    const forceLogin = error === 'firm_revoked';
+    const forceLogin = error === 'firm_revoked' || error === 'account_suspended';
     
     // If there's an error in the URL, remove it to allow fresh login attempt
     if (error) {
@@ -122,6 +122,8 @@ export default function Login() {
               <p className="text-sm text-destructive">
                 {error === 'firm_revoked' 
                   ? 'Your firm account has been revoked. Please contact support.'
+                  : error === 'account_suspended'
+                  ? 'Your account has been suspended. Please contact your firm administrator.'
                   : 'Authentication failed. Please try again.'}
               </p>
             </div>

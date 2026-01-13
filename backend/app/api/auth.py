@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from jose import jwt
 from ..database import get_db
 from ..services.auth_service import AuthService
+from ..services.login_check import check_user_login_eligibility
 from ..config import settings
 from ..utils.auth import get_current_user, get_token_expiry_time
 from ..utils.password import hash_password, verify_password
@@ -131,11 +132,11 @@ async def callback(
         # Create or update user in database
         user = AuthService.get_or_create_user(db, user_info)
         
-        # Check if user's firm is revoked
-        if user.firm_id:
-            firm = db.query(Firm).filter(Firm.id == user.firm_id).first()
-            if firm and not firm.is_active:
-                logger.warning(f"Login blocked: Firm {firm.id} is revoked for user {user.email}")
+        # Check if user is eligible to login (firm revoked, user suspended, etc.)
+        can_login, error_message = check_user_login_eligibility(db, user)
+        if not can_login:
+            if error_message == "firm_revoked":
+                logger.warning(f"Login blocked: Firm revoked for user {user.email}")
                 # Logout from Auth0 first, then redirect to login with error
                 # This ensures user can try different credentials
                 params = {
@@ -144,21 +145,15 @@ async def callback(
                 }
                 logout_url = f"https://{settings.AUTH0_DOMAIN}/v2/logout?{urlencode(params, quote_via=quote_plus)}"
                 return RedirectResponse(url=logout_url, status_code=302)
-        
-        if user.role.value == 'client':
-            firms_with_client = db.query(Firm).filter(
-                text("clients @> ARRAY[:user_id]::uuid[]").bindparams(user_id=user.id)
-            ).all()
-            for firm in firms_with_client:
-                if not firm.is_active:
-                    logger.warning(f"Login blocked: Client {user.email} is in revoked firm {firm.id}")
-                    # This ensures user can try different credentials
-                    params = {
-                        'returnTo': f"{settings.FRONTEND_URL}/login?error=firm_revoked",
-                        'client_id': settings.AUTH0_CLIENT_ID,
-                    }
-                    logout_url = f"https://{settings.AUTH0_DOMAIN}/v2/logout?{urlencode(params, quote_via=quote_plus)}"
-                    return RedirectResponse(url=logout_url, status_code=302)
+            else:
+                # User suspended or other reason
+                logger.warning(f"Login blocked: {error_message} for user {user.email}")
+                params = {
+                    'returnTo': f"{settings.FRONTEND_URL}/login?error=account_suspended",
+                    'client_id': settings.AUTH0_CLIENT_ID,
+                }
+                logout_url = f"https://{settings.AUTH0_DOMAIN}/v2/logout?{urlencode(params, quote_via=quote_plus)}"
+                return RedirectResponse(url=logout_url, status_code=302)
         
         # Get the ID token (JWT) from Auth0 - frontend will use this
         if not id_token:
@@ -330,34 +325,20 @@ async def login_email_password(
             detail="Invalid email or password"
         )
     
-    # Check if user is active
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is suspended"
-        )
-    
-    # Check if user's firm is revoked
-    # This applies to: firm_admin, firm_advisor, and clients with firm_id
-    if user.firm_id:
-        firm = db.query(Firm).filter(Firm.id == user.firm_id).first()
-        if firm and not firm.is_active:
+    # Check if user is eligible to login (firm revoked, user suspended, etc.)
+    can_login, error_message = check_user_login_eligibility(db, user)
+    if not can_login:
+        if error_message == "firm_revoked":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Firm account has been revoked"
             )
-    
-    if user.role.value == 'client':
-        # Query all firms to check if this client is in any firm's clients array
-        firms_with_client = db.query(Firm).filter(
-            text("clients @> ARRAY[:user_id]::uuid[]").bindparams(user_id=user.id)
-        ).all()
-        for firm in firms_with_client:
-            if not firm.is_active:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Firm account has been revoked"
-                )
+        else:
+            # User suspended or other reason
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=error_message
+            )
     
     # Update last login
     user.last_login = datetime.utcnow()

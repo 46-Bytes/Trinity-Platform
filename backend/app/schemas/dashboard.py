@@ -54,6 +54,15 @@ class ClientDashboardStatsResponse(BaseModel):
     recent_documents: List[ClientDocumentItem]
 
 
+class FirmAdvisorDashboardStatsResponse(BaseModel):
+    """Response model for firm advisor dashboard statistics."""
+    active_clients: int
+    total_engagements: int
+    total_documents: int
+    total_tasks: int
+    total_diagnostics: int
+
+
 class ActivityDataPoint(BaseModel):
     """Single data point for activity chart."""
     date: str

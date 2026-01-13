@@ -65,6 +65,14 @@ interface ClientDashboardStats {
   }>;
 }
 
+interface FirmAdvisorDashboardStats {
+  active_clients: number;
+  total_engagements: number;
+  total_documents: number;
+  total_tasks: number;
+  total_diagnostics: number;
+}
+
 interface ActivityDataPoint {
   date: string;
   users: number;
@@ -358,8 +366,13 @@ function SuperAdminDashboard() {
 function AdvisorDashboard() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { engagements, isLoading: engagementsLoading } = useAppSelector((state) => state.engagement);
   const { tasks, isLoading: tasksLoading } = useAppSelector((state) => state.task);
+  
+  const isFirmAdvisor = user?.role === 'firm_advisor';
+  const [firmAdvisorStats, setFirmAdvisorStats] = useState<FirmAdvisorDashboardStats | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
   
   // Fetch data on mount
   useEffect(() => {
@@ -367,13 +380,56 @@ function AdvisorDashboard() {
     dispatch(fetchTasks({ limit: 1000 }));
   }, [dispatch]);
   
+  // Fetch firm advisor stats from API
+  useEffect(() => {
+    if (isFirmAdvisor) {
+      const fetchFirmAdvisorStats = async () => {
+        try {
+          setIsLoadingStats(true);
+          const token = localStorage.getItem('auth_token');
+          if (!token) {
+            throw new Error('No authentication token found');
+          }
+
+          const response = await fetch(`${API_BASE_URL}/api/dashboard/stats`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: 'Failed to fetch dashboard stats' }));
+            throw new Error(errorData.detail || `HTTP ${response.status}: Failed to fetch dashboard stats`);
+          }
+
+          const data = await response.json();
+          setFirmAdvisorStats(data);
+        } catch (err) {
+          console.error('Failed to fetch firm advisor dashboard stats:', err);
+        } finally {
+          setIsLoadingStats(false);
+        }
+      };
+
+      fetchFirmAdvisorStats();
+    }
+  }, [isFirmAdvisor]);
+  
   // Calculate real analytics
-  const uniqueClients = getUniqueClientIds(engagements).size;
-  const totalEngagements = engagements.length;
-  const totalDocuments = engagements.reduce((sum, e) => sum + (e.documentsCount || 0), 0);
+  // For firm_advisor, use API stats; for regular advisor, calculate from Redux state
+  const uniqueClients = isFirmAdvisor && firmAdvisorStats 
+    ? firmAdvisorStats.active_clients 
+    : getUniqueClientIds(engagements).size;
+  const totalEngagements = isFirmAdvisor && firmAdvisorStats 
+    ? firmAdvisorStats.total_engagements 
+    : engagements.length;
+  const totalDocuments = isFirmAdvisor && firmAdvisorStats 
+    ? firmAdvisorStats.total_documents 
+    : engagements.reduce((sum, e) => sum + (e.documentsCount || 0), 0);
   const pendingTasks = tasks.filter(t => t.status === 'pending' || t.status === 'in_progress').length;
   
-  const isLoading = engagementsLoading || tasksLoading;
+  const isLoading = engagementsLoading || tasksLoading || (isFirmAdvisor && isLoadingStats);
 
   // Calculate progress percentage (tasks completed / total tasks)
   const calculateProgress = (engagement: typeof engagements[0]) => {

@@ -1,5 +1,6 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
+from uuid import UUID
 
 class RecentAIGeneration(BaseModel):
     """Single recent AI generation item."""
@@ -24,6 +25,33 @@ class DashboardStatsResponse(BaseModel):
     ai_generations_change: str
     ai_generations_change_type: str
     recent_ai_generations: List[RecentAIGeneration]
+
+
+class ClientTaskItem(BaseModel):
+    """Task information for client dashboard."""
+    id: str
+    title: str
+    status: str
+    priority: str
+    engagement_name: Optional[str] = None
+    created_at: str
+
+
+class ClientDocumentItem(BaseModel):
+    """Document information for client dashboard."""
+    id: str
+    file_name: str
+    file_size: Optional[int] = None
+    created_at: str
+
+
+class ClientDashboardStatsResponse(BaseModel):
+    """Response model for client dashboard statistics."""
+    total_tasks: int
+    total_documents: int
+    total_diagnostics: int
+    latest_tasks: List[ClientTaskItem]
+    recent_documents: List[ClientDocumentItem]
 
 
 class ActivityDataPoint(BaseModel):

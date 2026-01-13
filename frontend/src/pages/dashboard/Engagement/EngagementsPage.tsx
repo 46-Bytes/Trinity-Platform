@@ -4,6 +4,7 @@ import { Search, Plus, ArrowRight, FileText, CheckSquare, Calendar, Loader2 } fr
 import { fetchEngagements } from '@/store/slices/engagementReducer';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
 import {
   Dialog,
   DialogContent,
@@ -23,10 +24,13 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { engagements, isLoading, error } = useAppSelector((state) => state.engagement);
+  const { user } = useAuth();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  
+  const isClient = user?.role === 'client';
 
   // Fetch engagements on component mount
   useEffect(() => {
@@ -112,10 +116,12 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
           <h1 className="font-heading text-2xl font-bold text-foreground">Engagements</h1>
           <p className="text-muted-foreground mt-1">Manage client engagement workspaces</p>
         </div>
-        <button className="btn-primary" onClick={() => setIsDialogOpen(true)}>
-          <Plus className="w-4 h-4" />
-          New Engagement
-        </button>
+        {!isClient && (
+          <button className="btn-primary" onClick={() => setIsDialogOpen(true)}>
+            <Plus className="w-4 h-4" />
+            New Engagement
+          </button>
+        )}
       </div>
 
       <div className="card-trinity p-6">

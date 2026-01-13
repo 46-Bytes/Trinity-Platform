@@ -296,21 +296,62 @@ export const updateEngagement = createAsyncThunk(
   async ({ id, updates }: { id: string; updates: Partial<Engagement> }, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem('auth_token');
+      
+      // Map frontend fields to backend fields
+      const backendUpdates: any = {};
+      if (updates.engagement_name !== undefined) backendUpdates.engagement_name = updates.engagement_name;
+      if (updates.businessName !== undefined) backendUpdates.business_name = updates.businessName;
+      if (updates.industryName !== undefined) backendUpdates.industry = updates.industryName;
+      if (updates.description !== undefined) backendUpdates.description = updates.description;
+      if (updates.tool !== undefined) backendUpdates.tool = updates.tool;
+      if (updates.status !== undefined) {
+        // Map frontend status to backend status
+        const statusMap: Record<string, string> = {
+          'draft': 'draft',
+          'active': 'active',
+          'on-hold': 'on-hold',
+          'completed': 'completed',
+          'cancelled': 'archived',
+        };
+        backendUpdates.status = statusMap[updates.status] || updates.status;
+      }
+      if (updates.assignedUsers !== undefined) {
+        // Map assignedUsers (array of strings) to secondary_advisor_ids (array of UUIDs)
+        backendUpdates.secondary_advisor_ids = updates.assignedUsers.map(id => id);
+      }
+      
       const response = await fetch(`${API_BASE_URL}/api/engagements/${id}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(updates),
+        body: JSON.stringify(backendUpdates),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update engagement');
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to update engagement' }));
+        throw new Error(errorData.detail || 'Failed to update engagement');
       }
 
       const data = await response.json();
-      return data;
+      
+      // Transform backend response to frontend format
+      return {
+        id: data.id,
+        clientId: data.client_id,
+        clientName: data.client_name || updates.clientName,
+        businessName: data.business_name || updates.businessName,
+        title: data.title || data.engagement_name || updates.title,
+        description: data.description || updates.description,
+        industryName: data.industry_name || data.industry || updates.industryName,
+        status: data.status || updates.status,
+        startDate: data.start_date || data.created_at || updates.startDate,
+        endDate: data.end_date || data.completed_at || updates.endDate,
+        assignedUsers: data.assigned_users || data.secondary_advisor_ids?.map((id: string) => String(id)) || [],
+        createdAt: data.created_at || updates.createdAt,
+        updatedAt: data.updated_at || new Date().toISOString(),
+      } as Engagement;
     } catch (error) {
       return rejectWithValue(error instanceof Error ? error.message : 'Failed to update engagement');
     }

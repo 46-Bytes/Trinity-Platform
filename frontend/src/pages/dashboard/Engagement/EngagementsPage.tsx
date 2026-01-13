@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, ArrowRight, FileText, CheckSquare, Calendar, Loader2 } from 'lucide-react';
-import { fetchEngagements } from '@/store/slices/engagementReducer';
+import { Search, Plus, ArrowRight, FileText, CheckSquare, Calendar, Loader2, Users } from 'lucide-react';
+import { fetchEngagements, fetchUserRoleData } from '@/store/slices/engagementReducer';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -14,7 +14,9 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { EngagementForm } from "@/components/engagement/form";
+import { SecondaryAdvisorDialog } from './SecondaryAdvisorDialog';
 import { toast } from "sonner";
+import type { Engagement } from '@/store/slices/engagementReducer';
 
 interface EngagementsPageProps {
   firmId?: string;
@@ -29,8 +31,18 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSecondaryAdvisorDialogOpen, setIsSecondaryAdvisorDialogOpen] = useState(false);
+  const [selectedEngagement, setSelectedEngagement] = useState<Engagement | null>(null);
   
   const isClient = user?.role === 'client';
+  const isFirmAdvisor = user?.role === 'firm_advisor';
+
+  // Fetch user role data for firm advisors to get advisors list
+  useEffect(() => {
+    if (isFirmAdvisor) {
+      dispatch(fetchUserRoleData());
+    }
+  }, [dispatch, isFirmAdvisor]);
 
   // Fetch engagements on component mount
   useEffect(() => {
@@ -107,6 +119,17 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
       search: searchQuery || undefined,
       firm_id: firmId,
     }));
+  };
+
+  const handleManageSecondaryAdvisors = (engagement: Engagement, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent navigation to engagement detail
+    setSelectedEngagement(engagement);
+    setIsSecondaryAdvisorDialogOpen(true);
+  };
+
+  const handleSecondaryAdvisorDialogClose = () => {
+    setIsSecondaryAdvisorDialogOpen(false);
+    setSelectedEngagement(null);
   };
 
   return (
@@ -224,6 +247,16 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
                           {engagement.industryName && (
                             <span>Industry: {engagement.industryName}</span>
                           )}
+                          {isFirmAdvisor && (
+                            <button
+                              onClick={(e) => handleManageSecondaryAdvisors(engagement, e)}
+                              className="flex items-center gap-1.5 text-accent hover:text-accent/80 transition-colors"
+                              title="Manage secondary advisors"
+                            >
+                              <Users className="w-4 h-4" />
+                              {engagement.assignedUsers?.length || 0} Secondary
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -299,6 +332,26 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Manage Secondary Advisors Dialog */}
+      {isFirmAdvisor && (
+        <SecondaryAdvisorDialog
+          open={isSecondaryAdvisorDialogOpen}
+          onOpenChange={handleSecondaryAdvisorDialogClose}
+          engagement={selectedEngagement}
+          firmId={firmId}
+          statusFilter={statusFilter}
+          searchQuery={searchQuery}
+          onSuccess={() => {
+            // Refetch engagements after successful update
+            dispatch(fetchEngagements({
+              status: statusFilter !== 'all' ? statusFilter : undefined,
+              search: searchQuery || undefined,
+              firm_id: firmId,
+            }));
+          }}
+        />
+      )}
     </div>
   );
 }

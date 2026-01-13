@@ -216,12 +216,21 @@ class FirmService:
     
     def get_firm_advisors(self, firm_id: UUID, current_user: User) -> List[User]:
         """Get all advisors in a firm."""
-        if not can_view_firm_engagements(current_user, firm_id):
+        # Allow super admin, admin, firm admin, and firm advisor (from same firm) to view advisors
+        if current_user.role in [UserRole.SUPER_ADMIN, UserRole.ADMIN]:
+            pass  # Super admin and admin have access
+        elif current_user.role == UserRole.FIRM_ADMIN and current_user.firm_id == firm_id:
+            pass  # Firm admin can view advisors in their firm
+        elif current_user.role == UserRole.FIRM_ADVISOR and current_user.firm_id == firm_id:
+            pass  # Firm advisor can view advisors in their own firm
+        else:
             raise ValueError("Insufficient permissions")
         
+        # Return both FIRM_ADVISOR and FIRM_ADMIN as they can both be secondary advisors
         return self.db.query(User).filter(
             User.firm_id == firm_id,
-            User.role.in_([UserRole.FIRM_ADVISOR])
+            User.role.in_([UserRole.FIRM_ADVISOR, UserRole.FIRM_ADMIN]),
+            User.is_active == True
         ).all()
     
     def get_advisor_engagements(self, firm_id: UUID, advisor_id: UUID, current_user: User) -> Dict[str, List[Engagement]]:

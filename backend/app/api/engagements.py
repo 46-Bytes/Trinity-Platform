@@ -537,7 +537,7 @@ async def update_engagement(
         )
     
     # Check permissions
-    if current_user.role not in [UserRole.ADVISOR, UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+    if current_user.role not in [UserRole.ADVISOR, UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN, UserRole.FIRM_ADVISOR]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only advisors and admins can update engagements."
@@ -556,16 +556,25 @@ async def update_engagement(
     # Handle secondary_advisor_ids separately if provided
     if "secondary_advisor_ids" in update_data:
         if update_data["secondary_advisor_ids"] is not None:
-            # Verify all secondary advisors exist
+            # Verify all secondary advisors exist and have valid roles
             secondary_advisors = db.query(User).filter(
                 User.id.in_(update_data["secondary_advisor_ids"]),
-                User.role == UserRole.ADVISOR
+                User.role.in_([UserRole.ADVISOR, UserRole.FIRM_ADVISOR, UserRole.FIRM_ADMIN])
             ).all()
             if len(secondary_advisors) != len(update_data["secondary_advisor_ids"]):
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="One or more secondary advisors not found or invalid."
                 )
+            
+            # For firm engagements, ensure all secondary advisors are from the same firm
+            if engagement.firm_id:
+                for advisor in secondary_advisors:
+                    if advisor.firm_id != engagement.firm_id:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"Secondary advisor {advisor.name or advisor.email} must be from the same firm as the engagement."
+                        )
     
     for field, value in update_data.items():
         setattr(engagement, field, value)

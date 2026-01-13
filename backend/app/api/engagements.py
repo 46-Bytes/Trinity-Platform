@@ -23,6 +23,7 @@ from ..schemas.engagement import (
     EngagementDetail,
 )
 from ..services.role_check import get_current_user_from_token, check_engagement_access
+from ..models.adv_client import AdvisorClient
 
 # Configure logger for this module
 logger = logging.getLogger(__name__)
@@ -419,11 +420,33 @@ async def get_user_role_data(
         }
     
     elif current_user.role == UserRole.CLIENT:
-        # Get all advisors (for now - can be filtered by firm later)
-        advisors = db.query(User).filter(
-            User.role == UserRole.ADVISOR,
-            User.is_active == True
+        # Get advisors associated with this client through advisor_client table        
+        associations = db.query(AdvisorClient).filter(
+            AdvisorClient.client_id == current_user.id,
+            AdvisorClient.status == 'active'
         ).all()
+        
+        associated_advisor_ids = [assoc.advisor_id for assoc in associations]
+        
+        if not associated_advisor_ids:
+            advisors = []
+        else:
+            # If client has firm_id, only return advisors with same firm_id
+            # If client has no firm_id, only return advisors with no firm_id (solo advisors)
+            if current_user.firm_id:
+                advisors = db.query(User).filter(
+                    User.id.in_(associated_advisor_ids),
+                    User.firm_id == current_user.firm_id,
+                    User.role.in_([UserRole.FIRM_ADVISOR]),
+                    User.is_active == True
+                ).all()
+            else:
+                advisors = db.query(User).filter(
+                    User.id.in_(associated_advisor_ids),
+                    User.firm_id.is_(None),
+                    User.role == UserRole.ADVISOR,
+                    User.is_active == True
+                ).all()
         
         return {
             "user_role": "client",

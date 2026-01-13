@@ -48,7 +48,7 @@ const navItems: NavItem[] = [
   { label: 'Tasks', href: '/dashboard/tasks', icon: CheckSquare, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
   // { label: 'Documents', href: '/dashboard/documents', icon: FileText, roles: ['super_admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
   // { label: 'AI Tools', href: '/dashboard/ai-tools', icon: Brain, roles: ['super_admin', 'admin', 'advisor', 'firm_admin', 'firm_advisor'] },
-  { label: 'Trinity Chat', href: '/dashboard/chat', icon: MessageSquare, roles: ['client'] },
+  // { label: 'Trinity Chat', href: '/dashboard/chat', icon: MessageSquare, roles: ['client'] },
   // { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, roles: ['super_admin', 'firm_admin'] },
   { label: 'Firm Management', href: '/dashboard/firm', icon: Building2, roles: ['firm_admin'] },
   { label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },

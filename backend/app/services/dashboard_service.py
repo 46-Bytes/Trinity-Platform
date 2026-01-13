@@ -1,12 +1,21 @@
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_
+from sqlalchemy import func, and_, or_
+from uuid import UUID
 
 from ..models.user import User
 from ..models.engagement import Engagement
 from ..models.firm import Firm
 from ..models.diagnostic import Diagnostic
-from ..schemas.dashboard import DashboardStatsResponse, RecentAIGeneration
+from ..models.task import Task
+from ..models.media import Media
+from ..schemas.dashboard import (
+    DashboardStatsResponse, 
+    RecentAIGeneration,
+    ClientDashboardStatsResponse,
+    ClientTaskItem,
+    ClientDocumentItem
+)
 
 
 def calculate_percentage_change(current: int, previous: int) -> tuple[str, str]:
@@ -221,4 +230,86 @@ def get_superadmin_dashboard_stats(db: Session) -> DashboardStatsResponse:
         ai_generations_change=ai_change_str,
         ai_generations_change_type=ai_change_type,
         recent_ai_generations=recent_ai_generations_list,
+    )
+
+
+def get_client_dashboard_stats(db: Session, client_user_id: UUID) -> ClientDashboardStatsResponse:
+    """
+    Get dashboard statistics for a client user.
+    
+    Returns:
+        ClientDashboardStatsResponse with:
+        - Total tasks (assigned to or created by client, in their engagements)
+        - Total documents (uploaded by client)
+        - Total diagnostics (from client's engagements)
+        - Latest tasks list
+        - Recent documents list (first 3)
+    """
+    # Get all engagements where client is the client_id
+    client_engagements = db.query(Engagement).filter(
+        Engagement.client_id == client_user_id
+    ).all()
+    engagement_ids = [e.id for e in client_engagements]
+    
+    # If no engagements, return empty stats
+    if not engagement_ids:
+        return ClientDashboardStatsResponse(total_tasks=0,total_documents=0,total_diagnostics=0,latest_tasks=[],recent_documents=[])
+    
+    tasks_query = db.query(Task).filter(
+        Task.engagement_id.in_(engagement_ids),
+        or_(
+            Task.assigned_to_user_id == client_user_id,
+            Task.created_by_user_id == client_user_id
+        )
+    )
+    
+    total_tasks = tasks_query.count()
+    
+    # Get latest tasks (ordered by created_at desc, limit 20)
+    latest_tasks_query = tasks_query.order_by(Task.created_at.desc()).limit(20).all()
+    
+    # Format latest tasks
+    latest_tasks_list = []
+    for task in latest_tasks_query:
+        # Get engagement name
+        engagement_name = None
+        if task.engagement_id:
+            engagement = db.query(Engagement).filter(Engagement.id == task.engagement_id).first()
+            if engagement:
+                engagement_name = engagement.engagement_name
+        
+        latest_tasks_list.append(ClientTaskItem(id=str(task.id), title=task.title, status=task.status, priority=task.priority,engagement_name=engagement_name,created_at=task.created_at.isoformat() if task.created_at else ""))
+    
+    # Get documents uploaded by client (exclude soft-deleted)
+    documents_query = db.query(Media).filter(
+        Media.user_id == client_user_id,
+        Media.deleted_at.is_(None)
+    )
+    
+    total_documents = documents_query.count()
+    
+    # Get recent documents (ordered by created_at desc, limit 3)
+    recent_documents_query = documents_query.order_by(Media.created_at.desc()).limit(3).all()
+    
+    # Format recent documents
+    recent_documents_list = []
+    for document in recent_documents_query:
+        recent_documents_list.append(ClientDocumentItem(
+            id=str(document.id),
+            file_name=document.file_name,
+            file_size=document.file_size,
+            created_at=document.created_at.isoformat() if document.created_at else ""
+        ))
+    
+    # Get diagnostics from client's engagements
+    total_diagnostics = db.query(Diagnostic).filter(
+        Diagnostic.engagement_id.in_(engagement_ids)
+    ).count()
+    
+    return ClientDashboardStatsResponse(
+        total_tasks=total_tasks,
+        total_documents=total_documents,
+        total_diagnostics=total_diagnostics,
+        latest_tasks=latest_tasks_list,
+        recent_documents=recent_documents_list
     )

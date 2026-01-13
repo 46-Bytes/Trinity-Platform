@@ -1,13 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { Search, Loader2, Building2, Users, Briefcase, Mail, Plus, Eye } from 'lucide-react';
+import { Search, Loader2, Building2, Users, Briefcase, Mail, Plus, MoreVertical, Eye, Ban, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { fetchFirms } from '@/store/slices/firmReducer';
+import { fetchFirms, revokeFirm, reactivateFirm } from '@/store/slices/firmReducer';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { CreateFirmDialog } from '@/components/firms/CreateFirmDialog';
+import { RevokeFirmDialog } from '@/components/firms/RevokeFirmDialog';
 
 export default function FirmsPage() {
   const { user } = useAuth();
@@ -17,6 +24,8 @@ export default function FirmsPage() {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
+  const [firmToRevoke, setFirmToRevoke] = useState<{ id: string; name: string } | null>(null);
 
   // Check if user is superadmin
   const isSuperAdmin = user?.role === 'super_admin';
@@ -72,6 +81,21 @@ export default function FirmsPage() {
 
   const handleCreateSuccess = () => {
     dispatch(fetchFirms());
+  };
+
+  const handleRevokeFirmClick = (firmId: string, firmName: string) => {
+    setFirmToRevoke({ id: firmId, name: firmName });
+    setRevokeDialogOpen(true);
+  };
+
+  const handleReactivateFirm = async (firmId: string) => {
+    try {
+      await dispatch(reactivateFirm(firmId)).unwrap();
+      toast.success('Firm reactivated successfully');
+      dispatch(fetchFirms());
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to reactivate firm');
+    }
   };
 
   return (
@@ -182,15 +206,47 @@ export default function FirmsPage() {
                         {formatDate(firm.created_at)}
                       </td>
                       <td>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => navigate(`/dashboard/firms/${firm.id}/clients`)}
-                          className="h-8 w-8 p-0"
-                          title="View firm details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              title="Firm actions"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => navigate(`/dashboard/firms/${firm.id}/clients`)}
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
+                            {isSuperAdmin && (
+                              <>
+                                {firm.is_active !== false ? (
+                                  <DropdownMenuItem
+                                    onClick={() => handleRevokeFirmClick(firm.id, firm.firm_name)}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Ban className="w-4 h-4 mr-2" />
+                                    Revoke Firm
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem
+                                    onClick={() => handleReactivateFirm(firm.id)}
+                                    className="text-green-600 focus:text-green-600"
+                                  >
+                                    <CheckCircle className="w-4 h-4 mr-2" />
+                                    Reactivate Firm
+                                  </DropdownMenuItem>
+                                )}
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                     </tr>
                   ))}
@@ -222,6 +278,16 @@ export default function FirmsPage() {
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
         onSuccess={handleCreateSuccess}
+      />
+
+      <RevokeFirmDialog
+        open={revokeDialogOpen}
+        onOpenChange={setRevokeDialogOpen}
+        firmId={firmToRevoke?.id || null}
+        firmName={firmToRevoke?.name || null}
+        onSuccess={() => {
+          setFirmToRevoke(null);
+        }}
       />
     </div>
   );

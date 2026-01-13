@@ -2,10 +2,11 @@
 Authentication API routes using Auth0 Universal Login and email/password.
 """
 import logging
-from fastapi import APIRouter, Depends, Request, HTTPException, status
+from fastapi import APIRouter, Depends, Request, HTTPException, status, Query
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from urllib.parse import urlencode, quote_plus
 from pydantic import BaseModel, EmailStr
 from datetime import datetime, timedelta
@@ -16,6 +17,7 @@ from ..config import settings
 from ..utils.auth import get_current_user, get_token_expiry_time
 from ..utils.password import hash_password, verify_password
 from ..models.user import User
+from ..models.firm import Firm
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +28,7 @@ oauth = AuthService.create_oauth_client()
 
 
 @router.get("/login")
-async def login(request: Request):
+async def login(request: Request, force_login: bool = Query(False, description="Force Auth0 to show login page")):
     """
     Initiate Auth0 Universal Login flow.
     
@@ -38,15 +40,25 @@ async def login(request: Request):
     3. This endpoint redirects to Auth0 Universal Login
     4. User logs in on Auth0's hosted page
     5. Auth0 redirects back to /callback
+    
+    Args:
+        force_login: If True, forces Auth0 to show login page (prompt=login)
+                    Useful when user needs to try different credentials
     """
     # Build the callback URL
     redirect_uri = request.url_for('callback')
+    
+    # Prepare authorization parameters
+    auth_params = {}
+    if force_login:
+        auth_params['prompt'] = 'login'
     
     # Redirect to Auth0 Universal Login
     # Explicitly skip consent screen and don't request API access
     return await oauth.auth0.authorize_redirect(
         request,
         redirect_uri=str(redirect_uri),
+        **auth_params
         # Don't request any API audience - only user info
         # This prevents the "Authorize App" consent screen
     )
@@ -118,6 +130,35 @@ async def callback(
         
         # Create or update user in database
         user = AuthService.get_or_create_user(db, user_info)
+        
+        # Check if user's firm is revoked
+        if user.firm_id:
+            firm = db.query(Firm).filter(Firm.id == user.firm_id).first()
+            if firm and not firm.is_active:
+                logger.warning(f"Login blocked: Firm {firm.id} is revoked for user {user.email}")
+                # Logout from Auth0 first, then redirect to login with error
+                # This ensures user can try different credentials
+                params = {
+                    'returnTo': f"{settings.FRONTEND_URL}/login?error=firm_revoked",
+                    'client_id': settings.AUTH0_CLIENT_ID,
+                }
+                logout_url = f"https://{settings.AUTH0_DOMAIN}/v2/logout?{urlencode(params, quote_via=quote_plus)}"
+                return RedirectResponse(url=logout_url, status_code=302)
+        
+        if user.role.value == 'client':
+            firms_with_client = db.query(Firm).filter(
+                text("clients @> ARRAY[:user_id]::uuid[]").bindparams(user_id=user.id)
+            ).all()
+            for firm in firms_with_client:
+                if not firm.is_active:
+                    logger.warning(f"Login blocked: Client {user.email} is in revoked firm {firm.id}")
+                    # This ensures user can try different credentials
+                    params = {
+                        'returnTo': f"{settings.FRONTEND_URL}/login?error=firm_revoked",
+                        'client_id': settings.AUTH0_CLIENT_ID,
+                    }
+                    logout_url = f"https://{settings.AUTH0_DOMAIN}/v2/logout?{urlencode(params, quote_via=quote_plus)}"
+                    return RedirectResponse(url=logout_url, status_code=302)
         
         # Get the ID token (JWT) from Auth0 - frontend will use this
         if not id_token:
@@ -295,6 +336,28 @@ async def login_email_password(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is suspended"
         )
+    
+    # Check if user's firm is revoked
+    # This applies to: firm_admin, firm_advisor, and clients with firm_id
+    if user.firm_id:
+        firm = db.query(Firm).filter(Firm.id == user.firm_id).first()
+        if firm and not firm.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Firm account has been revoked"
+            )
+    
+    if user.role.value == 'client':
+        # Query all firms to check if this client is in any firm's clients array
+        firms_with_client = db.query(Firm).filter(
+            text("clients @> ARRAY[:user_id]::uuid[]").bindparams(user_id=user.id)
+        ).all()
+        for firm in firms_with_client:
+            if not firm.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Firm account has been revoked"
+                )
     
     # Update last login
     user.last_login = datetime.utcnow()

@@ -34,6 +34,12 @@ from ..schemas.firm import (
     EngagementReassignRequest,
     AdvisorSuspendRequest,
 )
+from ..models.user import User
+from sqlalchemy import func
+from sqlalchemy import func
+from ..models.engagement import Engagement
+from ..models.diagnostic import Diagnostic
+from ..models.task import Task
 
 router = APIRouter(prefix="/api/firms", tags=["firms"])
 
@@ -133,11 +139,6 @@ async def list_firms(
         )
     
     firms = query.order_by(Firm.created_at.desc()).offset(skip).limit(limit).all()
-
-    # Enrich firm data with admin name/email and basic counts for UI
-    from ..models.user import User
-    from sqlalchemy import func
-
     enriched_firms: List[FirmResponse] = []
     for firm in firms:
         # Get firm admin user
@@ -219,7 +220,14 @@ async def update_firm(
         )
     
     # Check permissions
-    if current_user.role not in [UserRole.SUPER_ADMIN, UserRole.ADMIN]:
+    # Only super admin can revoke/reactivate firms (change is_active)
+    if 'is_active' in firm_data.model_dump(exclude_unset=True):
+        if current_user.role != UserRole.SUPER_ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only super admins can revoke or reactivate firms"
+            )
+    elif current_user.role not in [UserRole.SUPER_ADMIN, UserRole.ADMIN]:
         if not can_manage_firm_users(current_user, firm_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -644,10 +652,6 @@ async def get_firm_stats(
                 detail="Insufficient permissions"
             )
     
-    from sqlalchemy import func
-    from ..models.engagement import Engagement
-    from ..models.diagnostic import Diagnostic
-    from ..models.task import Task
     
     # Count engagements
     engagements_count = db.query(func.count(Engagement.id)).filter(

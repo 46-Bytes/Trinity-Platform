@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from ..database import get_db
 from ..models.user import User, UserRole
-from ..schemas.user import UserResponse
+from ..schemas.user import UserResponse, UserUpdate
 from ..utils.auth import get_current_user
 from ..services.auth_service import AuthService
 
@@ -240,9 +240,7 @@ async def get_user(
 @router.patch("/{user_id}", response_model=UserResponse)
 async def update_user(
     user_id: UUID,
-    name: Optional[str] = None,
-    role: Optional[str] = None,
-    is_active: Optional[bool] = None,
+    user_update: UserUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -263,25 +261,25 @@ async def update_user(
         )
     
     # Update fields if provided
-    if name is not None:
-        user.name = name
+    if user_update.name is not None:
+        user.name = user_update.name
         # Update first_name and last_name
-        name_parts = name.split(" ", 1)
-        user.first_name = name_parts[0] if name_parts else name
+        name_parts = user_update.name.split(" ", 1)
+        user.first_name = name_parts[0] if name_parts else user_update.name
         user.last_name = name_parts[1] if len(name_parts) > 1 else None
     
-    if role is not None:
+    if user_update.role is not None:
         try:
-            role_enum = UserRole(role.lower())
+            role_enum = UserRole(user_update.role.lower())
             user.role = role_enum
         except ValueError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid role: {role}"
+                detail=f"Invalid role: {user_update.role}"
             )
     
-    if is_active is not None:
-        user.is_active = is_active
+    if user_update.is_active is not None:
+        user.is_active = user_update.is_active
     
     db.commit()
     db.refresh(user)

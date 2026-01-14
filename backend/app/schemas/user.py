@@ -2,7 +2,7 @@
 Pydantic schemas for User model validation and serialization.
 """
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
 
@@ -42,6 +42,36 @@ class UserResponse(UserBase):
     last_login: Optional[datetime] = None
     
     model_config = {"from_attributes": True}
+
+
+class UserFileResponse(BaseModel):
+    """Schema for user file information."""
+    id: UUID
+    file_name: str
+    file_size: Optional[int] = None
+    file_type: Optional[str] = None
+    file_extension: Optional[str] = None
+    created_at: datetime
+    description: Optional[str] = None
+    question_field_name: Optional[str] = None
+
+
+class UserDiagnosticResponse(BaseModel):
+    """Schema for diagnostic report information."""
+    id: UUID
+    engagement_id: UUID
+    status: str
+    overall_score: Optional[float] = None
+    report_url: Optional[str] = None
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+
+
+class UserDetailResponse(UserResponse):
+    """Schema for detailed user response with files, diagnostics, and engagement count."""
+    files: List[UserFileResponse] = Field(default_factory=list, description="Files uploaded by the user")
+    diagnostics: List[UserDiagnosticResponse] = Field(default_factory=list, description="Diagnostic reports generated for the user")
+    engagements_count: int = Field(default=0, description="Number of engagements where user is the client")
 
 
 

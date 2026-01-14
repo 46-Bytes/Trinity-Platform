@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { roleLabels, roleColors, UserRole } from '@/types/auth';
-import { Search, Plus, MoreHorizontal, Loader2, Edit, UserPlus } from 'lucide-react';
+import { Search, Plus, MoreHorizontal, Loader2, Edit, UserPlus, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchUsers, createUser, updateUser } from '@/store/slices/userReducer';
@@ -34,6 +35,7 @@ import type { User } from '@/store/slices/userReducer';
 
 export default function UsersPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { users, isLoading, isCreating, isUpdating, error } = useAppSelector((state) => state.user);
   
@@ -249,6 +251,15 @@ export default function UsersPage() {
                             </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            {user?.role === 'super_admin' && (
+                              <DropdownMenuItem 
+                                className="cursor-pointer"
+                                onClick={() => navigate(`/dashboard/users/${u.id}`)}
+                              >
+                                <Eye className="w-4 h-4 mr-2" />
+                                View Details
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem 
                               className="cursor-pointer"
                               onClick={() => handleEditUser(u)}

@@ -4,7 +4,7 @@ import { roleLabels, roleColors, UserRole } from '@/types/auth';
 import { Search, Plus, MoreHorizontal, Loader2, Edit, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { fetchUsers, createUser } from '@/store/slices/userReducer';
+import { fetchUsers, createUser, updateUser } from '@/store/slices/userReducer';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,13 +35,14 @@ import type { User } from '@/store/slices/userReducer';
 export default function UsersPage() {
   const { user } = useAuth();
   const dispatch = useAppDispatch();
-  const { users, isLoading, isCreating, error } = useAppSelector((state) => state.user);
+  const { users, isLoading, isCreating, isUpdating, error } = useAppSelector((state) => state.user);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedAdvisor, setSelectedAdvisor] = useState<User | null>(null);
   const [isAssociationDialogOpen, setIsAssociationDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   
   // Form state
   const [newUserEmail, setNewUserEmail] = useState('');
@@ -80,6 +81,48 @@ export default function UsersPage() {
       setNewUserRole('client');
     } catch (error) {
 
+    }
+  };
+
+  const handleEditUser = (user: User) => {
+    setEditingUser(user);
+    setNewUserName(user.name);
+    setNewUserRole(user.role);
+    setNewUserEmail(user.email);
+    setIsDialogOpen(true);
+  };
+
+  const handleUpdateUser = async () => {
+    if (!editingUser || !newUserName) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      await dispatch(updateUser({
+        id: editingUser.id,
+        name: newUserName,
+        role: newUserRole,
+      })).unwrap();
+      
+      toast.success('User updated successfully');
+      setIsDialogOpen(false);
+      setEditingUser(null);
+      setNewUserEmail('');
+      setNewUserName('');
+      setNewUserRole('client');
+    } catch (error) {
+
+    }
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setIsDialogOpen(open);
+    if (!open) {
+      setEditingUser(null);
+      setNewUserEmail('');
+      setNewUserName('');
+      setNewUserRole('client');
     }
   };
 
@@ -206,7 +249,10 @@ export default function UsersPage() {
                             </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem className="cursor-pointer">
+                            <DropdownMenuItem 
+                              className="cursor-pointer"
+                              onClick={() => handleEditUser(u)}
+                            >
                               <Edit className="w-4 h-4 mr-2" />
                               Edit
                             </DropdownMenuItem>
@@ -251,13 +297,15 @@ export default function UsersPage() {
         )}
       </div>
 
-      {/* Add Client Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      {/* Add/Edit User Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Add New Client</DialogTitle>
+            <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
             <DialogDescription>
-              Create a new user account. The user will need to set up Auth0 authentication later.
+              {editingUser 
+                ? 'Update user information. Email cannot be changed.'
+                : 'Create a new user account. The user will need to set up Auth0 authentication later.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -269,6 +317,7 @@ export default function UsersPage() {
                 placeholder="user@example.com"
                 value={newUserEmail}
                 onChange={(e) => setNewUserEmail(e.target.value)}
+                disabled={!!editingUser}
               />
             </div>
             <div className="space-y-2">
@@ -298,26 +347,21 @@ export default function UsersPage() {
           <div className="flex justify-end gap-2 pt-4 border-t">
             <Button
               variant="outline"
-              onClick={() => {
-                setIsDialogOpen(false);
-                setNewUserEmail('');
-                setNewUserName('');
-                setNewUserRole('client');
-              }}
+              onClick={() => handleDialogClose(false)}
             >
               Cancel
             </Button>
             <Button
-              onClick={handleCreateUser}
-              disabled={isCreating || !newUserEmail || !newUserName}
+              onClick={editingUser ? handleUpdateUser : handleCreateUser}
+              disabled={(isCreating || isUpdating) || !newUserEmail || !newUserName}
             >
-              {isCreating ? (
+              {(isCreating || isUpdating) ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Creating...
+                  {editingUser ? 'Updating...' : 'Creating...'}
                 </>
               ) : (
-                'Create Client'
+                editingUser ? 'Update User' : 'Create User'
               )}
             </Button>
           </div>

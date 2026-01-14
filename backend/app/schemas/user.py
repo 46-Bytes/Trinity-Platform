@@ -23,6 +23,13 @@ class UserCreate(UserBase):
     email_verified: bool = False
 
 
+class UserUpdate(BaseModel):
+    """Schema for updating a user."""
+    name: Optional[str] = None
+    role: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
 class UserResponse(UserBase):
     """Schema for user response."""
     id: UUID

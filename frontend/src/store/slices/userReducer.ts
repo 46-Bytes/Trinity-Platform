@@ -18,6 +18,7 @@ interface UserState {
   users: User[];
   isLoading: boolean;
   isCreating: boolean;
+  isUpdating: boolean;
   error: string | null;
 }
 
@@ -92,11 +93,48 @@ export const createUser = createAsyncThunk(
   }
 );
 
+export const updateUser = createAsyncThunk(
+  'user/updateUser',
+  async (userData: { id: string; name?: string; role?: UserRole; is_active?: boolean }, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const body: Record<string, any> = {};
+      if (userData.name !== undefined) body.name = userData.name;
+      if (userData.role !== undefined) body.role = userData.role;
+      if (userData.is_active !== undefined) body.is_active = userData.is_active;
+
+      const response = await fetch(`${API_BASE_URL}/api/users/${userData.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to update user' }));
+        throw new Error(errorData.detail || `HTTP ${response.status}: Failed to update user`);
+      }
+
+      const data = await response.json();
+      return data as User;
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to update user');
+    }
+  }
+);
+
 // Initial state
 const initialState: UserState = {
   users: [],
   isLoading: false,
   isCreating: false,
+  isUpdating: false,
   error: null,
 };
 
@@ -135,6 +173,22 @@ const userSlice = createSlice({
       })
       .addCase(createUser.rejected, (state, action) => {
         state.isCreating = false;
+        state.error = action.payload as string;
+      })
+      // Update user
+      .addCase(updateUser.pending, (state) => {
+        state.isUpdating = true;
+        state.error = null;
+      })
+      .addCase(updateUser.fulfilled, (state, action) => {
+        state.isUpdating = false;
+        const index = state.users.findIndex(u => u.id === action.payload.id);
+        if (index !== -1) {
+          state.users[index] = action.payload;
+        }
+      })
+      .addCase(updateUser.rejected, (state, action) => {
+        state.isUpdating = false;
         state.error = action.payload as string;
       });
   },

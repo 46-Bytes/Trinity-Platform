@@ -7,9 +7,16 @@ from typing import List, Optional
 from uuid import UUID, uuid4
 from pydantic import BaseModel
 
+from sqlalchemy import or_
+from fastapi.responses import FileResponse
+from pathlib import Path
+
 from ..database import get_db
 from ..models.user import User, UserRole
-from ..schemas.user import UserResponse, UserUpdate
+from ..models.media import Media
+from ..models.engagement import Engagement
+from ..models.diagnostic import Diagnostic
+from ..schemas.user import UserResponse, UserUpdate, UserDetailResponse, UserFileResponse, UserDiagnosticResponse
 from ..utils.auth import get_current_user
 from ..services.auth_service import AuthService
 
@@ -197,19 +204,26 @@ async def create_user(
         last_login=new_user.last_login,
     )
 
-@router.get("/{user_id}", response_model=UserResponse)
+@router.get("/{user_id}", response_model=UserDetailResponse)
 async def get_user(
     user_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
-    Get a specific user by ID (admin/super_admin only).
+    Get a specific user by ID with detailed information (super_admin only).
+    
+    Returns:
+    - Basic user information
+    - Files uploaded by the user
+    - Diagnostic reports generated for engagements where user is involved (client, advisor, or firm advisor)
+    - Count of engagements where user is involved in any capacity
     """
-    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+    # Only super_admin can view detailed user information
+    if current_user.role != UserRole.SUPER_ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can view user details"
+            detail="Only super_admin can view detailed user information"
         )
     
     user = db.query(User).filter(User.id == user_id).first()
@@ -219,7 +233,85 @@ async def get_user(
             detail=f"User {user_id} not found"
         )
     
-    return UserResponse(
+    # Get files uploaded by the user
+    files = db.query(Media).filter(
+        Media.user_id == user_id,
+        Media.deleted_at.is_(None)  # Only non-deleted files
+    ).order_by(Media.created_at.desc()).all()
+    
+    files_response = [
+        UserFileResponse(
+            id=file.id,
+            file_name=file.file_name,
+            file_size=file.file_size,
+            file_type=file.file_type,
+            file_extension=file.file_extension,
+            created_at=file.created_at,
+            description=file.description,
+            question_field_name=file.question_field_name,
+        )
+        for file in files
+    ]
+    
+    # Get engagements where user is involved in any capacity:
+    direct_engagements = db.query(Engagement).filter(
+        or_(
+            Engagement.client_id == user_id,
+            Engagement.primary_advisor_id == user_id,
+        )
+    ).all()
+    
+    # Get engagements where user might be secondary advisor or firm advisor
+    all_engagements = list(direct_engagements)
+    engagement_ids_set = {eng.id for eng in direct_engagements}
+    
+    # Get engagements with secondary advisors or firm_id to check
+    if user.firm_id:
+        # Get engagements for the firm
+        firm_engagements = db.query(Engagement).filter(Engagement.firm_id == user.firm_id).all()
+        for eng in firm_engagements:
+            if eng.id not in engagement_ids_set:
+                all_engagements.append(eng)
+                engagement_ids_set.add(eng.id)
+    
+    # Get all engagements that have secondary_advisor_ids and check if user is in them
+    engagements_with_secondary = db.query(Engagement).filter(
+        Engagement.secondary_advisor_ids.isnot(None)
+    ).all()
+    
+    for eng in engagements_with_secondary:
+        if eng.id in engagement_ids_set:
+            continue
+        # Check if user is in secondary_advisor_ids array
+        if eng.secondary_advisor_ids and user_id in eng.secondary_advisor_ids:
+            all_engagements.append(eng)
+            engagement_ids_set.add(eng.id)
+    
+    engagements = all_engagements
+    engagements_count = len(engagements)
+    
+    # Get diagnostics for all those engagements
+    engagement_ids = [eng.id for eng in engagements]
+    diagnostics = []
+    if engagement_ids:
+        diagnostics = db.query(Diagnostic).filter(
+            Diagnostic.engagement_id.in_(engagement_ids)
+        ).order_by(Diagnostic.created_at.desc()).all()
+    
+    diagnostics_response = [
+        UserDiagnosticResponse(
+            id=diagnostic.id,
+            engagement_id=diagnostic.engagement_id,
+            status=diagnostic.status,
+            overall_score=float(diagnostic.overall_score) if diagnostic.overall_score else None,
+            report_url=diagnostic.report_url,
+            created_at=diagnostic.created_at,
+            completed_at=diagnostic.completed_at,
+        )
+        for diagnostic in diagnostics
+    ]
+    
+    return UserDetailResponse(
         id=user.id,
         auth0_id=user.auth0_id,
         email=user.email,
@@ -234,6 +326,84 @@ async def get_user(
         created_at=user.created_at,
         updated_at=user.updated_at,
         last_login=user.last_login,
+        files=files_response,
+        diagnostics=diagnostics_response,
+        engagements_count=engagements_count,
+    )
+
+
+@router.get("/{user_id}/files/{file_id}/download")
+async def download_user_file(
+    user_id: UUID,
+    file_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Download a file uploaded by a user (super_admin only).
+    
+    Allows super_admin to view/download any file uploaded by any user.
+    """
+    # Only super_admin can download files
+    if current_user.role != UserRole.SUPER_ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only super_admin can download user files"
+        )
+    
+    # Verify user exists
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User {user_id} not found"
+        )
+    
+    # Get the file
+    media = db.query(Media).filter(
+        Media.id == file_id,
+        Media.user_id == user_id,
+        Media.deleted_at.is_(None)
+    ).first()
+    
+    if not media:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found"
+        )
+    
+    # Check if file exists on disk
+    file_path = Path(media.file_path)
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found on server"
+        )
+    
+    # Determine media type
+    media_type_map = {
+        'pdf': 'application/pdf',
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'gif': 'image/gif',
+        'doc': 'application/msword',
+        'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'xls': 'application/vnd.ms-excel',
+        'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'txt': 'text/plain',
+    }
+    
+    ext = media.file_extension.lower() if media.file_extension else ''
+    media_type = media_type_map.get(ext, 'application/octet-stream')
+    
+    return FileResponse(
+        path=str(file_path),
+        filename=media.file_name,
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{media.file_name}"'
+        }
     )
 
 

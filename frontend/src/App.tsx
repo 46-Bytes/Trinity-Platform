@@ -17,7 +17,8 @@ import NotFound from "./pages/NotFound";
 // Dashboard
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import DashboardHome from "./pages/dashboard/DashboardHome";
-import UsersPage from "./pages/dashboard/UsersPage";
+import UsersPage from "./pages/dashboard/users/UsersPage";
+import UserDetailPage from "./pages/dashboard/users/details/UserDetailPage";
 import ClientsPage from "./pages/dashboard/ClientsPage";
 import AdvisorsPage from "./pages/dashboard/AdvisorsPage";
 import EngagementsPage from "./pages/dashboard/Engagement/EngagementsPage";
@@ -67,6 +68,7 @@ function AppRoutes() {
       }>
         <Route index element={<DashboardHome />} />
         <Route path="users" element={<UsersPage />} />
+        <Route path="users/:id" element={<UserDetailPage />} />
         <Route path="clients" element={<ClientsPage />} />
         <Route path="advisors" element={<AdvisorsPage />} />
         <Route path="engagements" element={<EngagementsPage />} />

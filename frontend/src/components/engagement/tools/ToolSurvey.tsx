@@ -467,17 +467,24 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
               Previous
             </Button>
             
-            <Button 
-              onClick={handleNextPage} 
-              disabled={isSaving || isLoading || !diagnostic?.id}
-              className="flex-shrink-0"
-            >
-              {isSaving 
-                ? 'Saving...' 
-                : currentPage === totalPages - 1 
-                ? 'Submit' 
-                : 'Next'}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={handleSaveProgress}
+                disabled={isSaving || isLoading || !diagnostic?.id}
+                className="flex-shrink-0"
+              >
+                {isSaving ? 'Saving...' : 'Save'}
+              </Button>
+              
+              <Button 
+                onClick={handleNextPage} 
+                disabled={isSaving || isLoading || !diagnostic?.id}
+                className="flex-shrink-0"
+              >
+                {currentPage === totalPages - 1 ? 'Submit' : 'Next'}
+              </Button>
+            </div>
           </div>
         </>
       )}

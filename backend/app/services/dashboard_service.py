@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_, or_
+from sqlalchemy import func, and_, or_, text, distinct
 from uuid import UUID
 
 from ..models.user import User
@@ -8,13 +8,15 @@ from ..models.engagement import Engagement
 from ..models.firm import Firm
 from ..models.diagnostic import Diagnostic
 from ..models.task import Task
-from ..models.media import Media
+from ..models.media import Media, diagnostic_media
+from ..models.adv_client import AdvisorClient
 from ..schemas.dashboard import (
     DashboardStatsResponse, 
     RecentAIGeneration,
     ClientDashboardStatsResponse,
     ClientTaskItem,
-    ClientDocumentItem
+    ClientDocumentItem,
+    FirmAdvisorDashboardStatsResponse
 )
 
 
@@ -312,4 +314,95 @@ def get_client_dashboard_stats(db: Session, client_user_id: UUID) -> ClientDashb
         total_diagnostics=total_diagnostics,
         latest_tasks=latest_tasks_list,
         recent_documents=recent_documents_list
+    )
+
+
+def get_firm_advisor_dashboard_stats(db: Session, firm_advisor_user_id: UUID) -> FirmAdvisorDashboardStatsResponse:
+    """
+    Get dashboard statistics for a firm advisor user.
+    
+    Returns:
+        FirmAdvisorDashboardStatsResponse with:
+        - Active Clients: Count of clients associated with the firm advisor (through advisor_client table)
+        - Total Engagements: Engagements where firm_advisor is primary or secondary advisor
+        - Total Documents: Documents from firm_advisor's engagements
+        - Total Tasks: Tasks assigned to or created by firm_advisor
+        - Total Diagnostics: Diagnostics from firm_advisor's engagements
+    """
+    # Get active clients associated with this firm advisor through advisor_client table
+    associations = db.query(AdvisorClient).filter(
+        AdvisorClient.advisor_id == firm_advisor_user_id,
+        AdvisorClient.status == 'active'
+    ).all()
+    
+    active_clients = len(associations)
+    
+    # Get engagements where firm_advisor is primary or secondary advisor
+    # Also filter by firm_id to ensure we only get engagements from the same firm
+    firm_advisor = db.query(User).filter(User.id == firm_advisor_user_id).first()
+    firm_id = firm_advisor.firm_id if firm_advisor else None
+    
+    # Get engagements where advisor is primary advisor
+    primary_engagements = db.query(Engagement).filter(
+        Engagement.primary_advisor_id == firm_advisor_user_id
+    )
+    
+    # Get engagements where advisor is in secondary_advisor_ids array
+    # Using PostgreSQL array contains operator
+    secondary_engagements = db.query(Engagement).filter(
+        text("secondary_advisor_ids @> ARRAY[:advisor_id]::uuid[]").params(advisor_id=firm_advisor_user_id)
+    )
+    
+    # Combine both queries
+    all_engagement_ids = set()
+    for eng in primary_engagements.all():
+        all_engagement_ids.add(eng.id)
+    for eng in secondary_engagements.all():
+        all_engagement_ids.add(eng.id)
+    
+    engagement_ids = list(all_engagement_ids)
+    total_engagements = len(engagement_ids)
+    
+    # Get total documents from engagements (media linked to diagnostics in these engagements)
+    total_documents = 0
+    if engagement_ids:
+        # Get diagnostics from these engagements
+        diagnostic_ids = db.query(Diagnostic.id).filter(
+            Diagnostic.engagement_id.in_(engagement_ids)
+        ).all()
+        diagnostic_id_list = [d[0] for d in diagnostic_ids]
+        
+        if diagnostic_id_list:
+            # Count media linked to these diagnostics
+            total_documents = db.query(func.count(distinct(Media.id))).join(
+                diagnostic_media, Media.id == diagnostic_media.c.media_id
+            ).filter(
+                diagnostic_media.c.diagnostic_id.in_(diagnostic_id_list),
+                Media.deleted_at.is_(None)
+            ).scalar() or 0
+    
+    # Get total tasks assigned to or created by firm_advisor in their engagements
+    total_tasks = 0
+    if engagement_ids:
+        total_tasks = db.query(func.count(Task.id)).filter(
+            Task.engagement_id.in_(engagement_ids),
+            or_(
+                Task.assigned_to_user_id == firm_advisor_user_id,
+                Task.created_by_user_id == firm_advisor_user_id
+            )
+        ).scalar() or 0
+    
+    # Get total diagnostics from firm_advisor's engagements
+    total_diagnostics = 0
+    if engagement_ids:
+        total_diagnostics = db.query(func.count(Diagnostic.id)).filter(
+            Diagnostic.engagement_id.in_(engagement_ids)
+        ).scalar() or 0
+    
+    return FirmAdvisorDashboardStatsResponse(
+        active_clients=active_clients,
+        total_engagements=total_engagements,
+        total_documents=total_documents,
+        total_tasks=total_tasks,
+        total_diagnostics=total_diagnostics
     )

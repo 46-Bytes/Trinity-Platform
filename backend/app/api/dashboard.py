@@ -11,18 +11,20 @@ from ..services.role_check import get_current_user_from_token
 from ..schemas.dashboard import (
     DashboardStatsResponse,
     ClientDashboardStatsResponse,
+    FirmAdvisorDashboardStatsResponse,
     ActivityDataResponse,
 )
 from ..services.dashboard_service import (
     get_superadmin_dashboard_stats as get_dashboard_stats_service,
-    get_client_dashboard_stats
+    get_client_dashboard_stats,
+    get_firm_advisor_dashboard_stats
 )
 from ..services.activity_service import get_superadmin_activity_data
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 
-@router.get("/stats", response_model=Union[DashboardStatsResponse, ClientDashboardStatsResponse])
+@router.get("/stats", response_model=Union[DashboardStatsResponse, ClientDashboardStatsResponse, FirmAdvisorDashboardStatsResponse])
 async def get_dashboard_stats(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user_from_token)
@@ -45,7 +47,15 @@ async def get_dashboard_stats(
         - Latest Tasks: List of latest tasks
         - Recent Documents: List of recent documents (first 3)
     
-    Only accessible to SUPER_ADMIN or CLIENT roles.
+    For FIRM_ADVISOR:
+        Returns:
+        - Active Clients: Count of clients associated with the firm advisor
+        - Total Engagements: Engagements where firm_advisor is primary or secondary advisor
+        - Total Documents: Documents from firm_advisor's engagements
+        - Total Tasks: Tasks assigned to or created by firm_advisor
+        - Total Diagnostics: Diagnostics from firm_advisor's engagements
+    
+    Only accessible to SUPER_ADMIN, CLIENT, or FIRM_ADVISOR roles.
     """
     if current_user.role == UserRole.SUPER_ADMIN:
         return get_dashboard_stats_service(db)
@@ -53,8 +63,11 @@ async def get_dashboard_stats(
     if current_user.role == UserRole.CLIENT:
         return get_client_dashboard_stats(db, current_user.id)
     
-    # If neither role, return 403
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="Only super admins and clients can access dashboard statistics.")
+    if current_user.role == UserRole.FIRM_ADVISOR:
+        return get_firm_advisor_dashboard_stats(db, current_user.id)
+    
+    # If none of the allowed roles, return 403
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="Only super admins, clients, and firm advisors can access dashboard statistics.")
 
 
 @router.get("/activity", response_model=ActivityDataResponse)

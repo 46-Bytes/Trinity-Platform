@@ -70,19 +70,22 @@ async def list_users(
                 detail="Invalid user IDs format. Expected comma-separated UUIDs."
             )
     
-    # Filter by role if provided
+    # For regular admin users (not super_admin), exclude firm-related users
+    if current_user.role == UserRole.ADMIN and not filtering_by_ids:
+        query = query.filter(User.role != UserRole.FIRM_ADMIN,User.role != UserRole.FIRM_ADVISOR)
+        # Exclude clients with firm_id
+        query = query.filter(or_(User.role != UserRole.CLIENT, User.firm_id.is_(None)))
+    
     if role:
         try:
             role_enum = UserRole(role.lower())
             query = query.filter(User.role == role_enum)
 
+            # If filtering by client role and user is admin, ensure no firm clients
             if role_enum == UserRole.CLIENT and current_user.role == UserRole.ADMIN and not filtering_by_ids:
                 query = query.filter(User.firm_id.is_(None))
         except ValueError:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail=f"Invalid role: {role}")
-    elif current_user.role == UserRole.ADMIN and not filtering_by_ids:
-
-        query = query.filter(User.firm_id.is_(None))
     
     users = query.offset(skip).limit(limit).all()
     # Convert users to response format with role as string
@@ -99,6 +102,7 @@ async def list_users(
             email_verified=u.email_verified,
             is_active=u.is_active,
             role=u.role.value if hasattr(u.role, 'value') else str(u.role),
+            firm_id=u.firm_id,
             created_at=u.created_at,
             updated_at=u.updated_at,
             last_login=u.last_login,

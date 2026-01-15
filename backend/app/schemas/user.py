@@ -37,6 +37,7 @@ class UserResponse(UserBase):
     email_verified: bool
     is_active: bool
     role: str  # User role as string (e.g., "client", "advisor", "admin")
+    firm_id: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
     last_login: Optional[datetime] = None

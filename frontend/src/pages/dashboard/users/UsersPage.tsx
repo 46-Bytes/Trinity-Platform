@@ -172,18 +172,30 @@ export default function UsersPage() {
               className="input-trinity pl-10 w-full"
             />
           </div>
-          <select 
-            className="input-trinity w-full sm:w-48"
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value as UserRole | 'all')}
+          <Select 
+            value={roleFilter} 
+            onValueChange={(value) => setRoleFilter(value as UserRole | 'all')}
           >
-            <option value="all">All Roles</option>
-            {Object.entries(roleLabels)
-              .filter(([key]) => key !== 'firm_admin' && key !== 'firm_advisor')
-              .map(([key, label]) => (
-                <option key={key} value={key}>{label}</option>
-              ))}
-          </select>
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue placeholder="All Roles" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Roles</SelectItem>
+              {user?.role === 'super_admin' ? (
+                // For super_admin, show all roles including firm_admin and firm_advisor
+                Object.entries(roleLabels).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>{label}</SelectItem>
+                ))
+              ) : (
+                // For other roles, exclude firm_admin and firm_advisor
+                Object.entries(roleLabels)
+                  .filter(([key]) => key !== 'firm_admin' && key !== 'firm_advisor')
+                  .map(([key, label]) => (
+                    <SelectItem key={key} value={key}>{label}</SelectItem>
+                  ))
+              )}
+            </SelectContent>
+          </Select>
         </div>
 
         {isLoading ? (
@@ -221,7 +233,11 @@ export default function UsersPage() {
                       </td>
                       <td>
                         <span className={cn("status-badge", roleColors[u.role])}>
-                          {roleLabels[u.role]}
+                          {user?.role === 'super_admin' 
+                            ? (u.role === 'client' && u.firm_id 
+                                ? 'Firm Client' 
+                                : roleLabels[u.role])
+                            : roleLabels[u.role]}
                         </span>
                       </td>
                       <td>

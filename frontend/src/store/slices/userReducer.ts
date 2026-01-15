@@ -12,6 +12,7 @@ export interface User {
   last_login?: string;
   created_at: string;
   nickname?: string;
+  firm_id?: string;
 }
 
 interface UserState {
@@ -46,12 +47,8 @@ export const fetchUsers = createAsyncThunk(
       }
 
       const data = await response.json();
-      // Filter out firm_admin and firm_advisor roles
-      const filteredUsers = data.filter((user: User) => 
-        user.role !== 'firm_admin' && user.role !== 'firm_advisor'
-      );
-      
-      return filteredUsers;
+
+      return data;
     } catch (error) {
       return rejectWithValue(error instanceof Error ? error.message : 'Failed to fetch users');
     }

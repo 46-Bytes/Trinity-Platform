@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { roleLabels, roleColors, UserRole } from '@/types/auth';
-import { Search, Plus, MoreHorizontal, Loader2, Edit, UserPlus, Eye } from 'lucide-react';
+import { Search, Plus, MoreHorizontal, Loader2, Edit, UserPlus, Eye, UserCog } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchUsers, createUser, updateUser } from '@/store/slices/userReducer';
@@ -34,7 +34,7 @@ import { AdvisorClientDialog } from '@/components/users/AdvisorClientDialog';
 import type { User } from '@/store/slices/userReducer';
 
 export default function UsersPage() {
-  const { user } = useAuth();
+  const { user, startImpersonation, isImpersonating } = useAuth();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { users, isLoading, isCreating, isUpdating, error } = useAppSelector((state) => state.user);
@@ -274,6 +274,23 @@ export default function UsersPage() {
                               >
                                 <Eye className="w-4 h-4 mr-2" />
                                 View Details
+                              </DropdownMenuItem>
+                            )}
+                            {user?.role === 'super_admin' && !isImpersonating && u.role !== 'super_admin' && (
+                              <DropdownMenuItem
+                                className="cursor-pointer"
+                                onClick={async () => {
+                                  try {
+                                    await startImpersonation(u.id);
+                                    toast.success(`Now impersonating ${u.name}`);
+                                  } catch (error) {
+                                    toast.error('Failed to start impersonation');
+                                    console.error('Error starting impersonation:', error);
+                                  }
+                                }}
+                              >
+                                <UserCog className="w-4 h-4 mr-2" />
+                                Impersonate
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuItem 

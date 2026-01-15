@@ -16,9 +16,14 @@ from ..models.user import User, UserRole
 from ..models.media import Media
 from ..models.engagement import Engagement
 from ..models.diagnostic import Diagnostic
+from ..models.impersonation import ImpersonationSession
 from ..schemas.user import UserResponse, UserUpdate, UserDetailResponse, UserFileResponse, UserDiagnosticResponse
 from ..utils.auth import get_current_user
 from ..services.auth_service import AuthService
+from ..services.audit_service import AuditService
+from ..config import settings
+from datetime import datetime, timedelta
+from jose import jwt
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -474,4 +479,86 @@ async def update_user(
         updated_at=user.updated_at,
         last_login=user.last_login,
     )
+
+
+@router.post("/{user_id}/impersonate")
+async def impersonate_user(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Start impersonating a user (super_admin only).
+    
+    This endpoint allows a superadmin to temporarily act as another user.
+    It creates an impersonation session and returns a special JWT token that
+    encodes both the original superadmin and impersonated user identities.
+    
+    Security:
+    - Only SUPER_ADMIN can impersonate
+    - Cannot impersonate other superadmins
+    - Target user must be active
+    """
+    # Only super_admin can impersonate
+    if current_user.role != UserRole.SUPER_ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="Only super_admin can impersonate users")
+    
+    # Get target user
+    target_user = db.query(User).filter(User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"User {user_id} not found")
+    
+    # Cannot impersonate other superadmins
+    if target_user.role == UserRole.SUPER_ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="Cannot impersonate other superadmins")
+    
+    # Target user must be active
+    if not target_user.is_active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Cannot impersonate inactive users")
+    
+    # Cannot impersonate yourself
+    if target_user.id == current_user.id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Cannot impersonate yourself")
+    
+    # Create impersonation session
+    impersonation_session = ImpersonationSession(
+        original_user_id=current_user.id,
+        impersonated_user_id=target_user.id,
+        status='active'
+    )
+    db.add(impersonation_session)
+    db.commit()
+    db.refresh(impersonation_session)
+    
+    # Generate special JWT token for impersonation
+    token_secret = settings.SECRET_KEY or 'your-secret-key-change-in-production'
+    token_expiry = datetime.utcnow() + timedelta(hours=24)  # 24 hour expiry
+    
+    token_payload = {
+        "sub": str(target_user.id),  # Impersonated user ID (for current user context)
+        "original_user_id": str(current_user.id),  # Original superadmin ID (for audit)
+        "is_impersonation": True,
+        "impersonation_session_id": str(impersonation_session.id),
+        "email": target_user.email,
+        "role": target_user.role.value if target_user.role else "client",
+        "exp": int(token_expiry.timestamp())
+    }
+    
+    token = jwt.encode(token_payload, token_secret, algorithm="HS256")
+    
+    # Log impersonation start
+    AuditService.log_impersonation_start(
+        original_user_id=current_user.id,
+        impersonated_user_id=target_user.id,
+        session_id=impersonation_session.id,
+        db=db
+    )
+    
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": target_user.to_dict(),
+        "original_user": current_user.to_dict(),
+        "impersonation_session_id": str(impersonation_session.id)
+    }
 

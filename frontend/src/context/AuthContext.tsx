@@ -213,6 +213,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       setIsImpersonating(true);
+      
+      // Redirect to dashboard for the impersonated user
+      window.location.href = '/dashboard';
     } catch (error) {
       console.error('Failed to start impersonation:', error);
       throw error;
@@ -225,6 +228,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!token) {
         throw new Error('No authentication token found');
       }
+
+      // Store original user role before stopping (for redirect)
+      const wasSuperAdmin = originalUser?.role === 'super_admin';
 
       const response = await fetch(`${API_BASE_URL}/api/auth/stop-impersonation`, {
         method: 'POST',
@@ -256,11 +262,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       setIsImpersonating(false);
       setOriginalUser(null);
+      
+      // Redirect based on original user role
+      if (wasSuperAdmin) {
+        // Redirect superadmin back to UsersPage
+        window.location.href = '/dashboard/users';
+      } else {
+        // Redirect other roles to dashboard
+        window.location.href = '/dashboard';
+      }
     } catch (error) {
       console.error('Failed to stop impersonation:', error);
       throw error;
     }
-  }, []);
+  }, [originalUser]);
 
   // On initial load, ask the backend if there is an active Auth0 session.
   useEffect(() => {

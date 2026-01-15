@@ -282,7 +282,7 @@ export default function UsersPage() {
                                 onClick={async () => {
                                   try {
                                     await startImpersonation(u.id);
-                                    toast.success(`Now impersonating ${u.name}`);
+                                    // Redirect happens automatically in startImpersonation
                                   } catch (error) {
                                     toast.error('Failed to start impersonation');
                                     console.error('Error starting impersonation:', error);

@@ -265,7 +265,6 @@ async def get_current_user_endpoint(
             # Verify impersonation session is still active
             if impersonation_session_id:
                 try:
-                    from uuid import UUID
                     session_uuid = UUID(impersonation_session_id) if isinstance(impersonation_session_id, str) else impersonation_session_id
                     impersonation_session = db.query(ImpersonationSession).filter(
                         ImpersonationSession.id == session_uuid,

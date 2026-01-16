@@ -78,7 +78,10 @@ async def update_profile(
         user.name = " ".join(parts) if parts else user.name
 
     if email is not None:
-        user.email = email.strip() or user.email
+        if user.auth0_id:
+            pass
+        else:
+            user.email = email.strip() or user.email
 
     if bio is not None:
         # Requires a 'bio' column on User model

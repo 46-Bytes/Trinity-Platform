@@ -10,6 +10,7 @@ export interface User {
   firmId?: string;
   createdAt: string;
   bio?: string;
+  auth0Id?: string; // Auth0 user ID - if present, user is managed by Auth0
 }
 
 export interface AuthState {

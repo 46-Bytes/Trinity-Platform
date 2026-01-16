@@ -75,7 +75,10 @@ export default function SettingsPage() {
       const formData = new FormData();
       formData.append('first_name', firstName);
       formData.append('last_name', lastName);
-      formData.append('email', email);
+      // Only send email if user is NOT using Auth0 (email/password users can change email)
+      if (!user?.auth0Id) {
+        formData.append('email', email);
+      }
       formData.append('bio', bio);
 
       const file = fileInputRef.current?.files?.[0];
@@ -227,8 +230,18 @@ export default function SettingsPage() {
                     type="email" 
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="input-trinity" 
+                    disabled={!!user?.auth0Id}
+                    className={cn(
+                      "input-trinity",
+                      user?.auth0Id && "bg-muted text-muted-foreground cursor-not-allowed"
+                    )}
+                    title={user?.auth0Id ? "Email is managed by Auth0 and cannot be changed here. It will be synced from your Auth0 account on login." : ""}
                   />
+                  {user?.auth0Id && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Email is managed by Auth0 and will be synced from your Auth0 account on login.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-sm font-medium">Bio</label>

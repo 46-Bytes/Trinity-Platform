@@ -3,10 +3,12 @@ Authentication and authorization utilities.
 """
 from fastapi import Request, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from jose import jwt
+from jose import jwt, JWTError
 
 from ..database import get_db
 from ..models.user import User, UserRole
+from ..models.impersonation import ImpersonationSession
+from ..config import settings
 
 
 def get_current_user_from_token(
@@ -16,13 +18,14 @@ def get_current_user_from_token(
     """
     Get current user from JWT token in Authorization header.
     Compatible with frontend token-based authentication.
+    Also handles impersonation tokens.
     
     Args:
         request: FastAPI request object
         db: Database session
         
     Returns:
-        User: The authenticated user
+        User: The authenticated user (or impersonated user if impersonating)
         
     Raises:
         HTTPException: If authentication fails
@@ -37,18 +40,71 @@ def get_current_user_from_token(
     token = auth_header.split(" ")[1]
     
     try:
-        # Decode token to get user info
-        payload = jwt.get_unverified_claims(token)
-        auth0_id = payload.get("sub")
+        user_id = None
+        auth0_id = None
+        is_impersonation = False
+        original_user_id = None
+        impersonation_session_id = None
         
-        if not auth0_id:
+        # Try to decode with SECRET_KEY first (for email/password and impersonation tokens)
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY or 'your-secret-key-change-in-production', algorithms=["HS256"])
+            user_id = payload.get("sub")  # For email/password and impersonation tokens, sub is user ID
+            is_impersonation = payload.get('is_impersonation', False)
+            if is_impersonation:
+                original_user_id = payload.get('original_user_id')
+                impersonation_session_id = payload.get('impersonation_session_id')
+        except JWTError:
+            # If verification fails, try unverified (Auth0 tokens)
+            payload = jwt.get_unverified_claims(token)
+            auth0_id = payload.get("sub")  # For Auth0 tokens, sub is auth0_id
+            # Check for impersonation flag (shouldn't happen with Auth0 tokens, but check anyway)
+            is_impersonation = payload.get('is_impersonation', False)
+            if is_impersonation:
+                original_user_id = payload.get('original_user_id')
+                impersonation_session_id = payload.get('impersonation_session_id')
+        
+        if not auth0_id and not user_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token. Missing 'sub' claim."
             )
         
-        # Find user in database
-        user = db.query(User).filter(User.auth0_id == auth0_id).first()
+        # Handle impersonation
+        if is_impersonation and user_id:
+            # Verify impersonation session is still active
+            if impersonation_session_id:
+                try:
+                    from uuid import UUID
+                    session_uuid = UUID(impersonation_session_id) if isinstance(impersonation_session_id, str) else impersonation_session_id
+                    impersonation_session = db.query(ImpersonationSession).filter(
+                        ImpersonationSession.id == session_uuid,
+                        ImpersonationSession.status == 'active'
+                    ).first()
+                    
+                    if not impersonation_session:
+                        raise HTTPException(
+                            status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="Impersonation session has ended"
+                        )
+                    
+                    # Store original user ID in request state for audit logging
+                    request.state.original_user_id = original_user_id
+                    request.state.impersonation_session_id = impersonation_session_id
+                except (ValueError, TypeError) as e:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Invalid impersonation session"
+                    )
+            
+            # Use impersonated user ID from token
+            user = db.query(User).filter(User.id == user_id).first()
+        else:
+            # Normal authentication - find user by auth0_id or user_id
+            if user_id:
+                user = db.query(User).filter(User.id == user_id).first()
+            else:
+                user = db.query(User).filter(User.auth0_id == auth0_id).first()
         
         if not user:
             raise HTTPException(

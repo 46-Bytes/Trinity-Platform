@@ -11,6 +11,7 @@ from .conversation import Conversation
 from .message import Message
 from .adv_client import AdvisorClient
 from .subscription import Subscription
+from .impersonation import ImpersonationSession
 
 __all__ = [
     "User",
@@ -23,6 +24,7 @@ __all__ = [
     "Message",
     "AdvisorClient",
     "Subscription",
+    "ImpersonationSession",
 ]
 
 

@@ -37,9 +37,7 @@ const baseSchemaFields = {
   engagementName: z.string().min(3, {
     message: "Engagement name must be at least 3 characters.",
   }),
-  description: z.string().min(10, {
-    message: "Description must be at least 10 characters.",
-  }),
+  description: z.string().optional(),
   tool: z.enum(['diagnostic', 'kpi_builder'], {
     message: "Please select a tool.",
   }),
@@ -95,7 +93,6 @@ export function EngagementForm({
   mode = 'create',
   refreshUserData = false
 }: EngagementFormProps) {
-  console.log('=== EngagementForm COMPONENT RENDERED ===');
   console.log('Props:', { mode, refreshUserData, hasEngagement: !!engagement });
   
   const dispatch = useAppDispatch();
@@ -397,7 +394,6 @@ export function EngagementForm({
           if (!requestPayload.engagement_name) missingFields.push('engagement_name');
           if (!requestPayload.business_name) missingFields.push('business_name');
           if (!requestPayload.industry) missingFields.push('industry');
-          if (!requestPayload.description) missingFields.push('description');
           if (!requestPayload.tool) missingFields.push('tool');
           if (!requestPayload.client_id) missingFields.push('client_id');
           if (!requestPayload.primary_advisor_id) missingFields.push('primary_advisor_id');
@@ -473,7 +469,6 @@ export function EngagementForm({
           if (!requestPayload.engagement_name) missingFields.push('engagement_name');
           if (!requestPayload.business_name) missingFields.push('business_name');
           if (!requestPayload.industry) missingFields.push('industry');
-          if (!requestPayload.description) missingFields.push('description');
           if (!requestPayload.tool) missingFields.push('tool');
           if (!requestPayload.client_id) missingFields.push('client_id');
           if (!requestPayload.primary_advisor_id) missingFields.push('primary_advisor_id');
@@ -569,15 +564,7 @@ export function EngagementForm({
   return (
     <Form {...form}>
       <form 
-        onSubmit={(e) => {
-          console.log('=== FORM ONSUBMIT EVENT FIRED ===');
-          console.log('Event:', e);
-          console.log('Form state before submit:', {
-            isValid: form.formState.isValid,
-            errors: form.formState.errors,
-            values: form.getValues(),
-          });
-          
+        onSubmit={(e) => {  
           // Call the form's handleSubmit
           form.handleSubmit(handleFormSubmit)(e);
         }} 

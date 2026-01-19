@@ -33,7 +33,9 @@ export function TaskItem({ task, onEdit, onDelete, onStatusChange, onClick }: Ta
       })).unwrap();
       // Refetch notes after creation
       await dispatch(fetchNotes({ engagementId: task.engagementId, taskId: task.id }));
+      // Close the note form and show the notes list
       setShowNoteForm(false);
+      // Keep the notes dialog open - don't trigger task details dialog
     } catch (error) {
       console.error('Failed to create note:', error);
     }
@@ -87,7 +89,12 @@ export function TaskItem({ task, onEdit, onDelete, onStatusChange, onClick }: Ta
   return (
     <Card 
       className={`hover:shadow-md transition-shadow cursor-pointer ${isOverdue ? 'border-destructive' : ''}`}
-      onClick={onClick}
+      onClick={(e) => {
+        // Don't trigger task details dialog if notes dialog is open
+        if (!isNoteDialogOpen) {
+          onClick();
+        }
+      }}
     >
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-4">
@@ -147,8 +154,14 @@ export function TaskItem({ task, onEdit, onDelete, onStatusChange, onClick }: Ta
       </CardContent>
 
       {/* Notes Dialog */}
-      <Dialog open={isNoteDialogOpen} onOpenChange={setIsNoteDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh]">
+      <Dialog open={isNoteDialogOpen} onOpenChange={(open) => {
+        setIsNoteDialogOpen(open);
+        if (!open) {
+          // Reset form state when dialog closes
+          setShowNoteForm(false);
+        }
+      }}>
+        <DialogContent className="max-w-3xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
           <DialogHeader>
             <DialogTitle>Notes for Task: {task.title}</DialogTitle>
           </DialogHeader>

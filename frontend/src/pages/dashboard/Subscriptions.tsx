@@ -6,6 +6,13 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchSubscriptions } from '@/store/slices/subscriptionReducer';
 import { CreateSubscriptionDialog } from '@/components/subscriptions/CreateSubscriptionDialog';
 import { toast } from 'sonner';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export default function SubscriptionsPage() {
   const { user } = useAuth();
@@ -129,18 +136,19 @@ export default function SubscriptionsPage() {
               className="input-trinity pl-10 w-full"
             />
           </div>
-          <select 
-            className="input-trinity w-full sm:w-48"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="all">All Status</option>
-            <option value="active">Active</option>
-            <option value="pending">Pending</option>
-            <option value="cancelled">Cancelled</option>
-            <option value="expired">Expired</option>
-            <option value="suspended">Suspended</option>
-          </select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+              <SelectItem value="expired">Expired</SelectItem>
+              <SelectItem value="suspended">Suspended</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {isLoading ? (

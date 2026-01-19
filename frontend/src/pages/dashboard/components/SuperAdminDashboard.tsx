@@ -9,6 +9,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -195,15 +196,16 @@ export function SuperAdminDashboard() {
         <div className="lg:col-span-2 card-trinity p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-heading font-semibold text-lg">Platform Activity</h3>
-            <select 
-              className="input-trinity py-1.5 px-3 text-sm w-auto"
-              value={timePeriod}
-              onChange={(e) => setTimePeriod(Number(e.target.value))}
-            >
-              <option value={7}>Last 7 days</option>
-              <option value={30}>Last 30 days</option>
-              <option value={90}>Last 90 days</option>
-            </select>
+            <Select value={String(timePeriod)} onValueChange={(v) => setTimePeriod(Number(v))}>
+              <SelectTrigger className="h-9 w-[140px] bg-background">
+                <SelectValue placeholder="Time period" />
+              </SelectTrigger>
+              <SelectContent align="end">
+                <SelectItem value="7">Last 7 days</SelectItem>
+                <SelectItem value="30">Last 30 days</SelectItem>
+                <SelectItem value="90">Last 90 days</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           {activityLoading ? (
             <div className="h-64 flex items-center justify-center bg-muted/30 rounded-lg">

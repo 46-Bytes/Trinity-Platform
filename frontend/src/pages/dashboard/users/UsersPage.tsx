@@ -41,6 +41,7 @@ import {
 import { toast } from 'sonner';
 import { AdvisorClientDialog } from '@/components/users/AdvisorClientDialog';
 import type { User } from '@/store/slices/userReducer';
+import { sortUsersByLastEdited } from '@/lib/userSortUtils';
 
 const USERS_PER_PAGE = 10;
 
@@ -99,10 +100,11 @@ export default function UsersPage() {
       setNewUserEmail('');
       setNewUserName('');
       setNewUserRole('client');
-      // Refresh users list
-      const skip = (currentPage - 1) * USERS_PER_PAGE;
+      // Navigate to first page to show newly created user at the top
+      setCurrentPage(1);
+      // Refresh users list for first page
       const role = roleFilter === 'all' ? undefined : roleFilter;
-      dispatch(fetchUsers({ skip, limit: USERS_PER_PAGE, role }));
+      dispatch(fetchUsers({ skip: 0, limit: USERS_PER_PAGE, role }));
     } catch (error) {
 
     }
@@ -135,10 +137,11 @@ export default function UsersPage() {
       setNewUserEmail('');
       setNewUserName('');
       setNewUserRole('client');
-      // Refresh users list
-      const skip = (currentPage - 1) * USERS_PER_PAGE;
+      // Navigate to first page to show newly edited user at the top
+      setCurrentPage(1);
+      // Refresh users list for first page
       const role = roleFilter === 'all' ? undefined : roleFilter;
-      dispatch(fetchUsers({ skip, limit: USERS_PER_PAGE, role }));
+      dispatch(fetchUsers({ skip: 0, limit: USERS_PER_PAGE, role }));
     } catch (error) {
 
     }
@@ -155,11 +158,13 @@ export default function UsersPage() {
   };
 
   // Client-side search filtering (pagination is server-side)
-  const filteredUsers = users.filter(u => {
-    const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
-  });
+  const filteredUsers = sortUsersByLastEdited(
+    users.filter(u => {
+      const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.email.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesSearch;
+    })
+  );
 
   // Calculate pagination
   const totalPages = Math.ceil(totalUsers / USERS_PER_PAGE);

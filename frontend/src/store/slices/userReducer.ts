@@ -11,6 +11,7 @@ export interface User {
   email_verified: boolean;
   last_login?: string;
   created_at: string;
+  updated_at?: string;
   nickname?: string;
   firm_id?: string;
 }

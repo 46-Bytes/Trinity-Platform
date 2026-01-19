@@ -9,6 +9,7 @@ export interface User {
   avatar?: string;
   firmId?: string;
   createdAt: string;
+  updatedAt?: string;
   bio?: string;
   auth0Id?: string; // Auth0 user ID - if present, user is managed by Auth0
 }

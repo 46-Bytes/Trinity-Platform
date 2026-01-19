@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { User, Lock, Bell, Palette, Globe, Shield, Save } from 'lucide-react';
+import { User, Lock, Bell, Palette, Globe, Shield, Save, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -23,7 +23,9 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const justSavedPictureRef = useRef<boolean>(false);
 
   // Initialize form fields from current user
   useEffect(() => {
@@ -36,17 +38,35 @@ export default function SettingsPage() {
       const anyUser: any = user;
       setBio(anyUser.bio || '');
       
-      // Prepend API_BASE_URL if avatar doesn't start with http
-      if (user.avatar) {
-        const avatarUrl = user.avatar.startsWith('http') 
-          ? user.avatar 
-          : `${API_BASE_URL}${user.avatar}`;
-        setPreviewUrl(avatarUrl);
-      } else {
-        setPreviewUrl(null);
+      // Only update previewUrl if we don't have a blob URL (user-selected file)
+      // AND we didn't just save a picture (to prevent overwriting the fresh preview)
+      if (!previewBlobUrl && !justSavedPictureRef.current) {
+        // Prepend API_BASE_URL if avatar doesn't start with http
+        if (user.avatar) {
+          const avatarUrl = user.avatar.startsWith('http') 
+            ? user.avatar 
+            : `${API_BASE_URL}${user.avatar}`;
+          setPreviewUrl(avatarUrl);
+        } else {
+          setPreviewUrl(null);
+        }
+      }
+      
+      // Reset the flag after useEffect runs
+      if (justSavedPictureRef.current) {
+        justSavedPictureRef.current = false;
       }
     }
-  }, [user]);
+  }, [user, previewBlobUrl]);
+
+  // Cleanup blob URL on unmount
+  useEffect(() => {
+    return () => {
+      if (previewBlobUrl) {
+        URL.revokeObjectURL(previewBlobUrl);
+      }
+    };
+  }, [previewBlobUrl]);
 
   const handlePhotoClick = () => {
     fileInputRef.current?.click();
@@ -56,7 +76,30 @@ export default function SettingsPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate file type - only allow JPG, JPEG and PNG
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    const allowedExtensions = ['jpg', 'jpeg', 'png'];
+
+    if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension || '')) {
+      setError('Invalid file type. Only JPG and PNG files are allowed.');
+      // Clear the file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
+    // Clear any previous errors
+    setError(null);
+
+    // Revoke previous blob URL if exists
+    if (previewBlobUrl) {
+      URL.revokeObjectURL(previewBlobUrl);
+    }
+
     const url = URL.createObjectURL(file);
+    setPreviewBlobUrl(url);
     setPreviewUrl(url);
   };
 
@@ -83,6 +126,15 @@ export default function SettingsPage() {
 
       const file = fileInputRef.current?.files?.[0];
       if (file) {
+        // Validate file type again before sending
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+        const fileExtension = file.name.split('.').pop()?.toLowerCase();
+        const allowedExtensions = ['jpg', 'jpeg', 'png'];
+
+        if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension || '')) {
+          throw new Error('Invalid file type. Only JPG and PNG files are allowed.');
+        }
+
         formData.append('profile_picture', file);
       }
 
@@ -101,20 +153,87 @@ export default function SettingsPage() {
 
       const data = await response.json();
       
-      // Update preview URL if profile picture was uploaded
-      if (file && data.picture) {
+      // Revoke blob URL if we uploaded a file
+      if (file && previewBlobUrl) {
+        URL.revokeObjectURL(previewBlobUrl);
+        setPreviewBlobUrl(null);
+      }
+      
+      // Update preview URL with server response (whether file was uploaded or not)
+      if (data.picture) {
         const avatarUrl = data.picture.startsWith('http') 
           ? data.picture 
           : `${API_BASE_URL}${data.picture}`;
+        // Backend saves profile pictures with unique filenames, so no cache-busting needed
         setPreviewUrl(avatarUrl);
+      } else {
+        // If picture was removed or doesn't exist
+        setPreviewUrl(null);
       }
+      
+      // Set flag to prevent useEffect from overwriting our fresh preview
+      justSavedPictureRef.current = true;
       
       // Refresh user data in context to update sidebar and other components
       await refreshUser();
       setSuccess('Profile updated successfully');
+      
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     } catch (err) {
       console.error('Failed to save profile', err);
       setError(err instanceof Error ? err.message : 'Failed to save profile');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRemovePicture = async () => {
+    if (!user) return;
+
+    setIsSaving(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/settings/profile/picture`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to remove profile picture');
+      }
+
+      // Revoke blob URL if exists
+      if (previewBlobUrl) {
+        URL.revokeObjectURL(previewBlobUrl);
+        setPreviewBlobUrl(null);
+      }
+      
+      // Clear preview URL
+      setPreviewUrl(null);
+      
+      // Clear file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      
+      // Refresh user data in context to update sidebar and other components
+      await refreshUser();
+      setSuccess('Profile picture removed successfully');
+    } catch (err) {
+      console.error('Failed to remove profile picture', err);
+      setError(err instanceof Error ? err.message : 'Failed to remove profile picture');
     } finally {
       setIsSaving(false);
     }
@@ -160,16 +279,28 @@ export default function SettingsPage() {
 
               <div className="flex items-center gap-6">
                 <div className="w-20 h-20 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-2xl font-semibold overflow-hidden">
-                  {previewUrl || user?.avatar ? (
+                  {previewUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={
-                        previewUrl || 
-                        (user?.avatar ? 
-                          (user.avatar.startsWith('http') ? user.avatar : `${API_BASE_URL}${user.avatar}`) 
-                          : ''
-                        )
-                      }
+                      key={previewUrl}
+                      src={previewUrl}
+                      alt="Profile"
+                      className="w-20 h-20 rounded-full object-cover"
+                      onError={(e) => {
+                        // Fallback to initial if image fails to load
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          parent.textContent = user?.name.charAt(0) || '';
+                        }
+                      }}
+                    />
+                  ) : user?.avatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={user.avatar}
+                      src={user.avatar.startsWith('http') ? user.avatar : `${API_BASE_URL}${user.avatar}`}
                       alt="Profile"
                       className="w-20 h-20 rounded-full object-cover"
                       onError={(e) => {
@@ -186,22 +317,36 @@ export default function SettingsPage() {
                     user?.name.charAt(0)
                   )}
                 </div>
-                <div>
-                  <button
-                    type="button"
-                    className="btn-secondary text-sm"
-                    onClick={handlePhotoClick}
-                  >
-                    Change Photo
-                  </button>
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="btn-secondary text-sm"
+                      onClick={handlePhotoClick}
+                      disabled={isSaving}
+                    >
+                      Change Photo
+                    </button>
+                    {(previewUrl || user?.avatar) && (
+                      <button
+                        type="button"
+                        className="btn-secondary text-sm text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                        onClick={handleRemovePicture}
+                        disabled={isSaving}
+                      >
+                        <Trash2 className="w-4 h-4 inline mr-1" />
+                        Remove
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/jpg,image/png"
                     ref={fileInputRef}
                     className="hidden"
                     onChange={handleFileChange}
                   />
-                  <p className="text-xs text-muted-foreground mt-2">JPG, PNG or GIF. Max 2MB.</p>
+                  <p className="text-xs text-muted-foreground">JPG or PNG only. Max 2MB.</p>
                 </div>
               </div>
 

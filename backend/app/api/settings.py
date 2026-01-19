@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from pathlib import Path
 import os
 import shutil
+import time
 
 from app.database import get_db
 from app.models.user import User
@@ -90,6 +91,14 @@ async def update_profile(
 
     # Handle profile picture upload
     if profile_picture is not None:
+        # Validate file type - only allow JPG, JPEG and PNG
+        original_name = os.path.basename(profile_picture.filename or "profilepicture")
+        file_ext = os.path.splitext(original_name)[1].lower()
+        allowed_extensions = ['.jpg', '.jpeg', '.png']
+        
+        if file_ext not in allowed_extensions:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail=f"Invalid file type. Only JPG and PNG files are allowed. Received: {file_ext}")
+        
         # Base files directory (backend/files)
         base_dir = Path(__file__).resolve().parents[2] / "files"
         # Store profile pictures in files/uploads/users/{user_id}/profilepicture/
@@ -104,11 +113,10 @@ async def update_profile(
                 except Exception:
                     pass
 
-        # Get file extension from uploaded file
-        original_name = os.path.basename(profile_picture.filename or "profilepicture")
-        file_ext = os.path.splitext(original_name)[1] or ".jpg"
-        # Use consistent filename: profilepicture.{ext}
-        filename = f"profilepicture{file_ext}"
+        # Normalize .jpeg to .jpg
+        if file_ext == '.jpeg':
+            file_ext = '.jpg'
+        filename = f"profilepicture_{int(time.time())}{file_ext}"
 
         destination = profile_picture_dir / filename
 
@@ -122,6 +130,62 @@ async def update_profile(
         rel_path = destination.relative_to(base_dir).as_posix()
         user.picture = f"/files/{rel_path}"
 
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return user.to_dict()
+
+
+@router.delete("/profile/picture")
+async def remove_profile_picture(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Remove the current user's profile picture.
+    
+    This endpoint:
+    1. Deletes the profile picture file from the filesystem
+    2. Sets the user's picture field to None
+    """
+    if not current_user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+
+    user = db.query(User).filter(User.id == current_user.id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="User not found")
+
+    # If user has a profile picture, delete it
+    if user.picture:
+        # Base files directory (backend/files)
+        base_dir = Path(__file__).resolve().parents[2] / "files"
+        
+        if user.picture.startswith('/files/'):
+            rel_path = user.picture.replace('/files/', '')
+            picture_path = base_dir / rel_path
+            
+            # Delete the file if it exists
+            if picture_path.exists() and picture_path.is_file():
+                try:
+                    picture_path.unlink()
+                except Exception as e:
+                    # Log error but continue - we'll still clear the DB field
+                    print(f"Error deleting profile picture file: {e}")
+        
+        # Also try to delete entire directory if it's empty
+        profile_picture_dir = base_dir / "uploads" / "users" / str(user.id) / "profilepicture"
+        if profile_picture_dir.exists():
+            try:
+                # Remove directory if empty
+                if not any(profile_picture_dir.iterdir()):
+                    profile_picture_dir.rmdir()
+            except Exception:
+                pass  # Directory not empty or other error, that's fine
+    
+
+    user.picture = None
+    
     db.add(user)
     db.commit()
     db.refresh(user)

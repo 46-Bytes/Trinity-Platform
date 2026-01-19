@@ -5,11 +5,6 @@ import { cn } from '@/lib/utils';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
-function withCacheBuster(url: string, version?: string) {
-  const v = version || String(Date.now());
-  return `${url}${url.includes('?') ? '&' : '?'}v=${encodeURIComponent(v)}`;
-}
-
 const tabs = [
   { id: 'profile', label: 'Profile', icon: User },
   // { id: 'security', label: 'Security', icon: Lock },
@@ -51,7 +46,7 @@ export default function SettingsPage() {
           const avatarUrl = user.avatar.startsWith('http') 
             ? user.avatar 
             : `${API_BASE_URL}${user.avatar}`;
-          setPreviewUrl(withCacheBuster(avatarUrl, user.updatedAt || user.createdAt));
+          setPreviewUrl(avatarUrl);
         } else {
           setPreviewUrl(null);
         }
@@ -169,15 +164,8 @@ export default function SettingsPage() {
         const avatarUrl = data.picture.startsWith('http') 
           ? data.picture 
           : `${API_BASE_URL}${data.picture}`;
-        // Use updated_at from response for cache-busting, or current timestamp
-        // Always use a fresh timestamp to ensure browser fetches new image
-        const cacheBuster = data.updated_at 
-          ? new Date(data.updated_at).getTime() 
-          : Date.now();
-        // Cache-bust so browser doesn't show the old cached profilepicture.jpg
-        // Add timestamp to ensure unique URL even if updated_at is same
-        const freshUrl = `${avatarUrl}?v=${cacheBuster}&t=${Date.now()}`;
-        setPreviewUrl(freshUrl);
+        // Backend saves profile pictures with unique filenames, so no cache-busting needed
+        setPreviewUrl(avatarUrl);
       } else {
         // If picture was removed or doesn't exist
         setPreviewUrl(null);
@@ -185,9 +173,6 @@ export default function SettingsPage() {
       
       // Set flag to prevent useEffect from overwriting our fresh preview
       justSavedPictureRef.current = true;
-      
-      // Small delay to ensure state updates before refreshUser
-      await new Promise(resolve => setTimeout(resolve, 100));
       
       // Refresh user data in context to update sidebar and other components
       await refreshUser();
@@ -315,10 +300,7 @@ export default function SettingsPage() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       key={user.avatar}
-                      src={withCacheBuster(
-                        user.avatar.startsWith('http') ? user.avatar : `${API_BASE_URL}${user.avatar}`,
-                        user.updatedAt || user.createdAt
-                      )}
+                      src={user.avatar.startsWith('http') ? user.avatar : `${API_BASE_URL}${user.avatar}`}
                       alt="Profile"
                       className="w-20 h-20 rounded-full object-cover"
                       onError={(e) => {

@@ -49,7 +49,15 @@ export function NoteForm({ engagementId, taskId, onSubmit, onCancel }: NoteFormP
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+      <form 
+        onSubmit={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          form.handleSubmit(handleSubmit)(e);
+        }} 
+        className="space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
         <FormField
           control={form.control}
           name="title"

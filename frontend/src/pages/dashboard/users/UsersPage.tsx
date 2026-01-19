@@ -213,7 +213,7 @@ export default function UsersPage() {
                     <th>Role</th>
                     <th>Status</th>
                     <th>Email Verified</th>
-                    <th>Last Active</th>
+                    <th>Last Login</th>
                     <th className="w-12"></th>
                   </tr>
                 </thead>

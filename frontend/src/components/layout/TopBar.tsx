@@ -13,6 +13,11 @@ import {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
+function withCacheBuster(url: string, version?: string) {
+  const v = version || String(Date.now());
+  return `${url}${url.includes('?') ? '&' : '?'}v=${encodeURIComponent(v)}`;
+}
+
 interface TopBarProps {
   onMenuClick: () => void;
 }
@@ -56,7 +61,10 @@ export function TopBar({ onMenuClick }: TopBarProps) {
               <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-medium text-sm overflow-hidden relative">
                 {user?.avatar ? (
                   <img
-                    src={user.avatar.startsWith('http') ? user.avatar : `${API_BASE_URL}${user.avatar}`}
+                    src={withCacheBuster(
+                      user.avatar.startsWith('http') ? user.avatar : `${API_BASE_URL}${user.avatar}`,
+                      user.updatedAt || user.createdAt
+                    )}
                     alt={user.nickname || user.name}
                     className="w-full h-full object-cover"
                     onError={(e) => {

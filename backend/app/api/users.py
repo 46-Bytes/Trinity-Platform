@@ -7,7 +7,7 @@ from typing import List, Optional
 from uuid import UUID, uuid4
 from pydantic import BaseModel
 
-from sqlalchemy import or_
+from sqlalchemy import or_, desc
 from fastapi.responses import FileResponse
 from pathlib import Path
 
@@ -95,7 +95,8 @@ async def list_users(
     # Get total count before pagination
     total = query.count()
     
-    users = query.offset(skip).limit(limit).all()
+    # Order by updated_at descending (most recently edited first), fallback to created_at
+    users = query.order_by(desc(User.updated_at), desc(User.created_at)).offset(skip).limit(limit).all()
     
     users_response = [
         UserResponse(

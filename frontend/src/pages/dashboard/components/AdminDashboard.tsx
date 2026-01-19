@@ -66,14 +66,12 @@ export function AdminDashboard() {
             <StatCard 
               title="Clients" 
               value={clients.toString()}
-              change="Not in firm"
               changeType="neutral"
               icon={UserCheck}
             />
             <StatCard 
               title="Advisors" 
               value={advisors.toString()}
-              change="Not firm advisors"
               changeType="neutral"
               icon={Briefcase}
             />

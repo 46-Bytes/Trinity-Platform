@@ -316,20 +316,22 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
 
       {/* New Engagement Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[800px]">
+        <DialogContent className="sm:max-w-[800px] max-h-[95vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Create New Engagement</DialogTitle>
             <DialogDescription>
               Fill in the details to create a new client engagement.
             </DialogDescription>
           </DialogHeader>
-          {isDialogOpen && (
-            <EngagementForm 
-              onSuccess={handleFormSuccess} 
-              mode="create" 
-              refreshUserData={true}
-            />
-          )}
+          <div className="overflow-y-auto flex-1 pr-2">
+            {isDialogOpen && (
+              <EngagementForm 
+                onSuccess={handleFormSuccess} 
+                mode="create" 
+                refreshUserData={true}
+              />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 

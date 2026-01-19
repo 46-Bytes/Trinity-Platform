@@ -63,10 +63,9 @@ export function AdvisorClientDialog({ open, onOpenChange, advisor, firmClients }
     }
   }, [open, advisorFirmId, firmClients, firmClientsFromStore.length, dispatch]);
 
-  // Fetch users if not already loaded and not using firm clients
   useEffect(() => {
     if (open && users.length === 0 && !clientsToUse) {
-      dispatch(fetchUsers());
+      dispatch(fetchUsers({ skip: 0, limit: 1000 }));
     }
   }, [open, users.length, dispatch, clientsToUse]);
 

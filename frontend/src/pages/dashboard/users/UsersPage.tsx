@@ -3,6 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { roleLabels, roleColors, UserRole } from '@/types/auth';
 import { Search, Plus, MoreHorizontal, Loader2, Edit, UserPlus, Eye, UserCog } from 'lucide-react';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis,
+} from '@/components/ui/pagination';
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchUsers, createUser, updateUser } from '@/store/slices/userReducer';
@@ -33,14 +42,17 @@ import { toast } from 'sonner';
 import { AdvisorClientDialog } from '@/components/users/AdvisorClientDialog';
 import type { User } from '@/store/slices/userReducer';
 
+const USERS_PER_PAGE = 10;
+
 export default function UsersPage() {
   const { user, startImpersonation, isImpersonating } = useAuth();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { users, isLoading, isCreating, isUpdating, error } = useAppSelector((state) => state.user);
+  const { users, totalUsers, isLoading, isCreating, isUpdating, error } = useAppSelector((state) => state.user);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
+  const [currentPage, setCurrentPage] = useState(1);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedAdvisor, setSelectedAdvisor] = useState<User | null>(null);
   const [isAssociationDialogOpen, setIsAssociationDialogOpen] = useState(false);
@@ -51,10 +63,16 @@ export default function UsersPage() {
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState<UserRole>('client');
 
-  // Fetch users on mount
+  // Fetch users when page or filters change
   useEffect(() => {
-    dispatch(fetchUsers());
-  }, [dispatch]);
+    const skip = (currentPage - 1) * USERS_PER_PAGE;
+    const role = roleFilter === 'all' ? undefined : roleFilter;
+    dispatch(fetchUsers({ skip, limit: USERS_PER_PAGE, role }));
+  }, [dispatch, currentPage, roleFilter]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [roleFilter]);
 
   // Show error toast if there's an error
   useEffect(() => {
@@ -81,6 +99,10 @@ export default function UsersPage() {
       setNewUserEmail('');
       setNewUserName('');
       setNewUserRole('client');
+      // Refresh users list
+      const skip = (currentPage - 1) * USERS_PER_PAGE;
+      const role = roleFilter === 'all' ? undefined : roleFilter;
+      dispatch(fetchUsers({ skip, limit: USERS_PER_PAGE, role }));
     } catch (error) {
 
     }
@@ -113,6 +135,10 @@ export default function UsersPage() {
       setNewUserEmail('');
       setNewUserName('');
       setNewUserRole('client');
+      // Refresh users list
+      const skip = (currentPage - 1) * USERS_PER_PAGE;
+      const role = roleFilter === 'all' ? undefined : roleFilter;
+      dispatch(fetchUsers({ skip, limit: USERS_PER_PAGE, role }));
     } catch (error) {
 
     }
@@ -128,12 +154,21 @@ export default function UsersPage() {
     }
   };
 
+  // Client-side search filtering (pagination is server-side)
   const filteredUsers = users.filter(u => {
     const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRole = roleFilter === 'all' || u.role === roleFilter;
-    return matchesSearch && matchesRole;
+    return matchesSearch;
   });
+
+  // Calculate pagination
+  const totalPages = Math.ceil(totalUsers / USERS_PER_PAGE);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to top when page changes
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const formatDate = (dateString: string) => {
     try {
@@ -332,10 +367,124 @@ export default function UsersPage() {
               </div>
             )}
 
-            <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-6 pt-4 border-t border-border gap-4">
               <p className="text-sm text-muted-foreground">
-                Showing {filteredUsers.length} of {users.length} users
+                {totalUsers > 0 ? (
+                  <>
+                    Showing {(currentPage - 1) * USERS_PER_PAGE + 1} to{' '}
+                    {Math.min(currentPage * USERS_PER_PAGE, totalUsers)} of {totalUsers} users
+                    {searchQuery && filteredUsers.length < users.length && (
+                      <> ({filteredUsers.length} match{filteredUsers.length !== 1 ? 'es' : ''} on this page)</>
+                    )}
+                  </>
+                ) : (
+                  <>No users found</>
+                )}
               </p>
+              
+              {totalPages > 1 && (
+                <Pagination className="!mx-0 !w-auto !justify-end">
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (currentPage > 1) {
+                            handlePageChange(currentPage - 1);
+                          }
+                        }}
+                        className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                    
+                    {(() => {
+                      const pages: (number | 'ellipsis')[] = [];
+                      const maxVisiblePages = 5;
+                      
+                      if (totalPages <= maxVisiblePages) {
+                        // Show all pages if total pages is small
+                        for (let i = 1; i <= totalPages; i++) {
+                          pages.push(i);
+                        }
+                      } else {
+                        // Show first page
+                        pages.push(1);
+                        
+                        // Calculate range around current page
+                        let start = Math.max(2, currentPage - 1);
+                        let end = Math.min(totalPages - 1, currentPage + 1);
+                        
+                        // Adjust if we're near the start
+                        if (currentPage <= 3) {
+                          end = Math.min(4, totalPages - 1);
+                        }
+                        
+                        // Adjust if we're near the end
+                        if (currentPage >= totalPages - 2) {
+                          start = Math.max(2, totalPages - 3);
+                        }
+                        
+                        // Add ellipsis after first page if needed
+                        if (start > 2) {
+                          pages.push('ellipsis');
+                        }
+                        
+                        // Add pages in range
+                        for (let i = start; i <= end; i++) {
+                          pages.push(i);
+                        }
+                        
+                        // Add ellipsis before last page if needed
+                        if (end < totalPages - 1) {
+                          pages.push('ellipsis');
+                        }
+                        
+                        // Show last page
+                        pages.push(totalPages);
+                      }
+                      
+                      return pages.map((page, index) => {
+                        if (page === 'ellipsis') {
+                          return (
+                            <PaginationItem key={`ellipsis-${index}`}>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          );
+                        }
+                        return (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              href="#"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handlePageChange(page);
+                              }}
+                              isActive={currentPage === page}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      });
+                    })()}
+                    
+                    <PaginationItem>
+                      <PaginationNext
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (currentPage < totalPages) {
+                            handlePageChange(currentPage + 1);
+                          }
+                        }}
+                        className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              )}
             </div>
           </>
         )}

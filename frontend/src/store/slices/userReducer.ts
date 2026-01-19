@@ -17,6 +17,7 @@ export interface User {
 
 interface UserState {
   users: User[];
+  totalUsers: number;
   isLoading: boolean;
   isCreating: boolean;
   isUpdating: boolean;
@@ -28,14 +29,23 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 // Async thunks
 export const fetchUsers = createAsyncThunk(
   'user/fetchUsers',
-  async (_, { rejectWithValue }) => {
+  async (params: { skip?: number; limit?: number; role?: string } = {}, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem('auth_token');
       if (!token) {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/users`, {
+      const { skip = 0, limit = 10, role } = params;
+      const queryParams = new URLSearchParams({
+        skip: skip.toString(),
+        limit: limit.toString(),
+      });
+      if (role) {
+        queryParams.append('role', role);
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/users?${queryParams.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -129,6 +139,7 @@ export const updateUser = createAsyncThunk(
 // Initial state
 const initialState: UserState = {
   users: [],
+  totalUsers: 0,
   isLoading: false,
   isCreating: false,
   isUpdating: false,
@@ -153,7 +164,14 @@ const userSlice = createSlice({
       })
       .addCase(fetchUsers.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.users = action.payload;
+        // Handle both old format (array) and new format (paginated response)
+        if (Array.isArray(action.payload)) {
+          state.users = action.payload;
+          state.totalUsers = action.payload.length;
+        } else {
+          state.users = action.payload.users || [];
+          state.totalUsers = action.payload.total || 0;
+        }
       })
       .addCase(fetchUsers.rejected, (state, action) => {
         state.isLoading = false;
@@ -167,6 +185,7 @@ const userSlice = createSlice({
       .addCase(createUser.fulfilled, (state, action) => {
         state.isCreating = false;
         state.users.push(action.payload);
+        state.totalUsers += 1;
       })
       .addCase(createUser.rejected, (state, action) => {
         state.isCreating = false;

@@ -408,7 +408,12 @@ export const fetchFirmClientsById = createAsyncThunk(
       const clientsData = await clientsResponse.json();
       console.log('Fetched clients data:', clientsData);
       
-      const clients: Client[] = (Array.isArray(clientsData) ? clientsData : []).map((client: any) => ({
+      // Handle both old format (array) and new format (paginated response)
+      const usersArray = Array.isArray(clientsData) 
+        ? clientsData 
+        : (clientsData?.users || []);
+      
+      const clients: Client[] = usersArray.map((client: any) => ({
         id: client.id,
         email: client.email || '',
         name: client.name || 'Unknown',

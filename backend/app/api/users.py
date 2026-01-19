@@ -17,7 +17,7 @@ from ..models.media import Media
 from ..models.engagement import Engagement
 from ..models.diagnostic import Diagnostic
 from ..models.impersonation import ImpersonationSession
-from ..schemas.user import UserResponse, UserUpdate, UserDetailResponse, UserFileResponse, UserDiagnosticResponse
+from ..schemas.user import UserResponse, UserUpdate, UserDetailResponse, UserFileResponse, UserDiagnosticResponse, PaginatedUsersResponse
 from ..utils.auth import get_current_user
 from ..services.auth_service import AuthService
 from ..services.audit_service import AuditService
@@ -28,14 +28,14 @@ from jose import jwt
 router = APIRouter(prefix="/api/users", tags=["users"])
 
 
-@router.get("", response_model=List[UserResponse])
+@router.get("", response_model=PaginatedUsersResponse)
 async def list_users(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     role: Optional[str] = None,
     ids: Optional[str] = Query(None, description="Comma-separated list of user IDs to filter by"),
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 10,
 ):
     """
     List all users (admin/super_admin only).
@@ -44,7 +44,7 @@ async def list_users(
         role: Optional role filter (client, advisor, admin, etc.)
         ids: Optional comma-separated list of user IDs to filter by
         skip: Number of records to skip
-        limit: Maximum number of records to return
+        limit: Maximum number of records to return (default: 10)
     """
     # Only admins and super_admins can list users
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
@@ -68,7 +68,7 @@ async def list_users(
                 filtering_by_ids = True
             else:
                 # If no valid IDs, return empty result
-                return []
+                return PaginatedUsersResponse(users=[], total=0, skip=skip, limit=limit)
         except ValueError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -92,9 +92,12 @@ async def list_users(
         except ValueError:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail=f"Invalid role: {role}")
     
+    # Get total count before pagination
+    total = query.count()
+    
     users = query.offset(skip).limit(limit).all()
-    # Convert users to response format with role as string
-    return [
+    
+    users_response = [
         UserResponse(
             id=u.id,
             auth0_id=u.auth0_id,
@@ -114,6 +117,13 @@ async def list_users(
         )
         for u in users
     ]
+    
+    return PaginatedUsersResponse(
+        users=users_response,
+        total=total,
+        skip=skip,
+        limit=limit
+    )
 
 
 class UserCreateRequest(BaseModel):

@@ -75,4 +75,12 @@ class UserDetailResponse(UserResponse):
     engagements_count: int = Field(default=0, description="Number of engagements where user is the client")
 
 
+class PaginatedUsersResponse(BaseModel):
+    """Schema for paginated users response."""
+    users: List[UserResponse] = Field(..., description="List of users")
+    total: int = Field(..., description="Total number of users matching the query")
+    skip: int = Field(..., description="Number of records skipped")
+    limit: int = Field(..., description="Maximum number of records per page")
+
+
 

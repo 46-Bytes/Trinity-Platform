@@ -430,6 +430,11 @@ async def submit_diagnostic(
             detail="Cannot submit diagnostic without responses"
         )
     
+    # Auto-tag diagnostic if submitted by Admin/Super Admin and tag is empty
+    if current_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        if not diagnostic.tag or diagnostic.tag.strip() == "":
+            diagnostic.tag = "Diagnostic report by Admin"
+    
     # Update status to processing immediately
     diagnostic.status = "processing"
     diagnostic.completed_by_user_id = submit_data.completed_by_user_id

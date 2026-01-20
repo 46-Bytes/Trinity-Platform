@@ -34,6 +34,7 @@ from app.utils.auth import get_current_user
 from app.models.user import User, UserRole
 from app.models.diagnostic import Diagnostic
 from app.models.engagement import Engagement
+from app.models.media import Media
 import asyncio
 
 
@@ -322,6 +323,21 @@ async def delete_diagnostic_file(
             else:
                 removed_count += 1
                 logger.info(f"Removing file: {file_name_in_meta} (matched {file_name})")
+
+        # Soft-delete corresponding Media record and detach from diagnostic, if media_id is present
+        media_id = file_to_remove.get("media_id") if file_to_remove else None
+        if media_id:
+            try:
+                media_obj = db.query(Media).filter(Media.id == media_id).first()
+                if media_obj:
+                    if not media_obj.deleted_at:
+                        media_obj.deleted_at = datetime.utcnow()
+                    if diagnostic and media_obj in diagnostic.media:
+                        diagnostic.media.remove(media_obj)
+
+                    db.flush()
+            except Exception as e:
+                logger.warning(f"Failed to soft-delete Media record for file '{file_name}': {str(e)}")
         
         if removed_count == 0:
             logger.warning(f"No files were removed! File '{file_name}' was not found in files_list")

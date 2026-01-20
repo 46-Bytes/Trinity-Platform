@@ -164,29 +164,21 @@ export function SuperAdminDashboard() {
           <StatCard 
             title="Total Users" 
             value={formatNumber(stats.total_users)} 
-            change={stats.total_users_change} 
-            changeType={stats.total_users_change_type as "positive" | "negative" | "neutral"}
             icon={Users}
           />
           <StatCard 
             title="Active Engagements" 
             value={formatNumber(stats.active_engagements)} 
-            change={stats.active_engagements_change} 
-            changeType={stats.active_engagements_change_type as "positive" | "negative" | "neutral"}
             icon={FolderOpen}
           />
           <StatCard 
             title="Total Firms" 
             value={formatNumber(stats.total_firms)} 
-            change={stats.total_firms_change} 
-            changeType={stats.total_firms_change_type as "positive" | "negative" | "neutral"}
             icon={CheckSquare}
           />
           <StatCard 
             title="AI Generations" 
             value={formatNumber(stats.ai_generations)} 
-            change={stats.ai_generations_change} 
-            changeType={stats.ai_generations_change_type as "positive" | "negative" | "neutral"}
             icon={Brain}
           />
         </div>
@@ -240,6 +232,8 @@ export function SuperAdminDashboard() {
                   <YAxis 
                     stroke="hsl(var(--muted-foreground))"
                     tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    allowDecimals={false}
+                    tickFormatter={(value) => Math.round(value).toString()}
                   />
                   <Tooltip 
                     contentStyle={{ 
@@ -259,7 +253,8 @@ export function SuperAdminDashboard() {
                   <Line 
                     type="monotone" 
                     dataKey="users" 
-                    stroke={getComputedColor('--accent')} 
+                    // Emerald green for Users
+                    stroke="#10b981"
                     strokeWidth={2}
                     dot={{ r: 3 }}
                     name="Users"
@@ -267,7 +262,8 @@ export function SuperAdminDashboard() {
                   <Line 
                     type="monotone" 
                     dataKey="engagements" 
-                    stroke={getComputedColor('--primary')} 
+                    // Indigo for Engagements
+                    stroke="#6366f1"
                     strokeWidth={2}
                     dot={{ r: 3 }}
                     name="Engagements"
@@ -275,7 +271,8 @@ export function SuperAdminDashboard() {
                   <Line 
                     type="monotone" 
                     dataKey="firms" 
-                    stroke={getComputedColor('--warning')} 
+                    // Greyish black for Firms
+                    stroke="#4b5563"
                     strokeWidth={2}
                     dot={{ r: 3 }}
                     name="Firms"
@@ -283,7 +280,8 @@ export function SuperAdminDashboard() {
                   <Line 
                     type="monotone" 
                     dataKey="ai_generations" 
-                    stroke={getComputedColor('--success')} 
+                    // Yellow for AI Generations
+                    stroke="#facc15"
                     strokeWidth={2}
                     dot={{ r: 3 }}
                     name="AI Generations"
@@ -295,7 +293,7 @@ export function SuperAdminDashboard() {
         </div>
 
         <div className="card-trinity p-6">
-          <h3 className="font-heading font-semibold text-lg mb-4">Recent Ai Generation</h3>
+          <h3 className="font-heading font-semibold text-lg mb-4">Recent AI Generations</h3>
           <div className="space-y-4">
             {stats && stats.recent_ai_generations && stats.recent_ai_generations.length > 0 ? (
               stats.recent_ai_generations.map((generation, i) => (

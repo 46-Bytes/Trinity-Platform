@@ -79,7 +79,7 @@ export function MatrixDynamicQuestion({ question, value, onChange }) {
                             value={row[column.name] || ''}
                             onChange={(e) => handleCellChange(rowIndex, column.name, e.target.value)}
                             placeholder={`Enter ${column.title.toLowerCase()}`}
-                            className="w-full"
+                            className="w-full focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-offset-0"
                           />
                         </TableCell>
                       ))}

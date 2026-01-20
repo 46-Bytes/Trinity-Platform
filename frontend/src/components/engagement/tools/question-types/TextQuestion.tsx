@@ -17,6 +17,7 @@ export function TextQuestion({ question, value, onChange }) {
         max={question.max}
         step={question.step}
         placeholder={question.placeholder}
+        className="focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-offset-0"
       />
     </div>
   );

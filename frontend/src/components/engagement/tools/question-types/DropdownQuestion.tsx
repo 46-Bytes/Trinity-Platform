@@ -65,7 +65,7 @@ export function DropdownQuestion({ question, value, onChange, allResponses = {},
       )}
       
       <Select value={value || ""} onValueChange={handleDropdownChange}>
-        <SelectTrigger>
+        <SelectTrigger className="focus:ring-1 focus:ring-inset focus:ring-offset-0">
           <SelectValue placeholder="Select an option" />
         </SelectTrigger>
         <SelectContent>
@@ -99,6 +99,7 @@ export function DropdownQuestion({ question, value, onChange, allResponses = {},
             value={otherValue}
             onChange={(e) => handleOtherChange(e.target.value)}
             placeholder={question.otherPlaceholder || "Please describe"}
+            className="focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-offset-0"
           />
         </div>
       )}

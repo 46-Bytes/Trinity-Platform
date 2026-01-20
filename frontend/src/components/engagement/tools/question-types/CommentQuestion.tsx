@@ -14,7 +14,7 @@ export function CommentQuestion({ question, value, onChange }) {
         onChange={(e) => onChange(e.target.value)}
         maxLength={question.maxLength}
         placeholder={question.placeholder || "Enter your response..."}
-        className="min-h-[100px]"
+        className="min-h-[100px] focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-offset-0"
       />
       {question.maxLength && (
         <p className="text-xs text-muted-foreground text-right">

@@ -33,6 +33,7 @@ export function MultipleTextQuestion({ question, value, onChange }) {
               value={currentValue[item.name] || ''}
               onChange={(e) => handleItemChange(item.name, e.target.value)}
               placeholder={`Enter ${item.title.toLowerCase()}`}
+              className="focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-offset-0"
             />
           </div>
         ))}

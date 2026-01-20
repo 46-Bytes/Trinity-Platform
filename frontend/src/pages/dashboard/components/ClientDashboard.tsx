@@ -116,9 +116,8 @@ export function ClientDashboard() {
     return 'bg-muted text-muted-foreground';
   };
 
-  // Calculate pending tasks count
   const pendingTasksCount = stats?.latest_tasks.filter(
-    task => task.status === 'pending' || task.status === 'in_progress'
+    (task) => task.status === 'pending'
   ).length || 0;
 
   if (isLoading) {

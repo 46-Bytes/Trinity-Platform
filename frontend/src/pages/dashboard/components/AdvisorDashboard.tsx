@@ -9,10 +9,12 @@ import {
   Clock,
   ArrowRight
 } from 'lucide-react';
-import { cn, getUniqueClientIds } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { fetchEngagements } from '@/store/slices/engagementReducer';
 import { fetchTasks } from '@/store/slices/tasksReducer';
+import { fetchAdvisorClientsFromAssociations, type Client as DashboardClient } from '@/lib/clientFetcher';
+import { fetchFirmClients } from '@/store/slices/firmReducer';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -30,16 +32,45 @@ export function AdvisorDashboard() {
   const { user } = useAuth();
   const { engagements, isLoading: engagementsLoading } = useAppSelector((state) => state.engagement);
   const { tasks, isLoading: tasksLoading } = useAppSelector((state) => state.task);
+  const { clients: firmClients, isLoading: firmClientsLoading } = useAppSelector((state) => state.firm);
   
   const isFirmAdvisor = user?.role === 'firm_advisor';
   const [firmAdvisorStats, setFirmAdvisorStats] = useState<FirmAdvisorDashboardStats | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
+  const [advisorClients, setAdvisorClients] = useState<DashboardClient[]>([]);
+  const [isLoadingClients, setIsLoadingClients] = useState(false);
   
   // Fetch data on mount
   useEffect(() => {
     dispatch(fetchEngagements({}));
     dispatch(fetchTasks({ limit: 1000 }));
   }, [dispatch]);
+
+  // For regular advisors, fetch clients from advisor-client associations
+  useEffect(() => {
+    if (isFirmAdvisor) return;
+
+    const loadAdvisorClients = async () => {
+      try {
+        setIsLoadingClients(true);
+        const clients = await fetchAdvisorClientsFromAssociations();
+        setAdvisorClients(clients);
+      } catch (err) {
+        console.error('Failed to fetch advisor clients for dashboard:', err);
+      } finally {
+        setIsLoadingClients(false);
+      }
+    };
+
+    loadAdvisorClients();
+  }, [isFirmAdvisor]);
+
+  // For firm advisors, fetch firm clients
+  useEffect(() => {
+    if (isFirmAdvisor) {
+      dispatch(fetchFirmClients());
+    }
+  }, [isFirmAdvisor, dispatch]);
   
   // Fetch firm advisor stats from API
   useEffect(() => {
@@ -77,11 +108,26 @@ export function AdvisorDashboard() {
     }
   }, [isFirmAdvisor]);
   
-  // Calculate real analytics
-  // For firm_advisor, use API stats; for regular advisor, calculate from Redux state
-  const uniqueClients = isFirmAdvisor && firmAdvisorStats 
-    ? firmAdvisorStats.active_clients 
-    : getUniqueClientIds(engagements).size;
+  // Calculate client counts
+  // For firm_advisor, use firm clients from Redux; for regular advisor, use advisor-client associations
+  const allClients = isFirmAdvisor 
+    ? firmClients.map(client => ({
+        id: client.id,
+        name: client.name || 'Unknown',
+        email: client.email || '',
+        industry: '',
+        status: client.is_active ? 'Active' as const : 'Pending' as const,
+        engagements: 0,
+        is_active: client.is_active,
+        email_verified: false,
+        role: 'client' as const,
+      }))
+    : advisorClients;
+  
+  const totalClients = allClients.length;
+  const activeClientsCount = allClients.filter(c => c.status === 'Active').length;
+  
+  // Calculate other analytics
   const totalEngagements = isFirmAdvisor && firmAdvisorStats 
     ? firmAdvisorStats.total_engagements 
     : engagements.length;
@@ -90,7 +136,7 @@ export function AdvisorDashboard() {
     : engagements.reduce((sum, e) => sum + (e.documentsCount || 0), 0);
   const pendingTasks = tasks.filter(t => t.status === 'pending' || t.status === 'in_progress').length;
   
-  const isLoading = engagementsLoading || tasksLoading || (isFirmAdvisor && isLoadingStats);
+  const isLoading = engagementsLoading || tasksLoading || (isFirmAdvisor && isLoadingStats) || (!isFirmAdvisor && isLoadingClients) || (isFirmAdvisor && firmClientsLoading);
 
   // Calculate progress percentage (tasks completed / total tasks)
   const calculateProgress = (engagement: typeof engagements[0]) => {
@@ -168,8 +214,10 @@ export function AdvisorDashboard() {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <StatCard 
-              title="Active Clients" 
-              value={uniqueClients.toString()} 
+              title="Total Clients" 
+              value={totalClients.toString()} 
+              change={activeClientsCount > 0 ? `${activeClientsCount} active` : undefined}
+              changeType="neutral"
               icon={Users}
             />
             <StatCard 

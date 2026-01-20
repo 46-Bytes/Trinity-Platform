@@ -504,7 +504,7 @@ class DiagnosticService:
                 logger.warning(f"  Shutdown detected after task generation for diagnostic {diagnostic.id}")
                 raise asyncio.CancelledError("Shutdown detected")
         except Exception as e:
-            print(f"Warning: Could not generate tasks: {str(e)}")
+            logger.warning(f"Warning: Could not generate tasks: {str(e)}", exc_info=True)
         
         # ===== Save All Data to Database =====
         # Store JSON extract

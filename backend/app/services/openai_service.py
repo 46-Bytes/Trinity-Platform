@@ -225,7 +225,8 @@ class OpenAIService:
         temperature: Optional[float] = None,
         reasoning_effort: Optional[str] = None,
         file_ids: Optional[List[str]] = None,
-        tools: Optional[List[Dict[str, Any]]] = None
+        tools: Optional[List[Dict[str, Any]]] = None,
+        model: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Generate JSON completion from OpenAI using Responses API.
@@ -247,7 +248,7 @@ class OpenAIService:
             reasoning_effort=reasoning_effort,
             file_ids=file_ids,
             tools=tools,
-            model=settings.OPENAI_MODEL
+            model=model or settings.OPENAI_MODEL,
         )
         
         # Parse JSON content

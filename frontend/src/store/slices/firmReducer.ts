@@ -12,6 +12,8 @@ export interface Firm {
   seats_used: number;
   clients_count?: number;
   advisors_count?: number;
+  subscription_id?: string;
+  subscription_plan?: string;
   billing_email?: string;
   clients?: string[]; // Array of client user IDs
   is_active?: boolean;
@@ -55,12 +57,27 @@ export interface FirmStats {
   tasks_count: number;
 }
 
+export interface Subscription {
+  id: string;
+  firm_id?: string | null;
+  plan_name: string;
+  seat_count: number;
+  monthly_price: number;
+  status: 'active' | 'cancelled' | 'expired' | 'pending' | 'suspended';
+  created_at: string;
+  updated_at: string;
+  cancel_at_period_end?: boolean;
+  cancelled_at?: string | null;
+  current_period_end?: string; // End date of current billing period
+}
+
 interface FirmState {
   firms: Firm[];
   firm: Firm | null;
   advisors: Advisor[];
   clients: Client[];
   stats: FirmStats | null;
+  subscription: Subscription | null;
   seats_used: number | null;  // From advisors API response
   seats_available: number | null;  // From advisors API response
   isLoading: boolean;
@@ -118,7 +135,25 @@ export const fetchFirm = createAsyncThunk(
       const data = await response.json();
       // If it's an array, get the first firm (firm admin sees their own firm)
       const firm = Array.isArray(data) ? data[0] : data;
-      return firm as Firm;
+      
+      // Fetch subscription details if firm has subscription_id
+      let subscription: Subscription | null = null;
+      if (firm.subscription_id) {
+        try {
+          const subResponse = await fetch(`${API_BASE_URL}/api/firms/${firm.id}/subscription`, {
+            headers: getAuthHeaders(),
+          });
+          
+          if (subResponse.ok) {
+            subscription = await subResponse.json();
+          }
+        } catch (error) {
+          // Subscription fetch failed, but don't fail the whole firm fetch
+          console.error('Failed to fetch subscription:', error);
+        }
+      }
+      
+      return { firm: firm as Firm, subscription };
     } catch (error) {
       return rejectWithValue(error instanceof Error ? error.message : 'Failed to fetch firm');
     }
@@ -591,6 +626,7 @@ const initialState: FirmState = {
   advisors: [],
   clients: [],
   stats: null,
+  subscription: null,
   seats_used: null,
   seats_available: null,
   isLoading: false,
@@ -629,7 +665,8 @@ const firmSlice = createSlice({
       })
       .addCase(fetchFirm.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.firm = action.payload;
+        state.firm = action.payload.firm;
+        state.subscription = action.payload.subscription;
       })
       .addCase(fetchFirm.rejected, (state, action) => {
         state.isLoading = false;

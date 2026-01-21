@@ -18,7 +18,7 @@ export default function FirmDetailsSubscription() {
   const [loadingSub, setLoadingSub] = useState(false);
 
   useEffect(() => {
-    if (firmId && firm?.subscription_id) {
+    if (firmId) {
       setLoadingSub(true);
       const token = localStorage.getItem('auth_token');
       fetch(`${API_BASE_URL}/api/firms/${firmId}/subscription`, {
@@ -27,14 +27,32 @@ export default function FirmDetailsSubscription() {
           'Content-Type': 'application/json',
         },
       })
-        .then(res => res.json())
-        .then(data => {
-          setSubscription(data);
-          setLoadingSub(false);
-        })
-        .catch(() => setLoadingSub(false));
+      .then(res => {
+        if (res.ok) {
+          return res.json();
+        }
+        // If 404, no subscription exists - that's okay
+        if (res.status === 404) {
+          return null;
+        }
+        // If 403, permission denied - log but don't throw
+        if (res.status === 403) {
+          console.error('Permission denied to view subscription');
+          return null;
+        }
+        throw new Error(`Failed to fetch subscription: ${res.status}`);
+      })
+      .then(data => {
+        setSubscription(data);
+        setLoadingSub(false);
+      })
+      .catch((error) => {
+        console.error('Error fetching subscription:', error);
+        setSubscription(null);
+        setLoadingSub(false);
+      });
     }
-  }, [firmId, firm?.subscription_id]);
+  }, [firmId]);
 
   const formatDate = (dateString: string) => {
     try {

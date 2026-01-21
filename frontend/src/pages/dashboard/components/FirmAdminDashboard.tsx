@@ -8,12 +8,10 @@ import {
 import { cn } from '@/lib/utils';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { fetchFirm, fetchFirmAdvisors, fetchFirmClients, fetchFirmStats } from '@/store/slices/firmReducer';
-import { fetchSubscriptions } from '@/store/slices/subscriptionReducer';
 
 export function FirmAdminDashboard() {
   const dispatch = useAppDispatch();
-  const { firm, advisors, clients, stats, isLoading } = useAppSelector((state) => state.firm);
-  const { subscriptions } = useAppSelector((state) => state.subscription);
+  const { firm, advisors, clients, stats, subscription, isLoading } = useAppSelector((state) => state.firm);
 
   useEffect(() => {
     if (!firm) {
@@ -26,7 +24,6 @@ export function FirmAdminDashboard() {
       dispatch(fetchFirmAdvisors(firm.id));
       dispatch(fetchFirmClients());
       dispatch(fetchFirmStats(firm.id));
-      dispatch(fetchSubscriptions());
     }
   }, [dispatch, firm?.id]);
 
@@ -42,23 +39,18 @@ export function FirmAdminDashboard() {
 
   // Calculate subscription days remaining
   const calculateSubscriptionDays = () => {
-    // Find subscription for this firm (match by firm_id or check if firm has subscription_id)
-    const firmSubscription = subscriptions.find((sub) => 
-      sub.firm_id === firm?.id || sub.id === (firm as any)?.subscription_id
-    );
-    
-    if (!firmSubscription) {
+    if (!subscription) {
       return null;
     }
 
     // Use current_period_end if available, otherwise calculate from created_at + 30 days
     let endDate: Date;
     
-    if (firmSubscription.current_period_end) {
-      endDate = new Date(firmSubscription.current_period_end);
+    if (subscription.current_period_end) {
+      endDate = new Date(subscription.current_period_end);
     } else {
       // Fallback: calculate from created_at + 30 days (monthly subscription)
-      const createdDate = new Date(firmSubscription.created_at);
+      const createdDate = new Date(subscription.created_at);
       endDate = new Date(createdDate);
       endDate.setDate(endDate.getDate() + 30);
     }
@@ -68,6 +60,31 @@ export function FirmAdminDashboard() {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     return diffDays;
+  };
+
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch {
+      return 'N/A';
+    }
+  };
+
+  // Calculate next billing date (30 days from current_period_end or created_at)
+  const getNextBillingDate = () => {
+    if (!subscription) return 'N/A';
+    
+    if (subscription.current_period_end) {
+      return formatDate(subscription.current_period_end);
+    }
+    
+    // Fallback: 30 days from created_at
+    const createdDate = new Date(subscription.created_at);
+    const nextBilling = new Date(createdDate);
+    nextBilling.setDate(nextBilling.getDate() + 30);
+    return formatDate(nextBilling.toISOString());
   };
 
   const subscriptionDays = calculateSubscriptionDays();
@@ -169,25 +186,44 @@ export function FirmAdminDashboard() {
         <div className="card-trinity p-6">
           <h3 className="font-heading font-semibold text-lg mb-4">Billing & Subscription</h3>
           <div className="space-y-4">
-            <div className="p-4 rounded-lg bg-accent/5 border border-accent/20">
-              <p className="text-sm font-medium">Professional Plan</p>
-              <p className="text-2xl font-heading font-bold mt-1">$299<span className="text-sm font-normal text-muted-foreground">/month</span></p>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Seats used</span>
-              <span className="font-medium">{stats?.seats_used ?? seatsUsed} / {seatCount || '-'}</span>
-            </div>
-            {stats?.seats_available !== undefined && (
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Seats available</span>
-                <span className="font-medium">{stats.seats_available}</span>
+            {subscription ? (
+              <>
+                <div className="p-4 rounded-lg bg-accent/5 border border-accent/20">
+                  <p className="text-sm font-medium">{subscription.plan_name}</p>
+                  <p className="text-2xl font-heading font-bold mt-1">
+                    ${subscription.monthly_price.toFixed(2)}
+                    <span className="text-sm font-normal text-muted-foreground">/month</span>
+                  </p>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Seats used</span>
+                  <span className="font-medium">{stats?.seats_used ?? seatsUsed} / {seatCount || '-'}</span>
+                </div>
+                {stats?.seats_available !== undefined && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Seats available</span>
+                    <span className="font-medium">{stats.seats_available}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Status</span>
+                  <span className={cn(
+                    "status-badge",
+                    subscription.status === 'active' ? "status-success" : "status-warning"
+                  )}>
+                    {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Next billing</span>
+                  <span className="font-medium">{getNextBillingDate()}</span>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-4 text-muted-foreground">
+                <p className="text-sm">No subscription found</p>
               </div>
             )}
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Next billing</span>
-              <span className="font-medium">Jan 1, 2025</span>
-            </div>
-            <button className="btn-secondary w-full">Manage Subscription</button>
           </div>
         </div>
       </div>

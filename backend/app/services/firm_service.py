@@ -133,12 +133,11 @@ class FirmService:
         advisor = self.db.query(User).filter(User.email == advisor_email).first()
         
         if advisor:
-            if advisor.firm_id:
-                raise ValueError("User is already part of a firm")
-            # Update existing user
-            advisor.firm_id = firm_id
-            advisor.role = UserRole.FIRM_ADVISOR
-            advisor.name = advisor_name or advisor.name
+            existing_role = advisor.role.value if hasattr(advisor.role, "value") else str(advisor.role)
+            raise ValueError(
+                f"User with email {advisor_email} already exists. "
+                "Please use a different email."
+            )
         else:
             # Create new user placeholder; real credentials managed in Auth0
             advisor = User(
@@ -150,10 +149,9 @@ class FirmService:
                 is_active=True
             )
             self.db.add(advisor)
-        
-        firm.seats_used += 1
-        self.db.commit()
-        self.db.refresh(advisor)
+            firm.seats_used += 1
+            self.db.commit()
+            self.db.refresh(advisor)
         
         self.logger.info(f"Advisor {advisor.id} added to firm {firm_id}")
         return advisor
@@ -563,11 +561,21 @@ class FirmService:
             derived_name = last_name.strip()
         
         if client:
-            # Client exists - check if already in this firm
+            # If the user already belongs to a (different) firm, do NOT move them
+            if client.firm_id and client.firm_id != firm_id:
+                raise ValueError("User with this email is already part of another firm")
+
+            # If this client is already linked to this firm via the clients array, don't duplicate
             if firm.clients and client.id in firm.clients:
                 raise ValueError("Client is already associated with this firm")
-            
-            # Update client to be associated with firm
+
+            if client.role != UserRole.CLIENT:
+                raise ValueError(
+                    f"User with email {email} already exists"
+                    "and cannot be added as a firm client."
+                )
+
+            # Safe updates (names) while keeping their role as client
             client.firm_id = firm_id
             if first_name:
                 client.first_name = first_name
@@ -575,8 +583,6 @@ class FirmService:
                 client.last_name = last_name
             if derived_name:
                 client.name = derived_name
-            if client.role != UserRole.CLIENT:
-                client.role = UserRole.CLIENT
         else:
             # Create new client user placeholder; real credentials managed in Auth0
             client = User(

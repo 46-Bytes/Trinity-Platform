@@ -37,6 +37,7 @@ class FirmResponse(BaseModel):
     # Optional aggregate counts for UI
     advisors_count: Optional[int] = None
     clients_count: Optional[int] = None
+    subscription_id: Optional[UUID] = None
     subscription_plan: Optional[str] = None
     seat_count: int
     seats_used: int
@@ -137,7 +138,7 @@ class SubscriptionResponse(BaseModel):
     seat_count: int
     monthly_price: float
     status: str
-    cancel_at_period_end: bool
+    cancel_at_period_end: bool = False
     cancelled_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime

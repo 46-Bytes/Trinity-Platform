@@ -143,9 +143,6 @@ export default function SubscriptionsPage() {
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
-              <SelectItem value="expired">Expired</SelectItem>
               <SelectItem value="suspended">Suspended</SelectItem>
             </SelectContent>
           </Select>
@@ -162,7 +159,6 @@ export default function SubscriptionsPage() {
               <table className="table-trinity">
                 <thead>
                   <tr>
-                    <th>Subscription</th>
                     <th>Plan</th>
                     <th>Seats</th>
                     <th>Monthly Price</th>
@@ -174,19 +170,6 @@ export default function SubscriptionsPage() {
                   {filteredSubscriptions.map((subscription) => (
                     <tr key={subscription.id} className="group">
                       <td>
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
-                            <CreditCard className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <p className="font-medium">ID: {subscription.id.slice(0, 8)}...</p>
-                            <p className="text-sm text-muted-foreground">
-                              {formatDate(subscription.created_at)}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td>
                         <span className="font-medium">{subscription.plan_name}</span>
                       </td>
                       <td>
@@ -194,7 +177,6 @@ export default function SubscriptionsPage() {
                       </td>
                       <td>
                         <div className="flex items-center gap-2">
-                          <DollarSign className="w-4 h-4 text-muted-foreground" />
                           <span className="font-medium">
                             {formatCurrency(subscription.monthly_price)}
                           </span>

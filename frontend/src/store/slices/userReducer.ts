@@ -30,20 +30,23 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 // Async thunks
 export const fetchUsers = createAsyncThunk(
   'user/fetchUsers',
-  async (params: { skip?: number; limit?: number; role?: string } = {}, { rejectWithValue }) => {
+  async (params: { skip?: number; limit?: number; role?: string; q?: string } = {}, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem('auth_token');
       if (!token) {
         throw new Error('No authentication token found');
       }
 
-      const { skip = 0, limit = 10, role } = params;
+      const { skip = 0, limit = 10, role, q } = params;
       const queryParams = new URLSearchParams({
         skip: skip.toString(),
         limit: limit.toString(),
       });
       if (role) {
         queryParams.append('role', role);
+      }
+      if (q && q.trim()) {
+        queryParams.append('q', q.trim());
       }
 
       const response = await fetch(`${API_BASE_URL}/api/users?${queryParams.toString()}`, {

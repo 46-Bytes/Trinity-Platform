@@ -457,7 +457,10 @@ export const fetchFirmClientsById = createAsyncThunk(
 
 export const addClientToFirm = createAsyncThunk(
   'firm/addClientToFirm',
-  async ({ firmId, email, name, first_name, last_name }: { firmId: string; email: string; name?: string; first_name?: string; last_name?: string }, { rejectWithValue }) => {
+  async (
+    { firmId, email, first_name, last_name }: { firmId: string; email: string; first_name?: string; last_name?: string },
+    { rejectWithValue }
+  ) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/firms/${firmId}/clients`, {
         method: 'POST',
@@ -465,7 +468,7 @@ export const addClientToFirm = createAsyncThunk(
           ...getAuthHeaders(),
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, name, first_name, last_name }),
+        body: JSON.stringify({ email, first_name, last_name }),
       });
 
       if (!response.ok) {

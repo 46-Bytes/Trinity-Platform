@@ -156,7 +156,6 @@ export default function FirmsPage() {
                           </div>
                           <div>
                             <p className="font-medium">{firm.firm_name}</p>
-                            <p className="text-sm text-muted-foreground">ID: {firm.id.slice(0, 8)}...</p>
                           </div>
                         </div>
                       </td>

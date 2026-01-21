@@ -638,9 +638,15 @@ const firmSlice = createSlice({
 
     // Fetch firm by ID (for superadmin)
     builder
-      .addCase(fetchFirmById.pending, (state) => {
+      .addCase(fetchFirmById.pending, (state, action) => {
         state.isLoading = true;
         state.error = null;
+        // Prevent UI from briefly showing the previously-viewed firm's details while switching firms
+        // action.meta.arg is the firmId being requested
+        const requestedFirmId = action.meta.arg as string | undefined;
+        if (requestedFirmId && state.firm?.id && state.firm.id !== requestedFirmId) {
+          state.firm = null;
+        }
       })
       .addCase(fetchFirmById.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -753,9 +759,14 @@ const firmSlice = createSlice({
 
     // Fetch clients by firm ID
     builder
-      .addCase(fetchFirmClientsById.pending, (state) => {
+      .addCase(fetchFirmClientsById.pending, (state, action) => {
         state.isLoading = true;
         state.error = null;
+        // Clear previous firm's clients immediately to avoid stale "stats" flicker when switching firms
+        const requestedFirmId = action.meta.arg as string | undefined;
+        if (requestedFirmId && state.firm?.id && state.firm.id !== requestedFirmId) {
+          state.clients = [];
+        }
       })
       .addCase(fetchFirmClientsById.fulfilled, (state, action) => {
         state.isLoading = false;

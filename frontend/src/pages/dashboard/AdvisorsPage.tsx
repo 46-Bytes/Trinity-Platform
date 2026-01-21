@@ -57,7 +57,6 @@ export default function AdvisorsPage() {
   const [selectedAdvisorForAssociation, setSelectedAdvisorForAssociation] = useState<Advisor | null>(null);
   const [formData, setFormData] = useState({
     email: '',
-    name: '',
     given_name: '',
     family_name: '',
   });
@@ -78,7 +77,7 @@ export default function AdvisorsPage() {
       // Otherwise, fetch firm first to get firm ID (for firm_admin)
       dispatch(fetchFirm()).then((result) => {
         if (fetchFirm.fulfilled.match(result) && result.payload) {
-          dispatch(fetchFirmAdvisors(result.payload.id));
+          dispatch(fetchFirmAdvisors(result.payload.firm.id));
           dispatch(fetchFirmClients());
         }
       });
@@ -110,7 +109,7 @@ export default function AdvisorsPage() {
         firmId: firm.id,
         advisorData: {
           email: formData.email,
-          name: formData.name || `${formData.given_name} ${formData.family_name}`.trim(),
+          name: `${formData.given_name} ${formData.family_name}`.trim(),
         },
       })).unwrap();
 
@@ -120,7 +119,7 @@ export default function AdvisorsPage() {
       });
 
       // Reset form and close dialog
-      setFormData({ email: '', name: '', given_name: '', family_name: '' });
+      setFormData({ email: '', given_name: '', family_name: '' });
       setIsAddDialogOpen(false);
       
       // Refresh advisors list
@@ -146,8 +145,8 @@ export default function AdvisorsPage() {
         variant: 'destructive',
       });
 
-      // Reset form on error so dialog is clear when reopened
-      setFormData({ email: '', name: '', given_name: '', family_name: '' });
+      setFormData({ email: '', given_name: '', family_name: '' });
+      setIsAddDialogOpen(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -327,7 +326,7 @@ export default function AdvisorsPage() {
             setIsAddDialogOpen(open);
             // Reset form when dialog closes
             if (!open) {
-              setFormData({ email: '', name: '', given_name: '', family_name: '' });
+              setFormData({ email: '', given_name: '', family_name: '' });
             }
           }}
         >
@@ -354,15 +353,6 @@ export default function AdvisorsPage() {
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="advisor@example.com"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Jane Smith"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">

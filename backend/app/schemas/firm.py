@@ -65,7 +65,6 @@ class FirmAdvisorAdd(BaseModel):
 class FirmClientAdd(BaseModel):
     """Schema for adding a client to a firm."""
     email: EmailStr = Field(..., description="Email address of the client")
-    name: Optional[str] = Field(None, max_length=255, description="Full name of the client")
     first_name: Optional[str] = Field(None, max_length=255, description="First name of the client")
     last_name: Optional[str] = Field(None, max_length=255, description="Last name of the client")
 

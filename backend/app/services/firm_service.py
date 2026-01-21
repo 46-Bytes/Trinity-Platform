@@ -517,7 +517,6 @@ class FirmService:
         self,
         firm_id: UUID,
         email: str,
-        name: Optional[str] = None,
         first_name: Optional[str] = None,
         last_name: Optional[str] = None,
         added_by: UUID = None
@@ -532,7 +531,6 @@ class FirmService:
         Args:
             firm_id: ID of the firm
             email: Email address of the client
-            name: Full name of the client (optional)
             first_name: First name (optional)
             last_name: Last name (optional)
             added_by: ID of the user adding the client (for permissions)
@@ -555,6 +553,14 @@ class FirmService:
         
         # Check if client already exists
         client = self.db.query(User).filter(User.email == email).first()
+
+        derived_name: Optional[str] = None
+        if first_name and last_name:
+            derived_name = f"{first_name} {last_name}".strip()
+        elif first_name:
+            derived_name = first_name.strip()
+        elif last_name:
+            derived_name = last_name.strip()
         
         if client:
             # Client exists - check if already in this firm
@@ -563,12 +569,12 @@ class FirmService:
             
             # Update client to be associated with firm
             client.firm_id = firm_id
-            if name:
-                client.name = name
             if first_name:
                 client.first_name = first_name
             if last_name:
                 client.last_name = last_name
+            if derived_name:
+                client.name = derived_name
             if client.role != UserRole.CLIENT:
                 client.role = UserRole.CLIENT
         else:
@@ -576,7 +582,7 @@ class FirmService:
             client = User(
                 email=email,
                 auth0_id=f"temp_client_{uuid_lib.uuid4()}",
-                name=name,
+                name=derived_name,
                 first_name=first_name,
                 last_name=last_name,
                 role=UserRole.CLIENT,

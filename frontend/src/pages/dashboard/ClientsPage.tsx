@@ -60,7 +60,6 @@ export default function ClientsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
-    name: '',
     first_name: '',
     last_name: '',
   });
@@ -283,7 +282,6 @@ export default function ClientsPage() {
       const result = await dispatch(addClientToFirm({
         firmId,
         email: formData.email,
-        name: formData.name || undefined,
         first_name: formData.first_name || undefined,
         last_name: formData.last_name || undefined,
       }));
@@ -294,7 +292,7 @@ export default function ClientsPage() {
           description: 'Client added successfully',
         });
         setIsAddDialogOpen(false);
-        setFormData({ email: '', name: '', first_name: '', last_name: '' });
+        setFormData({ email: '', first_name: '', last_name: '' });
         // Refresh clients list
         dispatch(fetchFirmClients());
       } else {
@@ -330,7 +328,7 @@ export default function ClientsPage() {
               <DialogHeader>
                 <DialogTitle>Add New Client</DialogTitle>
                 <DialogDescription>
-                  Add a new client to your firm.
+                  Add a new client to firm.
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleAddClient} className="space-y-4">
@@ -343,15 +341,6 @@ export default function ClientsPage() {
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="client@example.com"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="John Doe"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">

@@ -467,7 +467,6 @@ async def add_client(
         client = firm_service.add_client_to_firm(
             firm_id=firm_id,
             email=client_data.email,
-            name=client_data.name,
             first_name=client_data.first_name,
             last_name=client_data.last_name,
             added_by=current_user.id

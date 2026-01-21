@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useEffect, useState, useMemo,useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,7 @@ export default function EngagementDetailPage() {
   const [diagnostics, setDiagnostics] = useState<any[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const fetchInFlightRef = useRef(false);
   
   // Get tags from Redux store
   const { mediaTags, diagnosticTags } = useAppSelector((state) => state.tag);
@@ -48,7 +49,10 @@ export default function EngagementDetailPage() {
   // Fetch diagnostics for this engagement
   const fetchDiagnostics = useCallback(async () => {
     if (!engagementId) return;
+    // Prevent duplicate in-flight calls (e.g., multiple effects firing on mount)
+    if (fetchInFlightRef.current) return;
     
+    fetchInFlightRef.current = true;
     setIsLoadingFiles(true);
     try {
       const token = localStorage.getItem('auth_token');
@@ -124,6 +128,7 @@ export default function EngagementDetailPage() {
       console.error('Failed to fetch diagnostics:', error);
     } finally {
       setIsLoadingFiles(false);
+      fetchInFlightRef.current = false;
     }
   }, [engagementId]);
 
@@ -134,11 +139,6 @@ export default function EngagementDetailPage() {
       dispatch(fetchMediaTags(diagnosticIds));
     }
   }, [diagnostics, dispatch]);
-
-  // Initial fetch
-  useEffect(() => {
-    fetchDiagnostics();
-  }, [fetchDiagnostics]);
 
   // Refresh diagnostics when overview tab is selected
   useEffect(() => {

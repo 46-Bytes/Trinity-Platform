@@ -125,12 +125,29 @@ export default function AdvisorsPage() {
       
       // Refresh advisors list
       dispatch(fetchFirmAdvisors(firm.id));
-    } catch (error) {
+    } catch (error: any) {
+      // Extract error message from various possible formats
+      let errorMessage = 'Failed to add advisor';
+      if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      } else if (error?.detail) {
+        errorMessage = error.detail;
+      } else if (error?.payload) {
+        errorMessage = typeof error.payload === 'string' ? error.payload : error.payload?.detail || errorMessage;
+      }
+
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to add advisor',
+        description: errorMessage,
         variant: 'destructive',
       });
+
+      // Reset form on error so dialog is clear when reopened
+      setFormData({ email: '', name: '', given_name: '', family_name: '' });
     } finally {
       setIsSubmitting(false);
     }
@@ -304,7 +321,16 @@ export default function AdvisorsPage() {
           <h1 className="font-heading text-2xl font-bold text-foreground">Advisors</h1>
           <p className="text-muted-foreground mt-1">Manage advisors in your firm</p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <Dialog 
+          open={isAddDialogOpen} 
+          onOpenChange={(open) => {
+            setIsAddDialogOpen(open);
+            // Reset form when dialog closes
+            if (!open) {
+              setFormData({ email: '', name: '', given_name: '', family_name: '' });
+            }
+          }}
+        >
           <DialogTrigger asChild>
             <Button className="btn-primary">
               <Plus className="w-4 h-4 mr-2" />
@@ -402,12 +428,6 @@ export default function AdvisorsPage() {
               {firm.seat_count - firm.seats_used} available
             </p>
           </div>
-        </div>
-      )}
-
-      {error && (
-        <div className="card-trinity p-4 bg-destructive/10 border border-destructive/20">
-          <p className="text-destructive">{error}</p>
         </div>
       )}
 

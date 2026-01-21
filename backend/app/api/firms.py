@@ -164,6 +164,7 @@ async def list_firms(
                 firm_admin_email=firm_admin_email,
                 advisors_count=advisors_count,
                 clients_count=clients_count,
+                subscription_id=firm.subscription_id,
                 subscription_plan=firm.subscription_plan,
                 seat_count=firm.seat_count,
                 seats_used=firm.seats_used,

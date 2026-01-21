@@ -33,6 +33,7 @@ async def list_users(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     role: Optional[str] = None,
+    q: Optional[str] = Query(None, description="Search query (matches name/email)"),
     ids: Optional[str] = Query(None, description="Comma-separated list of user IDs to filter by"),
     skip: int = 0,
     limit: int = 10,
@@ -91,6 +92,21 @@ async def list_users(
                 query = query.filter(User.firm_id.is_(None))
         except ValueError:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail=f"Invalid role: {role}")
+
+
+    if q:
+        q_str = q.strip()
+        if q_str:
+            like = f"%{q_str}%"
+            query = query.filter(
+                or_(
+                    User.name.ilike(like),
+                    User.email.ilike(like),
+                    User.first_name.ilike(like),
+                    User.last_name.ilike(like),
+                    User.nickname.ilike(like),
+                )
+            )
     
     # Get total count before pagination
     total = query.count()

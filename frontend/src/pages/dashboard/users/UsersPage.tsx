@@ -64,16 +64,26 @@ export default function UsersPage() {
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState<UserRole>('client');
 
-  // Fetch users when page or filters change
+  // Fetch users when page/filters change (debounced for search)
   useEffect(() => {
-    const skip = (currentPage - 1) * USERS_PER_PAGE;
     const role = roleFilter === 'all' ? undefined : roleFilter;
-    dispatch(fetchUsers({ skip, limit: USERS_PER_PAGE, role }));
-  }, [dispatch, currentPage, roleFilter]);
+    const skip = (currentPage - 1) * USERS_PER_PAGE;
+
+    const handle = window.setTimeout(() => {
+      dispatch(fetchUsers({ skip, limit: USERS_PER_PAGE, role, q: searchQuery }));
+    }, 300);
+
+    return () => window.clearTimeout(handle);
+  }, [dispatch, currentPage, roleFilter, searchQuery]);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [roleFilter]);
+
+  // When searching, reset to page 1 (server-side search + pagination)
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   // Show error toast if there's an error
   useEffect(() => {
@@ -157,14 +167,8 @@ export default function UsersPage() {
     }
   };
 
-  // Client-side search filtering (pagination is server-side)
-  const filteredUsers = sortUsersByLastEdited(
-    users.filter(u => {
-      const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.email.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesSearch;
-    })
-  );
+  // Pagination + search are server-side; just sort what the API returns for the current page
+  const sortedUsers = sortUsersByLastEdited(users);
 
   // Calculate pagination
   const totalPages = Math.ceil(totalUsers / USERS_PER_PAGE);
@@ -258,7 +262,7 @@ export default function UsersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredUsers.map((u) => (
+                  {sortedUsers.map((u) => (
                     <tr key={u.id} className="group">
                       <td>
                         <div className="flex items-center gap-3">
@@ -361,7 +365,7 @@ export default function UsersPage() {
               </table>
             </div>
 
-            {filteredUsers.length === 0 && !isLoading && (
+            {sortedUsers.length === 0 && !isLoading && (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">No users found</p>
                 {searchQuery && (
@@ -378,9 +382,6 @@ export default function UsersPage() {
                   <>
                     Showing {(currentPage - 1) * USERS_PER_PAGE + 1} to{' '}
                     {Math.min(currentPage * USERS_PER_PAGE, totalUsers)} of {totalUsers} users
-                    {searchQuery && filteredUsers.length < users.length && (
-                      <> ({filteredUsers.length} match{filteredUsers.length !== 1 ? 'es' : ''} on this page)</>
-                    )}
                   </>
                 ) : (
                   <>No users found</>

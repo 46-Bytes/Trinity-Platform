@@ -3,7 +3,7 @@ import { Search, MoreHorizontal, Building2, Loader2, Eye, FileText, Plus, Mail, 
 import { cn, getUniqueClientIds } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchEngagements } from '@/store/slices/engagementReducer';
-import { fetchFirmClients, addClientToFirm, fetchFirm } from '@/store/slices/firmReducer';
+import { fetchFirmClients, addClientToFirm, fetchFirm, fetchFirmAdvisors } from '@/store/slices/firmReducer';
 import { fetchClientUsers } from '@/store/slices/clientReducer';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -28,6 +28,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -50,7 +57,7 @@ export default function ClientsPage() {
   const dispatch = useAppDispatch();
   const { user } = useAuth();
   const { engagements, isLoading: engagementsLoading } = useAppSelector((state) => state.engagement);
-  const { firm, clients: firmClients, isLoading: firmClientsLoading, error: firmError } = useAppSelector((state) => state.firm);
+  const { firm, clients: firmClients, advisors, isLoading: firmClientsLoading, error: firmError } = useAppSelector((state) => state.firm);
   const { clients: adminClients, isLoading: adminClientsLoading, error: adminClientsError } = useAppSelector((state) => state.client);
   const { toast } = useToast();
   
@@ -62,6 +69,7 @@ export default function ClientsPage() {
     email: '',
     first_name: '',
     last_name: '',
+    primary_advisor_id: '',
   });
 
   // Get client fetching strategy based on user role - memoize to prevent infinite loops
@@ -116,6 +124,13 @@ export default function ClientsPage() {
       dispatch(fetchFirm());
     }
   }, [dispatch, user?.id, shouldUseFirmClients, firm]);
+
+  // Fetch firm advisors when dialog opens
+  useEffect(() => {
+    if (isAddDialogOpen && firm && shouldUseFirmClients) {
+      dispatch(fetchFirmAdvisors(firm.id));
+    }
+  }, [isAddDialogOpen, firm, shouldUseFirmClients, dispatch]);
 
   // Fetch clients for firm admin (but not for superadmin viewing a firm - those are fetched by FirmDetailsClients)
   useEffect(() => {
@@ -284,6 +299,7 @@ export default function ClientsPage() {
         email: formData.email,
         first_name: formData.first_name || undefined,
         last_name: formData.last_name || undefined,
+        primaryAdvisorId: formData.primary_advisor_id || undefined,
       }));
 
       if (addClientToFirm.fulfilled.match(result)) {
@@ -292,7 +308,7 @@ export default function ClientsPage() {
           description: 'Client added successfully',
         });
         setIsAddDialogOpen(false);
-        setFormData({ email: '', first_name: '', last_name: '' });
+        setFormData({ email: '', first_name: '', last_name: '', primary_advisor_id: '' });
         // Refresh clients list
         dispatch(fetchFirmClients());
       } else {
@@ -363,6 +379,33 @@ export default function ClientsPage() {
                     />
                   </div>
                 </div>
+                {shouldUseFirmClients && (
+                  <div className="space-y-2">
+                    <Label htmlFor="primary_advisor">Primary Advisor (Optional)</Label>
+                    <Select
+                      value={formData.primary_advisor_id || undefined}
+                      onValueChange={(value) => setFormData({ ...formData, primary_advisor_id: value === "none" ? "" : value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a primary advisor (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {advisors
+                          .filter((advisor) => 
+                            advisor.role === 'firm_advisor' && 
+                            advisor.firm_id === firm?.id &&
+                            advisor.is_active
+                          )
+                          .map((advisor) => (
+                            <SelectItem key={advisor.id} value={advisor.id}>
+                              {advisor.name || advisor.email}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="flex justify-end gap-2 pt-4">
                   <Button
                     type="button"

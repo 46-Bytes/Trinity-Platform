@@ -493,17 +493,22 @@ export const fetchFirmClientsById = createAsyncThunk(
 export const addClientToFirm = createAsyncThunk(
   'firm/addClientToFirm',
   async (
-    { firmId, email, first_name, last_name }: { firmId: string; email: string; first_name?: string; last_name?: string },
+    { firmId, email, first_name, last_name, primaryAdvisorId }: { firmId: string; email: string; first_name?: string; last_name?: string; primaryAdvisorId?: string },
     { rejectWithValue }
   ) => {
     try {
+      const body: any = { email, first_name, last_name };
+      if (primaryAdvisorId) {
+        body.primary_advisor_id = primaryAdvisorId;
+      }
+      
       const response = await fetch(`${API_BASE_URL}/api/firms/${firmId}/clients`, {
         method: 'POST',
         headers: {
           ...getAuthHeaders(),
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, first_name, last_name }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {

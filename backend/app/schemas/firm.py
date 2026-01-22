@@ -68,6 +68,7 @@ class FirmClientAdd(BaseModel):
     email: EmailStr = Field(..., description="Email address of the client")
     first_name: Optional[str] = Field(None, max_length=255, description="First name of the client")
     last_name: Optional[str] = Field(None, max_length=255, description="Last name of the client")
+    primary_advisor_id: Optional[UUID] = Field(None, description="Optional primary advisor ID to associate with the client")
 
 
 class FirmClientResponse(BaseModel):

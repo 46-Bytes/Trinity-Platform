@@ -455,7 +455,8 @@ async def add_client(
             email=client_data.email,
             first_name=client_data.first_name,
             last_name=client_data.last_name,
-            added_by=current_user.id
+            added_by=current_user.id,
+            primary_advisor_id=client_data.primary_advisor_id
         )
         
         return FirmClientResponse.model_validate(client)

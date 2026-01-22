@@ -60,9 +60,26 @@ async def create_engagement(
             detail="Client not found or invalid client ID."
         )
     
+    primary_advisor_id = engagement_data.primary_advisor_id
+    if current_user.role in [UserRole.FIRM_ADMIN, UserRole.FIRM_ADVISOR]:
+        # Check if client has an associated advisor via AdvisorClient table
+        association = db.query(AdvisorClient).filter(
+            AdvisorClient.client_id == engagement_data.client_id,
+            AdvisorClient.status == 'active'
+        ).first()
+        
+        if not association:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Client must have an associated advisor before creating an engagement. Please associate an advisor to the client first."
+            )
+        
+        # Use the associated advisor as primary advisor
+        primary_advisor_id = association.advisor_id
+    
     # Verify primary advisor exists (can be ADVISOR, FIRM_ADVISOR, or FIRM_ADMIN)
     primary_advisor = db.query(User).filter(
-        User.id == engagement_data.primary_advisor_id,
+        User.id == primary_advisor_id,
         User.role.in_([UserRole.ADVISOR, UserRole.FIRM_ADVISOR, UserRole.FIRM_ADMIN])
     ).first()
     if not primary_advisor:
@@ -85,7 +102,7 @@ async def create_engagement(
     
     # Auto-set firm_id for firm_admin and firm_advisor users if not provided
     firm_id = engagement_data.firm_id
-    if not firm_id and current_user.role in [UserRole.FIRM_ADVISOR]:
+    if not firm_id and current_user.role in [UserRole.FIRM_ADMIN, UserRole.FIRM_ADVISOR]:
         firm_id = current_user.firm_id
     
     # Create engagement
@@ -97,7 +114,7 @@ async def create_engagement(
         tool=engagement_data.tool,
         status=engagement_data.status,
         client_id=engagement_data.client_id,
-        primary_advisor_id=engagement_data.primary_advisor_id,
+        primary_advisor_id=primary_advisor_id,
         firm_id=firm_id,
         secondary_advisor_ids=engagement_data.secondary_advisor_ids or [],
     )

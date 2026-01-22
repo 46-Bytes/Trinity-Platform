@@ -54,15 +54,14 @@ async def create_firm(
 ):
     """
     Create a new firm account.
-    
     - Advisors (solo): Can create firms and become the Firm Admin themselves
     - Super Admins: Can create firms and assign any user (without firm_id) as Firm Admin
     """
     # Check permissions
-    if current_user.role not in [UserRole.ADVISOR, UserRole.SUPER_ADMIN]:
+    if current_user.role not in [UserRole.SUPER_ADMIN]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only advisors or super admins can create firm accounts"
+            detail="Only super admin can create firm accounts"
         )
     
     # Determine firm admin ID
@@ -75,20 +74,6 @@ async def create_firm(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="firm_admin_id is required when creating firm as super admin"
             )
-    else:
-        # Regular advisor becomes the firm admin
-        if firm_data.firm_admin_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Advisors cannot specify firm_admin_id. They become the firm admin automatically."
-            )
-        # Check if user is already in a firm
-        if current_user.firm_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="User is already part of a firm"
-            )
-        firm_admin_id = current_user.id
     
     try:
         firm_service = get_firm_service(db)

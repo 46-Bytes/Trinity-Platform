@@ -71,11 +71,11 @@ async def create_engagement(
             detail="Primary advisor not found or invalid advisor ID."
         )
     
-    # Verify secondary advisors if provided (can be ADVISOR, FIRM_ADVISOR, or FIRM_ADMIN)
+    # Verify secondary advisors if provided (can be ADVISOR, FIRM_ADVISOR)
     if engagement_data.secondary_advisor_ids:
         secondary_advisors = db.query(User).filter(
             User.id.in_(engagement_data.secondary_advisor_ids),
-            User.role.in_([UserRole.ADVISOR, UserRole.FIRM_ADVISOR, UserRole.FIRM_ADMIN])
+            User.role.in_([UserRole.ADVISOR, UserRole.FIRM_ADVISOR])
         ).all()
         if len(secondary_advisors) != len(engagement_data.secondary_advisor_ids):
             raise HTTPException(
@@ -85,7 +85,7 @@ async def create_engagement(
     
     # Auto-set firm_id for firm_admin and firm_advisor users if not provided
     firm_id = engagement_data.firm_id
-    if not firm_id and current_user.role in [UserRole.FIRM_ADMIN, UserRole.FIRM_ADVISOR]:
+    if not firm_id and current_user.role in [UserRole.FIRM_ADVISOR]:
         firm_id = current_user.firm_id
     
     # Create engagement
@@ -559,7 +559,7 @@ async def update_engagement(
             # Verify all secondary advisors exist and have valid roles
             secondary_advisors = db.query(User).filter(
                 User.id.in_(update_data["secondary_advisor_ids"]),
-                User.role.in_([UserRole.ADVISOR, UserRole.FIRM_ADVISOR, UserRole.FIRM_ADMIN])
+                User.role.in_([UserRole.ADVISOR, UserRole.FIRM_ADVISOR])
             ).all()
             if len(secondary_advisors) != len(update_data["secondary_advisor_ids"]):
                 raise HTTPException(

@@ -75,7 +75,7 @@ class FirmService:
             firm_name=firm_name,
             firm_admin_id=firm_admin_id,
             seat_count=seat_count,
-            seats_used=1,  # Just the Firm Admin
+            seats_used=0,
             billing_email=billing_email or firm_admin.email,
             subscription_plan=plan_name,
             is_active=True
@@ -224,10 +224,10 @@ class FirmService:
         else:
             raise ValueError("Insufficient permissions")
         
-        # Return both FIRM_ADVISOR and FIRM_ADMIN as they can both be secondary advisors
+        # Return FIRM_ADVISOR as they can both be secondary advisors
         return self.db.query(User).filter(
             User.firm_id == firm_id,
-            User.role.in_([UserRole.FIRM_ADVISOR, UserRole.FIRM_ADMIN]),
+            User.role.in_([UserRole.FIRM_ADVISOR]),
             User.is_active == True
         ).all()
     

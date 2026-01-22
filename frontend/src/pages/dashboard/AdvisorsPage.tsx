@@ -84,7 +84,28 @@ export default function AdvisorsPage() {
     }
   }, [dispatch, firm, firmClients.length]);
 
-  const filteredAdvisors = advisors.filter((advisor) => {
+  // Filter advisors for overview:
+  // - For firm advisors (with firm_id matching current firm): only show firm_advisor role
+  // - For non-firm advisors (without firm_id or different firm_id): only show advisor role
+  // - Exclude firm_admin and admin roles in all cases
+  const advisorsWithoutAdmins = advisors.filter((advisor) => {
+    const role = advisor.role as string;
+    
+    // Exclude firm_admin and admin roles
+    if (role === 'firm_admin' || role === 'admin') {
+      return false;
+    }
+    
+    // For advisors belonging to the current firm, only show firm_advisor
+    if (firm && advisor.firm_id === firm.id) {
+      return role === 'firm_advisor';
+    }
+    
+    // For non-firm advisors, only show advisor role
+    return role === 'advisor';
+  });
+
+  const filteredAdvisors = advisorsWithoutAdmins.filter((advisor) => {
     const matchesSearch = 
       advisor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       advisor.email.toLowerCase().includes(searchQuery.toLowerCase());
@@ -231,7 +252,7 @@ export default function AdvisorsPage() {
     }
 
     // Check if there are any active advisors left (excluding the one being suspended)
-    const activeAdvisorsAfterSuspend = advisors.filter(
+    const activeAdvisorsAfterSuspend = advisorsWithoutAdmins.filter(
       a => a.is_active && a.id !== advisorToSuspend
     );
 
@@ -306,7 +327,7 @@ export default function AdvisorsPage() {
   };
 
   const handleAssociateClients = (advisorId: string) => {
-    const advisor = advisors.find((a) => a.id === advisorId);
+    const advisor = advisorsWithoutAdmins.find((a) => a.id === advisorId);
     if (advisor) {
       setSelectedAdvisorForAssociation(advisor);
       setAssociateDialogOpen(true);
@@ -397,7 +418,7 @@ export default function AdvisorsPage() {
           <div className="stat-card">
             <p className="text-sm text-muted-foreground">Total Advisors</p>
             <p className="text-2xl font-heading font-bold mt-1">
-              {advisors.length}
+              {advisorsWithoutAdmins.length}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               Firm Advisors only
@@ -406,7 +427,7 @@ export default function AdvisorsPage() {
           <div className="stat-card">
             <p className="text-sm text-muted-foreground">Active Advisors</p>
             <p className="text-2xl font-heading font-bold mt-1">
-              {advisors.filter((a) => a.is_active).length}
+              {advisorsWithoutAdmins.filter((a) => a.is_active).length}
             </p>
           </div>
           <div className="stat-card">
@@ -436,7 +457,7 @@ export default function AdvisorsPage() {
         </div>
 
         <AdvisorList
-          advisors={advisors}
+          advisors={advisorsWithoutAdmins}
           filteredAdvisors={filteredAdvisors}
           isLoading={isLoading}
           onSuspend={handleSuspendClick}
@@ -496,7 +517,7 @@ export default function AdvisorsPage() {
                   </p>
                   <div className="space-y-3">
                     {advisorEngagements.primary.map((engagement) => {
-                      const activeAdvisors = advisors.filter(
+                      const activeAdvisors = advisorsWithoutAdmins.filter(
                         a => a.is_active && a.id !== advisorToSuspend
                       );
 
@@ -578,7 +599,7 @@ export default function AdvisorsPage() {
               )}
 
               {/* Warning if no active advisors after suspend */}
-              {advisors.filter(a => a.is_active && a.id !== advisorToSuspend).length === 0 && (
+              {advisorsWithoutAdmins.filter(a => a.is_active && a.id !== advisorToSuspend).length === 0 && (
                 <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
                   <div className="flex items-start gap-2">
                     <AlertTriangle className="w-5 h-5 text-destructive mt-0.5" />
@@ -607,7 +628,7 @@ export default function AdvisorsPage() {
               </div>
 
               {/* Warning if no active advisors after suspend */}
-              {advisors.filter(a => a.is_active && a.id !== advisorToSuspend).length === 0 && (
+              {advisorsWithoutAdmins.filter(a => a.is_active && a.id !== advisorToSuspend).length === 0 && (
                 <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
                   <div className="flex items-start gap-2">
                     <AlertTriangle className="w-5 h-5 text-destructive mt-0.5" />
@@ -642,7 +663,7 @@ export default function AdvisorsPage() {
                 isSubmitting ||
                 (advisorEngagements?.primary && advisorEngagements.primary.length > 0 && 
                  Object.keys(reassignments).length !== advisorEngagements.primary.length) ||
-                advisors.filter(a => a.is_active && a.id !== advisorToSuspend).length === 0
+                advisorsWithoutAdmins.filter(a => a.is_active && a.id !== advisorToSuspend).length === 0
               }
               className="bg-warning text-warning-foreground hover:bg-warning/90"
             >

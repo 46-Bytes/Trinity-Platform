@@ -27,10 +27,31 @@ export function FirmAdminDashboard() {
     }
   }, [dispatch, firm?.id]);
 
+  // Filter advisors for overview:
+  const advisorsWithoutAdmins = advisors.filter((advisor) => {
+    const role = advisor.role as string;
+    
+    // Exclude firm_admin and admin roles
+    if (role === 'firm_admin' || role === 'admin') {
+      return false;
+    }
+    
+    // For advisors belonging to the current firm, only show firm_advisor
+    if (firm && advisor.firm_id === firm.id) {
+      return role === 'firm_advisor';
+    }
+    
+    // For non-firm advisors, only show advisor role
+    return role === 'advisor';
+  });
+
   // Total advisors includes all Firm Advisors (active + suspended), NOT including Firm Admin
-  const totalAdvisors = stats?.advisors_count ?? advisors.length;
+  // Only use stats as fallback if advisors haven't loaded yet
+  const totalAdvisors = advisors.length > 0 
+    ? advisorsWithoutAdmins.length 
+    : (stats?.advisors_count ?? 0);
   // Seats used should only count active Firm Advisors (Firm Admin does NOT count toward seats)
-  const seatsUsed = stats?.seats_used ?? advisors.filter((a) => a.is_active).length;
+  const seatsUsed = stats?.seats_used ?? advisorsWithoutAdmins.filter((a) => a.is_active).length;
   const seatCount = firm?.seat_count ?? 0;
   // Use stats for available seats to ensure consistency
   const availableSeats = stats?.seats_available ?? Math.max(seatCount - seatsUsed, 0);
@@ -157,13 +178,13 @@ export function FirmAdminDashboard() {
         <div className="card-trinity p-6">
           <h3 className="font-heading font-semibold text-lg mb-4">Advisor Overview</h3>
           <div className="space-y-3">
-            {isLoading && advisors.length === 0 && (
+            {isLoading && advisorsWithoutAdmins.length === 0 && (
               <p className="text-sm text-muted-foreground">Loading advisors...</p>
             )}
-            {!isLoading && advisors.length === 0 && (
+            {!isLoading && advisorsWithoutAdmins.length === 0 && (
               <p className="text-sm text-muted-foreground">No advisors yet. Add advisors to your firm to get started.</p>
             )}
-            {advisors.map((advisor, i) => (
+            {advisorsWithoutAdmins.map((advisor, i) => (
               <div key={advisor.id || i} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
                 <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-medium">
                   {advisor.name.charAt(0)}

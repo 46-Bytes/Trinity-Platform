@@ -27,7 +27,7 @@ export interface Advisor {
   name: string;
   given_name?: string;
   family_name?: string;
-  role: 'firm_advisor' | 'advisor';
+  role: 'firm_advisor' | 'advisor' | 'firm_admin' | 'admin';
   is_active: boolean;
   firm_id: string;
   created_at: string;

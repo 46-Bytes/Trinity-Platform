@@ -35,6 +35,7 @@ import FirmDetailsEngagements from "./pages/dashboard/firm/firmDetails/FirmDetai
 import FirmDetailsTasks from "./pages/dashboard/firm/firmDetails/FirmDetailsTasks";
 import FirmDetailsSubscription from "./pages/dashboard/firm/firmDetails/FirmDetailsSubscription";
 import SubscriptionsPage from "./pages/dashboard/Subscriptions";
+import FileUploadPOCPage from "./pages/poc/FileUploadPOCPage";
 
 const queryClient = new QueryClient();
 
@@ -59,6 +60,7 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/poc/file-upload" element={<FileUploadPOCPage />} />
       
       {/* Protected Dashboard Routes */}
       <Route path="/dashboard" element={

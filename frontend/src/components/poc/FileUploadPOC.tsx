@@ -3,10 +3,11 @@
  * This is a standalone POC component, separate from the main file upload system.
  */
 import React, { useState, useCallback, useRef } from 'react';
-import { Upload, X, CheckCircle2, AlertCircle, Loader2, FileText } from 'lucide-react';
+import { Upload, X, CheckCircle2, AlertCircle, Loader2, FileText, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { ContextCaptureQuestionnaire, QuestionnaireData } from './ContextCaptureQuestionnaire';
 import { cn } from '@/lib/utils';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -50,6 +51,20 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [currentStep, setCurrentStep] = useState<1 | 2>(1);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
+  const [questionnaireData, setQuestionnaireData] = useState<QuestionnaireData>({
+    clientName: '',
+    industry: '',
+    companySize: '',
+    locations: '',
+    exclusions: '',
+    constraints: '',
+    preferredRanking: '',
+    strategicPriorities: '',
+    excludeSaleReadiness: false,
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Validate file
@@ -132,6 +147,40 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
     }
   };
 
+  // Create BBA project if not exists
+  const ensureProject = async (): Promise<string> => {
+    if (projectId) {
+      return projectId;
+    }
+
+    setIsCreatingProject(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${API_BASE_URL}/api/poc/create-project`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to create project' }));
+        throw new Error(errorData.detail || `HTTP ${response.status}: Failed to create project`);
+      }
+
+      const result = await response.json();
+      setProjectId(result.project_id);
+      return result.project_id;
+    } catch (error) {
+      console.error('Failed to create project:', error);
+      throw error;
+    } finally {
+      setIsCreatingProject(false);
+    }
+  };
+
   // Upload files to backend
   const handleUpload = async () => {
     const pendingFiles = files.filter((f) => f.status === 'pending');
@@ -141,27 +190,30 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
 
     setIsUploading(true);
 
-    // Create FormData
-    const formData = new FormData();
-    pendingFiles.forEach((fileObj) => {
-      formData.append('files', fileObj.file);
-    });
-
-    // Update status to uploading
-    setFiles((prev) =>
-      prev.map((f) =>
-        f.status === 'pending' ? { ...f, status: 'uploading', progress: 0 } : f
-      )
-    );
-
     try {
+      // Ensure project exists
+      const currentProjectId = await ensureProject();
+
+      // Create FormData
+      const formData = new FormData();
+      pendingFiles.forEach((fileObj) => {
+        formData.append('files', fileObj.file);
+      });
+
+      // Update status to uploading
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.status === 'pending' ? { ...f, status: 'uploading', progress: 0 } : f
+        )
+      );
+
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${API_BASE_URL}/api/upload`, {
+      const response = await fetch(`${API_BASE_URL}/api/poc/${currentProjectId}/upload`, {
         method: 'POST',
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        credentials: 'include', // Important for session cookies
+        credentials: 'include',
         body: formData,
       });
 
@@ -221,6 +273,47 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
     setFiles([]);
   };
 
+  // Handle questionnaire form changes
+  const handleQuestionnaireChange = (field: keyof QuestionnaireData, value: string | boolean) => {
+    setQuestionnaireData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  // Handle questionnaire submission
+  const handleQuestionnaireSubmit = async () => {
+    if (!projectId) {
+      console.error('No project ID available');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${API_BASE_URL}/api/poc/${projectId}/submit-questionnaire`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: 'include',
+        body: JSON.stringify(questionnaireData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to submit questionnaire' }));
+        throw new Error(errorData.detail || `HTTP ${response.status}: Failed to submit questionnaire`);
+      }
+
+      const result = await response.json();
+      console.log('Questionnaire submitted successfully:', result);
+      // TODO: Navigate to next step or show success message
+    } catch (error) {
+      console.error('Failed to submit questionnaire:', error);
+      // TODO: Show error toast/notification
+    }
+  };
+
   const pendingCount = files.filter((f) => f.status === 'pending').length;
   const successCount = files.filter((f) => f.status === 'success').length;
   const errorCount = files.filter((f) => f.status === 'error').length;
@@ -230,10 +323,35 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
       <CardHeader>
         <CardTitle>File Upload POC</CardTitle>
         <CardDescription>
-          Upload multiple files to OpenAI Files API. Files are validated on the frontend.
+          {currentStep === 1 
+            ? 'Step 1: Upload multiple files to OpenAI Files API. Files are validated on the frontend.'
+            : 'Step 2: Context Capture - Provide client information and preferences.'}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Step Indicator */}
+        <div className="flex items-center gap-2 mb-6">
+          <div className={cn(
+            "flex items-center gap-2 px-4 py-2 rounded-lg",
+            currentStep === 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+          )}>
+            <span className="font-medium">Step 1: Upload Files</span>
+            {successCount > 0 && currentStep === 2 && (
+              <CheckCircle2 className="w-4 h-4" />
+            )}
+          </div>
+          <ArrowRight className="w-4 h-4 text-muted-foreground" />
+          <div className={cn(
+            "flex items-center gap-2 px-4 py-2 rounded-lg",
+            currentStep === 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+          )}>
+            <span className="font-medium">Step 2: Context Capture</span>
+          </div>
+        </div>
+
+        {/* Step 1: File Upload */}
+        {currentStep === 1 && (
+          <>
         {/* Drag and Drop Zone */}
         <div
           onDragEnter={handleDragEnter}
@@ -367,22 +485,49 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
           </div>
         )}
 
-        {/* File Mappings Display */}
-        {successCount > 0 && (
-          <div className="mt-4 p-4 bg-muted rounded-lg">
-            <p className="text-sm font-medium mb-2">File Mappings (stored in session):</p>
-            <div className="space-y-1">
-              {files
-                .filter((f) => f.status === 'success' && f.fileId)
-                .map((f) => (
-                  <div key={f.id} className="text-xs font-mono">
-                    <span className="text-muted-foreground">{f.file.name}</span>
-                    <span className="mx-2">→</span>
-                    <span className="text-primary">{f.fileId}</span>
-                  </div>
-                ))}
-            </div>
-          </div>
+            {/* File Mappings Display */}
+            {successCount > 0 && (
+              <div className="mt-4 p-4 bg-muted rounded-lg">
+                <p className="text-sm font-medium mb-2">File Mappings (stored in session):</p>
+                <div className="space-y-1">
+                  {files
+                    .filter((f) => f.status === 'success' && f.fileId)
+                    .map((f) => (
+                      <div key={f.id} className="text-xs font-mono">
+                        <span className="text-muted-foreground">{f.file.name}</span>
+                        <span className="mx-2">→</span>
+                        <span className="text-primary">{f.fileId}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Continue to Step 2 Button */}
+            {successCount > 0 && (
+              <div className="flex justify-end pt-4 border-t">
+                <Button
+                  onClick={() => setCurrentStep(2)}
+                  disabled={successCount === 0}
+                >
+                  Continue to Step 2
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Step 2: Questionnaire */}
+        {currentStep === 2 && (
+          <ContextCaptureQuestionnaire
+            questionnaireData={questionnaireData}
+            onQuestionnaireChange={handleQuestionnaireChange}
+            onSubmit={handleQuestionnaireSubmit}
+            onBack={() => setCurrentStep(1)}
+            files={files}
+            successCount={successCount}
+          />
         )}
       </CardContent>
     </Card>

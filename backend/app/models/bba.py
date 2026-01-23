@@ -1,0 +1,99 @@
+"""
+BBA (Business Benchmark Analysis) model for POC file upload and analysis workflow
+"""
+from sqlalchemy import Column, String, Text, DateTime, Integer, Boolean, func, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.orm import relationship
+import uuid
+
+from app.database import Base
+
+
+class BBA(Base):
+    """
+    BBA represents a Business Benchmark Analysis project.
+    Stores uploaded files, context questionnaire, and analysis results.
+    """
+    __tablename__ = "bba"
+    
+    # Primary key
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
+    
+    # Relationships
+    engagement_id = Column(UUID(as_uuid=True), ForeignKey('engagements.id', ondelete='CASCADE'), nullable=True, index=True,
+                          comment="Optional link to engagement")
+    created_by_user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    # Status tracking
+    status = Column(String(50), nullable=False, server_default='uploaded', index=True,
+                   comment="uploaded, questionnaire_completed, draft_findings, expanded_findings, completed")
+    # Step 1: File uploads
+    file_ids = Column(JSONB, nullable=True, comment="List of OpenAI file_ids: ['file-abc123', 'file-xyz789']")
+    file_mappings = Column(JSONB, nullable=True, comment="Mapping of filename to file_id: {'doc.pdf': 'file-abc123'}")
+    # Step 2: Context Capture (Questionnaire)
+    client_name = Column(String(255), nullable=True)
+    industry = Column(String(255), nullable=True)
+    company_size = Column(String(50), nullable=True, comment="startup, small, medium, large, enterprise")
+    locations = Column(String(500), nullable=True)
+    exclusions = Column(Text, nullable=True, comment="Areas or topics to exclude from analysis")
+    constraints = Column(Text, nullable=True, comment="Constraints or limitations to consider")
+    preferred_ranking = Column(Text, nullable=True, comment="How findings should be ranked")
+    strategic_priorities = Column(Text, nullable=True, comment="Strategic priorities for next 12 months")
+    exclude_sale_readiness = Column(Boolean, nullable=False, server_default='false',
+                                   comment="Whether to exclude sale-readiness from analysis")
+    
+    # Step 3: Draft Findings (future)
+    draft_findings = Column(JSONB, nullable=True, comment="Ranked list of top findings with summaries")
+    draft_findings_edited = Column(Boolean, nullable=False, server_default='false',
+                                   comment="Whether user has edited draft findings")
+    
+    # Step 4: Expanded Findings (future)
+    expanded_findings = Column(JSONB, nullable=True, comment="Expanded findings with detailed paragraphs")
+    
+    # Step 5: Snapshot Table (future)
+    snapshot_table = Column(JSONB, nullable=True, comment="Three-column table: Priority Area | Key Findings | Recommendations")
+    
+    # AI metadata
+    ai_model_used = Column(String(100), nullable=True, comment="AI model used for analysis")
+    ai_tokens_used = Column(Integer, nullable=True, comment="Total tokens used in AI processing")
+    
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, server_default=func.current_timestamp())
+    updated_at = Column(DateTime, nullable=False, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
+    questionnaire_completed_at = Column(DateTime, nullable=True, comment="When questionnaire was completed")
+    
+    # Relationships
+    engagement = relationship("Engagement", back_populates="bba_projects")
+    created_by_user = relationship("User", foreign_keys=[created_by_user_id])
+    
+    def __repr__(self):
+        return f"<BBA(id={self.id}, status='{self.status}', client_name='{self.client_name}')>"
+    
+    def to_dict(self):
+        """Convert BBA to dictionary"""
+        return {
+            "id": str(self.id),
+            "engagement_id": str(self.engagement_id) if self.engagement_id else None,
+            "created_by_user_id": str(self.created_by_user_id),
+            "status": self.status,
+            "file_ids": self.file_ids,
+            "file_mappings": self.file_mappings,
+            "client_name": self.client_name,
+            "industry": self.industry,
+            "company_size": self.company_size,
+            "locations": self.locations,
+            "exclusions": self.exclusions,
+            "constraints": self.constraints,
+            "preferred_ranking": self.preferred_ranking,
+            "strategic_priorities": self.strategic_priorities,
+            "exclude_sale_readiness": self.exclude_sale_readiness,
+            "draft_findings": self.draft_findings,
+            "draft_findings_edited": self.draft_findings_edited,
+            "expanded_findings": self.expanded_findings,
+            "snapshot_table": self.snapshot_table,
+            "ai_model_used": self.ai_model_used,
+            "ai_tokens_used": self.ai_tokens_used,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "questionnaire_completed_at": self.questionnaire_completed_at.isoformat() if self.questionnaire_completed_at else None,
+        }
+

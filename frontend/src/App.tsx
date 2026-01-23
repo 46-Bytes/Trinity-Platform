@@ -60,7 +60,6 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
-      <Route path="/poc/file-upload" element={<FileUploadPOCPage />} />
       
       {/* Protected Dashboard Routes */}
       <Route path="/dashboard" element={
@@ -93,6 +92,15 @@ function AppRoutes() {
         <Route path="analytics" element={<DashboardHome />} />
         <Route path="firm" element={<DashboardHome />} />
         <Route path="security" element={<DashboardHome />} />
+      </Route>
+      
+      {/* POC Route - Accessible from sidebar for all roles, uses DashboardLayout */}
+      <Route path="/poc" element={
+        <ProtectedRoute>
+          <DashboardLayout />
+        </ProtectedRoute>
+      }>
+        <Route path="file-upload" element={<FileUploadPOCPage />} />
       </Route>
       
       <Route path="*" element={<NotFound />} />

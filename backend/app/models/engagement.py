@@ -43,6 +43,7 @@ class Engagement(Base):
     diagnostics = relationship("Diagnostic", back_populates="engagement", cascade="all, delete-orphan")
     tasks = relationship("Task", back_populates="engagement", cascade="all, delete-orphan")
     notes = relationship("Note", back_populates="engagement", cascade="all, delete-orphan")
+    bba_projects = relationship("BBA", back_populates="engagement", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Engagement(id={self.id}, name='{self.engagement_name}', client_id={self.client_id})>"

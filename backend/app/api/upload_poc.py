@@ -1,36 +1,71 @@
 """
 POC: File Upload API endpoint for OpenAI Files API integration
 This is a standalone POC, separate from the main file upload system.
+Now uses database (BBA model) instead of session storage.
 """
-from fastapi import APIRouter, UploadFile, File, HTTPException, status, Request
-from typing import List, Dict, Any
+from fastapi import APIRouter, UploadFile, File, HTTPException, status, Depends
+from sqlalchemy.orm import Session
+from typing import List, Dict, Any, Optional
+from uuid import UUID
 import tempfile
 import os
 import logging
 from app.services.openai_service import OpenAIService
+from app.services.bba_service import get_bba_service, BBAService
+from app.utils.auth import get_current_user
+from app.models.user import User
+from app.database import get_db
+from app.schemas.bba import BBAQuestionnaire, BBAResponse
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api", tags=["upload-poc"])
+router = APIRouter(prefix="/api/poc", tags=["upload-poc"])
 
 
-@router.post("/upload", status_code=status.HTTP_200_OK)
-async def upload_files_poc(
-    request: Request,
-    files: List[UploadFile] = File(...)
+@router.post("/create-project", status_code=status.HTTP_201_CREATED)
+async def create_bba_project(
+    engagement_id: Optional[UUID] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """
-    POC endpoint to upload multiple files and forward them to OpenAI Files API.
+    Create a new BBA project.
+    
+    Returns:
+        Dictionary with project ID
+    """
+    bba_service = get_bba_service(db)
+    bba = bba_service.create_bba(
+        user_id=current_user.id,
+        engagement_id=engagement_id
+    )
+    
+    return {
+        "success": True,
+        "project_id": str(bba.id),
+        "status": bba.status
+    }
+
+
+@router.post("/{project_id}/upload", status_code=status.HTTP_200_OK)
+async def upload_files_poc(
+    project_id: UUID,
+    files: List[UploadFile] = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Upload multiple files to OpenAI Files API and store in BBA project.
     
     This endpoint:
     1. Accepts multiple file uploads
     2. Uploads each file to OpenAI Files API
     3. Gets file_id for each file
-    4. Stores filename → file_id mapping in session state
+    4. Stores file_ids in BBA project in database
     
     Args:
+        project_id: BBA project ID
         files: List of files to upload
-        request: FastAPI request object (for session access)
         
     Returns:
         Dictionary with uploaded files and their OpenAI file_ids
@@ -41,12 +76,28 @@ async def upload_files_poc(
             detail="No files provided"
         )
     
+    # Verify project exists and belongs to user
+    bba_service = get_bba_service(db)
+    bba = bba_service.get_bba(project_id)
+    if not bba:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="BBA project not found"
+        )
+    
+    if bba.created_by_user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this project"
+        )
+    
     # Initialize OpenAI service
     openai_service = OpenAIService()
     
     # Results storage
     results = []
     file_mapping = {}
+    file_ids = []
     
     # Process each file
     for file in files:
@@ -58,7 +109,6 @@ async def upload_files_poc(
             logger.info(f"Processing file: {file.filename} (size: {file_size} bytes)")
             
             # Create temporary file for OpenAI upload
-            # OpenAI Files API requires a file-like object
             with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
                 temp_file.write(file_content)
                 temp_file_path = temp_file.name
@@ -74,8 +124,9 @@ async def upload_files_poc(
                     file_id = openai_result["id"]
                     filename = file.filename
                     
-                    # Store mapping
+                    # Store mapping and file_id
                     file_mapping[filename] = file_id
+                    file_ids.append(file_id)
                     
                     results.append({
                         "filename": filename,
@@ -124,17 +175,22 @@ async def upload_files_poc(
                 "error": str(e)
             })
     
-    # Store file mapping in session state
-    if request:
-        # Initialize session if it doesn't exist
-        if "file_mappings" not in request.session:
-            request.session["file_mappings"] = {}
+    # Update BBA project with file information
+    if file_ids:
+        # Merge with existing file_ids if any
+        existing_file_ids = bba.file_ids or []
+        existing_file_mappings = bba.file_mappings or {}
         
-        # Update session with new mappings
-        request.session["file_mappings"].update(file_mapping)
-        request.session.modified = True
+        updated_file_ids = list(set(existing_file_ids + file_ids))
+        updated_file_mappings = {**existing_file_mappings, **file_mapping}
         
-        logger.info(f"Stored {len(file_mapping)} file mappings in session")
+        bba_service.update_files(
+            bba_id=project_id,
+            file_ids=updated_file_ids,
+            file_mappings=updated_file_mappings
+        )
+        
+        logger.info(f"Updated BBA project {project_id} with {len(updated_file_ids)} file(s)")
     
     # Return results
     return {
@@ -143,53 +199,111 @@ async def upload_files_poc(
         "files": results,
         "file_mapping": file_mapping,
         "total_files": len(files),
-        "successful_uploads": len([r for r in results if r["status"] == "success"])
+        "successful_uploads": len([r for r in results if r["status"] == "success"]),
+        "project_id": str(project_id)
     }
 
 
-@router.get("/upload/mappings")
-async def get_file_mappings(request: Request) -> Dict[str, Any]:
+@router.post("/{project_id}/submit-questionnaire", status_code=status.HTTP_200_OK)
+async def submit_questionnaire(
+    project_id: UUID,
+    questionnaire: BBAQuestionnaire,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
     """
-    Get current file_id mappings from session state.
+    Submit questionnaire data for BBA project (Step 2).
     
     Args:
-        request: FastAPI request object (for session access)
+        project_id: BBA project ID
+        questionnaire: Questionnaire data
         
     Returns:
-        Dictionary with filename → file_id mappings
+        Updated BBA project data
     """
-    if not request or "file_mappings" not in request.session:
-        return {
-            "success": True,
-            "file_mappings": {},
-            "count": 0
-        }
+    # Verify project exists and belongs to user
+    bba_service = get_bba_service(db)
+    bba = bba_service.get_bba(project_id)
+    if not bba:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="BBA project not found"
+        )
     
-    file_mappings = request.session.get("file_mappings", {})
+    if bba.created_by_user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this project"
+        )
+    
+    # Update BBA with questionnaire data
+    updated_bba = bba_service.update_questionnaire(project_id, questionnaire)
+    
+    if not updated_bba:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update questionnaire"
+        )
     
     return {
         "success": True,
-        "file_mappings": file_mappings,
-        "count": len(file_mappings)
+        "message": "Questionnaire submitted successfully",
+        "project": updated_bba.to_dict()
     }
 
 
-@router.delete("/upload/mappings")
-async def clear_file_mappings(request: Request) -> Dict[str, Any]:
+@router.get("/{project_id}", status_code=status.HTTP_200_OK)
+async def get_bba_project(
+    project_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
     """
-    Clear all file_id mappings from session state.
+    Get BBA project by ID.
     
     Args:
-        request: FastAPI request object (for session access)
+        project_id: BBA project ID
         
     Returns:
-        Success message
+        BBA project data
     """
-    if request and "file_mappings" in request.session:
-        request.session["file_mappings"] = {}
-        request.session.modified = True
+    bba_service = get_bba_service(db)
+    bba = bba_service.get_bba(project_id)
+    
+    if not bba:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="BBA project not found"
+        )
+    
+    if bba.created_by_user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this project"
+        )
     
     return {
         "success": True,
-        "message": "File mappings cleared"
+        "project": bba.to_dict()
+    }
+
+
+@router.get("/", status_code=status.HTTP_200_OK)
+async def list_bba_projects(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Get all BBA projects for the current user.
+    
+    Returns:
+        List of BBA projects
+    """
+    bba_service = get_bba_service(db)
+    projects = bba_service.get_user_bba_projects(current_user.id)
+    
+    return {
+        "success": True,
+        "projects": [project.to_dict() for project in projects],
+        "count": len(projects)
     }

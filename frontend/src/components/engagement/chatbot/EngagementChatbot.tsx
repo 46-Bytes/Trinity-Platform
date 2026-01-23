@@ -306,7 +306,7 @@ export function EngagementChatbot({ engagementId }: EngagementChatbotProps) {
 
         <div className="flex-1 flex items-center justify-center">
           <div className="w-full max-w-md space-y-4">
-            <div className="space-y-2">
+            <div className="space-y-4">
               <Label htmlFor="category">Select Conversation Category</Label>
               <Select value={selectedCategory} onValueChange={(value) => handleCategoryChange(value as ChatCategory)}>
                 <SelectTrigger id="category">
@@ -314,10 +314,10 @@ export function EngagementChatbot({ engagementId }: EngagementChatbotProps) {
                 </SelectTrigger>
                 <SelectContent>
                   {CATEGORY_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      <div className="flex flex-col">
+                    <SelectItem key={option.value} value={option.value} className="group">
+                      <div className="flex flex-col items-start text-left">
                         <span className="font-medium">{option.label}</span>
-                        <span className="text-xs text-muted-foreground">{option.description}</span>
+                        <span className="text-xs text-muted-foreground group-focus:text-white group-data-[highlighted]:text-white">{option.description}</span>
                       </div>
                     </SelectItem>
                   ))}

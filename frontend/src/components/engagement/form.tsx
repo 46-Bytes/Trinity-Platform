@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -25,6 +25,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { createEngagement, updateEngagement, fetchUserRoleData, fetchEngagements } from "@/store/slices/engagementReducer";
 import type { Engagement } from "@/store/slices/engagementReducer";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 // Base schema fields (common fields for all roles)
 const baseSchemaFields = {
@@ -55,14 +56,11 @@ const createSchema = (userRole?: string) => {
         message: "Please select an advisor.",
       }),
     });
-  } else if (userRole === 'firm_admin') {
+  } else if (userRole === 'firm_admin' || userRole === 'firm_advisor') {
     return z.object({
       ...baseSchemaFields,
       clientId: z.string().min(1, {
         message: "Please select a client.",
-      }),
-      primaryAdvisorId: z.string().min(1, {
-        message: "Please select a primary advisor.",
       }),
     });
   } else {
@@ -98,6 +96,7 @@ export function EngagementForm({
   const dispatch = useAppDispatch();
   const { isLoading, userRoleData } = useAppSelector((state) => state.engagement);
   const { user } = useAuth();
+  const { toast } = useToast();
   
   console.log('Redux state:', { isLoading, hasUserRoleData: !!userRoleData });
   
@@ -105,15 +104,22 @@ export function EngagementForm({
   const userRole = userRoleData?.user_role;
   const isAdmin = userRole === 'admin' || (userRole as string) === 'super_admin';
   const isFirmAdmin = userRole === 'firm_admin';
+  const isFirmAdvisor = userRole === 'firm_advisor';
+  const isFirmContext = isFirmAdmin || isFirmAdvisor;
   
-  console.log('User role detection:', { userRole, isAdmin, isFirmAdmin });
+  // State to track associated advisor for selected client
+  const [associatedAdvisorId, setAssociatedAdvisorId] = useState<string | null>(null);
+  const [isLoadingAssociation, setIsLoadingAssociation] = useState(false);
+  const [associationError, setAssociationError] = useState<string | null>(null);
+  
+  console.log('User role detection:', { userRole, isAdmin, isFirmAdmin, isFirmAdvisor });
   
   // Create dynamic schema based on user role
   const schema = useMemo(() => createSchema(userRoleData?.user_role), [userRoleData?.user_role]);
   
   const form = useForm<EngagementFormValues>({
     resolver: zodResolver(schema),
-    defaultValues: isAdmin 
+    defaultValues: (isAdmin 
       ? {
           businessName: "",
           industryName: "",
@@ -123,7 +129,7 @@ export function EngagementForm({
           advisorId: "",
           tool: "diagnostic" as const,
         }
-      : isFirmAdmin
+      : isFirmContext
       ? {
           businessName: "",
           industryName: "",
@@ -139,7 +145,7 @@ export function EngagementForm({
           description: "",
           clientOrAdvisorId: "",
           tool: "diagnostic" as const,
-        },
+        }) as any,
   });
 
   // Fetch user role data on mount or when refreshUserData is true
@@ -165,15 +171,14 @@ export function EngagementForm({
           clientId: engagement.clientId || "",
           advisorId: (engagement as any).primaryAdvisorId || "",
           tool: (engagement.tool as 'diagnostic' | 'kpi_builder') || "diagnostic",
-        });
-      } else if (isFirmAdmin) {
+        } as any);
+      } else if (isFirmContext) {
         form.reset({
           businessName: engagement.businessName || "",
           industryName: engagement.industryName || "",
           engagementName: engagement.title || "",
           description: engagement.description || "",
           clientId: engagement.clientId || "",
-          primaryAdvisorId: (engagement as any).primaryAdvisorId || "",
           tool: (engagement.tool as 'diagnostic' | 'kpi_builder') || "diagnostic",
         });
       } else {
@@ -187,7 +192,79 @@ export function EngagementForm({
         });
       }
     }
-  }, [engagement, isEditMode, form, isAdmin, isFirmAdmin]);
+  }, [engagement, isEditMode, form, isAdmin, isFirmContext]);
+
+  // Watch clientId for firm context
+  const watchedClientId = form.watch('clientId' as any) as string | undefined;
+
+  // Fetch associated advisor when client is selected in firm context
+  useEffect(() => {
+    const selectedClientId = watchedClientId;
+    if (isFirmContext && selectedClientId && !isEditMode) {
+      setIsLoadingAssociation(true);
+      setAssociationError(null);
+      setAssociatedAdvisorId(null);
+      
+      const fetchClientAssociation = async () => {
+        try {
+          const token = localStorage.getItem('auth_token');
+          if (!token) {
+            throw new Error('No authentication token found');
+          }
+          
+          const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+          const response = await fetch(`${API_BASE_URL}/api/advisor-client?client_id=${selectedClientId}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (!response.ok) {
+            throw new Error('Failed to fetch client associations');
+          }
+          
+          const associations = await response.json();
+          if (Array.isArray(associations) && associations.length > 0) {
+            // Find active association
+            const activeAssociation = associations.find((a: any) => a.status === 'active');
+            if (activeAssociation) {
+              setAssociatedAdvisorId(activeAssociation.advisor_id);
+            } else {
+              setAssociationError('Client has no active advisor association');
+              toast({
+                title: 'Error',
+                description: 'Associate advisor to client first',
+                variant: 'destructive',
+              });
+            }
+          } else {
+            setAssociationError('Client has no associated advisor');
+            toast({
+              title: 'Error',
+              description: 'Associate advisor to client first',
+              variant: 'destructive',
+            });
+          }
+        } catch (error) {
+          console.error('Error fetching client associations:', error);
+          setAssociationError('Failed to fetch advisor association');
+          toast({
+            title: 'Error',
+            description: 'Failed to fetch advisor association',
+            variant: 'destructive',
+          });
+        } finally {
+          setIsLoadingAssociation(false);
+        }
+      };
+      
+      fetchClientAssociation();
+    } else if (!selectedClientId) {
+      setAssociatedAdvisorId(null);
+      setAssociationError(null);
+    }
+  }, [watchedClientId, isFirmContext, isEditMode, toast]);
 
   // Add click handler to button to debug
   const handleButtonClick = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -242,7 +319,7 @@ export function EngagementForm({
         console.log('Processing as ADMIN mode');
         // Admin mode: both client and advisor selected
         clientId = values.clientId;
-        advisorId = values.advisorId;
+        advisorId = (values as any).advisorId;
         console.log('Admin - Client ID:', clientId, 'Advisor ID:', advisorId);
         
         if (userRoleData?.clients) {
@@ -255,16 +332,23 @@ export function EngagementForm({
           advisorName = selectedAdvisor?.name || "Unknown Advisor";
           console.log('Selected advisor:', advisorName);
         }
-      } else if (isFirmAdmin && 'clientId' in values) {
-        console.log('Processing as FIRM_ADMIN mode');
-        // Firm Admin mode: client selected, primary advisor optional
+      } else if (isFirmContext && 'clientId' in values) {
+        console.log('Processing as FIRM_ADMIN/FIRM_ADVISOR mode');
+        // Firm Admin/Advisor mode: client selected, advisor comes from association
         clientId = values.clientId;
-        advisorId = 'primaryAdvisorId' in values ? values.primaryAdvisorId : undefined;
-        console.log('Firm Admin - Client ID:', clientId, 'Primary Advisor ID:', advisorId);
-        console.log('Has primaryAdvisorId in values:', 'primaryAdvisorId' in values);
-        if ('primaryAdvisorId' in values) {
-          console.log('primaryAdvisorId value:', values.primaryAdvisorId);
+        
+        // Check if client has associated advisor
+        if (!associatedAdvisorId) {
+          toast({
+            title: 'Error',
+            description: 'Associate advisor to client first',
+            variant: 'destructive',
+          });
+          throw new Error('Associate advisor to client first');
         }
+        
+        advisorId = associatedAdvisorId;
+        console.log('Firm Context - Client ID:', clientId, 'Associated Advisor ID:', advisorId);
         
         if (userRoleData?.clients) {
           const selectedClient = userRoleData.clients.find(c => c.id === values.clientId);
@@ -273,14 +357,13 @@ export function EngagementForm({
         } else {
           console.warn('No clients available in userRoleData');
         }
+        
         if (advisorId && userRoleData?.advisors) {
           const selectedAdvisor = userRoleData.advisors.find(a => a.id === advisorId);
           advisorName = selectedAdvisor?.name || "Unknown Advisor";
           console.log('Selected advisor:', advisorName);
         } else if (advisorId) {
           console.warn('Advisor ID provided but no advisors in userRoleData');
-        } else {
-          console.warn('No advisor ID provided for firm admin');
         }
       } else if ('clientOrAdvisorId' in values) {
         console.log('Processing as NON-ADMIN mode (advisor/client)');
@@ -353,26 +436,23 @@ export function EngagementForm({
         console.log('Token exists:', !!token);
         console.log('Token length:', token?.length);
         
-        // Get primary advisor ID (for admin or firm_admin)
-        const primaryAdvisorId = advisorId || (isFirmAdmin && 'primaryAdvisorId' in values ? values.primaryAdvisorId : undefined);
+        // Get primary advisor ID (for admin or firm_admin/firm_advisor)
+        const primaryAdvisorId = advisorId || (isFirmContext ? associatedAdvisorId : undefined);
         
         console.log('=== PRIMARY ADVISOR ID RESOLUTION ===');
         console.log('advisorId from extraction:', advisorId);
-        console.log('isFirmAdmin:', isFirmAdmin);
-        console.log('Has primaryAdvisorId in values:', 'primaryAdvisorId' in values);
-        if ('primaryAdvisorId' in values) {
-          console.log('primaryAdvisorId from values:', values.primaryAdvisorId);
-        }
+        console.log('isFirmContext:', isFirmContext);
+        console.log('associatedAdvisorId:', associatedAdvisorId);
         console.log('Final primaryAdvisorId:', primaryAdvisorId);
         
-        // For admin or firm_admin, always use direct API call (firm_id will be auto-set by backend for firm_admin)
-        if (isAdmin || isFirmAdmin) {
-          console.log('=== ADMIN/FIRM_ADMIN PATH ===');
-          // Validate that primaryAdvisorId is provided for firm_admin
-          if (isFirmAdmin && !primaryAdvisorId) {
-            console.error('ERROR: Primary advisor is required for firm admin users but was not provided');
-            console.error('Available advisors:', userRoleData?.advisors);
-            throw new Error('Primary advisor is required for firm admin users');
+        // For admin or firm_admin/firm_advisor, always use direct API call (firm_id will be auto-set by backend for firm_admin)
+        if (isAdmin || isFirmContext) {
+          console.log('=== ADMIN/FIRM_CONTEXT PATH ===');
+          // Validate that primaryAdvisorId is provided for firm_context
+          if (isFirmContext && !primaryAdvisorId) {
+            console.error('ERROR: Primary advisor is required for firm context but was not provided');
+            console.error('Associated advisor ID:', associatedAdvisorId);
+            throw new Error('Associate advisor to client first');
           }
           
           const requestPayload = {
@@ -612,13 +692,13 @@ export function EngagementForm({
           />
 
           {/* Admin or Firm Admin: Show Client dropdown */}
-          {(isAdmin || isFirmAdmin) && userRoleData && (
+          {(isAdmin || isFirmContext) && userRoleData && (
             <>
               <FormField
                 control={form.control}
                 name="clientId"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="md:col-span-2">
                     <FormLabel>Select Client</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
@@ -650,7 +730,7 @@ export function EngagementForm({
               {isAdmin && (
                 <FormField
                   control={form.control}
-                  name="advisorId"
+                  name={"advisorId" as any}
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Select Advisor</FormLabel>
@@ -732,40 +812,6 @@ export function EngagementForm({
             />
           )}
 
-          {/* Primary Advisor Dropdown - visible for firm_admin role only */}
-          {isFirmAdmin && userRoleData && userRoleData.advisors && (
-            <FormField
-              control={form.control}
-              name="primaryAdvisorId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Select Primary Advisor</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a primary advisor" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {userRoleData.advisors.length > 0 ? (
-                        userRoleData.advisors.map((advisor) => (
-                          <SelectItem key={advisor.id} value={advisor.id}>
-                            {advisor.name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="none" disabled>No advisors available</SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>
-                    Choose the primary advisor for this engagement.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
 
           <FormField
             control={form.control}

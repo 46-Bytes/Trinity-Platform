@@ -13,6 +13,7 @@ from ..models.firm import Firm
 from ..models.user import User, UserRole
 from ..models.engagement import Engagement
 from ..models.subscription import Subscription
+from ..models.adv_client import AdvisorClient
 from ..services.firm_permissions import (
     can_manage_firm_users,
     can_view_firm_engagements,
@@ -517,7 +518,8 @@ class FirmService:
         email: str,
         first_name: Optional[str] = None,
         last_name: Optional[str] = None,
-        added_by: UUID = None
+        added_by: UUID = None,
+        primary_advisor_id: Optional[UUID] = None
     ) -> User:
         """
         Add a client to a firm.
@@ -525,6 +527,7 @@ class FirmService:
         If the client doesn't exist, creates a new user with CLIENT role.
         If the client exists, associates them with the firm.
         Adds the client ID to the firm's clients array.
+        Optionally creates an AdvisorClient association if primary_advisor_id is provided.
         
         Args:
             firm_id: ID of the firm
@@ -532,6 +535,7 @@ class FirmService:
             first_name: First name (optional)
             last_name: Last name (optional)
             added_by: ID of the user adding the client (for permissions)
+            primary_advisor_id: Optional primary advisor ID to associate with the client
             
         Returns:
             User object (client)
@@ -609,6 +613,35 @@ class FirmService:
             # Mark the array as modified for SQLAlchemy to detect changes
             from sqlalchemy.orm.attributes import flag_modified
             flag_modified(firm, "clients")
+        
+        # Create AdvisorClient association if primary_advisor_id is provided
+        if primary_advisor_id:
+            # Validate that advisor exists, belongs to the same firm, and is a FIRM_ADVISOR
+            advisor = self.db.query(User).filter(User.id == primary_advisor_id).first()
+            if not advisor:
+                raise ValueError(f"Advisor with ID {primary_advisor_id} not found")
+            if advisor.firm_id != firm_id:
+                raise ValueError("Advisor must belong to the same firm as the client")
+            if advisor.role != UserRole.FIRM_ADVISOR:
+                raise ValueError("Primary advisor must be a FIRM_ADVISOR (cannot be FIRM_ADMIN)")
+            if not advisor.is_active:
+                raise ValueError("Advisor must be active")
+            
+            # Check if association already exists
+            existing_association = self.db.query(AdvisorClient).filter(
+                AdvisorClient.advisor_id == primary_advisor_id,
+                AdvisorClient.client_id == client.id
+            ).first()
+            
+            if not existing_association:
+                # Create new association
+                association = AdvisorClient(
+                    advisor_id=primary_advisor_id,
+                    client_id=client.id,
+                    status='active'
+                )
+                self.db.add(association)
+                self.logger.info(f"Created AdvisorClient association: advisor {primary_advisor_id} <-> client {client.id}")
         
         self.db.commit()
         self.db.refresh(client)

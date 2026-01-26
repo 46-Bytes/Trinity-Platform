@@ -443,38 +443,63 @@ class DiagnosticService:
         
         try:
             # Add timeout wrapper to prevent indefinite hangs
-            # If OpenAI API hangs, this will raise TimeoutError after 25 minutes
-            logger.info("[Scoring] ⏳ Starting OpenAI scoring process with 25-minute timeout...")
+            # Reduced to 10 minutes for faster failure detection
+            logger.info("[Scoring] ⏳ Starting OpenAI scoring process with 10-minute timeout...")
             
-            scoring_result = await asyncio.wait_for(
-                openai_service.process_scoring(
-                    scoring_prompt=scoring_prompt,
-                    scoring_map=scoring_map,
-                    task_library=task_library,
-                    diagnostic_questions=diagnostic_questions,
-                    user_responses=user_responses,
-                    file_context=file_context,  # Text description of attached files
-                    # Only PDFs are attached as message input_file items
-                    file_ids=pdf_file_ids if pdf_file_ids else None,
-                    # Non-PDFs go into the Code Interpreter container
-                    tools=(
-                        [{"type": "code_interpreter", "container": {"type": "auto", "file_ids": ci_file_ids}}]
-                        if ci_file_ids
-                        else None
-                    )
-                ),
-                timeout=1500.0  # 25 minutes (less than the 30 min read timeout)
-            )
+            # Create a background task to log progress while waiting
+            async def log_progress():
+                import time as progress_time
+                start = progress_time.time()
+                interval = 30  # Log every 30 seconds
+                while True:
+                    await asyncio.sleep(interval)
+                    elapsed = progress_time.time() - start
+                    logger.info(f"[Scoring] ⏱️ Still waiting for OpenAI API response... ({elapsed:.0f} seconds / {elapsed/60:.1f} minutes elapsed)")
+                    if elapsed > 600:  # Stop logging after 10 minutes
+                        break
             
-            scoring_elapsed = time_module.time() - scoring_start_time
-            logger.info(f"[Scoring] ✅ OpenAI scoring completed successfully in {scoring_elapsed:.2f} seconds ({scoring_elapsed/60:.2f} minutes)")
+            progress_task = asyncio.create_task(log_progress())
             
-        except asyncio.TimeoutError:
-            scoring_elapsed = time_module.time() - scoring_start_time
-            logger.error(f"[Scoring] ⏱️⏱️⏱️ TIMEOUT: OpenAI API call timed out after {scoring_elapsed:.2f} seconds ({scoring_elapsed/60:.2f} minutes)")
-            logger.error(f"[Scoring] The request exceeded the 25-minute timeout limit.")
-            logger.error(f"[Scoring] This may indicate the OpenAI API is hanging or taking too long to respond.")
-            raise Exception("OpenAI API call timed out after 25 minutes. The request took too long to complete. Please try again or contact support.")
+            try:
+                scoring_result = await asyncio.wait_for(
+                    openai_service.process_scoring(
+                        scoring_prompt=scoring_prompt,
+                        scoring_map=scoring_map,
+                        task_library=task_library,
+                        diagnostic_questions=diagnostic_questions,
+                        user_responses=user_responses,
+                        file_context=file_context,  # Text description of attached files
+                        # Only PDFs are attached as message input_file items
+                        file_ids=pdf_file_ids if pdf_file_ids else None,
+                        # Non-PDFs go into the Code Interpreter container
+                        tools=(
+                            [{"type": "code_interpreter", "container": {"type": "auto", "file_ids": ci_file_ids}}]
+                            if ci_file_ids
+                            else None
+                        )
+                    ),
+                    timeout=600.0  # 10 minutes (reduced from 25 minutes)
+                )
+                progress_task.cancel()  # Cancel progress logging when done
+                try:
+                    await progress_task
+                except asyncio.CancelledError:
+                    pass
+                
+                scoring_elapsed = time_module.time() - scoring_start_time
+                logger.info(f"[Scoring] ✅ OpenAI scoring completed successfully in {scoring_elapsed:.2f} seconds ({scoring_elapsed/60:.2f} minutes)")
+                
+            except asyncio.TimeoutError:
+                progress_task.cancel()
+                try:
+                    await progress_task
+                except asyncio.CancelledError:
+                    pass
+                scoring_elapsed = time_module.time() - scoring_start_time
+                logger.error(f"[Scoring] ⏱️⏱️⏱️ TIMEOUT: OpenAI API call timed out after {scoring_elapsed:.2f} seconds ({scoring_elapsed/60:.2f} minutes)")
+                logger.error(f"[Scoring] The request exceeded the 10-minute timeout limit.")
+                logger.error(f"[Scoring] This may indicate the OpenAI API is hanging or taking too long to respond.")
+                raise Exception("OpenAI API call timed out after 10 minutes. The request took too long to complete. Please try again or contact support.")
         except Exception as e:
             scoring_elapsed = time_module.time() - scoring_start_time
             error_msg = str(e)

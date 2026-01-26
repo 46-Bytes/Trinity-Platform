@@ -182,11 +182,30 @@ class OpenAIService:
                 logger.info(f"[OpenAI API] Making API call to OpenAI Responses API...")
                 logger.info(f"[OpenAI API] Model: {model}, Max retries: {self.client.max_retries}")
                 logger.info(f"[OpenAI API] Timeout settings: {self.client.timeout}")
+                logger.info(f"[OpenAI API] Request parameters prepared, sending HTTP request now...")
+                
+                # Log request details
+                logger.info(f"[OpenAI API] Request details:")
+                logger.info(f"[OpenAI API]   - Model: {model}")
+                logger.info(f"[OpenAI API]   - Input messages count: {len(input_messages)}")
+                logger.info(f"[OpenAI API]   - File IDs: {file_ids if file_ids else 'None'}")
+                logger.info(f"[OpenAI API]   - Tools: {len(tools) if tools else 0}")
+                logger.info(f"[OpenAI API]   - Max output tokens: {max_output_tokens}")
+                
+                # Add a pre-request check
+                logger.info(f"[OpenAI API] 🔄 Initiating connection to api.openai.com...")
+                logger.info(f"[OpenAI API] Current event loop: {asyncio.get_event_loop()}")
+                logger.info(f"[OpenAI API] Is event loop running: {asyncio.get_event_loop().is_running()}")
+                
+                # Make the actual API call with more visibility
+                logger.info(f"[OpenAI API] 🔄 Calling self.client.responses.create() now...")
+                logger.info(f"[OpenAI API] This call will block until OpenAI responds or times out...")
                 
                 response = await self.client.responses.create(**params)
                 
                 elapsed_time = time.time() - start_time
                 logger.info(f"[OpenAI API] ✅ API call succeeded in {elapsed_time:.2f} seconds")
+                logger.info(f"[OpenAI API] ✅ Received response from OpenAI API")
                 
             except Exception as executor_error:
                 elapsed_time = time.time() - start_time
@@ -197,6 +216,12 @@ class OpenAIService:
                 logger.error(f"[OpenAI API] ❌ API call failed after {elapsed_time:.2f} seconds")
                 logger.error(f"[OpenAI API] Error type: {error_type}")
                 logger.error(f"[OpenAI API] Error message: {error_msg}")
+                
+                # Check if it was a timeout
+                if elapsed_time >= 600:  # 10 minutes
+                    logger.error(f"[OpenAI API] ⚠️ Request took {elapsed_time:.2f} seconds - likely a timeout")
+                elif elapsed_time >= 1800:  # 30 minutes
+                    logger.error(f"[OpenAI API] ⚠️⚠️ Request took {elapsed_time:.2f} seconds - exceeded read timeout!")
                 
                 # Check for HTTP status codes in error message or attributes
                 status_code = None

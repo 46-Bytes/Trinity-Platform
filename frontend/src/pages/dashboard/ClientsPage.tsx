@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Search, MoreHorizontal, Building2, Loader2, Eye, FileText, Plus, Mail, Phone } from 'lucide-react';
+import { Search, MoreHorizontal, Building2, Loader2, Eye, Plus, Mail, Phone } from 'lucide-react';
 import { cn, getUniqueClientIds } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchEngagements } from '@/store/slices/engagementReducer';
@@ -65,6 +65,8 @@ export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     first_name: '',
@@ -505,13 +507,15 @@ export default function ClientsPage() {
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem className="cursor-pointer">
+                        <DropdownMenuItem 
+                          className="cursor-pointer"
+                          onClick={() => {
+                            setSelectedClient(client);
+                            setIsDetailDialogOpen(true);
+                          }}
+                        >
                           <Eye className="w-4 h-4 mr-2" />
                           View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="cursor-pointer">
-                          <FileText className="w-4 h-4 mr-2" />
-                          New Engagement
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -541,6 +545,88 @@ export default function ClientsPage() {
           )}
         </div>
       )}
+
+      {/* Client Detail Dialog */}
+      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Client Details</DialogTitle>
+            <DialogDescription>
+              View detailed information about the client
+            </DialogDescription>
+          </DialogHeader>
+          {selectedClient && (
+            <div className="space-y-4 mt-4">
+              <div className="flex items-center gap-3 pb-4 border-b">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Building2 className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg">{selectedClient.name}</h3>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Status</Label>
+                  <div className="flex items-center gap-2">
+                    <span className={cn(
+                      "status-badge text-xs",
+                      selectedClient.status === 'Active' ? "status-success" : "status-warning"
+                    )}>
+                      {selectedClient.status}
+                    </span>
+                    {!selectedClient.email_verified && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800">
+                        Unverified
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Engagements</Label>
+                  <p className="text-sm font-medium">
+                    {selectedClient.engagements} {selectedClient.engagements === 1 ? 'engagement' : 'engagements'}
+                  </p>
+                </div>
+
+                {selectedClient.industry && (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Industry</Label>
+                    <p className="text-sm font-medium">{selectedClient.industry}</p>
+                  </div>
+                )}
+
+                {selectedClient.phone && (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Phone</Label>
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-4 h-4 text-muted-foreground" />
+                      <p className="text-sm font-medium">{selectedClient.phone}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Email</Label>
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-muted-foreground" />
+                    <p className="text-sm font-medium">{selectedClient.email}</p>
+                  </div>
+                </div>
+
+                {selectedClient.role && (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Role</Label>
+                    <p className="text-sm font-medium capitalize">{selectedClient.role}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

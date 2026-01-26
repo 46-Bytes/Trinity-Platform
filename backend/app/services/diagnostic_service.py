@@ -443,8 +443,8 @@ class DiagnosticService:
         
         try:
             # Add timeout wrapper to prevent indefinite hangs
-            # Reduced to 10 minutes for faster failure detection
-            logger.info("[Scoring] ⏳ Starting OpenAI scoring process with 10-minute timeout...")
+            # Set to 25 minutes to allow for longer processing times
+            logger.info("[Scoring] ⏳ Starting OpenAI scoring process with 25-minute timeout...")
             
             # Create a background task to log progress while waiting
             async def log_progress():
@@ -455,7 +455,7 @@ class DiagnosticService:
                     await asyncio.sleep(interval)
                     elapsed = progress_time.time() - start
                     logger.info(f"[Scoring] ⏱️ Still waiting for OpenAI API response... ({elapsed:.0f} seconds / {elapsed/60:.1f} minutes elapsed)")
-                    if elapsed > 600:  # Stop logging after 10 minutes
+                    if elapsed > 1500:  # Stop logging after 25 minutes
                         break
             
             progress_task = asyncio.create_task(log_progress())
@@ -478,7 +478,7 @@ class DiagnosticService:
                             else None
                         )
                     ),
-                    timeout=600.0  # 10 minutes (reduced from 25 minutes)
+                    timeout=1500.0  # 25 minutes
                 )
                 progress_task.cancel()  # Cancel progress logging when done
                 try:
@@ -497,9 +497,9 @@ class DiagnosticService:
                     pass
                 scoring_elapsed = time_module.time() - scoring_start_time
                 logger.error(f"[Scoring] ⏱️⏱️⏱️ TIMEOUT: OpenAI API call timed out after {scoring_elapsed:.2f} seconds ({scoring_elapsed/60:.2f} minutes)")
-                logger.error(f"[Scoring] The request exceeded the 10-minute timeout limit.")
+                logger.error(f"[Scoring] The request exceeded the 25-minute timeout limit.")
                 logger.error(f"[Scoring] This may indicate the OpenAI API is hanging or taking too long to respond.")
-                raise Exception("OpenAI API call timed out after 10 minutes. The request took too long to complete. Please try again or contact support.")
+                raise Exception("OpenAI API call timed out after 25 minutes. The request took too long to complete. Please try again or contact support.")
         except Exception as e:
             scoring_elapsed = time_module.time() - scoring_start_time
             error_msg = str(e)

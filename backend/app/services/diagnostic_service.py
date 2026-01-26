@@ -301,10 +301,20 @@ class DiagnosticService:
             diagnostic: Diagnostic model to process
             check_shutdown: If True, check for shutdown signals between steps
         """
-        pipeline_start = time.time()
+        # Use time_module alias to avoid any scoping issues
+        import time as time_module
+        
+        try:
+            pipeline_start = time_module.time()
+            start_time_str = time_module.strftime('%Y-%m-%d %H:%M:%S')
+        except (NameError, UnboundLocalError, AttributeError) as time_err:
+            # Fallback if time module has issues
+            logger.warning(f"[Pipeline] Could not get start time: {time_err}")
+            pipeline_start = 0
+            start_time_str = "unknown"
         
         logger.info(f"[Pipeline] ========== Starting diagnostic pipeline for {diagnostic.id} ==========")
-        logger.info(f"[Pipeline] Started at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"[Pipeline] Started at {start_time_str}")
         
         user_responses = diagnostic.user_responses
         
@@ -321,15 +331,15 @@ class DiagnosticService:
         logger.info(f"[Pipeline] Data files loaded successfully")
         
         # ===== STEP 1: Generate Q&A Extract =====
-        step1_start = time.time()
+        step1_start = time_module.time()
         logger.info(f"[Pipeline] ========== STEP 1: JSON Extract Started ==========")
-        logger.info(f"[Pipeline] Step 1 started at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"[Pipeline] Step 1 started at {time_module.strftime('%Y-%m-%d %H:%M:%S')}")
 
         json_extract = self._generate_qa_extract(
             diagnostic_questions,
             user_responses
         )
-        step1_elapsed = time.time() - step1_start
+        step1_elapsed = time_module.time() - step1_start
         logger.info(f"[Pipeline] ✅ STEP 1 completed in {step1_elapsed:.2f} seconds")
         logger.info(f"[Pipeline] JSON Extract: {len(json_extract)} items extracted")
         
@@ -339,16 +349,16 @@ class DiagnosticService:
             raise asyncio.CancelledError("Shutdown detected")
         
         # ===== STEP 2: Generate Summary =====
-        step2_start = time.time()
+        step2_start = time_module.time()
         logger.info(f"[Pipeline] ========== STEP 2: Generate Summary Started ==========")
-        logger.info(f"[Pipeline] Step 2 started at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"[Pipeline] Step 2 started at {time_module.strftime('%Y-%m-%d %H:%M:%S')}")
         
         summary_prompt = load_prompt("diagnostic_summary")
         summary_result = await openai_service.generate_summary(
             system_prompt=summary_prompt,
             user_responses=user_responses
         )
-        step2_elapsed = time.time() - step2_start
+        step2_elapsed = time_module.time() - step2_start
         logger.info(f"[Pipeline] ✅ STEP 2 completed in {step2_elapsed:.2f} seconds")
         
         summary = summary_result["content"]
@@ -359,10 +369,10 @@ class DiagnosticService:
             raise asyncio.CancelledError("Shutdown detected")
         
         # ===== STEP 3: Process Scores with GPT (including uploaded files) =====
-        step3_start = time.time()
+        step3_start = time_module.time()
         logger.info("=" * 60)
         logger.info("[Pipeline] ========== STEP 3: Starting Scoring Process with GPT ==========")
-        logger.info(f"[Pipeline] Step 3 started at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"[Pipeline] Step 3 started at {time_module.strftime('%Y-%m-%d %H:%M:%S')}")
         logger.info("=" * 60)
         
         # Get files that are CURRENTLY in user_responses (not stale files)
@@ -429,8 +439,7 @@ class DiagnosticService:
         logger.info(f"[Scoring] PDF files: {len(pdf_file_ids) if pdf_file_ids else 0}")
         logger.info(f"[Scoring] Code Interpreter files: {len(ci_file_ids) if ci_file_ids else 0}")
         
-        import time
-        scoring_start_time = time.time()
+        scoring_start_time = time_module.time()
         
         try:
             # Add timeout wrapper to prevent indefinite hangs
@@ -457,17 +466,17 @@ class DiagnosticService:
                 timeout=1500.0  # 25 minutes (less than the 30 min read timeout)
             )
             
-            scoring_elapsed = time.time() - scoring_start_time
+            scoring_elapsed = time_module.time() - scoring_start_time
             logger.info(f"[Scoring] ✅ OpenAI scoring completed successfully in {scoring_elapsed:.2f} seconds ({scoring_elapsed/60:.2f} minutes)")
             
         except asyncio.TimeoutError:
-            scoring_elapsed = time.time() - scoring_start_time
+            scoring_elapsed = time_module.time() - scoring_start_time
             logger.error(f"[Scoring] ⏱️⏱️⏱️ TIMEOUT: OpenAI API call timed out after {scoring_elapsed:.2f} seconds ({scoring_elapsed/60:.2f} minutes)")
             logger.error(f"[Scoring] The request exceeded the 25-minute timeout limit.")
             logger.error(f"[Scoring] This may indicate the OpenAI API is hanging or taking too long to respond.")
             raise Exception("OpenAI API call timed out after 25 minutes. The request took too long to complete. Please try again or contact support.")
         except Exception as e:
-            scoring_elapsed = time.time() - scoring_start_time
+            scoring_elapsed = time_module.time() - scoring_start_time
             error_msg = str(e)
             error_type = type(e).__name__
             logger.error(f"[Scoring] ❌❌❌ OpenAI API call failed after {scoring_elapsed:.2f} seconds ({scoring_elapsed/60:.2f} minutes) ❌❌❌")
@@ -479,11 +488,11 @@ class DiagnosticService:
         # Extract scoring data
         scoring_data = scoring_result["parsed_content"]
         
-        step3_elapsed = time.time() - step3_start
+        step3_elapsed = time_module.time() - step3_start
         logger.info(f"[Pipeline] ✅ STEP 3 (Scoring) completed in {step3_elapsed:.2f} seconds ({step3_elapsed/60:.2f} minutes)")
         
         # ===== STEP 4: Calculate and Validate Scores =====
-        step4_start = time.time()
+        step4_start = time_module.time()
         # Check for shutdown after step 3 (scoring)
         if check_shutdown and background_task_manager.is_shutting_down():
             logger.warning(f"[Pipeline] Shutdown detected after scoring for diagnostic {diagnostic.id}")
@@ -491,7 +500,7 @@ class DiagnosticService:
         
         logger.info("=" * 60)
         logger.info("[Pipeline] ========== STEP 4: Processing Scoring Data ==========")
-        logger.info(f"[Pipeline] Step 4 started at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"[Pipeline] Step 4 started at {time_module.strftime('%Y-%m-%d %H:%M:%S')}")
         logger.info("=" * 60)
         
         scored_rows = scoring_data.get("scored_rows", [])
@@ -520,7 +529,7 @@ class DiagnosticService:
             scoring_map=scoring_map
         )
 
-        step4_elapsed = time.time() - step4_start
+        step4_elapsed = time_module.time() - step4_start
         logger.info(f"[Pipeline] ✅ STEP 4 completed in {step4_elapsed:.2f} seconds")
         logger.info("=" * 60)
         logger.info("[Pipeline] STEP 4: Scoring Data Processing Completed")
@@ -532,9 +541,9 @@ class DiagnosticService:
             raise asyncio.CancelledError("Shutdown detected")
         
         # ===== STEP 5: Generate Advice (Optional) =====
-        step5_start = time.time()
+        step5_start = time_module.time()
         logger.info(f"[Pipeline] ========== STEP 5: Generate Advice (Optional) Started ==========")
-        logger.info(f"[Pipeline] Step 5 started at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"[Pipeline] Step 5 started at {time_module.strftime('%Y-%m-%d %H:%M:%S')}")
         
         advice = None
         try:
@@ -544,19 +553,19 @@ class DiagnosticService:
                 scoring_data=scoring_data
             )
             advice = advice_result["content"]
-            step5_elapsed = time.time() - step5_start
+            step5_elapsed = time_module.time() - step5_start
             logger.info(f"[Pipeline] ✅ STEP 5 completed in {step5_elapsed:.2f} seconds")
         except Exception as e:
-            step5_elapsed = time.time() - step5_start
+            step5_elapsed = time_module.time() - step5_start
             # Advice generation is optional, don't fail the whole process
             logger.warning(f"[Pipeline] ⚠️ STEP 5 (Advice) failed after {step5_elapsed:.2f} seconds (non-critical): {str(e)}")
         
         # ===== STEP 6: Auto-Generate Tasks =====
-        step6_start = time.time()
+        step6_start = time_module.time()
         tasks_count = 0
         try:
             logger.info(f"[Pipeline] ========== STEP 6: Tasks Generation Started ==========")
-            logger.info(f"[Pipeline] Step 6 started at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+            logger.info(f"[Pipeline] Step 6 started at {time_module.strftime('%Y-%m-%d %H:%M:%S')}")
             logger.info(f"==========================Tasks Generation Started==========================:")
             tasks_count = await self._generate_tasks(
                 diagnostic=diagnostic,
@@ -564,7 +573,7 @@ class DiagnosticService:
                 json_extract=json_extract,
                 roadmap=roadmap
             )
-            step6_elapsed = time.time() - step6_start
+            step6_elapsed = time_module.time() - step6_start
             logger.info(f"[Pipeline] ✅ STEP 6 completed in {step6_elapsed:.2f} seconds")
             logger.info(f"[Pipeline] Generated {tasks_count} tasks")
             logger.info(f"==========================Tasks Generation Completed Successfully==========================:")
@@ -610,9 +619,9 @@ class DiagnosticService:
         diagnostic.overall_score = overall_score
         
         # ===== STEP 7: Save All Data to Database =====
-        save_start = time.time()
+        save_start = time_module.time()
         logger.info(f"[Pipeline] ========== STEP 7: Saving Results to Database ==========")
-        logger.info(f"[Pipeline] Step 7 started at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"[Pipeline] Step 7 started at {time_module.strftime('%Y-%m-%d %H:%M:%S')}")
         
         # Store AI analysis (roadmap, advisor report, summary, advice)
         # Ensure advisor_report is a string, not a dict
@@ -646,14 +655,14 @@ class DiagnosticService:
         
         self.db.commit()
         
-        save_elapsed = time.time() - save_start
-        total_elapsed = time.time() - pipeline_start
+        save_elapsed = time_module.time() - save_start
+        total_elapsed = time_module.time() - pipeline_start
         
         logger.info(f"[Pipeline] ✅ STEP 7 completed in {save_elapsed:.2f} seconds")
         logger.info("=" * 60)
         logger.info(f"[Pipeline] ========== PIPELINE COMPLETED SUCCESSFULLY ==========")
         logger.info(f"[Pipeline] Total pipeline time: {total_elapsed:.2f} seconds ({total_elapsed/60:.2f} minutes)")
-        logger.info(f"[Pipeline] Completed at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"[Pipeline] Completed at {time_module.strftime('%Y-%m-%d %H:%M:%S')}")
         logger.info(f"[Pipeline] Steps breakdown:")
         logger.info(f"[Pipeline]   - Step 1 (JSON Extract): {step1_elapsed:.2f}s")
         logger.info(f"[Pipeline]   - Step 2 (Summary): {step2_elapsed:.2f}s")

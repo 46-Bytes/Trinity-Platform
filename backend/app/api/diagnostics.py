@@ -464,7 +464,18 @@ async def submit_diagnostic(
         # Create a new database session for background task
         background_db = SessionLocal()
         task = None
-        pipeline_start_time = time.time()
+        # Initialize pipeline_start_time early to avoid UnboundLocalError
+        pipeline_start_time = None
+        try:
+            pipeline_start_time = time.time()
+        except (NameError, UnboundLocalError, AttributeError) as time_err:
+            # Fallback if time module has issues - use a default value
+            logger.warning(f"[Background Task] Could not get start time: {time_err}")
+            import time as time_module
+            try:
+                pipeline_start_time = time_module.time()
+            except Exception:
+                pipeline_start_time = 0  # Fallback to 0 if time completely fails
         
         try:
             logger.info(f"🚀 Starting background processing for diagnostic {diagnostic_id}")
@@ -563,9 +574,16 @@ async def submit_diagnostic(
             logger.info(f"[Background Task] Completed at {time.strftime('%Y-%m-%d %H:%M:%S')}")
             
         except asyncio.CancelledError:
-            elapsed = time.time() - pipeline_start_time
+            try:
+                if pipeline_start_time is not None:
+                    elapsed = time.time() - pipeline_start_time
+                    elapsed_str = f"{elapsed:.2f} seconds ({elapsed/60:.2f} minutes)"
+                else:
+                    elapsed_str = "unknown duration"
+            except (NameError, UnboundLocalError, AttributeError, TypeError):
+                elapsed_str = "unknown duration"
             logger.warning(f"[Background Task] ⚠️ Background processing cancelled for diagnostic {diagnostic_id} (shutdown detected)")
-            logger.warning(f"[Background Task] Processing was cancelled after {elapsed:.2f} seconds ({elapsed/60:.2f} minutes)")
+            logger.warning(f"[Background Task] Processing was cancelled after {elapsed_str}")
             # Update status to indicate it was cancelled
             try:
                 diagnostic_obj = background_db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
@@ -577,12 +595,20 @@ async def submit_diagnostic(
                 logger.error(f"[Background Task] Failed to update diagnostic status after cancellation: {str(update_error)}")
             raise  # Re-raise to properly handle cancellation
         except Exception as e:
-            elapsed = time.time() - pipeline_start_time
+            try:
+                if pipeline_start_time is not None:
+                    elapsed = time.time() - pipeline_start_time
+                    elapsed_str = f"{elapsed:.2f} seconds ({elapsed/60:.2f} minutes)"
+                else:
+                    elapsed_str = "unknown duration"
+            except (NameError, UnboundLocalError, AttributeError, TypeError, Exception):
+                elapsed_str = "unknown duration"
+            
             error_msg = str(e)
             error_type = type(e).__name__
             
             logger.error(f"[Background Task] ❌❌❌ Background processing FAILED for diagnostic {diagnostic_id} ❌❌❌")
-            logger.error(f"[Background Task] Failed after {elapsed:.2f} seconds ({elapsed/60:.2f} minutes)")
+            logger.error(f"[Background Task] Failed after {elapsed_str}")
             logger.error(f"[Background Task] Error type: {error_type}")
             logger.error(f"[Background Task] Error message: {error_msg}")
             logger.error(f"[Background Task] Full exception traceback:", exc_info=True)

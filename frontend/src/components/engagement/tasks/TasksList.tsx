@@ -285,10 +285,24 @@ export function TasksList({ engagementId }: TasksListProps) {
                             pages.push(i);
                           }
                         } else {
-                          // Always show only pages 1, 2, 3
-                          pages.push(1);
-                          pages.push(2);
-                          pages.push(3);
+                          // Calculate sliding window of 3 consecutive pages
+                          let start: number;
+                          let end: number;
+                          
+                          // If we're in the last 3 pages, show the last 3 pages
+                          if (currentPage > totalPages - maxVisiblePages) {
+                            start = totalPages - maxVisiblePages + 1;
+                            end = totalPages;
+                          } else {
+                            // Show current page and next 2 pages (e.g., page 1 shows 1,2,3; page 2 shows 2,3,4)
+                            start = currentPage;
+                            end = currentPage + maxVisiblePages - 1;
+                          }
+                          
+                          // Add the 3 consecutive pages
+                          for (let i = start; i <= end; i++) {
+                            pages.push(i);
+                          }
                         }
                         
                         return pages.map((page, index) => {

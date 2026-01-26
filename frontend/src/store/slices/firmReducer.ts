@@ -389,31 +389,25 @@ export const fetchFirmClientsById = createAsyncThunk(
   'firm/fetchFirmClientsById',
   async (firmId: string, { rejectWithValue, getState }) => {
     try {
-      // Try to get firm from Redux state first to avoid duplicate API call
-      const state = getState() as RootState;
-      let clientIds: string[] = [];
-      
-      if (state.firm?.firm?.id === firmId && state.firm.firm.clients) {
-        // Firm is already in state, use it
-        console.log('Using firm from Redux state');
-        clientIds = state.firm.firm.clients;
-      } else {
-        // Firm not in state, fetch it
-        console.log('Fetching firm from API');
-        const firmResponse = await fetch(`${API_BASE_URL}/api/firms/${firmId}`, {
-          headers: getAuthHeaders(),
-        });
+      // Always fetch fresh firm data from API to ensure we have the latest clients array
+      const firmResponse = await fetch(`${API_BASE_URL}/api/firms/${firmId}`, {
+        headers: getAuthHeaders(),
+      });
 
-        if (!firmResponse.ok) {
-          throw new Error('Failed to fetch firm');
-        }
-
-        const firmData = await firmResponse.json();
-        clientIds = firmData.clients || [];
+      if (!firmResponse.ok) {
+        throw new Error('Failed to fetch firm');
       }
+
+      const firmData = await firmResponse.json();
+      const clientIds = firmData.clients || [];
 
       if (clientIds.length === 0) {
         console.log('No clients found in firm');
+        // Return empty array with firm data for state update
+        const state = getState() as RootState;
+        if (state.firm?.firm?.id === firmId) {
+          return { clients: [], firmData };
+        }
         return [];
       }
 
@@ -460,6 +454,12 @@ export const fetchFirmClientsById = createAsyncThunk(
       }));
 
       console.log('Mapped clients:', clients);
+      
+      // Return clients along with firm data for state update if firm is in state
+      const state = getState() as RootState;
+      if (state.firm?.firm?.id === firmId) {
+        return { clients, firmData };
+      }
       return clients;
     } catch (error) {
       console.error('Error in fetchFirmClientsById:', error);
@@ -812,7 +812,16 @@ const firmSlice = createSlice({
       })
       .addCase(fetchFirmClientsById.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.clients = action.payload;
+        // Handle both old format (array) and new format (object with clients and firmData)
+        if (Array.isArray(action.payload)) {
+          state.clients = action.payload;
+        } else {
+          state.clients = action.payload.clients || [];
+          // Update firm object if provided
+          if (action.payload.firmData && state.firm?.id === action.payload.firmData.id) {
+            state.firm = { ...state.firm, ...action.payload.firmData };
+          }
+        }
       })
       .addCase(fetchFirmClientsById.rejected, (state, action) => {
         state.isLoading = false;
@@ -831,6 +840,13 @@ const firmSlice = createSlice({
         const existingIndex = state.clients.findIndex(c => c.id === action.payload.id);
         if (existingIndex === -1) {
           state.clients.push(action.payload);
+        }
+        // Update firm's clients array if firm exists in state
+        if (state.firm && state.firm.clients) {
+          const clientId = action.payload.id;
+          if (!state.firm.clients.includes(clientId)) {
+            state.firm.clients = [...state.firm.clients, clientId];
+          }
         }
       })
       .addCase(addClientToFirm.rejected, (state, action) => {

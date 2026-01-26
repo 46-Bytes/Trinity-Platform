@@ -5,6 +5,8 @@ import logging
 import requests
 import secrets
 import string
+import re
+import time
 from typing import Optional, Dict
 from datetime import datetime, timedelta
 from ..config import settings
@@ -97,7 +99,50 @@ class Auth0Management:
         
         # Generate initial username from email (part before @)
         # User can change this when they set their password via the password change email
-        initial_username = email.split('@')[0] if '@' in email else email
+        # Auth0 requires username to meet length criteria (typically 1-15 chars, minimum 1)
+        email_prefix = email.split('@')[0] if '@' in email else email
+        
+        # Clean and validate email prefix
+        email_prefix = email_prefix.strip()
+        
+        # Generate username ensuring it meets Auth0 requirements (min 1 char, max 15 chars)
+        # Remove any invalid characters (keep only alphanumeric, underscore, hyphen, dot)
+        email_prefix = re.sub(r'[^a-zA-Z0-9._-]', '', email_prefix)
+        
+        # If email prefix is empty or too short, create a valid username
+        # Auth0 typically requires username to be at least 1 char, but we'll ensure 3+ for compatibility
+        if not email_prefix or len(email_prefix) < 1:
+            # Generate username from email domain or use fallback
+            if '@' in email:
+                domain_part = email.split('@')[1].split('.')[0][:6] if '.' in email.split('@')[1] else email.split('@')[1][:6]
+                domain_part = re.sub(r'[^a-zA-Z0-9._-]', '', domain_part)
+                initial_username = f"user{domain_part}"[:15] if domain_part else f"user{email.split('@')[0][:8]}"[:15]
+            else:
+                # Use timestamp-based username as last resort
+                timestamp_suffix = str(int(time.time()))[-8:]  # Last 8 digits
+                initial_username = f"user{timestamp_suffix}"[:15]
+        elif len(email_prefix) < 3:
+            # If prefix is 1-2 chars, pad it to ensure minimum length of 3
+            if '@' in email:
+                domain_part = email.split('@')[1].split('.')[0][:2] if '.' in email.split('@')[1] else email.split('@')[1][:2]
+                domain_part = re.sub(r'[^a-zA-Z0-9._-]', '', domain_part)
+                initial_username = f"{email_prefix}{domain_part}"[:15] if domain_part else f"{email_prefix}xx"[:15]
+            else:
+                # Use prefix + short numeric suffix
+                suffix = str(int(time.time()))[-2:]  # Last 2 digits
+                initial_username = f"{email_prefix}{suffix}"[:15]
+        else:
+            # Use email prefix, but truncate to 15 chars (Auth0 typical max)
+            initial_username = email_prefix[:15]
+        
+        # Final validation: ensure username is valid (at least 3 chars for safety, max 15)
+        initial_username = initial_username.strip()
+        if not initial_username or len(initial_username) < 3:
+            # Absolute fallback - ensure at least 3 characters
+            timestamp_suffix = str(int(time.time()))[-12:]  # Last 12 digits
+            initial_username = f"usr{timestamp_suffix}"[:15]
+        
+        logger.info(f"Generated username for {email}: {initial_username} (length: {len(initial_username)})")
         
         # Prepare user data
         user_data = {

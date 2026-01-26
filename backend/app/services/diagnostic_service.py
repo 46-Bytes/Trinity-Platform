@@ -556,6 +556,8 @@ class DiagnosticService:
 
         step4_elapsed = time_module.time() - step4_start
         logger.info(f"[Pipeline] ✅ STEP 4 completed in {step4_elapsed:.2f} seconds")
+        logger.info(f"[Pipeline] ✅ STEP 4 completed in {step4_elapsed:.2f} seconds")
+
         logger.info("=" * 60)
         logger.info("[Pipeline] STEP 4: Scoring Data Processing Completed")
         logger.info("=" * 60)

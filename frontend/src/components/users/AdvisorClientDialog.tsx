@@ -258,7 +258,7 @@ export function AdvisorClientDialog({ open, onOpenChange, advisor, firmClients }
               />
             </div>
 
-            <div className="max-h-[300px] overflow-y-auto border rounded-lg bg-background">
+            <div className="max-h-[300px] overflow-y-auto border rounded-lg bg-background p-1">
               {filteredAvailableClients.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">
                   {searchQuery ? (
@@ -274,8 +274,8 @@ export function AdvisorClientDialog({ open, onOpenChange, advisor, firmClients }
                       key={client.id}
                       onClick={() => setSelectedClientId(client.id)}
                       className={cn(
-                        'w-full p-3 text-left hover:bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-                        selectedClientId === client.id && 'bg-muted'
+                        'w-full p-3 text-left hover:bg-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:border-ring',
+                        selectedClientId === client.id && 'bg-muted ring-2 ring-ring ring-inset border-ring rounded-lg'
                       )}
                     >
                       <p className="font-medium text-foreground">{client.email}</p>

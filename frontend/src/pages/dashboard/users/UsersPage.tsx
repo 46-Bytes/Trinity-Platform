@@ -406,48 +406,18 @@ export default function UsersPage() {
                     
                     {(() => {
                       const pages: (number | 'ellipsis')[] = [];
-                      const maxVisiblePages = 5;
+                      const maxVisiblePages = 3;
                       
                       if (totalPages <= maxVisiblePages) {
-                        // Show all pages if total pages is small
+                        // Show all pages if total pages is 3 or fewer
                         for (let i = 1; i <= totalPages; i++) {
                           pages.push(i);
                         }
                       } else {
-                        // Show first page
+                        // Always show only pages 1, 2, 3
                         pages.push(1);
-                        
-                        // Calculate range around current page
-                        let start = Math.max(2, currentPage - 1);
-                        let end = Math.min(totalPages - 1, currentPage + 1);
-                        
-                        // Adjust if we're near the start
-                        if (currentPage <= 3) {
-                          end = Math.min(4, totalPages - 1);
-                        }
-                        
-                        // Adjust if we're near the end
-                        if (currentPage >= totalPages - 2) {
-                          start = Math.max(2, totalPages - 3);
-                        }
-                        
-                        // Add ellipsis after first page if needed
-                        if (start > 2) {
-                          pages.push('ellipsis');
-                        }
-                        
-                        // Add pages in range
-                        for (let i = start; i <= end; i++) {
-                          pages.push(i);
-                        }
-                        
-                        // Add ellipsis before last page if needed
-                        if (end < totalPages - 1) {
-                          pages.push('ellipsis');
-                        }
-                        
-                        // Show last page
-                        pages.push(totalPages);
+                        pages.push(2);
+                        pages.push(3);
                       }
                       
                       return pages.map((page, index) => {

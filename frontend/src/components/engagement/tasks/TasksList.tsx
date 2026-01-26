@@ -277,38 +277,18 @@ export function TasksList({ engagementId }: TasksListProps) {
                       
                       {(() => {
                         const pages: (number | 'ellipsis')[] = [];
+                        const maxVisiblePages = 3;
                         
-                        if (totalPages <= 7) {
-                          // Show all pages if 7 or fewer
+                        if (totalPages <= maxVisiblePages) {
+                          // Show all pages if 3 or fewer
                           for (let i = 1; i <= totalPages; i++) {
                             pages.push(i);
                           }
                         } else {
-                          // Always show first page
+                          // Always show only pages 1, 2, 3
                           pages.push(1);
-                          
-                          if (currentPage <= 3) {
-                            // Show first 5 pages, then ellipsis, then last
-                            for (let i = 2; i <= 5; i++) {
-                              pages.push(i);
-                            }
-                            pages.push('ellipsis');
-                            pages.push(totalPages);
-                          } else if (currentPage >= totalPages - 2) {
-                            // Show first, ellipsis, then last 5 pages
-                            pages.push('ellipsis');
-                            for (let i = totalPages - 4; i <= totalPages; i++) {
-                              pages.push(i);
-                            }
-                          } else {
-                            // Show first, ellipsis, current-1, current, current+1, ellipsis, last
-                            pages.push('ellipsis');
-                            pages.push(currentPage - 1);
-                            pages.push(currentPage);
-                            pages.push(currentPage + 1);
-                            pages.push('ellipsis');
-                            pages.push(totalPages);
-                          }
+                          pages.push(2);
+                          pages.push(3);
                         }
                         
                         return pages.map((page, index) => {

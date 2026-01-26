@@ -11,6 +11,7 @@ from datetime import datetime
 import os
 import shutil
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -463,8 +464,11 @@ async def submit_diagnostic(
         # Create a new database session for background task
         background_db = SessionLocal()
         task = None
+        pipeline_start_time = time.time()
+        
         try:
             logger.info(f"🚀 Starting background processing for diagnostic {diagnostic_id}")
+            logger.info(f"[Background Task] Task registered at {time.strftime('%Y-%m-%d %H:%M:%S')}")
             
             # Check if shutdown was initiated before starting
             if background_task_manager.is_shutting_down():
@@ -485,6 +489,7 @@ async def submit_diagnostic(
             task = asyncio.current_task()
             if task:
                 background_task_manager.register_task(task, diagnostic_id)
+                logger.info(f"[Background Task] Task registered with background_task_manager")
             
             background_service = get_diagnostic_service(background_db)
             diagnostic_obj = background_service.get_diagnostic(diagnostic_id)
@@ -493,8 +498,15 @@ async def submit_diagnostic(
                 logger.error(f"  Diagnostic {diagnostic_id} not found in background task")
                 return
             
+            logger.info(f"[Background Task] Starting diagnostic pipeline processing...")
+            logger.info(f"[Background Task] Diagnostic status: {diagnostic_obj.status}")
+            logger.info(f"[Background Task] Diagnostic engagement_id: {diagnostic_obj.engagement_id}")
+            
             # Process the diagnostic pipeline (with shutdown checks)
             await background_service._process_diagnostic_pipeline(diagnostic_obj, check_shutdown=True)
+            
+            pipeline_elapsed = time.time() - pipeline_start_time
+            logger.info(f"[Background Task] ✅ Diagnostic pipeline completed in {pipeline_elapsed:.2f} seconds ({pipeline_elapsed/60:.2f} minutes)")
             
             # Generate PDF report after processing is complete
             try:
@@ -544,42 +556,61 @@ async def submit_diagnostic(
                 logger.info(f"  Updated engagement {engagement.id} status to 'completed'")
             
             background_db.commit()
-            logger.info(f"  Background processing completed successfully for diagnostic {diagnostic_id}")
+            
+            total_elapsed = time.time() - pipeline_start_time
+            logger.info(f"[Background Task] ✅✅✅ Background processing completed successfully for diagnostic {diagnostic_id} ✅✅✅")
+            logger.info(f"[Background Task] Total processing time: {total_elapsed:.2f} seconds ({total_elapsed/60:.2f} minutes)")
+            logger.info(f"[Background Task] Completed at {time.strftime('%Y-%m-%d %H:%M:%S')}")
             
         except asyncio.CancelledError:
-            logger.warning(f"  Background processing cancelled for diagnostic {diagnostic_id} (shutdown detected)")
+            elapsed = time.time() - pipeline_start_time
+            logger.warning(f"[Background Task] ⚠️ Background processing cancelled for diagnostic {diagnostic_id} (shutdown detected)")
+            logger.warning(f"[Background Task] Processing was cancelled after {elapsed:.2f} seconds ({elapsed/60:.2f} minutes)")
             # Update status to indicate it was cancelled
             try:
                 diagnostic_obj = background_db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
                 if diagnostic_obj:
                     diagnostic_obj.status = "draft"  # Reset to draft so user can resubmit after redeploy
                     background_db.commit()
-                    logger.info(f"  Updated diagnostic {diagnostic_id} status to 'draft' (cancelled due to shutdown)")
+                    logger.info(f"[Background Task] Updated diagnostic {diagnostic_id} status to 'draft' (cancelled due to shutdown)")
             except Exception as update_error:
-                logger.error(f"  Failed to update diagnostic status after cancellation: {str(update_error)}")
+                logger.error(f"[Background Task] Failed to update diagnostic status after cancellation: {str(update_error)}")
             raise  # Re-raise to properly handle cancellation
         except Exception as e:
+            elapsed = time.time() - pipeline_start_time
+            error_msg = str(e)
+            error_type = type(e).__name__
+            
+            logger.error(f"[Background Task] ❌❌❌ Background processing FAILED for diagnostic {diagnostic_id} ❌❌❌")
+            logger.error(f"[Background Task] Failed after {elapsed:.2f} seconds ({elapsed/60:.2f} minutes)")
+            logger.error(f"[Background Task] Error type: {error_type}")
+            logger.error(f"[Background Task] Error message: {error_msg}")
+            logger.error(f"[Background Task] Full exception traceback:", exc_info=True)
+            
             # Check if shutdown was the cause
             if background_task_manager.is_shutting_down():
-                logger.warning(f"  Background processing interrupted for diagnostic {diagnostic_id} (shutdown detected)")
+                logger.warning(f"[Background Task] Shutdown was detected - this may have caused the failure")
                 try:
                     diagnostic_obj = background_db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
                     if diagnostic_obj:
                         diagnostic_obj.status = "draft"
                         background_db.commit()
+                        logger.info(f"[Background Task] Updated diagnostic {diagnostic_id} status to 'draft' (shutdown detected)")
                 except Exception as update_error:
-                    logger.error(f"  Failed to update diagnostic status: {str(update_error)}")
+                    logger.error(f"[Background Task] Failed to update diagnostic status: {str(update_error)}")
             else:
-                logger.error(f"  Background processing failed for diagnostic {diagnostic_id}: {str(e)}", exc_info=True)
+                logger.error(f"[Background Task] This was NOT a shutdown-related failure")
                 # Update status to failed
                 try:
                     diagnostic_obj = background_service.get_diagnostic(diagnostic_id)
                     if diagnostic_obj:
                         diagnostic_obj.status = "failed"
                         background_db.commit()
-                        logger.info(f"  Updated diagnostic {diagnostic_id} status to 'failed'")
+                        logger.info(f"[Background Task] Updated diagnostic {diagnostic_id} status to 'failed'")
+                    else:
+                        logger.error(f"[Background Task] Could not find diagnostic {diagnostic_id} to update status")
                 except Exception as update_error:
-                    logger.error(f"  Failed to update diagnostic status to 'failed': {str(update_error)}")
+                    logger.error(f"[Background Task] Failed to update diagnostic status to 'failed': {str(update_error)}")
         finally:
             background_db.close()
     

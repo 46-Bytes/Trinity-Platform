@@ -12,6 +12,7 @@ from app.config import settings
 import logging
 import httpx
 logger = logging.getLogger(__name__)
+import time
 
 
 class OpenAIService:
@@ -175,10 +176,58 @@ class OpenAIService:
                         normalized_tools.append(t)
                 params["tools"] = normalized_tools
             
+            start_time = time.time()
+            
             try:
+                logger.info(f"[OpenAI API] Making API call to OpenAI Responses API...")
+                logger.info(f"[OpenAI API] Model: {model}, Max retries: {self.client.max_retries}")
+                logger.info(f"[OpenAI API] Timeout settings: {self.client.timeout}")
+                
                 response = await self.client.responses.create(**params)
+                
+                elapsed_time = time.time() - start_time
+                logger.info(f"[OpenAI API] ✅ API call succeeded in {elapsed_time:.2f} seconds")
+                
             except Exception as executor_error:
+                elapsed_time = time.time() - start_time
                 error_msg = str(executor_error)
+                error_type = type(executor_error).__name__
+                
+                # Log detailed error information
+                logger.error(f"[OpenAI API] ❌ API call failed after {elapsed_time:.2f} seconds")
+                logger.error(f"[OpenAI API] Error type: {error_type}")
+                logger.error(f"[OpenAI API] Error message: {error_msg}")
+                
+                # Check for HTTP status codes in error message or attributes
+                status_code = None
+                if hasattr(executor_error, 'status_code'):
+                    status_code = executor_error.status_code
+                elif hasattr(executor_error, 'response'):
+                    if hasattr(executor_error.response, 'status_code'):
+                        status_code = executor_error.response.status_code
+                
+                if status_code:
+                    logger.error(f"[OpenAI API] HTTP Status Code: {status_code}")
+                    if status_code == 500:
+                        logger.error(f"[OpenAI API] ⚠️ OpenAI server returned 500 Internal Server Error")
+                        logger.error(f"[OpenAI API] This may be a temporary issue. SDK will retry automatically (max_retries={self.client.max_retries})")
+                    elif status_code == 429:
+                        logger.error(f"[OpenAI API] ⚠️ Rate limit exceeded (429). SDK will retry automatically.")
+                    elif status_code >= 500:
+                        logger.error(f"[OpenAI API] ⚠️ Server error ({status_code}). SDK will retry automatically.")
+                
+                # Check error message for status codes
+                if "500" in error_msg or "Internal Server Error" in error_msg:
+                    logger.error(f"[OpenAI API] ⚠️ Detected 500 Internal Server Error in error message")
+                    logger.error(f"[OpenAI API] SDK max_retries setting: {self.client.max_retries}")
+                    logger.error(f"[OpenAI API] The SDK will automatically retry up to {self.client.max_retries} times")
+                
+                if "429" in error_msg or "rate limit" in error_msg.lower():
+                    logger.error(f"[OpenAI API] ⚠️ Rate limit detected. SDK will retry automatically.")
+                
+                # Log full exception details
+                logger.error(f"[OpenAI API] Full exception details:", exc_info=True)
+                
                 raise
             
             # Extract data
@@ -205,17 +254,35 @@ class OpenAIService:
             
         except Exception as e:
             error_msg = str(e)
-            logger.error(f"[OpenAI API]  API call failed: {error_msg}", exc_info=True)
+            error_type = type(e).__name__
+            
+            logger.error(f"[OpenAI API] ❌❌❌ API call failed after all retries ❌❌❌")
+            logger.error(f"[OpenAI API] Final error type: {error_type}")
+            logger.error(f"[OpenAI API] Final error message: {error_msg}")
+            logger.error(f"[OpenAI API] Full exception traceback:", exc_info=True)
             
             # Check for timeout errors
             if "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
-                logger.error(f"[OpenAI API] Timeout error detected. Timeout setting: {settings.OPENAI_TIMEOUT} seconds")
+                logger.error(f"[OpenAI API] ⏱️ Timeout error detected. Timeout setting: {settings.OPENAI_TIMEOUT} seconds")
+                logger.error(f"[OpenAI API] Read timeout: {self.client.timeout.read if hasattr(self.client.timeout, 'read') else 'N/A'} seconds")
                 raise Exception(f"OpenAI API request timed out after {settings.OPENAI_TIMEOUT} seconds. The request may be too complex or the server is slow. Error: {error_msg}")
             
             # Check for API key errors
             if "api key" in error_msg.lower() or "authentication" in error_msg.lower():
-                logger.error("[OpenAI API] Authentication error detected")
+                logger.error("[OpenAI API] 🔑 Authentication error detected")
                 raise Exception(f"OpenAI API authentication failed. Please check your OPENAI_API_KEY. Error: {error_msg}")
+            
+            # Check for 500 errors specifically
+            if "500" in error_msg or "Internal Server Error" in error_msg:
+                logger.error("[OpenAI API] ⚠️⚠️⚠️ OpenAI server returned 500 Internal Server Error after all retries ⚠️⚠️⚠️")
+                logger.error(f"[OpenAI API] This indicates a temporary issue on OpenAI's side.")
+                logger.error(f"[OpenAI API] All {self.client.max_retries + 1} attempts failed.")
+                raise Exception(f"OpenAI API returned 500 Internal Server Error after all retries. This is likely a temporary issue on OpenAI's side. Please try again later. Error: {error_msg}")
+            
+            # Check for rate limiting
+            if "429" in error_msg or "rate limit" in error_msg.lower():
+                logger.error("[OpenAI API] ⚠️ Rate limit error after all retries")
+                raise Exception(f"OpenAI API rate limit exceeded after all retries. Please wait and try again later. Error: {error_msg}")
             
             raise Exception(f"OpenAI Responses API error: {error_msg}")
     
@@ -398,19 +465,29 @@ class OpenAIService:
         ]
         
         logger.info("[OpenAI] Calling generate_json_completion for scoring...")
-        logger.info(f"[OpenAI] Timeout setting: {self.client.timeout} seconds")
+        logger.info(f"[OpenAI] Timeout setting: {self.client.timeout}")
+        logger.info(f"[OpenAI] Max retries: {self.client.max_retries}")
+        
+        import time
+        scoring_start_time = time.time()
         
         try:
+            logger.info("[OpenAI] ⏳ Starting generate_json_completion (this may take several minutes)...")
             result = await self.generate_json_completion(
                 messages=messages,
                 reasoning_effort=reasoning_effort,
                 file_ids=file_ids if file_ids else None,
                 tools=tools
             )
-            logger.info("[OpenAI]  generate_json_completion completed successfully")
+            scoring_elapsed = time.time() - scoring_start_time
+            logger.info(f"[OpenAI] ✅ generate_json_completion completed successfully in {scoring_elapsed:.2f} seconds ({scoring_elapsed/60:.2f} minutes)")
             return result
         except Exception as e:
-            logger.error(f"[OpenAI]  generate_json_completion failed: {str(e)}", exc_info=True)
+            scoring_elapsed = time.time() - scoring_start_time
+            error_msg = str(e)
+            logger.error(f"[OpenAI] ❌ generate_json_completion failed after {scoring_elapsed:.2f} seconds ({scoring_elapsed/60:.2f} minutes)")
+            logger.error(f"[OpenAI] Error: {error_msg}")
+            logger.error(f"[OpenAI] Full exception details:", exc_info=True)
             raise
     
     async def generate_advice(

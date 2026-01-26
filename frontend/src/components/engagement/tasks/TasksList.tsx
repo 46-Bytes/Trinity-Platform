@@ -277,37 +277,31 @@ export function TasksList({ engagementId }: TasksListProps) {
                       
                       {(() => {
                         const pages: (number | 'ellipsis')[] = [];
+                        const maxVisiblePages = 3;
                         
-                        if (totalPages <= 7) {
-                          // Show all pages if 7 or fewer
+                        if (totalPages <= maxVisiblePages) {
+                          // Show all pages if 3 or fewer
                           for (let i = 1; i <= totalPages; i++) {
                             pages.push(i);
                           }
                         } else {
-                          // Always show first page
-                          pages.push(1);
+                          // Calculate sliding window of 3 consecutive pages
+                          let start: number;
+                          let end: number;
                           
-                          if (currentPage <= 3) {
-                            // Show first 5 pages, then ellipsis, then last
-                            for (let i = 2; i <= 5; i++) {
-                              pages.push(i);
-                            }
-                            pages.push('ellipsis');
-                            pages.push(totalPages);
-                          } else if (currentPage >= totalPages - 2) {
-                            // Show first, ellipsis, then last 5 pages
-                            pages.push('ellipsis');
-                            for (let i = totalPages - 4; i <= totalPages; i++) {
-                              pages.push(i);
-                            }
+                          // If we're in the last 3 pages, show the last 3 pages
+                          if (currentPage > totalPages - maxVisiblePages) {
+                            start = totalPages - maxVisiblePages + 1;
+                            end = totalPages;
                           } else {
-                            // Show first, ellipsis, current-1, current, current+1, ellipsis, last
-                            pages.push('ellipsis');
-                            pages.push(currentPage - 1);
-                            pages.push(currentPage);
-                            pages.push(currentPage + 1);
-                            pages.push('ellipsis');
-                            pages.push(totalPages);
+                            // Show current page and next 2 pages (e.g., page 1 shows 1,2,3; page 2 shows 2,3,4)
+                            start = currentPage;
+                            end = currentPage + maxVisiblePages - 1;
+                          }
+                          
+                          // Add the 3 consecutive pages
+                          for (let i = start; i <= end; i++) {
+                            pages.push(i);
                           }
                         }
                         

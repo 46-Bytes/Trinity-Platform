@@ -406,48 +406,32 @@ export default function UsersPage() {
                     
                     {(() => {
                       const pages: (number | 'ellipsis')[] = [];
-                      const maxVisiblePages = 5;
+                      const maxVisiblePages = 3;
                       
                       if (totalPages <= maxVisiblePages) {
-                        // Show all pages if total pages is small
+                        // Show all pages if total pages is 3 or fewer
                         for (let i = 1; i <= totalPages; i++) {
                           pages.push(i);
                         }
                       } else {
-                        // Show first page
-                        pages.push(1);
+                        // Calculate sliding window of 3 consecutive pages
+                        let start: number;
+                        let end: number;
                         
-                        // Calculate range around current page
-                        let start = Math.max(2, currentPage - 1);
-                        let end = Math.min(totalPages - 1, currentPage + 1);
-                        
-                        // Adjust if we're near the start
-                        if (currentPage <= 3) {
-                          end = Math.min(4, totalPages - 1);
+                        // If we're in the last 3 pages, show the last 3 pages
+                        if (currentPage > totalPages - maxVisiblePages) {
+                          start = totalPages - maxVisiblePages + 1;
+                          end = totalPages;
+                        } else {
+                          // Show current page and next 2 pages (e.g., page 1 shows 1,2,3; page 2 shows 2,3,4)
+                          start = currentPage;
+                          end = currentPage + maxVisiblePages - 1;
                         }
                         
-                        // Adjust if we're near the end
-                        if (currentPage >= totalPages - 2) {
-                          start = Math.max(2, totalPages - 3);
-                        }
-                        
-                        // Add ellipsis after first page if needed
-                        if (start > 2) {
-                          pages.push('ellipsis');
-                        }
-                        
-                        // Add pages in range
+                        // Add the 3 consecutive pages
                         for (let i = start; i <= end; i++) {
                           pages.push(i);
                         }
-                        
-                        // Add ellipsis before last page if needed
-                        if (end < totalPages - 1) {
-                          pages.push('ellipsis');
-                        }
-                        
-                        // Show last page
-                        pages.push(totalPages);
                       }
                       
                       return pages.map((page, index) => {

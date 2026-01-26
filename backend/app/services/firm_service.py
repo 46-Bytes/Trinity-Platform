@@ -549,10 +549,15 @@ class FirmService:
         # Check permissions if added_by is provided
         if added_by:
             adder = self.db.query(User).filter(User.id == added_by).first()
-            if not adder or adder.firm_id != firm_id:
+            if not adder:
+                raise ValueError("User not found")
+            # Super admin can add clients to any firm
+            if adder.role == UserRole.SUPER_ADMIN:
+                pass  # Super admin has permission
+            elif adder.role not in [UserRole.FIRM_ADMIN, UserRole.ADMIN]:
+                raise ValueError("Only Firm Admins and Super Admins can add clients")
+            elif adder.firm_id != firm_id:
                 raise ValueError("Insufficient permissions to add clients to this firm")
-            if adder.role not in [UserRole.FIRM_ADMIN, UserRole.SUPER_ADMIN, UserRole.ADMIN]:
-                raise ValueError("Only Firm Admins can add clients")
         
         # Check if client already exists
         client = self.db.query(User).filter(User.email == email).first()

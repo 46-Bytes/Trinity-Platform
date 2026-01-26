@@ -3,7 +3,7 @@ import { Search, MoreHorizontal, Building2, Loader2, Eye, Plus, Mail, Phone } fr
 import { cn, getUniqueClientIds } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchEngagements } from '@/store/slices/engagementReducer';
-import { fetchFirmClients, addClientToFirm, fetchFirm, fetchFirmAdvisors } from '@/store/slices/firmReducer';
+import { fetchFirmClients, addClientToFirm, fetchFirm, fetchFirmAdvisors, fetchFirmClientsById } from '@/store/slices/firmReducer';
 import { fetchClientUsers } from '@/store/slices/clientReducer';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -127,7 +127,7 @@ export default function ClientsPage() {
     }
   }, [dispatch, user?.id, shouldUseFirmClients, firm]);
 
-  // Fetch firm advisors when dialog opens
+  // Fetch firm advisors when dialog opens (for both firm_admin and superadmin viewing firm)
   useEffect(() => {
     if (isAddDialogOpen && firm && shouldUseFirmClients) {
       dispatch(fetchFirmAdvisors(firm.id));
@@ -274,10 +274,11 @@ export default function ClientsPage() {
 
   const handleAddClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !strategy.shouldUseFirmClients) {
+    // Allow firm_admin or superadmin viewing a firm to add clients
+    if (!user || !shouldUseFirmClients) {
       toast({
         title: 'Error',
-        description: 'Only firm admins can add clients',
+        description: 'Only firm admins and super admins can add clients',
         variant: 'destructive',
       });
       return;
@@ -311,8 +312,12 @@ export default function ClientsPage() {
         });
         setIsAddDialogOpen(false);
         setFormData({ email: '', first_name: '', last_name: '', primary_advisor_id: '' });
-        // Refresh clients list
-        dispatch(fetchFirmClients());
+        // Refresh clients list - use appropriate fetch based on user role
+        if (isSuperAdminViewingFirm) {
+          dispatch(fetchFirmClientsById(firmId));
+        } else {
+          dispatch(fetchFirmClients());
+        }
       } else {
         throw new Error(result.payload as string || 'Failed to add client');
       }

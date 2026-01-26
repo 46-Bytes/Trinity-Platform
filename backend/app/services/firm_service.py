@@ -20,6 +20,7 @@ from ..services.firm_permissions import (
     can_assign_advisors,
     can_modify_subscription
 )
+from ..services.auth0_management import Auth0Management
 
 
 class FirmService:
@@ -587,11 +588,47 @@ class FirmService:
                 client.last_name = last_name
             if derived_name:
                 client.name = derived_name
+            
+            # If client has a temp auth0_id, create them in Auth0 and update it
+            if client.auth0_id and client.auth0_id.startswith("temp_client_"):
+                try:
+                    self.logger.info(f"Client {email} has temp auth0_id, creating in Auth0...")
+                    auth0_user = Auth0Management.create_user(
+                        email=email,
+                        role=UserRole.CLIENT.value,
+                        first_name=client.first_name,
+                        last_name=client.last_name
+                    )
+                    client.auth0_id = auth0_user["user_id"]
+                    self.logger.info(f"✅ Client created in Auth0 with ID: {client.auth0_id}. Password setup email sent.")
+                except Exception as e:
+                    # If user already exists in Auth0, try to find their auth0_id
+                    if "already exists" in str(e).lower() or "409" in str(e):
+                        self.logger.warning(f"Client {email} already exists in Auth0. Skipping Auth0 creation.")
+                    else:
+                        self.logger.error(f"❌ Failed to create client in Auth0: {str(e)}")
+                        # Don't fail the whole operation, just log the error
+                        # The client will still be added to the firm, but without Auth0 account
         else:
-            # Create new client user placeholder; real credentials managed in Auth0
+            # Create new client user in Auth0 (this will send the password setup email)
+            try:
+                self.logger.info(f"Creating new client in Auth0: {email}")
+                auth0_user = Auth0Management.create_user(
+                    email=email,
+                    role=UserRole.CLIENT.value,
+                    first_name=first_name,
+                    last_name=last_name
+                )
+                auth0_id = auth0_user["user_id"]
+                self.logger.info(f"✅ Client created in Auth0 with ID: {auth0_id}. Password setup email sent.")
+            except Exception as e:
+                self.logger.error(f"❌ Failed to create client in Auth0: {str(e)}")
+                raise ValueError(f"Failed to create client account: {str(e)}")
+            
+            # Create new client user in local database with real Auth0 ID
             client = User(
                 email=email,
-                auth0_id=f"temp_client_{uuid_lib.uuid4()}",
+                auth0_id=auth0_id,  # Use real Auth0 ID instead of temp
                 name=derived_name,
                 first_name=first_name,
                 last_name=last_name,

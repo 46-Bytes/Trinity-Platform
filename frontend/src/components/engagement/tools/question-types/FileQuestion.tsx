@@ -12,6 +12,7 @@ interface FileMetadata {
   relative_path?: string;
   media_id?: string;  // Backend media ID for file matching
   openai_file_id?: string;  // OpenAI file ID
+  uploaded_by_user_id?: string; // Uploader user ID for role-based filtering
 }
 
 interface FileQuestionProps {
@@ -116,6 +117,7 @@ export function FileQuestion({ question, value, onChange, diagnosticId, engageme
         relative_path: data.relative_path,
         media_id: data.media_id,  // Store media_id for backend file matching
         openai_file_id: data.openai_file_id,  // Store OpenAI file ID
+        uploaded_by_user_id: data.uploaded_by_user_id, // Store uploader ID so admins can see their own files
       });
     }
 

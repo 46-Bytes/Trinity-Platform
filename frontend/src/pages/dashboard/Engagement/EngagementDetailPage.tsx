@@ -309,6 +309,15 @@ export default function EngagementDetailPage() {
     diagnostics.forEach((diagnostic) => {
       // Handle both snake_case and camelCase status
       const status = diagnostic.status || (diagnostic as any).status;
+
+      // Determine if this diagnostic already has a generated report
+      const completedAt = diagnostic.completed_at || (diagnostic as any).completedAt || null;
+      const reportHtml =
+        diagnostic.report_html ||
+        (diagnostic as any).reportHtml ||
+        diagnostic.ai_analysis?.advisorReport ||
+        (diagnostic as any).aiAnalysis?.advisorReport;
+      const hasReport = !!(completedAt && reportHtml);
       
       // For admins: only show diagnostic reports from diagnostics they created
       // (Diagnostic reports are tied to the diagnostic creator)
@@ -323,22 +332,26 @@ export default function EngagementDetailPage() {
       }
       
       // Debug: Log diagnostic status
-      if (status === 'processing' || status === 'completed') {
+      if (status === 'processing' || status === 'completed' || hasReport) {
         console.log('[GeneratedFiles] Diagnostic found:', {
           id: diagnostic.id,
           status: status,
+          hasReport,
           isProcessing: status === 'processing'
         });
       }
       
-      // Add diagnostic report PDF if diagnostic is completed or processing
-      if (status === 'completed' || status === 'processing') {
-        const reportFileName = `Diagnostic Report - ${new Date(diagnostic.completed_at || diagnostic.updated_at || diagnostic.created_at).toLocaleDateString()}.pdf`;
+      // Add diagnostic report PDF if:
+      // - Diagnostic is currently completed or processing, OR
+      // - A report was already generated (hasReport) even if status is now in_progress/draft
+      if (status === 'completed' || status === 'processing' || hasReport) {
+        const baseDate = completedAt || diagnostic.updated_at || (diagnostic as any).updatedAt || diagnostic.created_at || (diagnostic as any).createdAt;
+        const reportFileName = `Diagnostic Report - ${new Date(baseDate).toLocaleDateString()}.pdf`;
         extractedFiles.push({
           id: `diagnostic-report-${diagnostic.id}`,
           name: reportFileName,
           type: 'pdf',
-          generatedAt: new Date(diagnostic.completed_at || diagnostic.updated_at || diagnostic.created_at),
+          generatedAt: new Date(baseDate),
           generatedBy: undefined,
           size: undefined, // Report is generated on-demand, size unknown
           toolType: 'diagnostic',

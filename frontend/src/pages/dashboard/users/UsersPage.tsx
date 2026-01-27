@@ -267,10 +267,10 @@ export default function UsersPage() {
                       <td>
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-medium">
-                            {u.name.charAt(0)}
+                            {u.name?.charAt(0)}
                           </div>
                           <div>
-                            <p className="font-medium">{u.name}</p>
+                            <p className="font-medium">{u.name || 'Unnamed User'}</p>
                             <p className="text-sm text-muted-foreground">{u.email}</p>
                           </div>
                         </div>

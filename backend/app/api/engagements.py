@@ -61,21 +61,39 @@ async def create_engagement(
         )
     
     primary_advisor_id = engagement_data.primary_advisor_id
-    if current_user.role in [UserRole.FIRM_ADMIN, UserRole.FIRM_ADVISOR]:
-        # Check if client has an associated advisor via AdvisorClient table
+
+    # the primary advisor should depend on *who is creating* the engagement.
+    if current_user.role == UserRole.FIRM_ADMIN:
+        # We keep using the associated advisor as primary advisor (existing behavior).
         association = db.query(AdvisorClient).filter(
             AdvisorClient.client_id == engagement_data.client_id,
             AdvisorClient.status == 'active'
         ).first()
-        
+
         if not association:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Client must have an associated advisor before creating an engagement. Please associate an advisor to the client first."
             )
-        
-        # Use the associated advisor as primary advisor
+
         primary_advisor_id = association.advisor_id
+
+    elif current_user.role == UserRole.FIRM_ADVISOR:
+        # Firm advisor: the client must be actively associated *with this advisor*,
+        # and the advisor who is creating the engagement becomes the primary advisor.
+        association = db.query(AdvisorClient).filter(
+            AdvisorClient.client_id == engagement_data.client_id,
+            AdvisorClient.advisor_id == current_user.id,
+            AdvisorClient.status == 'active'
+        ).first()
+
+        if not association:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This client must be actively associated with you before creating an engagement."
+            )
+
+        primary_advisor_id = current_user.id
     
     # Verify primary advisor exists (can be ADVISOR, FIRM_ADVISOR, or FIRM_ADMIN)
     primary_advisor = db.query(User).filter(

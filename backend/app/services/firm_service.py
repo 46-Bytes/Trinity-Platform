@@ -21,6 +21,7 @@ from ..services.firm_permissions import (
     can_modify_subscription
 )
 from ..services.auth0_management import Auth0Management
+from ..services.email_service import EmailService
 
 
 class FirmService:
@@ -684,6 +685,24 @@ class FirmService:
                 )
                 self.db.add(association)
                 self.logger.info(f"Created AdvisorClient association: advisor {primary_advisor_id} <-> client {client.id}")
+
+            # Send notification email to advisor about the new client assignment
+            try:
+                EmailService.send_client_added_notification(
+                    advisor_email=advisor.email,
+                    advisor_name=advisor.name or advisor.first_name,
+                    client_name=client.name,
+                    client_email=client.email,
+                    firm_name=firm.firm_name,
+                )
+                self.logger.info(
+                    f"Sent client-added notification email to advisor {advisor.email} for client {client.email}"
+                )
+            except Exception as e:
+                # Log but do not fail the client creation if email fails
+                self.logger.warning(
+                    f"Failed to send client-added notification email to advisor {advisor.email}: {e}"
+                )
         
         self.db.commit()
         self.db.refresh(client)

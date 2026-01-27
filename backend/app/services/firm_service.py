@@ -142,14 +142,41 @@ class FirmService:
                 "Please use a different email."
             )
         else:
-            # Create new user placeholder; real credentials managed in Auth0
+            # Create advisor user in Auth0 (this will send the password setup email)
+            try:
+                self.logger.info(f"Creating new firm advisor in Auth0: {advisor_email}")
+                # Split advisor_name into first/last if possible
+                first_name = None
+                last_name = None
+                if advisor_name:
+                    parts = advisor_name.strip().split(" ", 1)
+                    first_name = parts[0]
+                    if len(parts) > 1:
+                        last_name = parts[1]
+
+                auth0_user = Auth0Management.create_user(
+                    email=advisor_email,
+                    role=UserRole.FIRM_ADVISOR.value,
+                    first_name=first_name,
+                    last_name=last_name,
+                )
+                auth0_id = auth0_user["user_id"]
+                self.logger.info(f"✅ Firm advisor created in Auth0 with ID: {auth0_id}. Password setup email sent.")
+            except Exception as e:
+                self.logger.error(f"❌ Failed to create firm advisor in Auth0: {str(e)}")
+                raise ValueError(f"Failed to create firm advisor account: {str(e)}")
+            
+            # Create new advisor user in local database with real Auth0 ID
             advisor = User(
-                auth0_id=f"firm_{firm_id}_{advisor_email}",  # Placeholder - real Auth0 ID will be linked later
+                auth0_id=auth0_id,
                 email=advisor_email,
                 name=advisor_name,
+                first_name=first_name,
+                last_name=last_name,
                 role=UserRole.FIRM_ADVISOR,
                 firm_id=firm_id,
-                is_active=True
+                is_active=True,
+                email_verified=False,
             )
             self.db.add(advisor)
             firm.seats_used += 1

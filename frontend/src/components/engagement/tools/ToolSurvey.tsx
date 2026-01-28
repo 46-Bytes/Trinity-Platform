@@ -1,5 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { ToolQuestion } from './ToolQuestion';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
@@ -10,6 +20,7 @@ import {
   checkDiagnosticStatus,
   stopPolling,
   clearDiagnostic,
+  cancelDiagnosticProcessing,
 } from '@/store/slices/diagnosticReducer';
 import { updateEngagement } from '@/store/slices/engagementReducer';
 import { useAuth } from '@/context/AuthContext';
@@ -27,7 +38,9 @@ interface ToolSurveyProps {
 export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurveyProps) {
   const dispatch = useAppDispatch();
   const { user } = useAuth();
-  const { diagnostic, isSaving, isLoading, isSubmitting, isPolling, error } = useAppSelector((state) => state.diagnostic);
+  const { diagnostic, isSaving, isLoading, isSubmitting, isPolling, error, isCancelling } = useAppSelector(
+    (state) => state.diagnostic as any
+  );
   
   const isAdmin = user?.role === 'admin' || user?.role === 'firm_admin';
   
@@ -35,6 +48,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
   const [localResponses, setLocalResponses] = useState<Record<string, any>>({});
   const [completedPages, setCompletedPages] = useState<number[]>([]);
   const [engagementStatusUpdated, setEngagementStatusUpdated] = useState(false);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   
   const pages = surveyData.pages;
   const totalPages = pages.length;
@@ -253,6 +267,52 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
     }
   };
 
+  const handleCancelProcessing = () => {
+    if (!diagnostic?.id) {
+      toast.error('Diagnostic not loaded yet');
+      return;
+    }
+
+    setIsCancelDialogOpen(true);
+  };
+
+  const handleConfirmCancelProcessing = async () => {
+    if (!diagnostic?.id) {
+      toast.error('Diagnostic not loaded yet');
+      return;
+    }
+
+    try {
+      await dispatch(cancelDiagnosticProcessing(diagnostic.id)).unwrap();
+
+      // Stop local polling for this diagnostic
+      dispatch(stopPolling());
+
+      // Extra safety: clean up from localStorage in case anything remains
+      try {
+        const stored = localStorage.getItem('processing_diagnostics');
+        if (stored) {
+          const diagnostics = JSON.parse(stored);
+          const updated = diagnostics.filter((d: { id: string }) => d.id !== diagnostic.id);
+          if (updated.length > 0) {
+            localStorage.setItem('processing_diagnostics', JSON.stringify(updated));
+          } else {
+            localStorage.removeItem('processing_diagnostics');
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      toast.success('Diagnostic processing cancelled. You can edit responses and resubmit when ready.');
+      setIsCancelDialogOpen(false);
+    } catch (err) {
+      console.error('Error cancelling diagnostic processing:', err);
+      const message = err instanceof Error ? err.message : 'Failed to cancel diagnostic processing';
+      toast.error(message);
+    }
+  };
+
   const handleNextPage = async () => {
     // Auto-save before moving to next page
     await handleSaveProgress();
@@ -433,9 +493,41 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
             Generating your AI report. This can take 10-15 minutes. You can safely keep this tab open while we process your results.
           </p>
           {diagnostic.status === 'processing' && (
-            <p className="text-xs text-muted-foreground mt-2">
-              Status: Processing... This page will automatically refresh when complete.
-            </p>
+            <>
+              <p className="text-xs text-muted-foreground mt-2">
+                Status: Processing... This page will automatically refresh when complete.
+              </p>
+              <Button
+                variant="outline"
+                className="mt-4"
+                onClick={handleCancelProcessing}
+                disabled={isCancelling}
+              >
+                {isCancelling ? 'Cancelling...' : 'Cancel processing'}
+              </Button>
+
+              <AlertDialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Cancel diagnostic processing?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to cancel AI processing for this diagnostic? You can edit responses and
+                      resubmit it later, but the current processing run will be stopped.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isCancelling}>Keep processing</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleConfirmCancelProcessing}
+                      disabled={isCancelling}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {isCancelling ? 'Cancelling...' : 'Cancel processing'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
           )}
         </div>
       ) : (

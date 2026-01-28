@@ -394,7 +394,7 @@ class OpenAIService:
         user_responses: Dict[str, Any],
         file_context: Optional[str] = None,
         file_ids: Optional[List[str]] = None,
-        reasoning_effort: str = "low",
+        reasoning_effort: str = "medium",
         tools: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """

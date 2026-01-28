@@ -893,7 +893,13 @@ async def download_diagnostic_report(
                 detail="Diagnostic not found"
             )
         
-        if diagnostic.status != "completed":
+        has_existing_report = bool(
+            getattr(diagnostic, "report_html", None)
+            or getattr(diagnostic, "ai_analysis", None)
+            or getattr(diagnostic, "completed_at", None)
+        )
+
+        if diagnostic.status != "completed" and not has_existing_report:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Diagnostic must be completed before downloading report"

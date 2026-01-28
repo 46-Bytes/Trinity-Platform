@@ -425,23 +425,16 @@ const diagnosticSlice = createSlice({
         // This allows global polling to work independently
       })
       .addCase(checkDiagnosticStatus.fulfilled, (state, action) => {
-        // Update diagnostic if we got full data
-        if (action.payload.diagnostic) {
-          // If this is the current diagnostic, update it
-          if (state.diagnostic && state.diagnostic.id === action.payload.diagnostic.id) {
+        // Update diagnostic only if the returned diagnostic matches the current one.
+        // This prevents global polling for other engagements from overwriting
+        // the diagnostic currently being edited/viewed in the survey.
+        if (action.payload.diagnostic && state.diagnostic) {
+          if (state.diagnostic.id === action.payload.diagnostic.id) {
             state.diagnostic = action.payload.diagnostic;
-          } else {
-            // Otherwise, just update the status if it matches
-            state.diagnostic = action.payload.diagnostic;
-          }
-        } else if (state.diagnostic) {
-          // Update status only if we have a current diagnostic
-          // Note: We don't know which diagnostic this is for, so we only update if it matches
-          state.diagnostic.status = action.payload.status as Diagnostic['status'];
-          if (action.payload.completedAt) {
-            state.diagnostic.completedAt = action.payload.completedAt;
           }
         }
+        // If payload.diagnostic is null, don't touch state.diagnostic at all –
+        // global polling only needs the status in the hook, not in this slice.
         
         // Note: isPolling is managed by the global hook, not here
         // This allows polling to continue even if user navigates away

@@ -232,7 +232,7 @@ export function GeneratedFile({
             {uploadedByAdmin && (
               <span className="flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                 <User className="w-3.5 h-3.5" />
-                Uploaded by admin
+                Uploaded by Admin
               </span>
             )}
           </div>

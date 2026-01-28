@@ -13,6 +13,7 @@ interface FileMetadata {
   media_id?: string;  // Backend media ID for file matching
   openai_file_id?: string;  // OpenAI file ID
   uploaded_by_user_id?: string; // Uploader user ID for role-based filtering
+  uploaded_by_role?: string; // Uploader role (e.g. admin, advisor, client)
 }
 
 interface FileQuestionProps {
@@ -118,6 +119,7 @@ export function FileQuestion({ question, value, onChange, diagnosticId, engageme
         media_id: data.media_id,  // Store media_id for backend file matching
         openai_file_id: data.openai_file_id,  // Store OpenAI file ID
         uploaded_by_user_id: data.uploaded_by_user_id, // Store uploader ID so admins can see their own files
+        uploaded_by_role: data.uploaded_by_role, // Store uploader role so we can label "uploaded by admin"
       });
     }
 

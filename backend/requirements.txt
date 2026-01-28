@@ -37,5 +37,14 @@ openai
 # PDF generation
 xhtml2pdf
 markdown
+reportlab
+
+# File format conversion to PDF
+python-docx
+docx2pdf
+pandas
+openpyxl
+xlsxwriter
+Pillow
 
 gunicorn

@@ -526,10 +526,9 @@ class DiagnosticService:
                     scoring_data = loaded
                     logger.info(f"[Scoring] Converted string scoring_data to type: {type(scoring_data).__name__}")
                 except Exception as e:
-                    preview = scoring_data[:1000] + ("... [truncated]" if len(scoring_data) > 1000 else "")
                     logger.error("[Scoring] Failed to json.loads scoring_data string from model")
                     logger.error(f"[Scoring] Exception: {e}")
-                    logger.error(f"[Scoring] scoring_data preview: {preview}")
+                    logger.error(f"[Scoring] scoring_data length: {len(str(scoring_data)):,} characters")
                     raise Exception(
                         "OpenAI scoring response was a string and could not be parsed as JSON. "
                         "See logs for scoring_data preview."

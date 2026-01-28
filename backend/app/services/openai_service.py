@@ -122,20 +122,12 @@ class OpenAIService:
         # Log a safe, summarized view of the messages being sent
         try:
             preview_parts = []
-            for m in messages:
-                content_str = m.get("content", "")
-                if isinstance(content_str, str):
-                    preview = content_str[:500].replace("\n", " ")
-                    if len(content_str) > 500:
-                        preview += "... [truncated]"
-                else:
-                    preview = f"[non-string content type={type(content_str).__name__}]"
-                preview_parts.append(f"role={m.get('role')} len={len(str(content_str))} preview='{preview}'")
-            logger.info("[OpenAI] Message build summary (pre-conversion):")
-            for p in preview_parts:
-                logger.info(f"[OpenAI]   {p}")
+            # Log message count and lengths only (no content previews)
+            total_messages = len(messages)
+            total_length = sum(len(str(m.get("content", ""))) for m in messages)
+            logger.info(f"[OpenAI] Message build summary: {total_messages} messages, {total_length:,} total characters")
         except Exception as log_err:
-            logger.warning(f"[OpenAI] Failed to log message preview: {log_err}")
+            logger.warning(f"[OpenAI] Failed to log message summary: {log_err}")
         
         return input_messages
     
@@ -195,49 +187,26 @@ class OpenAIService:
                         normalized_tools.append(t)
                 params["tools"] = normalized_tools
 
-            # Detailed prompt + tools logging (safe/truncated)
+            # Log request summary (no content previews)
             try:
-                logger.info("[OpenAI] ===== Request Prompt Summary =====")
-                for idx, msg in enumerate(input_messages):
-                    role = msg.get("role")
-                    content = msg.get("content")
-                    if isinstance(content, str):
-                        preview = content[:2000]
-                        if len(content) > 2000:
-                            preview += "... [truncated]"
-                        logger.info(f"[OpenAI] Message {idx} role={role}, len={len(content)}")
-                        logger.info(f"[OpenAI] Message {idx} content preview:\n{preview}")
-                    elif isinstance(content, list):
-                        logger.info(f"[OpenAI] Message {idx} role={role}, content items={len(content)}")
-                        for c_idx, item in enumerate(content):
-                            itype = item.get("type")
-                            if itype == "input_text":
-                                text = item.get("text", "")
-                                preview = text[:2000]
-                                if len(text) > 2000:
-                                    preview += "... [truncated]"
-                                logger.info(f"[OpenAI]   item[{c_idx}] type=input_text len={len(text)}")
-                                logger.info(f"[OpenAI]   item[{c_idx}] text preview:\n{preview}")
-                            elif itype == "input_file":
-                                logger.info(f"[OpenAI]   item[{c_idx}] type=input_file file_id={item.get('file_id')}")
-                            else:
-                                logger.info(f"[OpenAI]   item[{c_idx}] type={itype}")
-
+                message_count = len(input_messages)
+                total_chars = sum(
+                    len(str(msg.get("content", ""))) if isinstance(msg.get("content"), str)
+                    else sum(len(str(item.get("text", ""))) for item in msg.get("content", []) if item.get("type") == "input_text")
+                    for msg in input_messages
+                )
+                logger.info(f"[OpenAI] Request summary: {message_count} messages, ~{total_chars:,} characters")
+                
                 if normalized_tools:
-                    logger.info("[OpenAI] Tools configuration:")
+                    tool_types = [t.get("type") for t in normalized_tools]
+                    logger.info(f"[OpenAI] Tools: {len(normalized_tools)} tool(s) - {', '.join(tool_types)}")
                     for t in normalized_tools:
                         if t.get("type") == "code_interpreter":
                             container = t.get("container", {})
                             file_ids = container.get("file_ids") or container.get("file_ids".upper()) or []
-                            logger.info(
-                                f"[OpenAI]   tool=code_interpreter, container.type={container.get('type')}, "
-                                f"file_ids_count={len(file_ids)} file_ids={file_ids}"
-                            )
-                        else:
-                            logger.info(f"[OpenAI]   tool type={t.get('type')} keys={list(t.keys())}")
-                logger.info("[OpenAI] ===== End Request Prompt Summary =====")
+                            logger.info(f"[OpenAI]   Code Interpreter: {len(file_ids)} file(s) attached")
             except Exception as log_err:
-                logger.warning(f"[OpenAI] Failed to log detailed prompt/tools information: {log_err}")
+                logger.warning(f"[OpenAI] Failed to log request summary: {log_err}")
             
             start_time = time.time()
             
@@ -423,10 +392,9 @@ class OpenAIService:
             raw_preview = result.get("content", "")[:2000]
             if len(result.get("content", "")) > 2000:
                 raw_preview += "... [truncated]"
-            logger.info("[OpenAI] Raw JSON-mode content preview (first 2000 chars):")
-            logger.info(raw_preview)
+            logger.info(f"[OpenAI] Raw JSON-mode content length: {len(result.get('content', '')):,} characters")
         except Exception as log_err:
-            logger.warning(f"[OpenAI] Failed to log JSON raw content preview: {log_err}")
+            logger.warning(f"[OpenAI] Failed to log JSON content length: {log_err}")
         try:
             # Try to parse as JSON
             parsed_content = json.loads(result["content"])
@@ -558,28 +526,9 @@ class OpenAIService:
             f"Generate a complete JSON response with scored_rows, roadmap, and advisorReport."
         )
         
-        logger.info(f"[OpenAI] System message length: {len(system_content)} characters")
-        logger.info(f"[OpenAI] User message length: {len(user_content)} characters")
-        logger.info(f"[OpenAI] Total prompt size: ~{len(system_content) + len(user_content)} characters")
-
-        # Log prompt previews so you can see exactly what we send for scoring
-        try:
-            sys_preview = system_content[:2000]
-            if len(system_content) > 2000:
-                sys_preview += "... [truncated]"
-            user_preview = user_content[:2000]
-            if len(user_content) > 2000:
-                user_preview += "... [truncated]"
-
-            logger.info("[OpenAI][Scoring] ===== System Prompt Preview (first 2000 chars) =====")
-            logger.info(sys_preview)
-            logger.info("[OpenAI][Scoring] ===== End System Prompt Preview =====")
-
-            logger.info("[OpenAI][Scoring] ===== User Prompt Preview (first 2000 chars) =====")
-            logger.info(user_preview)
-            logger.info("[OpenAI][Scoring] ===== End User Prompt Preview =====")
-        except Exception as log_err:
-            logger.warning(f"[OpenAI][Scoring] Failed to log prompt previews: {log_err}")
+        logger.info(f"[OpenAI] System message length: {len(system_content):,} characters")
+        logger.info(f"[OpenAI] User message length: {len(user_content):,} characters")
+        logger.info(f"[OpenAI] Total prompt size: ~{len(system_content) + len(user_content):,} characters")
         
         messages = [
             {

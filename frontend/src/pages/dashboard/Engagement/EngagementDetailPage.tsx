@@ -303,8 +303,18 @@ export default function EngagementDetailPage() {
     console.log('[GeneratedFiles] Diagnostics to process:', diagnostics.map((d: any) => ({
       id: d.id,
       created_by_user_id: d.created_by_user_id,
-      createdByUserId: d.createdByUserId
+      createdByUserId: d.createdByUserId,
+      completed_by_user_id: d.completed_by_user_id,
+      completedByUserId: d.completedByUserId
     })));
+
+    // Helper function to normalize UUID strings for comparison
+    const normalizeUUID = (uuid: string | null | undefined): string | null => {
+      if (!uuid) return null;
+      const str = String(uuid).trim().toLowerCase();
+      // Remove any surrounding quotes or braces
+      return str.replace(/^["'{]|["'}]$/g, '');
+    };
 
     diagnostics.forEach((diagnostic) => {
       // Handle both snake_case and camelCase status
@@ -319,15 +329,34 @@ export default function EngagementDetailPage() {
         (diagnostic as any).aiAnalysis?.advisorReport;
       const hasReport = !!(completedAt && reportHtml);
       
-      // For admins: only show diagnostic reports from diagnostics they created
-      // (Diagnostic reports are tied to the diagnostic creator)
+      // For admins: only show diagnostic reports from diagnostics they created or completed
+      // (Diagnostic reports are tied to the diagnostic creator/completer)
       if (isAdmin && user?.id) {
         const createdByUserId = diagnostic.created_by_user_id || diagnostic.createdByUserId;
-        const currentUserId = String(user.id);
-        const diagnosticUserId = createdByUserId ? String(createdByUserId) : null;
+        const completedByUserId = diagnostic.completed_by_user_id || diagnostic.completedByUserId;
+        const currentUserId = normalizeUUID(user.id);
         
-        if (!diagnosticUserId || diagnosticUserId !== currentUserId) {
-          return; // Skip diagnostic reports not created by admin
+        // Normalize UUIDs for comparison
+        const diagnosticCreatedUserId = normalizeUUID(createdByUserId);
+        const diagnosticCompletedUserId = normalizeUUID(completedByUserId);
+        
+        // Check if admin created OR completed this diagnostic
+        const isCreatedByAdmin = diagnosticCreatedUserId && currentUserId && diagnosticCreatedUserId === currentUserId;
+        const isCompletedByAdmin = diagnosticCompletedUserId && currentUserId && diagnosticCompletedUserId === currentUserId;
+        
+        console.log('[GeneratedFiles] Admin check for diagnostic:', {
+          diagnosticId: diagnostic.id,
+          currentUserId,
+          diagnosticCreatedUserId,
+          diagnosticCompletedUserId,
+          isCreatedByAdmin,
+          isCompletedByAdmin,
+          willShow: isCreatedByAdmin || isCompletedByAdmin
+        });
+        
+        if (!isCreatedByAdmin && !isCompletedByAdmin) {
+          console.log('[GeneratedFiles] Skipping diagnostic - not created or completed by admin');
+          return; // Skip diagnostic reports not created or completed by admin
         }
       }
       

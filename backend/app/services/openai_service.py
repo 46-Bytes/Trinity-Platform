@@ -119,6 +119,24 @@ class OpenAIService:
                     "content": msg["content"]
                 })
         
+        # Log a safe, summarized view of the messages being sent
+        try:
+            preview_parts = []
+            for m in messages:
+                content_str = m.get("content", "")
+                if isinstance(content_str, str):
+                    preview = content_str[:500].replace("\n", " ")
+                    if len(content_str) > 500:
+                        preview += "... [truncated]"
+                else:
+                    preview = f"[non-string content type={type(content_str).__name__}]"
+                preview_parts.append(f"role={m.get('role')} len={len(str(content_str))} preview='{preview}'")
+            logger.info("[OpenAI] Message build summary (pre-conversion):")
+            for p in preview_parts:
+                logger.info(f"[OpenAI]   {p}")
+        except Exception as log_err:
+            logger.warning(f"[OpenAI] Failed to log message preview: {log_err}")
+        
         return input_messages
     
     async def generate_completion(
@@ -164,9 +182,10 @@ class OpenAIService:
             
             if reasoning_effort:
                 params["reasoning"] = {"effort": reasoning_effort}
-
+            
+            normalized_tools: Optional[List[Dict[str, Any]]] = None
             if tools:
-                normalized_tools: List[Dict[str, Any]] = []
+                normalized_tools = []
                 for t in tools:
                     if not isinstance(t, dict):
                         continue
@@ -175,6 +194,50 @@ class OpenAIService:
                     else:
                         normalized_tools.append(t)
                 params["tools"] = normalized_tools
+
+            # Detailed prompt + tools logging (safe/truncated)
+            try:
+                logger.info("[OpenAI] ===== Request Prompt Summary =====")
+                for idx, msg in enumerate(input_messages):
+                    role = msg.get("role")
+                    content = msg.get("content")
+                    if isinstance(content, str):
+                        preview = content[:2000]
+                        if len(content) > 2000:
+                            preview += "... [truncated]"
+                        logger.info(f"[OpenAI] Message {idx} role={role}, len={len(content)}")
+                        logger.info(f"[OpenAI] Message {idx} content preview:\n{preview}")
+                    elif isinstance(content, list):
+                        logger.info(f"[OpenAI] Message {idx} role={role}, content items={len(content)}")
+                        for c_idx, item in enumerate(content):
+                            itype = item.get("type")
+                            if itype == "input_text":
+                                text = item.get("text", "")
+                                preview = text[:2000]
+                                if len(text) > 2000:
+                                    preview += "... [truncated]"
+                                logger.info(f"[OpenAI]   item[{c_idx}] type=input_text len={len(text)}")
+                                logger.info(f"[OpenAI]   item[{c_idx}] text preview:\n{preview}")
+                            elif itype == "input_file":
+                                logger.info(f"[OpenAI]   item[{c_idx}] type=input_file file_id={item.get('file_id')}")
+                            else:
+                                logger.info(f"[OpenAI]   item[{c_idx}] type={itype}")
+
+                if normalized_tools:
+                    logger.info("[OpenAI] Tools configuration:")
+                    for t in normalized_tools:
+                        if t.get("type") == "code_interpreter":
+                            container = t.get("container", {})
+                            file_ids = container.get("file_ids") or container.get("file_ids".upper()) or []
+                            logger.info(
+                                f"[OpenAI]   tool=code_interpreter, container.type={container.get('type')}, "
+                                f"file_ids_count={len(file_ids)} file_ids={file_ids}"
+                            )
+                        else:
+                            logger.info(f"[OpenAI]   tool type={t.get('type')} keys={list(t.keys())}")
+                logger.info("[OpenAI] ===== End Request Prompt Summary =====")
+            except Exception as log_err:
+                logger.warning(f"[OpenAI] Failed to log detailed prompt/tools information: {log_err}")
             
             start_time = time.time()
             
@@ -257,6 +320,17 @@ class OpenAIService:
             
             # Extract data
             content = response.output_text
+
+            # Log a preview of the raw model output to debug malformed JSON / tool behavior
+            try:
+                preview = content[:2000]
+                if len(content) > 2000:
+                    preview += "... [truncated]"
+                logger.info("[OpenAI API] ===== Model Output Preview (first 2000 chars) =====")
+                logger.info(preview)
+                logger.info("[OpenAI API] ===== End Model Output Preview =====")
+            except Exception as log_err:
+                logger.warning(f"[OpenAI API] Failed to log model output preview: {log_err}")
             
             # Extract token usage
             tokens_used = getattr(response.usage, 'total_tokens', 0) if hasattr(response, 'usage') else 0
@@ -344,7 +418,15 @@ class OpenAIService:
         )
         
         # Parse JSON content
-        logger.info("[OpenAI] Parsing JSON response...")
+        logger.info("[OpenAI] Parsing JSON response from model output...")
+        try:
+            raw_preview = result.get("content", "")[:2000]
+            if len(result.get("content", "")) > 2000:
+                raw_preview += "... [truncated]"
+            logger.info("[OpenAI] Raw JSON-mode content preview (first 2000 chars):")
+            logger.info(raw_preview)
+        except Exception as log_err:
+            logger.warning(f"[OpenAI] Failed to log JSON raw content preview: {log_err}")
         try:
             # Try to parse as JSON
             parsed_content = json.loads(result["content"])
@@ -441,6 +523,8 @@ class OpenAIService:
             logger.info(f"[OpenAI] File IDs: {file_ids}")
         logger.info(f"[OpenAI] File context length: {len(file_context) if file_context else 0} characters")
         logger.info(f"[OpenAI] User responses count: {len(user_responses)}")
+        logger.info(f"[OpenAI] Scoring map keys: {len(scoring_map.keys()) if isinstance(scoring_map, dict) else 'N/A'}")
+        logger.info(f"[OpenAI] Task library keys: {len(task_library.keys()) if isinstance(task_library, dict) else 'N/A'}")
 
         
         # Build file context message if files are present
@@ -477,6 +561,25 @@ class OpenAIService:
         logger.info(f"[OpenAI] System message length: {len(system_content)} characters")
         logger.info(f"[OpenAI] User message length: {len(user_content)} characters")
         logger.info(f"[OpenAI] Total prompt size: ~{len(system_content) + len(user_content)} characters")
+
+        # Log prompt previews so you can see exactly what we send for scoring
+        try:
+            sys_preview = system_content[:2000]
+            if len(system_content) > 2000:
+                sys_preview += "... [truncated]"
+            user_preview = user_content[:2000]
+            if len(user_content) > 2000:
+                user_preview += "... [truncated]"
+
+            logger.info("[OpenAI][Scoring] ===== System Prompt Preview (first 2000 chars) =====")
+            logger.info(sys_preview)
+            logger.info("[OpenAI][Scoring] ===== End System Prompt Preview =====")
+
+            logger.info("[OpenAI][Scoring] ===== User Prompt Preview (first 2000 chars) =====")
+            logger.info(user_preview)
+            logger.info("[OpenAI][Scoring] ===== End User Prompt Preview =====")
+        except Exception as log_err:
+            logger.warning(f"[OpenAI][Scoring] Failed to log prompt previews: {log_err}")
         
         messages = [
             {

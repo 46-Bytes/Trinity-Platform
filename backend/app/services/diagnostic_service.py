@@ -512,6 +512,50 @@ class DiagnosticService:
         
         # Extract scoring data
         scoring_data = scoring_result["parsed_content"]
+
+        # Normalize / validate scoring_data shape before using .get()
+        try:
+            original_type = type(scoring_data).__name__
+            logger.info(f"[Scoring] Raw scoring_data type from model: {original_type}")
+
+            # Sometimes the model may return a JSON string or array instead of an object
+            if isinstance(scoring_data, str):
+                logger.warning("[Scoring] scoring_data is a string; attempting json.loads to convert to dict...")
+                try:
+                    loaded = json.loads(scoring_data)
+                    scoring_data = loaded
+                    logger.info(f"[Scoring] Converted string scoring_data to type: {type(scoring_data).__name__}")
+                except Exception as e:
+                    preview = scoring_data[:1000] + ("... [truncated]" if len(scoring_data) > 1000 else "")
+                    logger.error("[Scoring] Failed to json.loads scoring_data string from model")
+                    logger.error(f"[Scoring] Exception: {e}")
+                    logger.error(f"[Scoring] scoring_data preview: {preview}")
+                    raise Exception(
+                        "OpenAI scoring response was a string and could not be parsed as JSON. "
+                        "See logs for scoring_data preview."
+                    )
+
+            # If it's a list, try to interpret as already-scored rows
+            if isinstance(scoring_data, list):
+                logger.warning("[Scoring] scoring_data is a list; interpreting as scored_rows array")
+                scoring_data = {
+                    "scored_rows": scoring_data,
+                    "roadmap": [],
+                    "advisorReport": "",
+                }
+
+            if not isinstance(scoring_data, dict):
+                logger.error(f"[Scoring] scoring_data is not a dict after normalization: {type(scoring_data).__name__}")
+                logger.error(f"[Scoring] scoring_data (repr, first 1000 chars): {repr(scoring_data)[:1000]}")
+                raise Exception(
+                    f"OpenAI scoring response has unexpected type '{type(scoring_data).__name__}'. "
+                    "Expected an object with keys like 'scored_rows' and 'roadmap'."
+                )
+
+            logger.info(f"[Scoring] scoring_data keys: {list(scoring_data.keys())}")
+        except Exception:
+            # Re-raise so the outer handler marks diagnostic as failed, but with richer logs
+            raise
         
         step3_elapsed = time_module.time() - step3_start
         logger.info(f"[Pipeline] ✅ STEP 3 (Scoring) completed in {step3_elapsed:.2f} seconds ({step3_elapsed/60:.2f} minutes)")

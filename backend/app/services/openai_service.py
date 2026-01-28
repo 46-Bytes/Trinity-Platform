@@ -157,7 +157,6 @@ class OpenAIService:
                 "model": model,
                 "input": input_messages,
                 "max_output_tokens": max_output_tokens,
-                "temperature": temperature
             }
             
             if json_mode:

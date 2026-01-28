@@ -157,6 +157,7 @@ class OpenAIService:
                 "model": model,
                 "input": input_messages,
                 "max_output_tokens": max_output_tokens,
+                "temperature": temperature
             }
             
             if json_mode:
@@ -180,27 +181,7 @@ class OpenAIService:
             
             try:
                 logger.info(f"[OpenAI API] Making API call to OpenAI Responses API...")
-                logger.info(f"[OpenAI API] Model: {model}, Max retries: {self.client.max_retries}")
-                logger.info(f"[OpenAI API] Timeout settings: {self.client.timeout}")
-                logger.info(f"[OpenAI API] Request parameters prepared, sending HTTP request now...")
-                
-                # Log request details
-                logger.info(f"[OpenAI API] Request details:")
-                logger.info(f"[OpenAI API]   - Model: {model}")
-                logger.info(f"[OpenAI API]   - Input messages count: {len(input_messages)}")
-                logger.info(f"[OpenAI API]   - File IDs: {file_ids if file_ids else 'None'}")
-                logger.info(f"[OpenAI API]   - Tools: {len(tools) if tools else 0}")
-                logger.info(f"[OpenAI API]   - Max output tokens: {max_output_tokens}")
-                
-                # Add a pre-request check
-                logger.info(f"[OpenAI API] 🔄 Initiating connection to api.openai.com...")
-                logger.info(f"[OpenAI API] Current event loop: {asyncio.get_event_loop()}")
-                logger.info(f"[OpenAI API] Is event loop running: {asyncio.get_event_loop().is_running()}")
-                
-                # Make the actual API call with more visibility
-                logger.info(f"[OpenAI API] 🔄 Calling self.client.responses.create() now...")
-                logger.info(f"[OpenAI API] This call will block until OpenAI responds or times out...")
-                
+                logger.info(**params)
                 response = await self.client.responses.create(**params)
                 
                 elapsed_time = time.time() - start_time
@@ -415,7 +396,7 @@ class OpenAIService:
         user_responses: Dict[str, Any],
         file_context: Optional[str] = None,
         file_ids: Optional[List[str]] = None,
-        reasoning_effort: str = "medium",
+        reasoning_effort: str = "low",
         tools: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
@@ -436,25 +417,18 @@ class OpenAIService:
             Dictionary containing scoring results, roadmap, and advisor report
         """
         logger.info("[OpenAI] ========== Starting process_scoring ==========")
-        logger.info(f"[OpenAI] File IDs provided: {len(file_ids) if file_ids else 0}")
-        if file_ids:
-            logger.info(f"[OpenAI] File IDs: {file_ids}")
-        logger.info(f"[OpenAI] File context length: {len(file_context) if file_context else 0} characters")
-        logger.info(f"[OpenAI] User responses count: {len(user_responses)}")
 
         
         # Build file context message if files are present
         file_context_msg = ""
         if file_context:
             file_context_msg = f"\n\n{file_context}"
-            logger.info(f"[OpenAI] File context added to prompt: {len(file_context_msg)} characters")
         
         question_text_map = {}
         for page in diagnostic_questions.get("pages", []):
             for element in page.get("elements", []):
                 question_text_map[element["name"]] = element.get("title", element["name"])
         
-        logger.info(f"[OpenAI] Question text map built: {len(question_text_map)} questions")
 
         # Build system message
         system_content = (
@@ -474,10 +448,6 @@ class OpenAIService:
             f"Generate a complete JSON response with scored_rows, roadmap, and advisorReport."
         )
         
-        logger.info(f"[OpenAI] System message length: {len(system_content)} characters")
-        logger.info(f"[OpenAI] User message length: {len(user_content)} characters")
-        logger.info(f"[OpenAI] Total prompt size: ~{len(system_content) + len(user_content)} characters")
-        
         messages = [
             {
                 "role": "system",
@@ -489,10 +459,6 @@ class OpenAIService:
             }
         ]
         
-        logger.info("[OpenAI] Calling generate_json_completion for scoring...")
-        logger.info(f"[OpenAI] Timeout setting: {self.client.timeout}")
-        logger.info(f"[OpenAI] Max retries: {self.client.max_retries}")
-        
         import time
         scoring_start_time = time.time()
         
@@ -500,6 +466,7 @@ class OpenAIService:
             logger.info("[OpenAI] ⏳ Starting generate_json_completion (this may take several minutes)...")
             result = await self.generate_json_completion(
                 messages=messages,
+                temperature=0.3,
                 reasoning_effort=reasoning_effort,
                 file_ids=file_ids if file_ids else None,
                 tools=tools

@@ -649,6 +649,56 @@ async def submit_diagnostic(
     return diagnostic
 
 
+@router.post("/{diagnostic_id}/cancel", response_model=DiagnosticResponse)
+async def cancel_diagnostic_processing(
+    diagnostic_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Cancel background processing for a specific diagnostic.
+
+    - Cancels the registered background task (if running)
+    - Resets diagnostic status so it can be resubmitted later
+    """
+    service = get_diagnostic_service(db)
+
+    diagnostic = service.get_diagnostic(diagnostic_id)
+    if not diagnostic:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Diagnostic {diagnostic_id} not found",
+        )
+
+    # Only allow cancel while processing
+    if diagnostic.status != "processing":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot cancel diagnostic with status '{diagnostic.status}'",
+        )
+
+    # Optional: add role / access checks here if needed
+    # e.g. ensure current_user can manage this engagement
+
+    # Cancel the background task for this diagnostic, if one is registered
+    task = background_task_manager.get_diagnostic_task(diagnostic_id)
+    if task and not task.done():
+        logger.info(f"🔴 Cancelling background diagnostic task for {diagnostic_id}")
+        task.cancel()
+    else:
+        logger.info(
+            f"Cancel requested for diagnostic {diagnostic_id} but no active task found"
+        )
+
+    # Reset diagnostic status so user can edit / resubmit
+    diagnostic.status = "draft"
+    diagnostic.completed_at = None
+    db.commit()
+    db.refresh(diagnostic)
+
+    return diagnostic
+
+
 @router.get("/{diagnostic_id}/status")
 async def get_diagnostic_status(
     diagnostic_id: UUID,

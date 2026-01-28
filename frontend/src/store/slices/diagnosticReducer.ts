@@ -38,6 +38,7 @@ interface DiagnosticState {
   isSubmitting: boolean;
   isPolling: boolean;
   error: string | null;
+  isCancelling: boolean;
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -234,6 +235,36 @@ export const submitDiagnostic = createAsyncThunk(
   }
 );
 
+export const cancelDiagnosticProcessing = createAsyncThunk(
+  'diagnostic/cancelProcessing',
+  async (diagnosticId: string, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/diagnostics/${diagnosticId}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to cancel diagnostic' }));
+        throw new Error(errorData.detail || `HTTP ${response.status}: Failed to cancel diagnostic`);
+      }
+
+      const data = await response.json();
+      return mapBackendDiagnosticToFrontend(data);
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to cancel diagnostic');
+    }
+  }
+);
+
 // Check diagnostic status (lightweight endpoint for polling)
 export const checkDiagnosticStatus = createAsyncThunk(
   'diagnostic/checkStatus',
@@ -296,6 +327,7 @@ const initialState: DiagnosticState = {
   isSubmitting: false,
   isPolling: false,
   error: null,
+  isCancelling: false,
 };
 
 // Slice
@@ -417,6 +449,36 @@ const diagnosticSlice = createSlice({
       })
       .addCase(submitDiagnostic.rejected, (state, action) => {
         state.isSubmitting = false;
+        state.error = action.payload as string;
+      })
+      // Cancel diagnostic processing
+      .addCase(cancelDiagnosticProcessing.pending, (state) => {
+        state.isCancelling = true;
+        state.error = null;
+      })
+      .addCase(cancelDiagnosticProcessing.fulfilled, (state, action) => {
+        state.isCancelling = false;
+        state.diagnostic = action.payload;
+        state.isPolling = false;
+
+        // Remove from localStorage for global polling
+        try {
+          const stored = localStorage.getItem('processing_diagnostics');
+          if (stored) {
+            const diagnostics = JSON.parse(stored);
+            const updated = diagnostics.filter((d: { id: string }) => d.id !== action.payload.id);
+            if (updated.length > 0) {
+              localStorage.setItem('processing_diagnostics', JSON.stringify(updated));
+            } else {
+              localStorage.removeItem('processing_diagnostics');
+            }
+          }
+        } catch (e) {
+          console.error('Error updating processing_diagnostics after cancel:', e);
+        }
+      })
+      .addCase(cancelDiagnosticProcessing.rejected, (state, action) => {
+        state.isCancelling = false;
         state.error = action.payload as string;
       })
       // Check diagnostic status

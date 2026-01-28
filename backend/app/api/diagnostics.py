@@ -627,7 +627,7 @@ async def submit_diagnostic(
                     logger.error(f"[Background Task] Failed to update diagnostic status: {str(update_error)}")
             else:
                 logger.error(f"[Background Task] This was NOT a shutdown-related failure")
-                # Update status to failed
+                # Update status to failed so the task is done and resources are released
                 try:
                     diagnostic_obj = background_service.get_diagnostic(diagnostic_id)
                     if diagnostic_obj:
@@ -638,6 +638,8 @@ async def submit_diagnostic(
                         logger.error(f"[Background Task] Could not find diagnostic {diagnostic_id} to update status")
                 except Exception as update_error:
                     logger.error(f"[Background Task] Failed to update diagnostic status to 'failed': {str(update_error)}")
+            # End task on failure: exit immediately so the background task completes and is cleaned up
+            return
         finally:
             background_db.close()
     

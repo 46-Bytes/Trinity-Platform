@@ -178,10 +178,9 @@ class OpenAIService:
                 params["tools"] = normalized_tools
             
             start_time = time.time()
-            
             try:
-                logger.info(f"[OpenAI API] Making API call to OpenAI Responses API...")
-                logger.info(**params)
+                logger.info("[OpenAI API] Making API call to OpenAI Responses API...")
+                # Must be API call here; logger.info(msg, ...) requires message as first positional arg
                 response = await self.client.responses.create(**params)
                 
                 elapsed_time = time.time() - start_time

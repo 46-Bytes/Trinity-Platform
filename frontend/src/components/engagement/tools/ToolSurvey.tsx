@@ -40,6 +40,12 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
   const totalPages = pages.length;
   const currentPageData = pages[currentPage];
   const progress = ((currentPage + 1) / totalPages) * 100;
+  const hasExistingReport =
+    !!(
+      diagnostic?.reportHtml ||
+      diagnostic?.aiAnalysis?.advisorReport ||
+      diagnostic?.completedAt
+    );
 
   // Clear diagnostic and reset local state when engagementId changes, then fetch new diagnostic
   useEffect(() => {
@@ -337,8 +343,10 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
 
   return (
     <div className="w-full mx-auto px-0 sm:px-1 md:px-3 lg:px-6 py-2 sm:py-3 md:py-6" style={{ width: '100%', boxSizing: 'border-box', maxWidth: '100%', overflowX: 'clip', paddingLeft: 'clamp(0px, 1vw, 24px)', paddingRight: 'clamp(0px, 1vw, 24px)' }}>
-      {/* If diagnostic is completed, show completion message and download button - Hidden for admins */}
-      {diagnostic.status === 'completed' && !isAdmin && (
+      {/* If diagnostic has an existing report, show completion message and download button
+          Keep this visible even if status moves back to in_progress (e.g., user clicks Next),
+          and hide it only while a new submission is processing. */}
+      {hasExistingReport && diagnostic.status !== 'processing' && (
         <div className="mb-6 sm:mb-8 rounded-lg border border-green-200 bg-green-50 p-3 sm:p-4" style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
           <p className="font-semibold text-green-800 break-words" style={{ maxWidth: '100%' }}>
             Diagnostic completed and analyzed.

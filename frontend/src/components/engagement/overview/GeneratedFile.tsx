@@ -18,6 +18,7 @@ export interface GeneratedFileProps {
   mediaId?: string; // Media ID for uploaded files
   isProcessing?: boolean; // Whether the file is currently being processed
   tag?: string; // Document tag
+  uploadedByAdmin?: boolean;
   onDownload?: (id: string) => void;
   onTagUpdate?: (fileId: string, tag: string | null, mediaId?: string) => Promise<void>;
 }
@@ -49,6 +50,7 @@ export function GeneratedFile({
   isProcessing,
   tag,
   mediaId,
+  uploadedByAdmin,
   onDownload,
   onTagUpdate,
 }: GeneratedFileProps) {
@@ -217,7 +219,7 @@ export function GeneratedFile({
             )}
           </div>
           
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
             {generatedBy && (
               <span className="flex items-center gap-1.5">
                 <User className="w-3.5 h-3.5" />
@@ -226,6 +228,12 @@ export function GeneratedFile({
             )}
             {size && (
               <span>{size}</span>
+            )}
+            {uploadedByAdmin && (
+              <span className="flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                <User className="w-3.5 h-3.5" />
+                Uploaded by admin
+              </span>
             )}
           </div>
         </div>

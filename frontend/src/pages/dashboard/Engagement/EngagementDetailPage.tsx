@@ -482,6 +482,12 @@ export default function EngagementDetailPage() {
             }
           }
 
+          // Determine if this file was uploaded by an admin (for labeling in UI)
+          const uploadedByRole = fileMeta.uploaded_by_role || fileMeta.uploadedByRole;
+          const uploadedByRoleStr = uploadedByRole ? String(uploadedByRole).toLowerCase() : '';
+          const uploadedByAdmin =
+            uploadedByRoleStr.includes('admin');
+
           // Extract file extension to determine type
           const extension = fileName.split('.').pop()?.toLowerCase() || 'txt';
           
@@ -518,6 +524,8 @@ export default function EngagementDetailPage() {
             relativePath: relativePath, // Store for download
             mediaId: mediaId, // Store media ID for tag updates
             tag: fileTag, // Include tag from Media model or metadata
+            // Flag so UI can show "Uploaded by admin" chip for advisors/clients
+            uploadedByAdmin,
           });
         });
       });

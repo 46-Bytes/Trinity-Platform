@@ -10,6 +10,7 @@ import re
 import asyncio
 import logging
 import time
+import os
 
 from app.models.diagnostic import Diagnostic
 from app.models.task import Task
@@ -429,38 +430,123 @@ class DiagnosticService:
         scoring_prompt = load_prompt("scoring_prompt")
 
         
-        # Call OpenAI API for scoring
+        # Call OpenAI API for scoring with file re-upload retry on file-not-found errors
         logger.info("[Scoring] Calling OpenAI API for scoring (this may take several minutes)...")
         
         scoring_start_time = time_module.time()
-            
-        try:
-            scoring_result = await openai_service.process_scoring(
-                scoring_prompt=scoring_prompt,
-                scoring_map=scoring_map,
-                task_library=task_library,
-                diagnostic_questions=diagnostic_questions,
-                user_responses=user_responses,
-                file_context=file_context,
-                file_ids=pdf_file_ids if pdf_file_ids else None,
-                tools=(
-                    [{"type": "code_interpreter", "container": {"type": "auto", "file_ids": ci_file_ids}}]
-                    if ci_file_ids
-                    else None
+        
+        # Build mapping of file_id -> Media object for retry logic
+        file_id_to_media = {}
+        for media in pdf_files + ci_files:
+            if media.openai_file_id:
+                file_id_to_media[media.openai_file_id] = media
+        
+        max_retries = 1  # Retry once after re-uploading files
+        retry_count = 0
+        scoring_result = None
+        
+        while retry_count <= max_retries:
+            try:
+                # Rebuild file_ids in case they were updated during retry
+                pdf_file_ids = [f.openai_file_id for f in pdf_files if f.openai_file_id]
+                ci_file_ids = [f.openai_file_id for f in ci_files if f.openai_file_id]
+                
+                scoring_result = await openai_service.process_scoring(
+                    scoring_prompt=scoring_prompt,
+                    scoring_map=scoring_map,
+                    task_library=task_library,
+                    diagnostic_questions=diagnostic_questions,
+                    user_responses=user_responses,
+                    file_context=file_context,
+                    file_ids=pdf_file_ids if pdf_file_ids else None,
+                    tools=(
+                        [{"type": "code_interpreter", "container": {"type": "auto", "file_ids": ci_file_ids}}]
+                        if ci_file_ids
+                        else None
+                    )
                 )
-            )
-            
-            scoring_elapsed = time_module.time() - scoring_start_time
-            logger.info(f"[Scoring] ✅ OpenAI scoring completed successfully in {scoring_elapsed:.2f} seconds ({scoring_elapsed/60:.2f} minutes)")
-        except Exception as e:
-            logger.error(f"[Scoring] ❌ OpenAI scoring failed: {str(e)}")
-            raise
+                
+                scoring_elapsed = time_module.time() - scoring_start_time
+                logger.info(f"[Scoring] OpenAI scoring completed successfully in {scoring_elapsed:.2f} seconds ({scoring_elapsed/60:.2f} minutes)")
+                break  # Success, exit retry loop
+                
+            except Exception as e:
+                error_msg = str(e).lower()
+                error_type = type(e).__name__
+                
+                is_file_error = (
+                    "file" in error_msg and ("not found" in error_msg or "invalid" in error_msg or "deleted" in error_msg or "does not exist" in error_msg)
+                ) or (
+                    "404" in error_msg and "file" in error_msg
+                ) or (
+                    hasattr(e, 'status_code') and e.status_code == 404 and "file" in error_msg
+                )
+                
+                if is_file_error and retry_count < max_retries:
+                    logger.warning(f"[Scoring] File-not-found error detected (attempt {retry_count + 1}/{max_retries + 1}): {error_type}: {error_msg[:200]}")
+                    logger.info(f"[Scoring] Re-uploading files and retrying...")
+                    
+                    # Re-upload all files that were used
+                    files_to_reupload = pdf_files + ci_files
+                    reuploaded_count = 0
+                    
+                    for media in files_to_reupload:
+                        file_path_str = str(media.file_path) if media.file_path else None
+                        if not file_path_str or not os.path.exists(file_path_str):
+                            logger.warning(f"[Scoring] Cannot re-upload {media.file_name}: file not found at {file_path_str}")
+                            continue
+                        
+                        try:
+                            logger.info(f"[Scoring] Re-uploading {media.file_name}...")
+                            openai_file = await openai_service.upload_file(
+                                file_path=file_path_str,
+                                purpose="user_data"
+                            )
+                            
+                            if openai_file and openai_file.get("id"):
+                                old_file_id = media.openai_file_id
+                                media.openai_file_id = openai_file["id"]
+                                media.openai_purpose = openai_file.get("purpose", "user_data")
+                                media.openai_uploaded_at = datetime.utcnow()
+                                
+                                # Update file_id_to_media mapping
+                                if old_file_id in file_id_to_media:
+                                    del file_id_to_media[old_file_id]
+                                file_id_to_media[openai_file["id"]] = media
+                                
+                                self.db.commit()
+                                reuploaded_count += 1
+                                logger.info(f"[Scoring] Re-uploaded {media.file_name}: new file_id={openai_file['id']}")
+                            else:
+                                logger.error(f"[Scoring] Failed to re-upload {media.file_name}: OpenAI returned no file ID")
+                        except Exception as reupload_error:
+                            logger.error(f"[Scoring] Failed to re-upload {media.file_name}: {str(reupload_error)}")
+                            # Continue with other files
+                    
+                    if reuploaded_count > 0:
+                        logger.info(f"[Scoring] Re-uploaded {reuploaded_count}/{len(files_to_reupload)} files. Retrying scoring call...")
+                        retry_count += 1
+                        # Rebuild file lists with updated IDs
+                        pdf_files = [f for f in attached_files if f.openai_file_id and f.file_extension and f.file_extension.lower() in pdf_ext]
+                        ci_files = [f for f in attached_files if f.openai_file_id and f.file_extension and f.file_extension.lower() in ci_ext]
+                        continue  # Retry the scoring call
+                    else:
+                        logger.error(f"[Scoring] Could not re-upload any files. Failing.")
+                        raise
+                else:
+                    # Not a file error, or max retries reached
+                    scoring_elapsed = time_module.time() - scoring_start_time
+                    logger.error(f"[Scoring] Error type: {error_type}, Message: {error_msg[:500]}")
+                    raise
+        
+        if scoring_result is None:
+            raise Exception("Scoring failed after all retries")
         
         # Extract scoring data
         scoring_data = scoring_result["parsed_content"]
         
         step3_elapsed = time_module.time() - step3_start
-        logger.info(f"[Pipeline] ✅ STEP 3 (Scoring) completed in {step3_elapsed:.2f} seconds ({step3_elapsed/60:.2f} minutes)")
+        logger.info(f"[Pipeline] STEP 3 (Scoring) completed in {step3_elapsed:.2f} seconds ({step3_elapsed/60:.2f} minutes)")
         
         # ===== STEP 4: Calculate and Validate Scores =====
         step4_start = time_module.time()
@@ -501,8 +587,8 @@ class DiagnosticService:
         )
 
         step4_elapsed = time_module.time() - step4_start
-        logger.info(f"[Pipeline] ✅ STEP 4 completed in {step4_elapsed:.2f} seconds")
-        logger.info(f"[Pipeline] ✅ STEP 4 completed in {step4_elapsed:.2f} seconds")
+        logger.info(f"[Pipeline] STEP 4 completed in {step4_elapsed:.2f} seconds")
+        logger.info(f"[Pipeline] STEP 4 completed in {step4_elapsed:.2f} seconds")
 
         logger.info("=" * 60)
         logger.info("[Pipeline] STEP 4: Scoring Data Processing Completed")
@@ -527,11 +613,11 @@ class DiagnosticService:
             )
             advice = advice_result["content"]
             step5_elapsed = time_module.time() - step5_start
-            logger.info(f"[Pipeline] ✅ STEP 5 completed in {step5_elapsed:.2f} seconds")
+            logger.info(f"[Pipeline] STEP 5 completed in {step5_elapsed:.2f} seconds")
         except Exception as e:
             step5_elapsed = time_module.time() - step5_start
             # Advice generation is optional, don't fail the whole process
-            logger.warning(f"[Pipeline] ⚠️ STEP 5 (Advice) failed after {step5_elapsed:.2f} seconds (non-critical): {str(e)}")
+            logger.warning(f"[Pipeline] STEP 5 (Advice) failed after {step5_elapsed:.2f} seconds (non-critical): {str(e)}")
         
         # ===== STEP 6: Auto-Generate Tasks =====
         step6_start = time_module.time()

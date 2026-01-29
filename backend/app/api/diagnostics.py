@@ -4,7 +4,7 @@ Diagnostic API endpoints
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, BackgroundTasks, Form
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 from pathlib import Path
 from datetime import datetime
@@ -32,6 +32,7 @@ from app.services.role_check import check_engagement_access
 from app.utils.file_loader import load_diagnostic_questions
 from app.utils.background_task_manager import background_task_manager
 from app.utils.auth import get_current_user
+from app.utils.diagnostic_utils import get_admin_role_if_applicable, enrich_diagnostic_with_roles
 from app.models.user import User, UserRole
 from app.models.diagnostic import Diagnostic
 from app.models.engagement import Engagement
@@ -762,7 +763,9 @@ async def get_diagnostic(
             detail=f"Diagnostic {diagnostic_id} not found"
         )
     
-    return diagnostic
+    # Enrich with role information
+    diagnostic_dict = enrich_diagnostic_with_roles(db, diagnostic, use_detail_schema=True)
+    return DiagnosticDetail(**diagnostic_dict)
 
 
 @router.get("/{diagnostic_id}/results", response_model=DiagnosticResults)
@@ -820,7 +823,13 @@ async def list_engagement_diagnostics(
     
     diagnostics = service.get_engagement_diagnostics(engagement_id)
     
-    return diagnostics
+    # Enrich each diagnostic with role information
+    enriched_diagnostics = []
+    for diagnostic in diagnostics:
+        diagnostic_dict = enrich_diagnostic_with_roles(db, diagnostic)
+        enriched_diagnostics.append(DiagnosticListItem(**diagnostic_dict))
+    
+    return enriched_diagnostics
 
 
 @router.post("/{diagnostic_id}/regenerate-report", response_model=DiagnosticResponse)

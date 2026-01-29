@@ -45,6 +45,8 @@ class DiagnosticResponse(DiagnosticBase):
     engagement_id: UUID
     created_by_user_id: UUID
     completed_by_user_id: Optional[UUID] = None
+    created_by_user_role: Optional[str] = Field(None, description="Role of user who created diagnostic")
+    completed_by_user_role: Optional[str] = Field(None, description="Role of user who completed diagnostic")
     status: str
     overall_score: Optional[Decimal] = None
     report_url: Optional[str] = None

@@ -50,3 +50,24 @@ export function getPriorityBadgeClassName(priority: string): string {
       return 'border-transparent bg-gray-500 text-white hover:bg-gray-600';
   }
 }
+
+/**
+ * Checks if a role is an admin role (admin, firm_admin, or super_admin).
+ * @param role - The role string to check
+ * @returns True if the role is an admin role, false otherwise
+ */
+export function isAdminRole(role: string | null | undefined): boolean {
+  if (!role) return false;
+  const normalizedRole = role.toLowerCase().trim();
+  return normalizedRole === 'admin' || normalizedRole === 'firm_admin' || normalizedRole === 'super_admin';
+}
+
+/**
+ * Formats a role string for display (e.g., 'firm_admin' -> 'Firm Admin', 'super_admin' -> 'Super Admin').
+ * @param role - The role string to format
+ * @returns The formatted role string, or the original string if formatting fails
+ */
+export function formatRoleForDisplay(role: string | null | undefined): string {
+  if (!role) return '';
+  return capitalizeFirstLetter(role);
+}

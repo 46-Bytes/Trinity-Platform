@@ -32,7 +32,7 @@ from app.services.role_check import check_engagement_access
 from app.utils.file_loader import load_diagnostic_questions
 from app.utils.background_task_manager import background_task_manager
 from app.utils.auth import get_current_user
-from app.utils.diagnostic_utils import get_admin_role_if_applicable, enrich_diagnostic_with_roles
+from app.utils.diagnostic_utils import get_admin_role_if_applicable, enrich_diagnostic_with_roles, filter_diagnostic_report_for_user
 from app.models.user import User, UserRole
 from app.models.diagnostic import Diagnostic
 from app.models.engagement import Engagement
@@ -41,7 +41,6 @@ import asyncio
 
 
 router = APIRouter(prefix="/diagnostics", tags=["diagnostics"])
-
 
 @router.post("/create", response_model=DiagnosticResponse, status_code=status.HTTP_201_CREATED)
 async def create_diagnostic(
@@ -763,6 +762,9 @@ async def get_diagnostic(
             detail=f"Diagnostic {diagnostic_id} not found"
         )
     
+    # Filter report content for admin/firm_admin if they didn't create/complete
+    diagnostic = filter_diagnostic_report_for_user(diagnostic, current_user)
+    
     # Enrich with role information
     diagnostic_dict = enrich_diagnostic_with_roles(db, diagnostic, use_detail_schema=True)
     return DiagnosticDetail(**diagnostic_dict)
@@ -801,6 +803,9 @@ async def get_diagnostic_results(
             detail="Diagnostic is not yet completed"
         )
     
+    # Filter report content for admin/firm_admin if they didn't create/complete
+    diagnostic = filter_diagnostic_report_for_user(diagnostic, current_user)
+    
     return diagnostic
 
 
@@ -823,9 +828,12 @@ async def list_engagement_diagnostics(
     
     diagnostics = service.get_engagement_diagnostics(engagement_id)
     
-    # Enrich each diagnostic with role information
+    # Enrich each diagnostic with role information and filter reports
     enriched_diagnostics = []
     for diagnostic in diagnostics:
+        # Filter report content for admin/firm_admin if they didn't create/complete
+        diagnostic = filter_diagnostic_report_for_user(diagnostic, current_user)
+        
         diagnostic_dict = enrich_diagnostic_with_roles(db, diagnostic)
         enriched_diagnostics.append(DiagnosticListItem(**diagnostic_dict))
     

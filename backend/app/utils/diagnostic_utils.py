@@ -73,3 +73,37 @@ def enrich_diagnostic_with_roles(db: Session, diagnostic: Diagnostic, use_detail
     
     return diagnostic_dict
 
+
+def filter_diagnostic_report_for_user(diagnostic: Diagnostic, current_user: User) -> Diagnostic:
+    """
+    Filter out report_html and advisorReport for admin/firm_admin users 
+    if they didn't create or complete the diagnostic.
+    
+    Args:
+        diagnostic: Diagnostic model
+        current_user: Current user making the request
+        
+    Returns:
+        Diagnostic with filtered report content if needed
+    """
+    # Only filter for admin/firm_admin roles
+    if current_user.role not in [UserRole.ADMIN, UserRole.FIRM_ADMIN]:
+        return diagnostic
+    
+    # Check if user created or completed this diagnostic
+    is_created_by_user = diagnostic.created_by_user_id == current_user.id
+    is_completed_by_user = diagnostic.completed_by_user_id == current_user.id
+    
+    if not is_completed_by_user:
+        # Create a copy of ai_analysis without advisorReport
+        if diagnostic.ai_analysis:
+            filtered_ai_analysis = dict(diagnostic.ai_analysis)
+            # Remove advisorReport from ai_analysis
+            filtered_ai_analysis.pop("advisorReport", None)
+            # Update the diagnostic's ai_analysis (this creates a new dict reference)
+            diagnostic.ai_analysis = filtered_ai_analysis
+        
+        # Clear report_html
+        diagnostic.report_html = None
+    
+    return diagnostic

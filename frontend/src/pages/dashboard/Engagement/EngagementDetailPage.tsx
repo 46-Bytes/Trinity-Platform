@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { useAuth } from '@/context/AuthContext';
 import { fetchMediaTags, updateMediaTag, updateDiagnosticTag } from '@/store/slices/tagReducer';
+import { isAdminRole, formatRoleForDisplay } from '@/lib/utils';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -376,12 +377,18 @@ export default function EngagementDetailPage() {
       if (status === 'completed' || status === 'processing' || hasReport) {
         const baseDate = completedAt || diagnostic.updated_at || (diagnostic as any).updatedAt || diagnostic.created_at || (diagnostic as any).createdAt;
         const reportFileName = `Diagnostic Report - ${new Date(baseDate).toLocaleDateString()}.pdf`;
+
+        const completedByUserRole = (diagnostic as any).completed_by_user_role || (diagnostic as any).completedByUserRole;
+        const createdByUserRole = (diagnostic as any).created_by_user_role || (diagnostic as any).createdByUserRole;
+        const generatedByRole = completedByUserRole || createdByUserRole;
+        
         extractedFiles.push({
           id: `diagnostic-report-${diagnostic.id}`,
           name: reportFileName,
           type: 'pdf',
           generatedAt: new Date(baseDate),
           generatedBy: undefined,
+          generatedByRole: generatedByRole && isAdminRole(generatedByRole) ? generatedByRole : undefined,
           size: undefined, // Report is generated on-demand, size unknown
           toolType: 'diagnostic',
           diagnosticId: diagnostic.id, // Store diagnostic ID for download
@@ -483,10 +490,10 @@ export default function EngagementDetailPage() {
           }
 
           // Determine if this file was uploaded by an admin (for labeling in UI)
-          const uploadedByRole = fileMeta.uploaded_by_role || fileMeta.uploadedByRole;
-          const uploadedByRoleStr = uploadedByRole ? String(uploadedByRole).toLowerCase() : '';
-          const uploadedByAdmin =
-            uploadedByRoleStr.includes('admin');
+          const uploadedByRoleRaw = fileMeta.uploaded_by_role || fileMeta.uploadedByRole;
+          const uploadedByRole = uploadedByRoleRaw ? String(uploadedByRoleRaw).toLowerCase().trim() : null;
+          // Use exact role matching instead of includes('admin')
+          const uploadedByAdmin = uploadedByRole && isAdminRole(uploadedByRole);
 
           // Extract file extension to determine type
           const extension = fileName.split('.').pop()?.toLowerCase() || 'txt';
@@ -524,8 +531,8 @@ export default function EngagementDetailPage() {
             relativePath: relativePath, // Store for download
             mediaId: mediaId, // Store media ID for tag updates
             tag: fileTag, // Include tag from Media model or metadata
-            // Flag so UI can show "Uploaded by admin" chip for advisors/clients
-            uploadedByAdmin,
+            uploadedByAdmin: uploadedByAdmin, // Keep for backward compatibility
+            uploadedByRole: uploadedByAdmin ? uploadedByRole : undefined, // Pass role only if admin
           });
         });
       });

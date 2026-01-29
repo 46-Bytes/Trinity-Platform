@@ -467,7 +467,7 @@ class DiagnosticService:
                 )
                 
                 scoring_elapsed = time_module.time() - scoring_start_time
-                logger.info(f"[Scoring] ✅ OpenAI scoring completed successfully in {scoring_elapsed:.2f} seconds ({scoring_elapsed/60:.2f} minutes)")
+                logger.info(f"[Scoring] OpenAI scoring completed successfully in {scoring_elapsed:.2f} seconds ({scoring_elapsed/60:.2f} minutes)")
                 break  # Success, exit retry loop
                 
             except Exception as e:
@@ -483,8 +483,8 @@ class DiagnosticService:
                 )
                 
                 if is_file_error and retry_count < max_retries:
-                    logger.warning(f"[Scoring] ⚠️ File-not-found error detected (attempt {retry_count + 1}/{max_retries + 1}): {error_type}: {error_msg[:200]}")
-                    logger.info(f"[Scoring] 🔄 Re-uploading files and retrying...")
+                    logger.warning(f"[Scoring] File-not-found error detected (attempt {retry_count + 1}/{max_retries + 1}): {error_type}: {error_msg[:200]}")
+                    logger.info(f"[Scoring] Re-uploading files and retrying...")
                     
                     # Re-upload all files that were used
                     files_to_reupload = pdf_files + ci_files
@@ -493,11 +493,11 @@ class DiagnosticService:
                     for media in files_to_reupload:
                         file_path_str = str(media.file_path) if media.file_path else None
                         if not file_path_str or not os.path.exists(file_path_str):
-                            logger.warning(f"[Scoring] ⚠️ Cannot re-upload {media.file_name}: file not found at {file_path_str}")
+                            logger.warning(f"[Scoring] Cannot re-upload {media.file_name}: file not found at {file_path_str}")
                             continue
                         
                         try:
-                            logger.info(f"[Scoring] 🔄 Re-uploading {media.file_name}...")
+                            logger.info(f"[Scoring] Re-uploading {media.file_name}...")
                             openai_file = await openai_service.upload_file(
                                 file_path=file_path_str,
                                 purpose="user_data"
@@ -546,7 +546,7 @@ class DiagnosticService:
         scoring_data = scoring_result["parsed_content"]
         
         step3_elapsed = time_module.time() - step3_start
-        logger.info(f"[Pipeline] ✅ STEP 3 (Scoring) completed in {step3_elapsed:.2f} seconds ({step3_elapsed/60:.2f} minutes)")
+        logger.info(f"[Pipeline] STEP 3 (Scoring) completed in {step3_elapsed:.2f} seconds ({step3_elapsed/60:.2f} minutes)")
         
         # ===== STEP 4: Calculate and Validate Scores =====
         step4_start = time_module.time()
@@ -587,8 +587,8 @@ class DiagnosticService:
         )
 
         step4_elapsed = time_module.time() - step4_start
-        logger.info(f"[Pipeline] ✅ STEP 4 completed in {step4_elapsed:.2f} seconds")
-        logger.info(f"[Pipeline] ✅ STEP 4 completed in {step4_elapsed:.2f} seconds")
+        logger.info(f"[Pipeline] STEP 4 completed in {step4_elapsed:.2f} seconds")
+        logger.info(f"[Pipeline] STEP 4 completed in {step4_elapsed:.2f} seconds")
 
         logger.info("=" * 60)
         logger.info("[Pipeline] STEP 4: Scoring Data Processing Completed")
@@ -613,11 +613,11 @@ class DiagnosticService:
             )
             advice = advice_result["content"]
             step5_elapsed = time_module.time() - step5_start
-            logger.info(f"[Pipeline] ✅ STEP 5 completed in {step5_elapsed:.2f} seconds")
+            logger.info(f"[Pipeline] STEP 5 completed in {step5_elapsed:.2f} seconds")
         except Exception as e:
             step5_elapsed = time_module.time() - step5_start
             # Advice generation is optional, don't fail the whole process
-            logger.warning(f"[Pipeline] ⚠️ STEP 5 (Advice) failed after {step5_elapsed:.2f} seconds (non-critical): {str(e)}")
+            logger.warning(f"[Pipeline] STEP 5 (Advice) failed after {step5_elapsed:.2f} seconds (non-critical): {str(e)}")
         
         # ===== STEP 6: Auto-Generate Tasks =====
         step6_start = time_module.time()

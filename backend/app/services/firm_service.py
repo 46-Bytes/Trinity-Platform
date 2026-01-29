@@ -609,7 +609,7 @@ class FirmService:
 
             if client.role != UserRole.CLIENT:
                 raise ValueError(
-                    f"User with email {email} already exists"
+                    f"User with email {email} already exists "
                     "and cannot be added as a firm client."
                 )
 

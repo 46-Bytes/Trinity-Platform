@@ -327,6 +327,8 @@ export default function ClientsPage() {
         description: error instanceof Error ? error.message : 'Failed to add client',
         variant: 'destructive',
       });
+      setIsAddDialogOpen(false);
+      setFormData({ email: '', first_name: '', last_name: '', primary_advisor_id: '' });
     } finally {
       setIsSubmitting(false);
     }
@@ -447,12 +449,6 @@ export default function ClientsPage() {
           </p>
         </div>
       </div>
-
-      {error && (
-        <div className="card-trinity p-4 bg-destructive/10 border border-destructive/20">
-          <p className="text-destructive">{error}</p>
-        </div>
-      )}
 
       {isLoadingData && (
         <div className="flex items-center justify-center py-12">

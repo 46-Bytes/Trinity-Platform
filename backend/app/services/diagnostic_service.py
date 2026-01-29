@@ -516,27 +516,26 @@ class DiagnosticService:
                                 
                                 self.db.commit()
                                 reuploaded_count += 1
-                                logger.info(f"[Scoring] ✅ Re-uploaded {media.file_name}: new file_id={openai_file['id']}")
+                                logger.info(f"[Scoring] Re-uploaded {media.file_name}: new file_id={openai_file['id']}")
                             else:
-                                logger.error(f"[Scoring] ❌ Failed to re-upload {media.file_name}: OpenAI returned no file ID")
+                                logger.error(f"[Scoring] Failed to re-upload {media.file_name}: OpenAI returned no file ID")
                         except Exception as reupload_error:
-                            logger.error(f"[Scoring] ❌ Failed to re-upload {media.file_name}: {str(reupload_error)}")
+                            logger.error(f"[Scoring] Failed to re-upload {media.file_name}: {str(reupload_error)}")
                             # Continue with other files
                     
                     if reuploaded_count > 0:
-                        logger.info(f"[Scoring] ✅ Re-uploaded {reuploaded_count}/{len(files_to_reupload)} files. Retrying scoring call...")
+                        logger.info(f"[Scoring] Re-uploaded {reuploaded_count}/{len(files_to_reupload)} files. Retrying scoring call...")
                         retry_count += 1
                         # Rebuild file lists with updated IDs
                         pdf_files = [f for f in attached_files if f.openai_file_id and f.file_extension and f.file_extension.lower() in pdf_ext]
                         ci_files = [f for f in attached_files if f.openai_file_id and f.file_extension and f.file_extension.lower() in ci_ext]
                         continue  # Retry the scoring call
                     else:
-                        logger.error(f"[Scoring] ❌ Could not re-upload any files. Failing.")
+                        logger.error(f"[Scoring] Could not re-upload any files. Failing.")
                         raise
                 else:
                     # Not a file error, or max retries reached
                     scoring_elapsed = time_module.time() - scoring_start_time
-                    logger.error(f"[Scoring] ❌ OpenAI scoring failed after {scoring_elapsed:.2f} seconds ({scoring_elapsed/60:.2f} minutes)")
                     logger.error(f"[Scoring] Error type: {error_type}, Message: {error_msg[:500]}")
                     raise
         

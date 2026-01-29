@@ -43,6 +43,11 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
   );
   
   const isAdmin = user?.role === 'admin' || user?.role === 'firm_admin';
+  const normalizeUUID = (uuid: string | null | undefined): string | null => {
+    if (!uuid) return null;
+    const str = String(uuid).trim().toLowerCase();
+    return str.replace(/^["'{]|["'}]$/g, '');
+  };
   
   const [currentPage, setCurrentPage] = useState(0);
   const [localResponses, setLocalResponses] = useState<Record<string, any>>({});
@@ -60,6 +65,26 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
       diagnostic?.aiAnalysis?.advisorReport ||
       diagnostic?.completedAt
     );
+
+  const canAdminSeeThisReport = useMemo(() => {
+    if (!isAdmin) return true;
+    const currentUserId = normalizeUUID(user?.id);
+    if (!currentUserId) return false;
+
+    const createdByUserId = normalizeUUID(
+      diagnostic?.created_by_user_id || diagnostic?.createdByUserId
+    );
+    const completedByUserId = normalizeUUID(
+      diagnostic?.completed_by_user_id || diagnostic?.completedByUserId
+    );
+
+    return (
+      (createdByUserId && createdByUserId === currentUserId) ||
+      (completedByUserId && completedByUserId === currentUserId)
+    );
+  }, [isAdmin, user?.id, diagnostic]);
+
+  const shouldShowDownloadReport = hasExistingReport && diagnostic?.status !== 'processing' && canAdminSeeThisReport;
 
   // Clear diagnostic and reset local state when engagementId changes, then fetch new diagnostic
   useEffect(() => {
@@ -403,7 +428,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
 
   return (
     <div className="w-full mx-auto px-0 sm:px-1 md:px-3 lg:px-6 py-2 sm:py-3 md:py-6" style={{ width: '100%', boxSizing: 'border-box', maxWidth: '100%', overflowX: 'clip', paddingLeft: 'clamp(0px, 1vw, 24px)', paddingRight: 'clamp(0px, 1vw, 24px)' }}>
-      {hasExistingReport && diagnostic.status !== 'processing' && (
+      {shouldShowDownloadReport && (
         <div className="mb-6 sm:mb-8 rounded-lg border border-green-200 bg-green-50 p-3 sm:p-4" style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
           <p className="font-semibold text-green-800 break-words" style={{ maxWidth: '100%' }}>
             Diagnostic completed and analyzed.

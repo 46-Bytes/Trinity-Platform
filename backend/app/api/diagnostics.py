@@ -945,12 +945,14 @@ async def download_diagnostic_report(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Diagnostic not found"
             )
+
+        if current_user.role in [UserRole.ADMIN, UserRole.FIRM_ADMIN]:
+            is_created_by_admin = diagnostic.created_by_user_id == current_user.id
+            is_completed_by_admin = diagnostic.completed_by_user_id == current_user.id
+            if not is_created_by_admin and not is_completed_by_admin:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="You don't have access to download this diagnostic report")
         
-        has_existing_report = bool(
-            getattr(diagnostic, "report_html", None)
-            or getattr(diagnostic, "ai_analysis", None)
-            or getattr(diagnostic, "completed_at", None)
-        )
+        has_existing_report = bool( getattr(diagnostic, "report_html", None) or getattr(diagnostic, "ai_analysis", None) or getattr(diagnostic, "completed_at", None))
 
         if diagnostic.status != "completed" and not has_existing_report:
             raise HTTPException(

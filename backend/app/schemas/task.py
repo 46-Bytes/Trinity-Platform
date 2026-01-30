@@ -2,7 +2,7 @@
 Pydantic schemas for Task model
 """
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime, date
 from uuid import UUID
 
@@ -27,7 +27,7 @@ class TaskCreate(TaskBase):
     """Schema for creating a new task manually"""
     engagement_id: UUID = Field(..., description="The engagement this task belongs to")
     created_by_user_id: UUID = Field(..., description="Who created this task")
-    assigned_to_user_id: Optional[UUID] = Field(None, description="Who is assigned to this task")
+    assigned_to_user_ids: Optional[List[UUID]] = Field(None, description="Array of user IDs assigned to this task (use single element array for single assignment)")
     diagnostic_id: Optional[UUID] = Field(None, description="Optional: If task is linked to a diagnostic")
 
 
@@ -37,7 +37,7 @@ class TaskCreateFromDiagnostic(BaseModel):
     engagement_id: UUID
     diagnostic_id: UUID
     created_by_user_id: UUID
-    assigned_to_user_id: Optional[UUID] = None
+    assigned_to_user_ids: Optional[List[UUID]] = None
     title: str
     description: Optional[str] = None
     priority: str = "medium"
@@ -56,7 +56,7 @@ class TaskUpdate(BaseModel):
     description: Optional[str] = None
     status: Optional[str] = None
     priority: Optional[str] = None
-    assigned_to_user_id: Optional[UUID] = None
+    assigned_to_user_ids: Optional[List[UUID]] = None
     due_date: Optional[date] = None
     completed_at: Optional[datetime] = None
 
@@ -69,7 +69,7 @@ class TaskResponse(TaskBase):
     id: UUID
     engagement_id: UUID
     diagnostic_id: Optional[UUID] = None
-    assigned_to_user_id: Optional[UUID] = None
+    assigned_to_user_ids: Optional[List[UUID]] = None
     created_by_user_id: UUID
     completed_at: Optional[datetime] = None
     created_at: datetime

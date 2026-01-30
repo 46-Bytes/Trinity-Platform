@@ -105,17 +105,18 @@ export default function TasksPage() {
     }
   };
 
-  const getStatusBadgeVariant = (status: string) => {
+  const getStatusBadgeClassName = (status: string) => {
     switch (status) {
-      case 'completed':
-        return 'default';
-      case 'in_progress':
-        return 'secondary';
-      case 'cancelled':
-        return 'outline';
       case 'pending':
+        return 'border-transparent bg-red-500 text-white hover:bg-red-600';
+      case 'in_progress':
+        return 'border-transparent bg-blue-500 text-white hover:bg-blue-600';
+      case 'completed':
+        return 'border-transparent bg-green-500 text-white hover:bg-green-600';
+      case 'cancelled':
+        return 'border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80';
       default:
-        return 'outline';
+        return 'text-foreground';
     }
   };
 
@@ -207,7 +208,9 @@ export default function TasksPage() {
                     {statusTasks.map((task) => (
                       <div
                         key={task.id}
-                        className="card-trinity p-4 cursor-pointer hover:shadow-trinity-md transition-all"
+                        className={`card-trinity p-4 cursor-pointer hover:shadow-trinity-md transition-all ${
+                          task.status === 'completed' ? 'bg-green-50 dark:bg-green-950/20' : ''
+                        }`}
                         onClick={() => {
                           const fullTask = getFullTask(task.id);
                           if (fullTask) {
@@ -281,7 +284,7 @@ export default function TasksPage() {
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Status</label>
                   <div className="mt-1">
-                    <Badge variant={getStatusBadgeVariant(selectedTask.status)}>
+                    <Badge className={getStatusBadgeClassName(selectedTask.status)}>
                       {getStatusLabel(selectedTask.status)}
                     </Badge>
                   </div>

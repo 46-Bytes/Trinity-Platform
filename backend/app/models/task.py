@@ -2,7 +2,7 @@
 Task model for action items (manual or AI-generated)
 """
 from sqlalchemy import Column, String, Text, DateTime, Integer, Date, func, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import relationship
 import uuid
 
@@ -24,6 +24,8 @@ class Task(Base):
     diagnostic_id = Column(UUID(as_uuid=True), ForeignKey('diagnostics.id', ondelete='SET NULL'), nullable=True, index=True,
                           comment="If auto-generated from diagnostic")
     assigned_to_user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
+    assigned_to_user_ids = Column(ARRAY(UUID(as_uuid=True)), nullable=True, index=True,
+                                  comment="Array of user IDs assigned to this task (for multiple assignments, e.g., all advisors in engagement)")
     created_by_user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
     
     # Task details

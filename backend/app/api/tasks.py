@@ -20,6 +20,7 @@ from ..schemas.task import (
     TaskCreateFromDiagnostic,
     BulkTaskCreate,
 )
+from ..models.diagnostic import Diagnostic
 from ..services.role_check import get_current_user_from_token, check_engagement_access
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
@@ -52,23 +53,22 @@ async def create_task(
             detail="You do not have access to this engagement."
         )
     
-    # Verify assigned user exists if provided
-    if task_data.assigned_to_user_id:
-        assigned_user = db.query(User).filter(User.id == task_data.assigned_to_user_id).first()
-        if not assigned_user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Assigned user not found."
-            )
-        if not assigned_user.is_active:
+    # Verify assigned users exist if provided
+    if task_data.assigned_to_user_ids:
+        if len(task_data.assigned_to_user_ids) == 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="assigned_to_user_ids cannot be an empty array.")
+        assigned_users = db.query(User).filter(User.id.in_(task_data.assigned_to_user_ids)).all()
+        if len(assigned_users) != len(task_data.assigned_to_user_ids):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="One or more assigned users not found.")
+        inactive_users = [u for u in assigned_users if not u.is_active]
+        if inactive_users:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Assigned user is inactive."
+                detail=f"One or more assigned users are inactive: {[str(u.id) for u in inactive_users]}"
             )
     
     # Verify diagnostic exists if provided
     if task_data.diagnostic_id:
-        from ..models.diagnostic import Diagnostic
         diagnostic = db.query(Diagnostic).filter(Diagnostic.id == task_data.diagnostic_id).first()
         if not diagnostic:
             raise HTTPException(
@@ -85,7 +85,7 @@ async def create_task(
     task = Task(
         engagement_id=task_data.engagement_id,
         created_by_user_id=current_user.id,  # Always use current user, ignore request value
-        assigned_to_user_id=task_data.assigned_to_user_id,
+        assigned_to_user_ids=task_data.assigned_to_user_ids,
         diagnostic_id=task_data.diagnostic_id,
         title=task_data.title,
         description=task_data.description,
@@ -173,19 +173,24 @@ async def create_tasks_from_diagnostic(
     # Create all tasks
     created_tasks = []
     for task_data in bulk_data.tasks:
-        # Verify assigned user exists if provided
-        if task_data.assigned_to_user_id:
-            assigned_user = db.query(User).filter(User.id == task_data.assigned_to_user_id).first()
-            if not assigned_user:
+        # Verify assigned users exist if provided
+        if task_data.assigned_to_user_ids:
+            if len(task_data.assigned_to_user_ids) == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"assigned_to_user_ids cannot be an empty array for task: {task_data.title}"
+                )
+            assigned_users = db.query(User).filter(User.id.in_(task_data.assigned_to_user_ids)).all()
+            if len(assigned_users) != len(task_data.assigned_to_user_ids):
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Assigned user not found for task: {task_data.title}"
+                    detail=f"One or more assigned users not found for task: {task_data.title}"
                 )
         
         task = Task(
             engagement_id=task_data.engagement_id,
             created_by_user_id=current_user.id,
-            assigned_to_user_id=task_data.assigned_to_user_id,
+            assigned_to_user_ids=task_data.assigned_to_user_ids,
             diagnostic_id=task_data.diagnostic_id,
             title=task_data.title,
             description=task_data.description,
@@ -259,26 +264,19 @@ async def list_tasks(
             else:
                 query = query.filter(False)
         elif current_user.role in [UserRole.ADVISOR, UserRole.FIRM_ADVISOR]:
-            # Advisors and Firm Advisors see:
-            # 1. Tasks they created (created_by_user_id = advisor)
-            # 2. Tasks assigned to them (assigned_to_user_id = advisor)
-            # 3. Tasks from their engagements (primary or secondary advisor)
             query = query.join(Engagement).filter(
                 or_(
                     Task.created_by_user_id == current_user.id,
-                    Task.assigned_to_user_id == current_user.id,
+                    text("assigned_to_user_ids @> ARRAY[:user_id]::uuid[]").bindparams(user_id=current_user.id),
                     Engagement.primary_advisor_id == current_user.id,
                     text("secondary_advisor_ids @> ARRAY[:user_id]::uuid[]").bindparams(user_id=current_user.id)
                 )
             )
         elif current_user.role == UserRole.CLIENT:
-            # Clients see:
-            # 1. Tasks they created (created_by_user_id = client)
-            # 2. Tasks assigned to them (assigned_to_user_id = client)
             query = query.filter(
                 or_(
                     Task.created_by_user_id == current_user.id,
-                    Task.assigned_to_user_id == current_user.id
+                    text("assigned_to_user_ids @> ARRAY[:user_id]::uuid[]").bindparams(user_id=current_user.id)
                 )
             )
         else:
@@ -287,9 +285,9 @@ async def list_tasks(
                 detail="Invalid user role."
             )
     
-    # Filter by assigned user
+    # Filter by assigned user (check if user is in assigned_to_user_ids array)
     if assigned_to_user_id:
-        query = query.filter(Task.assigned_to_user_id == assigned_to_user_id)
+        query = query.filter(text("assigned_to_user_ids @> ARRAY[:user_id]::uuid[]").bindparams(user_id=assigned_to_user_id))
     
     # Filter by status
     if status_filter:
@@ -313,11 +311,13 @@ async def list_tasks(
         engagement = db.query(Engagement).filter(Engagement.id == task.engagement_id).first()
         engagement_name = engagement.engagement_name if engagement else None
         
-        # Get assigned user name
+        # Get assigned user name(s)
         assigned_to_name = None
-        if task.assigned_to_user_id:
-            assigned_user = db.query(User).filter(User.id == task.assigned_to_user_id).first()
-            assigned_to_name = assigned_user.name or assigned_user.email if assigned_user else None
+        if task.assigned_to_user_ids and len(task.assigned_to_user_ids) > 0:
+            # Get names for all assigned users
+            assigned_users = db.query(User).filter(User.id.in_(task.assigned_to_user_ids)).all()
+            assigned_names = [u.name or u.email for u in assigned_users if u]
+            assigned_to_name = ", ".join(assigned_names) if assigned_names else None
         
         # Get creator name
         creator = db.query(User).filter(User.id == task.created_by_user_id).first()
@@ -415,7 +415,7 @@ async def update_task(
             can_update = True
     elif task.created_by_user_id == current_user.id:
         can_update = True
-    elif task.assigned_to_user_id == current_user.id:
+    elif task.assigned_to_user_ids and current_user.id in task.assigned_to_user_ids:
         can_update = True
     elif current_user.role in [UserRole.ADVISOR, UserRole.FIRM_ADVISOR]:
         if engagement.primary_advisor_id == current_user.id:
@@ -429,18 +429,24 @@ async def update_task(
             detail="You do not have permission to update this task."
         )
     
-    # Verify assigned user exists if being updated
-    if task_data.assigned_to_user_id is not None and task_data.assigned_to_user_id != task.assigned_to_user_id:
-        assigned_user = db.query(User).filter(User.id == task_data.assigned_to_user_id).first()
-        if not assigned_user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Assigned user not found."
-            )
-        if not assigned_user.is_active:
+    # Verify assigned users exist if being updated
+    if task_data.assigned_to_user_ids is not None:
+        if len(task_data.assigned_to_user_ids) == 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Assigned user is inactive."
+                detail="assigned_to_user_ids cannot be an empty array."
+            )
+        assigned_users = db.query(User).filter(User.id.in_(task_data.assigned_to_user_ids)).all()
+        if len(assigned_users) != len(task_data.assigned_to_user_ids):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="One or more assigned users not found."
+            )
+        inactive_users = [u for u in assigned_users if not u.is_active]
+        if inactive_users:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"One or more assigned users are inactive: {[str(u.id) for u in inactive_users]}"
             )
     
     # Update fields

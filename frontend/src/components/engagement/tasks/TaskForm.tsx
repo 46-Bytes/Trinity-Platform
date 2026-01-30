@@ -17,8 +17,8 @@ const taskFormSchema = z.object({
   title: z.string().min(1, 'Title is required').max(255, 'Title must be less than 255 characters'),
   description: z.string().optional(),
   status: z.enum(['pending', 'in_progress', 'completed', 'cancelled']).optional(),
-  priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
-  assignedToUserId: z.string().optional(),
+  priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
+  assignedToUserIds: z.array(z.string()).optional(),
   createdByUserId: z.string().optional(),
   dueDate: z.string().optional(),
 });
@@ -35,7 +35,11 @@ interface TaskFormProps {
 export function TaskForm({ task, engagementId, onSubmit, onCancel }: TaskFormProps) {
   const isEditMode = !!task;
   const { user } = useAuth();
-  const [engagement, setEngagement] = useState<{ clientId?: string; primaryAdvisorId?: string } | null>(null);
+  const [engagement, setEngagement] = useState<{ 
+    clientId?: string; 
+    primaryAdvisorId?: string; 
+    secondaryAdvisorIds?: string[];
+  } | null>(null);
   const [isLoadingEngagement, setIsLoadingEngagement] = useState(false);
 
   // Fetch engagement details for both create and edit modes
@@ -51,9 +55,14 @@ export function TaskForm({ task, engagementId, onSubmit, onCancel }: TaskFormPro
       })
         .then((res) => res.json())
         .then((data) => {
+          // Convert UUIDs to strings if needed
+          const secondaryIds = (data.secondary_advisor_ids || []).map((id: any) => 
+            typeof id === 'string' ? id : String(id)
+          );
           setEngagement({
-            clientId: data.client_id,
-            primaryAdvisorId: data.primary_advisor_id,
+            clientId: data.client_id ? String(data.client_id) : undefined,
+            primaryAdvisorId: data.primary_advisor_id ? String(data.primary_advisor_id) : undefined,
+            secondaryAdvisorIds: secondaryIds,
           });
         })
         .catch((err) => {
@@ -72,11 +81,31 @@ export function TaskForm({ task, engagementId, onSubmit, onCancel }: TaskFormPro
       description: task?.description || '',
       status: task?.status || 'pending',
       priority: task?.priority || 'medium',
-      assignedToUserId: task?.assignedToUserId || '',
+      assignedToUserIds: task?.assignedToUserIds || [],
       createdByUserId: user?.id || '',
       dueDate: task?.dueDate || '',
     },
   });
+
+  const ALL_ADVISORS_MARKER = '__ALL_ADVISORS__';
+
+  const getAllAdvisorIds = (): string[] => {
+    const advisorIds: string[] = [];
+    if (engagement?.primaryAdvisorId) {
+      advisorIds.push(String(engagement.primaryAdvisorId));
+    }
+    if (engagement?.secondaryAdvisorIds && engagement.secondaryAdvisorIds.length > 0) {
+      const primaryIdStr = engagement.primaryAdvisorId ? String(engagement.primaryAdvisorId) : '';
+      engagement.secondaryAdvisorIds.forEach((advisorId) => {
+        const advisorIdStr = String(advisorId);
+        // Avoid duplicates if primary advisor is also in secondary list
+        if (advisorIdStr !== primaryIdStr) {
+          advisorIds.push(advisorIdStr);
+        }
+      });
+    }
+    return advisorIds;
+  };
 
   // Determine which buttons to show based on user role
   const getAssignmentButtons = () => {
@@ -85,16 +114,46 @@ export function TaskForm({ task, engagementId, onSubmit, onCancel }: TaskFormPro
     const userRole = user.role;
     const buttons: Array<{ label: string; userId: string }> = [];
 
-    if (userRole === 'client') {
-      // Client: Assign to Self, Assign to Advisor
+    if (userRole === 'firm_admin') {
+      // Firm Admin: Only two buttons - Assign to Client and Assign to Advisor(s)
+      if (engagement?.clientId) {
+        buttons.push({ label: 'Assign to Client', userId: String(engagement.clientId) });
+      }
+      // Check if there are any advisors (primary or secondary)
+      const advisorIds = getAllAdvisorIds();
+      if (advisorIds.length > 0) {
+        buttons.push({ label: 'Assign to Advisor(s)', userId: ALL_ADVISORS_MARKER });
+      }
+    } else if (userRole === 'firm_advisor') {
+      // Firm Advisor: Assign to Self, Assign to Client
       if (user.id) {
         buttons.push({ label: 'Assign to Self', userId: user.id });
       }
+      if (engagement?.clientId) {
+        buttons.push({ label: 'Assign to Client', userId: String(engagement.clientId) });
+      }
+    } else if (userRole === 'client') {
+      // Client (in firm context): Assign to Advisors, Assign to Self
+      // Add primary advisor
       if (engagement?.primaryAdvisorId) {
-        buttons.push({ label: 'Assign to Advisor', userId: engagement.primaryAdvisorId });
+        buttons.push({ label: 'Assign to Advisor', userId: String(engagement.primaryAdvisorId) });
+      }
+      // Add secondary advisors
+      if (engagement?.secondaryAdvisorIds && engagement.secondaryAdvisorIds.length > 0) {
+        const primaryIdStr = engagement.primaryAdvisorId ? String(engagement.primaryAdvisorId) : '';
+        engagement.secondaryAdvisorIds.forEach((advisorId) => {
+          const advisorIdStr = String(advisorId);
+          if (advisorIdStr !== primaryIdStr) {
+            buttons.push({ label: 'Assign to Advisor', userId: advisorIdStr });
+          }
+        });
+      }
+      // Assign to self
+      if (user.id) {
+        buttons.push({ label: 'Assign to Self', userId: user.id });
       }
     } else if (userRole === 'advisor') {
-      // Advisor: Assign to Self, Assign to Client
+      // Solo Advisor: Assign to Self, Assign to Client
       if (user.id) {
         buttons.push({ label: 'Assign to Self', userId: user.id });
       }
@@ -117,10 +176,17 @@ export function TaskForm({ task, engagementId, onSubmit, onCancel }: TaskFormPro
   const assignmentButtons = getAssignmentButtons();
 
   const handleAssignmentClick = (userId: string) => {
-    form.setValue('assignedToUserId', userId);
+    if (userId === ALL_ADVISORS_MARKER) {
+      // Assign to all advisors
+      const advisorIds = getAllAdvisorIds();
+      form.setValue('assignedToUserIds', advisorIds);
+    } else {
+      // Single assignment - use array with one element
+      form.setValue('assignedToUserIds', [userId]);
+    }
   };
 
-  const handleSubmit = (values: TaskFormValues) => {
+  const handleSubmit = async (values: TaskFormValues) => {
     if (isEditMode) {
       // Update mode - only send changed fields
       const updates: TaskUpdatePayload = {};
@@ -128,9 +194,14 @@ export function TaskForm({ task, engagementId, onSubmit, onCancel }: TaskFormPro
       if (values.description !== task.description) updates.description = values.description;
       if (values.status !== task.status) updates.status = values.status as any;
       if (values.priority !== task.priority) updates.priority = values.priority as any;
-      if (values.assignedToUserId !== task.assignedToUserId) {
-        updates.assignedToUserId = values.assignedToUserId || undefined;
+      
+      // Handle assignment changes - compare arrays
+      const currentIds = task?.assignedToUserIds || [];
+      const newIds = values.assignedToUserIds || [];
+      if (JSON.stringify(currentIds.sort()) !== JSON.stringify(newIds.sort())) {
+        updates.assignedToUserIds = newIds.length > 0 ? newIds : undefined;
       }
+      
       if (values.dueDate !== task.dueDate) {
         updates.dueDate = values.dueDate || undefined;
       }
@@ -138,12 +209,15 @@ export function TaskForm({ task, engagementId, onSubmit, onCancel }: TaskFormPro
       onSubmit(updates);
     } else {
       // Create mode
+      const engagementIdToUse = engagementId || task?.engagementId;
+      
       onSubmit({
+        engagementId: engagementIdToUse || '',
         title: values.title,
         description: values.description,
         status: values.status as any,
         priority: values.priority as any,
-        assignedToUserId: values.assignedToUserId || undefined,
+        assignedToUserIds: values.assignedToUserIds && values.assignedToUserIds.length > 0 ? values.assignedToUserIds : undefined,
         createdByUserId: user?.id || '',
         dueDate: values.dueDate || undefined,
       } as TaskCreatePayload);
@@ -222,7 +296,7 @@ export function TaskForm({ task, engagementId, onSubmit, onCancel }: TaskFormPro
                     <SelectItem value="low">Low</SelectItem>
                     <SelectItem value="medium">Medium</SelectItem>
                     <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="critical">Critical</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -234,28 +308,53 @@ export function TaskForm({ task, engagementId, onSubmit, onCancel }: TaskFormPro
         <div className="grid grid-cols-2 gap-4">
           <FormField
             control={form.control}
-            name="assignedToUserId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Assigned To</FormLabel>
-                {assignmentButtons && assignmentButtons.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {assignmentButtons.map((button) => (
-                      <Button
-                        key={button.userId}
-                        type="button"
-                        variant={field.value === button.userId ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => handleAssignmentClick(button.userId)}
-                      >
-                        {button.label}
-                      </Button>
-                    ))}
-                  </div>
-                )}
-                <FormMessage />
-              </FormItem>
-            )}
+            name="assignedToUserIds"
+            render={({ field }) => {
+              // Check if all advisors are selected (for firm_admin)
+              const advisorIds = getAllAdvisorIds();
+              const isAllAdvisorsSelected = user?.role === 'firm_admin' && 
+                advisorIds.length > 0 && 
+                field.value && 
+                field.value.length === advisorIds.length &&
+                advisorIds.every(id => field.value?.includes(id));
+              
+              // Check if a specific user is selected
+              const isUserSelected = (userId: string) => {
+                return field.value?.includes(userId) || false;
+              };
+              
+              return (
+                <FormItem>
+                  <FormLabel>Assigned To</FormLabel>
+                  {assignmentButtons && assignmentButtons.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {assignmentButtons.map((button) => {
+                        const isSelected = button.userId === ALL_ADVISORS_MARKER 
+                          ? isAllAdvisorsSelected 
+                          : isUserSelected(button.userId);
+                        return (
+                          <Button
+                            key={button.userId}
+                            type="button"
+                            variant={isSelected ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => handleAssignmentClick(button.userId)}
+                          >
+                            {button.label}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {user?.role === 'firm_admin' && isAllAdvisorsSelected && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Task will be assigned to all advisors associated with this engagement.
+                    </p>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              );
+            }}
           />
 
           <FormField

@@ -48,16 +48,18 @@ export function TaskItem({ task, onEdit, onDelete, onStatusChange, onClick }: Ta
     dispatch(fetchNotes({ engagementId: task.engagementId, taskId: task.id }));
   };
 
-  const getStatusBadgeVariant = (status: string) => {
+  const getStatusBadgeClassName = (status: string) => {
     switch (status) {
-      case 'completed':
-        return 'default';
+      case 'pending':
+        return 'border-transparent bg-red-500 text-white hover:bg-red-600';
       case 'in_progress':
-        return 'secondary';
+        return 'border-transparent bg-blue-500 text-white hover:bg-blue-600';
+      case 'completed':
+        return 'border-transparent bg-green-500 text-white hover:bg-green-600';
       case 'cancelled':
-        return 'destructive';
+        return 'border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80';
       default:
-        return 'outline';
+        return 'text-foreground';
     }
   };
 
@@ -88,7 +90,11 @@ export function TaskItem({ task, onEdit, onDelete, onStatusChange, onClick }: Ta
 
   return (
     <Card 
-      className={`hover:shadow-md transition-shadow cursor-pointer ${isOverdue ? 'border-destructive' : ''}`}
+      className={`hover:shadow-md transition-shadow cursor-pointer ${
+        isOverdue ? 'border-destructive' : ''
+      } ${
+        task.status === 'completed' ? 'bg-green-50 dark:bg-green-950/20' : ''
+      }`}
       onClick={(e) => {
         // Don't trigger task details dialog if notes dialog is open
         if (!isNoteDialogOpen) {
@@ -101,11 +107,13 @@ export function TaskItem({ task, onEdit, onDelete, onStatusChange, onClick }: Ta
           <div className="flex-1 space-y-2">
             <div className="flex items-start gap-3">
               <div className="mt-1">{getStatusIcon(task.status)}</div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="font-semibold text-lg">{task.title}</h3>
-                  <Badge variant={getStatusBadgeVariant(task.status)}>{capitalizeFirstLetter(task.status)}</Badge>
-                  <Badge className={getPriorityBadgeClassName(task.priority)}>{capitalizeFirstLetter(task.priority)}</Badge>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <h3 className="font-semibold text-lg truncate flex-1 min-w-0">{task.title}</h3>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Badge className={getStatusBadgeClassName(task.status)}>{capitalizeFirstLetter(task.status)}</Badge>
+                    <Badge className={getPriorityBadgeClassName(task.priority)}>{capitalizeFirstLetter(task.priority)}</Badge>
+                  </div>
                 </div>
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   {task.assignedToName && (

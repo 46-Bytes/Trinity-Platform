@@ -71,17 +71,13 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
     const currentUserId = normalizeUUID(user?.id);
     if (!currentUserId) return false;
 
-    const createdByUserId = normalizeUUID(
-      diagnostic?.created_by_user_id || diagnostic?.createdByUserId
-    );
+    // Only check completed_by_user_id (who submitted), NOT created_by_user_id
     const completedByUserId = normalizeUUID(
       diagnostic?.completed_by_user_id || diagnostic?.completedByUserId
     );
 
-    return (
-      (createdByUserId && createdByUserId === currentUserId) ||
-      (completedByUserId && completedByUserId === currentUserId)
-    );
+    // Admin/firm_admin can only see report if they submitted (completed) the diagnostic
+    return completedByUserId && completedByUserId === currentUserId;
   }, [isAdmin, user?.id, diagnostic]);
 
   const shouldShowDownloadReport = hasExistingReport && diagnostic?.status !== 'processing' && canAdminSeeThisReport;

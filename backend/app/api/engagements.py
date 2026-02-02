@@ -65,10 +65,7 @@ async def create_engagement(
     # the primary advisor should depend on *who is creating* the engagement.
     if current_user.role == UserRole.FIRM_ADMIN:
         # We keep using the associated advisor as primary advisor (existing behavior).
-        association = db.query(AdvisorClient).filter(
-            AdvisorClient.client_id == engagement_data.client_id,
-            AdvisorClient.status == 'active'
-        ).first()
+        association = db.query(AdvisorClient).filter(AdvisorClient.client_id == engagement_data.client_id,AdvisorClient.status == 'active').first()
 
         if not association:
             raise HTTPException(
@@ -80,18 +77,10 @@ async def create_engagement(
 
     elif current_user.role == UserRole.FIRM_ADVISOR:
         # Firm advisor: the client must be actively associated *with this advisor*,
-        # and the advisor who is creating the engagement becomes the primary advisor.
-        association = db.query(AdvisorClient).filter(
-            AdvisorClient.client_id == engagement_data.client_id,
-            AdvisorClient.advisor_id == current_user.id,
-            AdvisorClient.status == 'active'
-        ).first()
+        association = db.query(AdvisorClient).filter(AdvisorClient.client_id == engagement_data.client_id,AdvisorClient.advisor_id == current_user.id,AdvisorClient.status == 'active').first()
 
         if not association:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="This client must be actively associated with you before creating an engagement."
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="This client must be actively associated with you before creating an engagement.")
 
         primary_advisor_id = current_user.id
     
@@ -357,7 +346,8 @@ async def get_user_role_data(
             clients = db.query(User).filter(
                 User.id.in_(associated_client_ids),
                 User.role == UserRole.CLIENT,
-                User.is_active == True
+                User.is_active == True,
+                User.is_deleted == False
             ).all()
         else:
             clients = []
@@ -382,7 +372,8 @@ async def get_user_role_data(
             clients = db.query(User).filter(
                 User.id.in_(client_ids_list),
                 User.role == UserRole.CLIENT,
-                User.is_active == True
+                User.is_active == True,
+                User.is_deleted == False
             ).all()
         else:
             clients = []
@@ -424,7 +415,8 @@ async def get_user_role_data(
             clients = db.query(User).filter(
                 User.id.in_(client_ids_list),
                 User.role == UserRole.CLIENT,
-                User.is_active == True
+                User.is_active == True,
+                User.is_deleted == False
             ).all()
         else:
             clients = []
@@ -492,7 +484,7 @@ async def get_user_role_data(
         }
     
     elif current_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-        clients = db.query(User).filter(User.role == UserRole.CLIENT,User.is_active == True,User.firm_id.is_(None)).all()
+        clients = db.query(User).filter(User.role == UserRole.CLIENT,User.is_active == True,User.firm_id.is_(None),User.is_deleted == False).all()
         advisors = db.query(User).filter( User.role == UserRole.ADVISOR,User.is_active == True).all()
         
         return {

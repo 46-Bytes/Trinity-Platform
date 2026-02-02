@@ -40,6 +40,7 @@ from sqlalchemy import func
 from ..models.engagement import Engagement
 from ..models.diagnostic import Diagnostic
 from ..models.task import Task
+from ..models.adv_client import AdvisorClient
 
 router = APIRouter(prefix="/api/firms", tags=["firms"])
 
@@ -137,8 +138,16 @@ async def list_firms(
             User.role == UserRole.FIRM_ADVISOR,
         ).scalar() or 0
 
-        # Count clients from firm's clients array
-        clients_count = len(firm.clients or [])
+        # Count clients from firm's clients array (excluding deleted clients)
+        if firm.clients:
+            active_clients = db.query(User).filter(
+                User.id.in_(firm.clients),
+                User.role == UserRole.CLIENT,
+                User.is_deleted == False
+            ).count()
+            clients_count = active_clients
+        else:
+            clients_count = 0
 
         enriched_firms.append(
             FirmResponse(
@@ -465,6 +474,44 @@ async def add_client(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
+
+@router.delete("/{firm_id}/clients/{client_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_client(
+    firm_id: UUID,
+    client_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_from_token)
+):
+    """Soft delete a client from a firm (sets is_deleted=True)."""
+    # Check permissions - only firm_admin or super_admin can remove clients
+    if current_user.role not in [UserRole.FIRM_ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="Only firm admins and super admins can remove clients")
+    
+    # Verify firm exists
+    firm = db.query(Firm).filter(Firm.id == firm_id).first()
+    if not firm:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Firm not found")
+    
+    # Check if user has permission for this firm
+    if current_user.role == UserRole.FIRM_ADMIN and current_user.firm_id != firm_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="Insufficient permissions to remove clients from this firm")
+    # Verify client exists and belongs to the firm
+    client = db.query(User).filter(User.id == client_id,User.role == UserRole.CLIENT).first()
+    if not client:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Client not found")
+    # Verify client is in firm's clients array
+    if not firm.clients or client.id not in firm.clients:
+        raise HTTPException( status_code=status.HTTP_400_BAD_REQUEST,detail="Client is not associated with this firm")
+    # Soft delete the client (set is_deleted=True, but keep in firm.clients array)
+    client.is_deleted = True
+
+    # Also deactivate any advisor-client associations for this client so they no longer appear as "active"
+    db.query(AdvisorClient).filter(AdvisorClient.client_id == client.id,AdvisorClient.status == 'active').update({"status": "inactive"}, synchronize_session=False)
+
+    db.commit()
+    
+    return None
 
 
 # ==================== Engagement Management ====================

@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Search, MoreHorizontal, Building2, Loader2, Eye, Plus, Mail, Phone } from 'lucide-react';
+import { Search, MoreHorizontal, Building2, Loader2, Eye, Plus, Mail, Phone, Trash2 } from 'lucide-react';
 import { cn, getUniqueClientIds } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchEngagements } from '@/store/slices/engagementReducer';
-import { fetchFirmClients, addClientToFirm, fetchFirm, fetchFirmAdvisors, fetchFirmClientsById } from '@/store/slices/firmReducer';
+import { fetchFirmClients, addClientToFirm, fetchFirm, fetchFirmAdvisors, fetchFirmClientsById, removeClientFromFirm } from '@/store/slices/firmReducer';
 import { fetchClientUsers } from '@/store/slices/clientReducer';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -67,6 +67,9 @@ export default function ClientsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [clientToRemove, setClientToRemove] = useState<Client | null>(null);
+  const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     first_name: '',
@@ -165,36 +168,42 @@ export default function ClientsPage() {
 
   // Choose base clients by role
   const baseClients: Client[] = useMemo(() => {
+    let result: Client[] = [];
+    
     if (shouldUseFirmClients) {
-      return firmClients.map(client => ({
-        id: client.id,
-        name: client.name || 'Unknown',
-        email: client.email || '',
-        industry: '',
-        status: client.is_active ? 'Active' as const : 'Pending' as const,
-        engagements: 0,
-        is_active: client.is_active,
-        email_verified: false,
-        role: 'client',
-      }));
+      result = firmClients
+        .filter(client => !(client as any).is_deleted) // Filter out deleted clients
+        .map(client => ({
+          id: client.id,
+          name: client.name || 'Unknown',
+          email: client.email || '',
+          industry: '',
+          status: client.is_active ? 'Active' as const : 'Pending' as const,
+          engagements: 0,
+          is_active: client.is_active,
+          email_verified: false,
+          role: 'client',
+        }));
+    } else if (strategy.shouldUseAdminClients) {
+      result = adminClients
+        .filter(client => !(client as any).is_deleted) // Filter out deleted clients
+        .map(client => ({
+          id: client.id,
+          name: client.name || 'Unknown',
+          email: client.email || '',
+          industry: '',
+          status: client.is_active ? 'Active' as const : 'Pending' as const,
+          engagements: 0,
+          is_active: client.is_active,
+          email_verified: client.email_verified ?? false,
+          role: client.role || 'client',
+        }));
+    } else {
+      // For firm_advisor and regular advisor, use clients from state
+      result = clients.filter(client => !(client as any).is_deleted); // Filter out deleted clients
     }
-
-    if (strategy.shouldUseAdminClients) {
-      return adminClients.map(client => ({
-        id: client.id,
-        name: client.name || 'Unknown',
-        email: client.email || '',
-        industry: '',
-        status: client.is_active ? 'Active' as const : 'Pending' as const,
-        engagements: 0,
-        is_active: client.is_active,
-        email_verified: client.email_verified ?? false,
-        role: client.role || 'client',
-      }));
-    }
-
-    // For firm_advisor and regular advisor, use clients from state
-    return clients;
+    
+    return result;
   }, [shouldUseFirmClients, strategy.shouldUseAdminClients, firmClients, adminClients, clients]);
 
   const clientsWithEngagements = useMemo<Client[]>(() => {
@@ -331,6 +340,55 @@ export default function ClientsPage() {
       setFormData({ email: '', first_name: '', last_name: '', primary_advisor_id: '' });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleRemoveClient = async () => {
+    if (!clientToRemove || !user || !shouldUseFirmClients) {
+      return;
+    }
+
+    const firmId = firm?.id || user?.firmId;
+    if (!firmId) {
+      toast({
+        title: 'Error',
+        description: 'Firm ID not found. Please refresh the page.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsRemoving(true);
+    try {
+      const result = await dispatch(removeClientFromFirm({
+        firmId,
+        clientId: clientToRemove.id,
+      }));
+
+      if (removeClientFromFirm.fulfilled.match(result)) {
+        toast({
+          title: 'Success',
+          description: 'Client removed successfully',
+        });
+        setIsRemoveDialogOpen(false);
+        setClientToRemove(null);
+        // Refresh clients list - use appropriate fetch based on user role
+        if (isSuperAdminViewingFirm) {
+          dispatch(fetchFirmClientsById(firmId));
+        } else {
+          dispatch(fetchFirmClients());
+        }
+      } else {
+        throw new Error(result.payload as string || 'Failed to remove client');
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to remove client',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRemoving(false);
     }
   };
 
@@ -518,6 +576,18 @@ export default function ClientsPage() {
                           <Eye className="w-4 h-4 mr-2" />
                           View Details
                         </DropdownMenuItem>
+                        {shouldUseFirmClients && user?.role === 'firm_admin' && (
+                          <DropdownMenuItem 
+                            className="cursor-pointer text-destructive focus:text-destructive"
+                            onClick={() => {
+                              setClientToRemove(client);
+                              setIsRemoveDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Remove Client
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -626,6 +696,38 @@ export default function ClientsPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isRemoveDialogOpen} onOpenChange={setIsRemoveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Client</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove {clientToRemove?.name || clientToRemove?.email}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsRemoveDialogOpen(false);
+                setClientToRemove(null);
+              }}
+              disabled={isRemoving}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleRemoveClient}
+              disabled={isRemoving}
+            >
+              {isRemoving ? 'Removing...' : 'Remove Client'}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -193,6 +193,13 @@ class User(Base):
         comment="Whether the user account is active"
     )
     
+    is_deleted = Column(
+        Boolean,
+        default=False,
+        nullable=False,
+        comment="Whether the user has been soft deleted"
+    )
+    
     # Role
     role = Column(
         UserRoleType(50),
@@ -254,6 +261,7 @@ class User(Base):
             "bio": self.bio,
             "email_verified": self.email_verified,
             "is_active": self.is_active,
+            "is_deleted": self.is_deleted,
             "role": self.role.value if self.role else None,
             "firm_id": str(self.firm_id) if self.firm_id else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,

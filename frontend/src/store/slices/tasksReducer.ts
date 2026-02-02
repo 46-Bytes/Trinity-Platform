@@ -6,7 +6,7 @@ export interface Task {
   engagementId: string;
   engagementName?: string;
   diagnosticId?: string;
-  assignedToUserId?: string;
+  assignedToUserIds?: string[];
   assignedToName?: string;
   createdByUserId: string;
   createdByName?: string;
@@ -27,7 +27,7 @@ export interface Task {
 
 export interface TaskCreatePayload {
   engagementId: string;
-  assignedToUserId?: string;
+  assignedToUserIds?: string[];
   createdByUserId: string;
   diagnosticId?: string;
   title: string;
@@ -45,7 +45,7 @@ export interface TaskUpdatePayload {
   description?: string;
   status?: 'pending' | 'in_progress' | 'completed' | 'cancelled';
   priority?: 'low' | 'medium' | 'high' | 'urgent';
-  assignedToUserId?: string;
+  assignedToUserIds?: string[];
   dueDate?: string;
 }
 
@@ -66,12 +66,21 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 
 // Helper function to map backend task to frontend format
 function mapBackendTaskToFrontend(item: any): Task {
+  // Handle both old format (assigned_to_user_id) and new format (assigned_to_user_ids)
+  let assignedToUserIds: string[] | undefined = undefined;
+  if (item.assigned_to_user_ids && item.assigned_to_user_ids.length > 0) {
+    assignedToUserIds = item.assigned_to_user_ids.map((id: any) => String(id));
+  } else if (item.assigned_to_user_id) {
+    // Backward compatibility: convert single assignment to array
+    assignedToUserIds = [String(item.assigned_to_user_id)];
+  }
+  
   return {
     id: item.id,
     engagementId: item.engagement_id,
     engagementName: item.engagement_name,
     diagnosticId: item.diagnostic_id,
-    assignedToUserId: item.assigned_to_user_id,
+    assignedToUserIds: assignedToUserIds,
     assignedToName: item.assigned_to_name,
     createdByUserId: item.created_by_user_id,
     createdByName: item.created_by_name,
@@ -95,7 +104,7 @@ function mapBackendTaskToFrontend(item: any): Task {
 function mapFrontendTaskToBackend(task: TaskCreatePayload): any {
   return {
     engagement_id: task.engagementId,
-    assigned_to_user_id: task.assignedToUserId || null,
+    assigned_to_user_ids: task.assignedToUserIds || null,
     created_by_user_id: task.createdByUserId,
     diagnostic_id: task.diagnosticId || null,
     title: task.title,
@@ -249,7 +258,7 @@ export const updateTask = createAsyncThunk(
       if (updates.description !== undefined) backendUpdates.description = updates.description;
       if (updates.status !== undefined) backendUpdates.status = updates.status;
       if (updates.priority !== undefined) backendUpdates.priority = updates.priority;
-      if (updates.assignedToUserId !== undefined) backendUpdates.assigned_to_user_id = updates.assignedToUserId || null;
+      if (updates.assignedToUserIds !== undefined) backendUpdates.assigned_to_user_ids = updates.assignedToUserIds || null;
       if (updates.dueDate !== undefined) backendUpdates.due_date = updates.dueDate || null;
 
       const response = await fetch(`${API_BASE_URL}/api/tasks/${id}`, {

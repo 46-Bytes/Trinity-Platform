@@ -524,6 +524,30 @@ export const addClientToFirm = createAsyncThunk(
   }
 );
 
+export const removeClientFromFirm = createAsyncThunk(
+  'firm/removeClientFromFirm',
+  async (
+    { firmId, clientId }: { firmId: string; clientId: string },
+    { rejectWithValue }
+  ) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/firms/${firmId}/clients/${clientId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to remove client' }));
+        throw new Error(errorData.detail || 'Failed to remove client');
+      }
+
+      return clientId;
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to remove client');
+    }
+  }
+);
+
 export const revokeFirm = createAsyncThunk(
   'firm/revokeFirm',
   async (firmId: string, { rejectWithValue }) => {
@@ -850,6 +874,23 @@ const firmSlice = createSlice({
         }
       })
       .addCase(addClientToFirm.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      });
+
+    // Remove client
+    builder
+      .addCase(removeClientFromFirm.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(removeClientFromFirm.fulfilled, (state, action) => {
+        state.isLoading = false;
+        // Remove client from list
+        state.clients = state.clients.filter(c => c.id !== action.payload);
+        // Note: We keep the client ID in firm.clients array (soft delete)
+      })
+      .addCase(removeClientFromFirm.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
       });

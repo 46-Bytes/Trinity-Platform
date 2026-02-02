@@ -76,6 +76,9 @@ async def list_users(
                 detail="Invalid user IDs format. Expected comma-separated UUIDs."
             )
     
+    # Always exclude deleted clients
+    query = query.filter(User.is_deleted == False)
+    
     # For regular admin users (not super_admin), exclude firm-related users
     if current_user.role == UserRole.ADMIN and not filtering_by_ids:
         query = query.filter(User.role != UserRole.FIRM_ADMIN,User.role != UserRole.FIRM_ADVISOR)

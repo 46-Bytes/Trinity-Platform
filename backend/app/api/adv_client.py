@@ -51,6 +51,13 @@ async def create_association(
     
     if client.role != UserRole.CLIENT:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The specified user is not a client.")
+
+    # Do not allow associating deleted clients
+    if getattr(client, "is_deleted", False):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot associate a deleted client."
+        )
     
     # Validate firm_id matching for FIRM_ADVISOR advisors
     if advisor.role == UserRole.FIRM_ADVISOR:
@@ -140,6 +147,10 @@ async def list_associations(
     for assoc in associations:
         advisor = db.query(User).filter(User.id == assoc.advisor_id).first()
         client = db.query(User).filter(User.id == assoc.client_id).first()
+
+        # Hide associations pointing at deleted (soft-deleted) clients
+        if not client or getattr(client, "is_deleted", False):
+            continue
         
         result.append(AdvisorClientWithUsers(
             id=assoc.id,
@@ -203,6 +214,13 @@ async def get_association(
     # Get user details
     advisor = db.query(User).filter(User.id == association.advisor_id).first()
     client = db.query(User).filter(User.id == association.client_id).first()
+
+    # Hide associations pointing at deleted (soft-deleted) clients
+    if not client or getattr(client, "is_deleted", False):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Association not found."
+        )
     
     return AdvisorClientWithUsers(
         id=association.id,

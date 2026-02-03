@@ -1,6 +1,6 @@
 /**
  * POC: File Upload Component with Drag-and-Drop
- * This is a standalone POC component, separate from the main file upload system.
+ * BBA Report Builder workflow: Steps 1-7
  */
 import React, { useState, useCallback, useRef } from 'react';
 import { Upload, X, CheckCircle2, AlertCircle, Loader2, FileText, ArrowRight } from 'lucide-react';
@@ -8,6 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { ContextCaptureQuestionnaire, QuestionnaireData } from './ContextCaptureQuestionnaire';
+import { DraftFindingsStep, type Finding } from './DraftFindingsStep';
+import { ExpandedFindingsStep, type ExpandedFinding } from './ExpandedFindingsStep';
+import { SnapshotTableStep, type SnapshotTable } from './SnapshotTableStep';
+import { TwelveMonthPlanStep, type TwelveMonthPlan } from './TwelveMonthPlanStep';
+import { ReviewEditStep } from './ReviewEditStep';
 import { cn } from '@/lib/utils';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -51,7 +56,7 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [currentStep, setCurrentStep] = useState<1 | 2>(1);
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4 | 5 | 6 | 7>(1);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [questionnaireData, setQuestionnaireData] = useState<QuestionnaireData>({
@@ -307,10 +312,9 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
 
       const result = await response.json();
       console.log('Questionnaire submitted successfully:', result);
-      // TODO: Navigate to next step or show success message
+      setCurrentStep(3);
     } catch (error) {
       console.error('Failed to submit questionnaire:', error);
-      // TODO: Show error toast/notification
     }
   };
 
@@ -318,35 +322,41 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
   const successCount = files.filter((f) => f.status === 'success').length;
   const errorCount = files.filter((f) => f.status === 'error').length;
 
+  const stepLabels: Record<number, string> = {
+    1: 'Upload Files',
+    2: 'Context Capture',
+    3: 'Draft Findings',
+    4: 'Expand Findings',
+    5: 'Snapshot Table',
+    6: '12-Month Plan',
+    7: 'Review & Export',
+  };
+
   return (
     <Card className={cn('w-full max-w-4xl mx-auto', className)}>
       <CardHeader>
-        <CardTitle>File Upload POC</CardTitle>
+        <CardTitle>BBA Report Builder</CardTitle>
         <CardDescription>
-          {currentStep === 1 
-            ? 'Step 1: Upload multiple files to OpenAI Files API. Files are validated on the frontend.'
-            : 'Step 2: Context Capture - Provide client information and preferences.'}
+          Step {currentStep}: {stepLabels[currentStep]}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Step Indicator */}
-        <div className="flex items-center gap-2 mb-6">
-          <div className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-lg",
-            currentStep === 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-          )}>
-            <span className="font-medium">Step 1: Upload Files</span>
-            {successCount > 0 && currentStep === 2 && (
-              <CheckCircle2 className="w-4 h-4" />
-            )}
-          </div>
-          <ArrowRight className="w-4 h-4 text-muted-foreground" />
-          <div className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-lg",
-            currentStep === 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-          )}>
-            <span className="font-medium">Step 2: Context Capture</span>
-          </div>
+        <div className="flex flex-wrap items-center gap-1 mb-6">
+          {([1, 2, 3, 4, 5, 6, 7] as const).map((step) => (
+            <React.Fragment key={step}>
+              {step > 1 && <ArrowRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
+              <div
+                className={cn(
+                  'flex items-center gap-1 px-2 py-1 rounded text-xs font-medium',
+                  currentStep === step ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                )}
+              >
+                <span>{step}. {stepLabels[step]}</span>
+                {currentStep > step && <CheckCircle2 className="w-3 h-3" />}
+              </div>
+            </React.Fragment>
+          ))}
         </div>
 
         {/* Step 1: File Upload */}
@@ -527,6 +537,50 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
             onBack={() => setCurrentStep(1)}
             files={files}
             successCount={successCount}
+          />
+        )}
+
+        {/* Step 3: Draft Findings */}
+        {currentStep === 3 && projectId && (
+          <DraftFindingsStep
+            projectId={projectId}
+            onComplete={() => setCurrentStep(4)}
+            onBack={() => setCurrentStep(2)}
+          />
+        )}
+
+        {/* Step 4: Expand Findings */}
+        {currentStep === 4 && projectId && (
+          <ExpandedFindingsStep
+            projectId={projectId}
+            onComplete={() => setCurrentStep(5)}
+            onBack={() => setCurrentStep(3)}
+          />
+        )}
+
+        {/* Step 5: Snapshot Table */}
+        {currentStep === 5 && projectId && (
+          <SnapshotTableStep
+            projectId={projectId}
+            onComplete={() => setCurrentStep(6)}
+            onBack={() => setCurrentStep(4)}
+          />
+        )}
+
+        {/* Step 6: 12-Month Plan */}
+        {currentStep === 6 && projectId && (
+          <TwelveMonthPlanStep
+            projectId={projectId}
+            onComplete={() => setCurrentStep(7)}
+            onBack={() => setCurrentStep(5)}
+          />
+        )}
+
+        {/* Step 7: Review & Export */}
+        {currentStep === 7 && projectId && (
+          <ReviewEditStep
+            projectId={projectId}
+            onBack={() => setCurrentStep(6)}
           />
         )}
       </CardContent>

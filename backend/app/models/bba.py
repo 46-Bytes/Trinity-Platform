@@ -52,6 +52,18 @@ class BBA(Base):
     # Step 5: Snapshot Table (future)
     snapshot_table = Column(JSONB, nullable=True, comment="Three-column table: Priority Area | Key Findings | Recommendations")
     
+    # Step 6: 12-Month Plan
+    twelve_month_plan = Column(JSONB, nullable=True, comment="Detailed recommendations with Purpose, Objectives, Actions, BBA Support, Outcomes")
+    plan_notes = Column(Text, nullable=True, comment="Notes/disclaimer for the 12-month plan")
+    
+    # Step 7: Final Report
+    executive_summary = Column(Text, nullable=True, comment="2-4 paragraph executive summary")
+    final_report = Column(JSONB, nullable=True, comment="Complete compiled report data")
+    report_version = Column(Integer, nullable=False, server_default='1', comment="Report version number")
+    
+    # Conversation history (for context continuity)
+    conversation_history = Column(JSONB, nullable=True, comment="Message history for AI conversation context")
+    
     # AI metadata
     ai_model_used = Column(String(100), nullable=True, comment="AI model used for analysis")
     ai_tokens_used = Column(Integer, nullable=True, comment="Total tokens used in AI processing")
@@ -90,6 +102,11 @@ class BBA(Base):
             "draft_findings_edited": self.draft_findings_edited,
             "expanded_findings": self.expanded_findings,
             "snapshot_table": self.snapshot_table,
+            "twelve_month_plan": self.twelve_month_plan,
+            "plan_notes": self.plan_notes,
+            "executive_summary": self.executive_summary,
+            "final_report": self.final_report,
+            "report_version": self.report_version,
             "ai_model_used": self.ai_model_used,
             "ai_tokens_used": self.ai_tokens_used,
             "created_at": self.created_at.isoformat() if self.created_at else None,

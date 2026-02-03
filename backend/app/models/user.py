@@ -254,7 +254,7 @@ class User(Base):
             "bio": self.bio,
             "email_verified": self.email_verified,
             "is_active": self.is_active,
-            "role": self.role.value if self.role else None,
+            "role": self.role if self.role else None,
             "firm_id": str(self.firm_id) if self.firm_id else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

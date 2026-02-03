@@ -60,6 +60,7 @@ app.add_middleware(
 )
 
 # Configure CORS
+# When allow_credentials=True, "*" cannot be used - must list specific origins
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -67,7 +68,11 @@ app.add_middleware(
         "http://localhost:5173",
         "http://localhost:3000",
         "http://localhost:8080",
-        "*",
+        "http://localhost:8000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8080",
+        "http://127.0.0.1:8000",
     ],
     allow_credentials=True,
     allow_methods=["*"],

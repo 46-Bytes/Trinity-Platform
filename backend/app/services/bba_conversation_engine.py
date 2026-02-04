@@ -2,7 +2,7 @@
 BBA Conversation Engine Service
 Manages the BBA diagnostic report generation workflow through Steps 3-7.
 """
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from uuid import UUID
 import json
 import logging
@@ -74,6 +74,42 @@ class BBAConversationEngine:
             "file_mappings": bba.file_mappings or {},
         }
     
+    def _separate_files_by_type(self, file_mappings: Dict[str, str]) -> Tuple[List[str], List[str]]:
+        """
+        Separate file IDs by type for proper OpenAI API routing.
+        
+        PDFs can be attached as input_file in messages.
+        CSV/TXT/XLSX/etc. must go through Code Interpreter container.
+        
+        Args:
+            file_mappings: Dictionary mapping filename to file_id
+            
+        Returns:
+            Tuple of (pdf_file_ids, ci_file_ids)
+        """
+        pdf_ext = {"pdf"}
+        ci_ext = {"csv", "txt", "text", "md", "markdown", "json", "xml", "yaml", "yml", "xlsx", "xls"}
+        
+        pdf_file_ids = []
+        ci_file_ids = []
+        
+        for filename, file_id in file_mappings.items():
+            if not file_id:
+                continue
+            
+            ext = Path(filename).suffix.lower().lstrip('.')
+            
+            if ext in pdf_ext:
+                pdf_file_ids.append(file_id)
+            elif ext in ci_ext:
+                ci_file_ids.append(file_id)
+            else:
+                # Unknown extension - default to Code Interpreter
+                logger.warning(f"[BBA Engine] Unknown file extension '{ext}' for {filename}, treating as Code Interpreter file")
+                ci_file_ids.append(file_id)
+        
+        return pdf_file_ids, ci_file_ids
+    
     async def generate_draft_findings(
         self, 
         bba: BBA,
@@ -139,15 +175,28 @@ Return your response as a JSON object.
             {"role": "user", "content": user_content}
         ]
         
-        # Get file IDs for attachment
-        file_ids = context['file_ids'] if context['file_ids'] else None
+        # Separate files by type: PDFs go as input_file, CSV/TXT/XLSX go to Code Interpreter
+        file_mappings = context['file_mappings'] or {}
+        pdf_file_ids, ci_file_ids = self._separate_files_by_type(file_mappings)
         
-        logger.info(f"[BBA Engine] Calling OpenAI with {len(file_ids) if file_ids else 0} files attached")
+        logger.info(f"[BBA Engine] File categorization: {len(pdf_file_ids)} PDF(s) for input_file, {len(ci_file_ids)} file(s) for Code Interpreter")
+        
+        # Build tools parameter for Code Interpreter if needed
+        tools = None
+        if ci_file_ids:
+            tools = [{
+                "type": "code_interpreter",
+                "container": {
+                    "type": "auto",
+                    "file_ids": ci_file_ids
+                }
+            }]
         
         try:
             result = await self.openai_service.generate_json_completion(
                 messages=messages,
-                file_ids=file_ids,
+                file_ids=pdf_file_ids if pdf_file_ids else None,  # Only PDFs as input_file
+                tools=tools,  # CSV/TXT/XLSX go to Code Interpreter
                 reasoning_effort="medium"
             )
             
@@ -225,13 +274,26 @@ Return your response as a JSON object.
             {"role": "user", "content": user_content}
         ]
         
-        # Attach files for additional context
-        file_ids = context['file_ids'] if context['file_ids'] else None
+        # Separate files by type: PDFs go as input_file, CSV/TXT/XLSX go to Code Interpreter
+        file_mappings = context['file_mappings'] or {}
+        pdf_file_ids, ci_file_ids = self._separate_files_by_type(file_mappings)
+        
+        # Build tools parameter for Code Interpreter if needed
+        tools = None
+        if ci_file_ids:
+            tools = [{
+                "type": "code_interpreter",
+                "container": {
+                    "type": "auto",
+                    "file_ids": ci_file_ids
+                }
+            }]
         
         try:
             result = await self.openai_service.generate_json_completion(
                 messages=messages,
-                file_ids=file_ids,
+                file_ids=pdf_file_ids if pdf_file_ids else None,  # Only PDFs as input_file
+                tools=tools,  # CSV/TXT/XLSX go to Code Interpreter
                 reasoning_effort="medium"
             )
             
@@ -393,13 +455,26 @@ Return your response as a JSON object.
             {"role": "user", "content": user_content}
         ]
         
-        # Attach files for reference
-        file_ids = context['file_ids'] if context['file_ids'] else None
+        # Separate files by type: PDFs go as input_file, CSV/TXT/XLSX go to Code Interpreter
+        file_mappings = context['file_mappings'] or {}
+        pdf_file_ids, ci_file_ids = self._separate_files_by_type(file_mappings)
+        
+        # Build tools parameter for Code Interpreter if needed
+        tools = None
+        if ci_file_ids:
+            tools = [{
+                "type": "code_interpreter",
+                "container": {
+                    "type": "auto",
+                    "file_ids": ci_file_ids
+                }
+            }]
         
         try:
             result = await self.openai_service.generate_json_completion(
                 messages=messages,
-                file_ids=file_ids,
+                file_ids=pdf_file_ids if pdf_file_ids else None,  # Only PDFs as input_file
+                tools=tools,  # CSV/TXT/XLSX go to Code Interpreter
                 reasoning_effort="high"
             )
             

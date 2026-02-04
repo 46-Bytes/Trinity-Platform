@@ -18,6 +18,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 from uuid import UUID
+from datetime import datetime
 import tempfile
 import os
 import logging
@@ -26,10 +27,9 @@ from app.services.openai_service import OpenAIService
 from app.services.bba_service import get_bba_service, BBAService
 from app.services.bba_conversation_engine import get_bba_conversation_engine
 from app.utils.auth import get_current_user
-from app.utils.excel_converter import convert_if_excel, is_excel_file
 from app.models.user import User
 from app.database import get_db
-from pathlib import Path
+from app.services.bba_report_export import BBAReportExporter
 from app.schemas.bba import (
     BBAQuestionnaire, 
     BBAResponse,
@@ -123,59 +123,30 @@ async def upload_files_poc(
     # Process each file
     for file in files:
         temp_file_path = None
-        converted_file_path = None
-        original_filename = file.filename
         try:
             # Read file content
             file_content = await file.read()
             file_size = len(file_content)
             
-            logger.info(f"Processing file: {original_filename} (size: {file_size} bytes)")
+            logger.info(f"Processing file: {file.filename} (size: {file_size} bytes)")
             
             # Create temporary file for OpenAI upload
-            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(original_filename)[1]) as temp_file:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
                 temp_file.write(file_content)
                 temp_file_path = temp_file.name
-            
-            # Convert Excel files to TXT before uploading
-            # Excel/CSV files must go through Code Interpreter, not as input_file attachments
-            upload_file_path = temp_file_path
-            upload_filename = original_filename
-            
-            if is_excel_file(original_filename):
-                logger.info(f"Converting Excel file {original_filename} to TXT for OpenAI compatibility...")
-                converted_path, converted_filename, was_converted = convert_if_excel(
-                    temp_file_path,
-                    original_filename,
-                    keep_original=True  # Keep original temp file for cleanup
-                )
-                
-                if was_converted:
-                    upload_file_path = converted_path
-                    upload_filename = converted_filename
-                    converted_file_path = converted_path
-                    logger.info(f"✅ Converted {original_filename} to {converted_filename}")
-                else:
-                    error_msg = f"Failed to convert {original_filename}. Excel files must be converted to TXT for OpenAI compatibility."
-                    logger.error(f"❌ {error_msg}")
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=error_msg
-                    )
             
             try:
                 # Upload to OpenAI Files API
                 openai_result = await openai_service.upload_file(
-                    file_path=upload_file_path,
+                    file_path=temp_file_path,
                     purpose="assistants"  # Standard purpose for file uploads
                 )
                 
                 if openai_result and openai_result.get("id"):
                     file_id = openai_result["id"]
-                    # Use original filename for mapping (even if converted)
-                    filename = original_filename
+                    filename = file.filename
                     
-                    # Store mapping with original filename (converted files will be handled by Code Interpreter)
+                    # Store mapping and file_id
                     file_mapping[filename] = file_id
                     file_ids.append(file_id)
                     
@@ -210,14 +181,12 @@ async def upload_files_poc(
                     "error": str(openai_error)
                 })
             finally:
-                # Clean up temporary files
+                # Clean up temporary file
                 try:
                     if temp_file_path and os.path.exists(temp_file_path):
                         os.unlink(temp_file_path)
-                    if converted_file_path and os.path.exists(converted_file_path) and converted_file_path != temp_file_path:
-                        os.unlink(converted_file_path)
                 except Exception as cleanup_error:
-                    logger.warning(f"Failed to cleanup temp files: {str(cleanup_error)}")
+                    logger.warning(f"Failed to cleanup temp file {temp_file_path}: {str(cleanup_error)}")
                     
         except Exception as e:
             logger.error(f"Error processing file {file.filename}: {str(e)}", exc_info=True)
@@ -905,7 +874,6 @@ async def export_to_word(
         )
     
     try:
-        from app.services.bba_report_export import BBAReportExporter
         
         exporter = BBAReportExporter()
         doc_bytes = exporter.generate_report(bba)
@@ -918,12 +886,11 @@ async def export_to_word(
             "twelve_month_plan": bba.twelve_month_plan,
             "exported_at": datetime.utcnow().isoformat()
         }
-        from datetime import datetime
         bba_service.update_final_report(project_id, final_report)
         
         # Create filename
         client_name = bba.client_name or "Client"
-        filename = f"BBA_Diagnostic_Report_{client_name.replace(' ', '_')}.docx"
+        filename = f"{client_name.replace(' ', '_')} - Diagnostic Findings and Recommendations Report.docx"
         
         # Return as streaming response
         return StreamingResponse(

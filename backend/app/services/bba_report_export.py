@@ -6,6 +6,7 @@ from typing import Optional
 from datetime import datetime
 import io
 import logging
+from pathlib import Path
 
 try:
     from docx import Document
@@ -119,11 +120,352 @@ class BBAReportExporter:
         """Add a page break."""
         doc.add_page_break()
     
+    def _get_main_image_path(self) -> Optional[str]:
+        """Get the path to the main full-width image."""
+        base_dir = Path(__file__).resolve().parents[2]
+        images_dir = base_dir / "files" / "prompts" / "bba" / "images"
+        img_path = images_dir / "bba_picture.png"
+        
+        if img_path.exists():
+            return str(img_path)
+        else:
+            logger.warning(f"[BBA Export] Main image not found: {img_path}")
+            return None
+    
+    def _get_grid_image_paths(self) -> list:
+        """Get list of image paths for the grid row."""
+        base_dir = Path(__file__).resolve().parents[2]
+        images_dir = base_dir / "files" / "prompts" / "bba" / "images"
+        
+        # Define image filenames in the order you want them displayed
+        image_files = [
+            "unnamed (2).jpg",
+            "unnamed (3).jpg",
+            "unnamed.jpg",
+            "bba_picture_3.jpg"
+        ]
+        
+        # Build full paths and filter out non-existent files
+        image_paths = []
+        for img_file in image_files:
+            img_path = images_dir / img_file
+            if img_path.exists():
+                image_paths.append(str(img_path))
+            else:
+                logger.warning(f"[BBA Export] Grid image not found: {img_path}")
+        
+        return image_paths
+    
+    def _add_full_width_image(self, doc: Document, image_path: str):
+        """
+        Add a single image at full width.
+        
+        Args:
+            doc: Document object
+            image_path: Path to the image file
+        """
+        try:
+            # Get page width (standard US Letter is 8.5 inches, with 1 inch margins = 6.5 inches)
+            # Or use section width
+            section = doc.sections[0]
+            page_width = section.page_width
+            left_margin = section.left_margin
+            right_margin = section.right_margin
+            available_width = page_width - left_margin - right_margin
+            
+            # Create paragraph for the image
+            para = doc.add_paragraph()
+            para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            
+            run = para.add_run()
+            # Add picture with full available width
+            run.add_picture(image_path, width=available_width)
+            
+            logger.info(f"[BBA Export] Added full-width image: {image_path}")
+        except Exception as e:
+            logger.error(f"[BBA Export] Failed to add full-width image {image_path}: {str(e)}")
+    
+    def _add_image_grid(self, doc: Document, image_paths: list, cols: int = 4, width=None):
+        """
+        Add images in a grid layout using a table.
+        Images are same size, no gaps, full width.
+        
+        Args:
+            doc: Document object
+            image_paths: List of image file paths
+            cols: Number of columns in the grid
+            width: Width of each image (Inches object) - if None, calculated from full page width
+        """
+        if not image_paths:
+            return
+        
+        # Get full available width (no gaps)
+        section = doc.sections[0]
+        page_width = section.page_width
+        left_margin = section.left_margin
+        right_margin = section.right_margin
+        available_width = page_width - left_margin - right_margin
+        
+        # Calculate image size - use full width divided by columns
+        # Increase size by using 100% of available width
+        if width is None:
+            image_width = available_width / cols
+        else:
+            image_width = width
+        
+        # Use same height as width to ensure all images are same size
+        image_height = image_width
+        
+        # Calculate number of rows needed
+        rows = (len(image_paths) + cols - 1) // cols  # Ceiling division
+        
+        # Create table for grid layout
+        table = doc.add_table(rows=rows, cols=cols)
+        table.style = None  # No border style
+        
+        # Import for cell padding removal
+        from docx.oxml.ns import nsdecls
+        from docx.oxml import parse_xml
+        
+        # Remove all cell padding and spacing to eliminate gaps
+        tbl = table._tbl
+        tblPr = tbl.tblPr
+        if tblPr is None:
+            tblPr = parse_xml(f'<w:tblPr {nsdecls("w")}/>')
+            tbl.insert(0, tblPr)
+        
+        # Set table to full width (convert inches to twips: 1 inch = 1440 twips)
+        # available_width is in EMU (English Metric Units), need to convert to twips
+        # 1 inch = 914400 EMU, 1 inch = 1440 twips, so 1 EMU = 1440/914400 twips
+        available_width_twips = int((available_width / 914400) * 1440)
+        tblW = parse_xml(f'<w:tblW {nsdecls("w")} w:w="{available_width_twips}" w:type="dxa"/>')
+        # Remove existing tblW if present
+        for elem in tblPr:
+            if elem.tag.endswith('tblW'):
+                tblPr.remove(elem)
+        tblPr.append(tblW)
+        
+        # Remove table indentation to ensure it starts at left margin
+        tblInd = parse_xml(f'<w:tblInd {nsdecls("w")} w:w="0" w:type="dxa"/>')
+        # Remove existing tblInd if present
+        for elem in tblPr:
+            if elem.tag.endswith('tblInd'):
+                tblPr.remove(elem)
+        tblPr.append(tblInd)
+        
+        # Fill table cells with images
+        for idx, img_path in enumerate(image_paths):
+            row_idx = idx // cols
+            col_idx = idx % cols
+            
+            cell = table.rows[row_idx].cells[col_idx]
+            cell.vertical_alignment = 1  # Center vertically
+            
+            # Remove cell margins/padding to eliminate gaps
+            tc = cell._tc
+            tcPr = tc.get_or_add_tcPr()
+            
+            # Remove top margin
+            tcMar = parse_xml(f'<w:tcMar {nsdecls("w")}/>')
+            for margin in ['top', 'left', 'bottom', 'right']:
+                mar = parse_xml(f'<w:{margin} {nsdecls("w")} w:w="0" w:type="dxa"/>')
+                tcMar.append(mar)
+            tcPr.append(tcMar)
+            
+            # Remove paragraph spacing
+            cell.paragraphs[0].clear()
+            paragraph = cell.paragraphs[0]
+            paragraph.paragraph_format.space_before = Pt(0)
+            paragraph.paragraph_format.space_after = Pt(0)
+            paragraph.paragraph_format.line_spacing = 1.0
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            
+            try:
+                run = paragraph.add_run()
+                # Add picture with fixed width AND height (same size for all images)
+                run.add_picture(img_path, width=image_width, height=image_height)
+            except Exception as e:
+                logger.error(f"[BBA Export] Failed to add image {img_path}: {str(e)}")
+                # Add placeholder text if image fails
+                run = paragraph.add_run(f"[Image {idx + 1}]")
+                run.font.size = Pt(8)
+                run.font.color.rgb = RGBColor(128, 128, 128)
+        
+        # Set column widths to be equal and full width (no gaps)
+        col_width = available_width / cols  # Full width divided by columns
+        
+        # Set width for all cells to ensure full width table
+        for row in table.rows:
+            for cell in row.cells:
+                cell.width = col_width
+    
+    def _get_australia_map_path(self) -> Optional[str]:
+        """Get the path to the Australia map outline image."""
+        base_dir = Path(__file__).resolve().parents[2]
+        images_dir = base_dir / "files" / "prompts" / "bba" / "images"
+        img_path = images_dir / "bba_picture_2.png"
+        
+        if img_path.exists():
+            return str(img_path)
+        else:
+            logger.warning(f"[BBA Export] Australia map image not found: {img_path}")
+            return None
+    
+    def _add_blue_banner(self, doc: Document):
+        """
+        Add a blue banner with text and Australia map image.
+        Full width banner with blue background.
+        """
+        try:
+            # Get available width
+            section = doc.sections[0]
+            page_width = section.page_width
+            left_margin = section.left_margin
+            right_margin = section.right_margin
+            available_width = page_width - left_margin - right_margin
+            
+            # Get Australia map image path
+            map_image_path = self._get_australia_map_path()
+            
+            # Create a table with 2 columns for the banner
+            table = doc.add_table(rows=1, cols=2)
+            table.style = None  # No border style
+            
+            # Import for styling
+            from docx.oxml.ns import nsdecls
+            from docx.oxml import parse_xml
+            
+            # Set table to full width
+            tbl = table._tbl
+            tblPr = tbl.tblPr
+            if tblPr is None:
+                tblPr = parse_xml(f'<w:tblPr {nsdecls("w")}/>')
+                tbl.insert(0, tblPr)
+            
+            available_width_twips = int((available_width / 914400) * 1440)
+            tblW = parse_xml(f'<w:tblW {nsdecls("w")} w:w="{available_width_twips}" w:type="dxa"/>')
+            for elem in tblPr:
+                if elem.tag.endswith('tblW'):
+                    tblPr.remove(elem)
+            tblPr.append(tblW)
+            
+            # Remove table indentation
+            tblInd = parse_xml(f'<w:tblInd {nsdecls("w")} w:w="0" w:type="dxa"/>')
+            for elem in tblPr:
+                if elem.tag.endswith('tblInd'):
+                    tblPr.remove(elem)
+            tblPr.append(tblInd)
+            
+            # Left cell - Text
+            left_cell = table.rows[0].cells[0]
+            left_cell.vertical_alignment = 1  # Center vertically
+            
+            # Set blue background for left cell
+            tc = left_cell._tc
+            tcPr = tc.get_or_add_tcPr()
+            shading = parse_xml(f'<w:shd {nsdecls("w")} w:fill="1a365d"/>')  # Dark blue
+            # Remove existing shading if present
+            for elem in tcPr:
+                if elem.tag.endswith('shd'):
+                    tcPr.remove(elem)
+            tcPr.append(shading)
+            
+            # Remove cell margins
+            tcMar = parse_xml(f'<w:tcMar {nsdecls("w")}/>')
+            for margin in ['top', 'left', 'bottom', 'right']:
+                mar = parse_xml(f'<w:{margin} {nsdecls("w")} w:w="120" w:type="dxa"/>')  # Small padding
+                tcMar.append(mar)
+            # Remove existing tcMar if present
+            for elem in tcPr:
+                if elem.tag.endswith('tcMar'):
+                    tcPr.remove(elem)
+            tcPr.append(tcMar)
+            
+            # Add text to left cell
+            left_cell.paragraphs[0].clear()
+            left_para = left_cell.paragraphs[0]
+            left_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            left_para.paragraph_format.space_before = Pt(6)
+            left_para.paragraph_format.space_after = Pt(6)
+            
+            text_run = left_para.add_run("Australia's Small to Medium Business Advisors")
+            text_run.font.size = Pt(14)
+            text_run.font.color.rgb = RGBColor(255, 255, 255)  # White text
+            text_run.bold = True
+            
+            # Right cell - Australia map image
+            right_cell = table.rows[0].cells[1]
+            right_cell.vertical_alignment = 1  # Center vertically
+            
+            # Set blue background for right cell too
+            tc_right = right_cell._tc
+            tcPr_right = tc_right.get_or_add_tcPr()
+            shading_right = parse_xml(f'<w:shd {nsdecls("w")} w:fill="1a365d"/>')  # Dark blue
+            for elem in tcPr_right:
+                if elem.tag.endswith('shd'):
+                    tcPr_right.remove(elem)
+            tcPr_right.append(shading_right)
+            
+            # Remove cell margins
+            tcMar_right = parse_xml(f'<w:tcMar {nsdecls("w")}/>')
+            for margin in ['top', 'left', 'bottom', 'right']:
+                mar = parse_xml(f'<w:{margin} {nsdecls("w")} w:w="120" w:type="dxa"/>')  # Small padding
+                tcMar_right.append(mar)
+            for elem in tcPr_right:
+                if elem.tag.endswith('tcMar'):
+                    tcPr_right.remove(elem)
+            tcPr_right.append(tcMar_right)
+            
+            # Add image to right cell
+            right_cell.paragraphs[0].clear()
+            right_para = right_cell.paragraphs[0]
+            right_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            right_para.paragraph_format.space_before = Pt(0)
+            right_para.paragraph_format.space_after = Pt(0)
+            
+            if map_image_path:
+                try:
+                    right_run = right_para.add_run()
+                    # Add map image - size it appropriately (about 1.5 inches height)
+                    right_run.add_picture(map_image_path, height=Inches(1.5))
+                except Exception as e:
+                    logger.error(f"[BBA Export] Failed to add map image: {str(e)}")
+            
+            # Set column widths - text takes more space, image takes less
+            left_cell.width = available_width * 0.7  # 70% for text
+            right_cell.width = available_width * 0.3  # 30% for image
+            
+            logger.info(f"[BBA Export] Added blue banner with Australia map")
+            
+        except Exception as e:
+            logger.error(f"[BBA Export] Failed to add blue banner: {str(e)}")
+    
     def _add_title_page(self, doc: Document, bba: BBA):
-        """Add the title page."""
-        # Add spacing at top
-        for _ in range(8):
-            doc.add_paragraph()
+        """Add the title page with images at the top."""
+        # Add small spacing at top
+        doc.add_paragraph()
+        
+        # Add main full-width image at the top
+        main_image_path = self._get_main_image_path()
+        if main_image_path:
+            self._add_full_width_image(doc, main_image_path)
+            doc.add_paragraph()  # Spacing after main image
+        
+        # Add grid of 4 images in one row
+        grid_image_paths = self._get_grid_image_paths()
+        if grid_image_paths:
+            self._add_image_grid(doc, grid_image_paths, cols=4)
+            doc.add_paragraph()  # Spacing after grid
+        
+        # Add blue banner with Australia map below the 4 images
+        self._add_blue_banner(doc)
+        doc.add_paragraph()  # Spacing after banner
+        doc.add_paragraph()
+        
+        # If no images, add spacing
+        if not main_image_path and not grid_image_paths:
+            for _ in range(8):
+                doc.add_paragraph()
         
         # Title
         title = doc.add_paragraph()
@@ -178,37 +520,67 @@ class BBAReportExporter:
         
         snapshot = bba.snapshot_table
         if not snapshot:
+            logger.warning(f"[BBA Export] No snapshot_table data for BBA {bba.id}")
             return
         
-        rows_data = snapshot.get('rows', [])
-        if not rows_data:
+        # Handle both nested and non-nested data structures
+        # The data might be stored as {"rows": [...]} or {"snapshot_table": {"rows": [...]}}
+        if isinstance(snapshot, dict):
+            if 'snapshot_table' in snapshot:
+                snapshot = snapshot['snapshot_table']
+            rows_data = snapshot.get('rows', [])
+        else:
+            logger.warning(f"[BBA Export] snapshot_table is not a dict: {type(snapshot)}")
             return
+        
+        if not rows_data:
+            logger.warning(f"[BBA Export] No rows in snapshot_table for BBA {bba.id}")
+            return
+        
+        logger.info(f"[BBA Export] Adding snapshot table with {len(rows_data)} rows")
         
         # Create table
         table = doc.add_table(rows=1, cols=4)
         table.style = 'Table Grid'
         table.alignment = WD_TABLE_ALIGNMENT.CENTER
         
-        # Header row
+        # Header row - use proper run creation for formatting
         header_cells = table.rows[0].cells
         headers = ['#', 'Priority Area', 'Key Finding', 'Recommendation']
+        
+        from docx.oxml.ns import nsdecls
+        from docx.oxml import parse_xml
+        
         for i, header in enumerate(headers):
-            header_cells[i].text = header
-            header_cells[i].paragraphs[0].runs[0].bold = True
+            # Clear any existing content
+            header_cells[i].text = ''
+            # Create a new run with the header text
+            run = header_cells[i].paragraphs[0].add_run(header)
+            run.bold = True
+            run.font.color.rgb = RGBColor(255, 255, 255)
+            
             # Set background color for header
-            from docx.oxml.ns import nsdecls
-            from docx.oxml import parse_xml
             shading = parse_xml(f'<w:shd {nsdecls("w")} w:fill="1a365d"/>')
             header_cells[i]._tc.get_or_add_tcPr().append(shading)
-            header_cells[i].paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
         
         # Data rows
         for row_data in rows_data:
             row = table.add_row()
+            # Rank
             row.cells[0].text = str(row_data.get('rank', ''))
-            row.cells[1].text = row_data.get('priority_area', '')
-            row.cells[2].text = row_data.get('key_finding', '')
-            row.cells[3].text = row_data.get('recommendation', '')
+
+            # Priority Area (keep this column bold)
+            priority_text = str(row_data.get('priority_area', ''))
+            priority_cell = row.cells[1]
+            priority_cell.text = ''
+            priority_run = priority_cell.paragraphs[0].add_run(priority_text)
+            priority_run.bold = True
+
+            # Key Finding
+            row.cells[2].text = str(row_data.get('key_finding', ''))
+
+            # Recommendation
+            row.cells[3].text = str(row_data.get('recommendation', ''))
         
         # Set column widths
         widths = [Inches(0.4), Inches(1.2), Inches(2.7), Inches(2.7)]
@@ -216,6 +588,7 @@ class BBAReportExporter:
             for i, cell in enumerate(row.cells):
                 cell.width = widths[i]
         
+        logger.info(f"[BBA Export] Snapshot table added successfully")
         doc.add_paragraph()  # Spacing
         self._add_page_break(doc)
     

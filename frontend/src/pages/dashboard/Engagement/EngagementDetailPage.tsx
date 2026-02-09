@@ -705,16 +705,6 @@ export default function EngagementDetailPage() {
 
         <TabsContent value="overview" className="mt-6">
           <div className="space-y-6">
-            {/* Engagement Summary Card - Hidden for admins */}
-            {!isAdmin && (
-              <div className="card-trinity p-6">
-                <h2 className="text-xl font-semibold mb-4">Engagement Overview</h2>
-                <p className="text-muted-foreground">
-                  Engagement overview and details will be displayed here.
-                </p>
-                {/* TODO: Add engagement overview content */}
-              </div>
-            )}
 
             {/* Generated Files Section - Visible to all, but filtered by role */}
             <div className="card-trinity p-6">

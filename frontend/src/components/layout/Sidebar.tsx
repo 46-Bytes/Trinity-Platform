@@ -19,7 +19,8 @@ import {
   BarChart3,
   Shield,
   MessageSquare,
-  CreditCard
+  CreditCard,
+  FlaskConical
 } from 'lucide-react';
 import { UserRole } from '@/types/auth';
 
@@ -52,6 +53,7 @@ const navItems: NavItem[] = [
   // { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, roles: ['super_admin', 'firm_admin'] },
   { label: 'Firm Management', href: '/dashboard/firm', icon: Building2, roles: ['firm_admin'] },
   { label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
+  { label: 'POC', href: '/poc/file-upload', icon: FlaskConical, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
 ];
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {

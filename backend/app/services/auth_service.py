@@ -185,8 +185,6 @@ class AuthService:
                 # Extremely rare: backfill role only if it's somehow missing in DB
                 print(f" Backfilling missing role from Auth0: {auth0_role.value}")
                 user.role = auth0_role
-            else:
-                print(f" Preserving existing role from DB: {user.role.value}")
             
             user.last_login = datetime.utcnow()
             user.updated_at = datetime.utcnow()

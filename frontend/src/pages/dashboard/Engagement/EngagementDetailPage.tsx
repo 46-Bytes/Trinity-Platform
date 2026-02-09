@@ -34,6 +34,8 @@ export default function EngagementDetailPage() {
   const [diagnostics, setDiagnostics] = useState<any[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [engagement, setEngagement] = useState<{ client_name?: string } | null>(null);
+  const [isLoadingEngagement, setIsLoadingEngagement] = useState(false);
   const fetchInFlightRef = useRef(false);
   
   // Get tags from Redux store
@@ -46,6 +48,38 @@ export default function EngagementDetailPage() {
   
   // Listen to Redux diagnostic state to detect when diagnostic is submitted
   const reduxDiagnostic = useAppSelector((state) => state.diagnostic.diagnostic);
+
+  // Fetch engagement details to get client name
+  const fetchEngagement = useCallback(async () => {
+    if (!engagementId) return;
+    
+    setIsLoadingEngagement(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+
+      const response = await fetch(`${API_BASE_URL}/api/engagements/${engagementId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const engagementData = await response.json();
+        setEngagement(engagementData);
+      }
+    } catch (error) {
+      console.error('Failed to fetch engagement:', error);
+    } finally {
+      setIsLoadingEngagement(false);
+    }
+  }, [engagementId]);
+
+  // Fetch engagement details on mount
+  useEffect(() => {
+    fetchEngagement();
+  }, [fetchEngagement]);
 
   // Fetch diagnostics for this engagement
   const fetchDiagnostics = useCallback(async () => {
@@ -644,7 +678,9 @@ export default function EngagementDetailPage() {
   return (
     <div className="w-full mx-auto px-0 sm:px-1 md:px-3 lg:px-6 py-2 sm:py-3 md:py-6" style={{ width: '100%', boxSizing: 'border-box', maxWidth: '100vw', overflowX: 'clip', paddingLeft: 'clamp(0px, 1vw, 24px)', paddingRight: 'clamp(0px, 1vw, 24px)' }}>
       <div className="mb-4 sm:mb-6" style={{ width: '100%', maxWidth: '100%' }}>
-        <h1 className="text-2xl sm:text-3xl font-bold break-words" style={{ maxWidth: '100%' }}>Engagement Details</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold break-words" style={{ maxWidth: '100%' }}>
+          {isLoadingEngagement ? 'Loading...' : (engagement?.client_name || 'Engagement Details')}
+        </h1>
         <p className="text-muted-foreground mt-1 break-words" style={{ maxWidth: '100%' }}>Manage your client engagement</p>
       </div>
       

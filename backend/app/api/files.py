@@ -249,7 +249,7 @@ async def update_file_tag(
     for diagnostic in media.diagnostics:
         if diagnostic.engagement_id:
             engagement = db.query(Engagement).filter(Engagement.id == diagnostic.engagement_id).first()
-            if engagement and check_engagement_access(engagement, current_user):
+            if engagement and check_engagement_access(engagement, current_user, db=db):
                 has_access = True
                 break
     

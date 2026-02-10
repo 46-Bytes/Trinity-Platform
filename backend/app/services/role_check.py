@@ -8,6 +8,7 @@ from jose import jwt, JWTError
 from ..database import get_db
 from ..models.user import User, UserRole
 from ..models.impersonation import ImpersonationSession
+from ..models.adv_client import AdvisorClient
 from ..config import settings
 
 
@@ -132,7 +133,8 @@ def get_current_user_from_token(
 def check_engagement_access(
     engagement,
     user: User,
-    require_advisor: bool = False
+    require_advisor: bool = False,
+    db: Session | None = None,
 ) -> bool:
     """
     Check if user has access to an engagement.
@@ -169,6 +171,23 @@ def check_engagement_access(
             return True
         if engagement.secondary_advisor_ids and user.id in engagement.secondary_advisor_ids:
             return True
+
+        # If we have a DB session, also allow access when the advisor is
+        # actively associated with the client via AdvisorClient. This ensures
+        if db is not None and engagement.client_id is not None:
+            association_exists = (
+                db.query(AdvisorClient)
+                .filter(
+                    AdvisorClient.advisor_id == user.id,
+                    AdvisorClient.client_id == engagement.client_id,
+                    AdvisorClient.status == "active",
+                )
+                .first()
+                is not None
+            )
+            if association_exists:
+                return True
+
         return False
     
     # Firm Advisor access
@@ -177,6 +196,21 @@ def check_engagement_access(
             return True
         if engagement.secondary_advisor_ids and user.id in engagement.secondary_advisor_ids:
             return True
+
+        if db is not None and engagement.client_id is not None:
+            association_exists = (
+                db.query(AdvisorClient)
+                .filter(
+                    AdvisorClient.advisor_id == user.id,
+                    AdvisorClient.client_id == engagement.client_id,
+                    AdvisorClient.status == "active",
+                )
+                .first()
+                is not None
+            )
+            if association_exists:
+                return True
+
         return False
     
     # Client access

@@ -18,6 +18,7 @@ class ConversationBase(BaseModel):
 class ConversationCreate(ConversationBase):
     """Schema for creating a new conversation"""
     diagnostic_id: Optional[UUID] = Field(None, description="Optional diagnostic ID to link conversation to")
+    engagement_id: Optional[UUID] = Field(None, description="Optional engagement ID to scope conversation")
 
 
 class ConversationResponse(ConversationBase):

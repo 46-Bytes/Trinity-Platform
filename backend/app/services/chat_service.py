@@ -33,7 +33,8 @@ class ChatService:
         self,
         user_id: UUID,
         category: str = "general",
-        diagnostic_id: Optional[UUID] = None
+        diagnostic_id: Optional[UUID] = None,
+        engagement_id: Optional[UUID] = None
     ) -> Conversation:
         """
         Get or create a conversation for a user.
@@ -47,16 +48,23 @@ class ChatService:
             user_id: UUID of the user
             category: Conversation category (general, finance, etc.)
             diagnostic_id: Optional diagnostic ID to link to conversation
+            engagement_id: Optional engagement ID for conversation isolation
             
         Returns:
             Conversation model
         """
         
         # Find an existing conversation for this user and category
-        existing_conversation = self.db.query(Conversation).filter(
+        query = self.db.query(Conversation).filter(
             Conversation.user_id == user_id,
             Conversation.category == category
-        ).order_by(Conversation.updated_at.desc()).first()
+        )
+
+        if engagement_id:
+            engagement_scope_token = self._build_engagement_scope_token(engagement_id)
+            query = query.filter(Conversation.title.ilike(f"%{engagement_scope_token}%"))
+
+        existing_conversation = query.order_by(Conversation.updated_at.desc()).first()
         
         if existing_conversation:
             if diagnostic_id:
@@ -73,7 +81,7 @@ class ChatService:
         conversation = Conversation(
             user_id=user_id,
             category=category,
-            title=f"{category.title()} Chat" if category != "general" else None
+            title=self._build_scoped_conversation_title(category, engagement_id)
         )
         
         self.db.add(conversation)
@@ -101,6 +109,19 @@ class ChatService:
         # Can be added later if needed
         
         return conversation
+
+    def _build_engagement_scope_token(self, engagement_id: UUID) -> str:
+        """Build a stable token used to scope conversations per engagement."""
+        return f"[engagement:{engagement_id}]"
+
+    def _build_scoped_conversation_title(self, category: str, engagement_id: Optional[UUID]) -> Optional[str]:
+        """Build conversation title and append engagement scope token when available."""
+        base_title = f"{category.title()} Chat" if category != "general" else "General Chat"
+
+        if not engagement_id:
+            return None if category == "general" else base_title
+
+        return f"{base_title} {self._build_engagement_scope_token(engagement_id)}"
     
     def get_user_conversations(self, user_id: UUID) -> List[Conversation]:
         """
@@ -175,6 +196,13 @@ class ChatService:
         
         if not conversation:
             raise ValueError(f"Conversation {conversation_id} not found or unauthorized")
+
+        if engagement_id:
+            expected_scope_token = self._build_engagement_scope_token(engagement_id)
+            if not conversation.title or expected_scope_token not in conversation.title:
+                raise ValueError(
+                    "Conversation does not belong to this engagement. Please start a new chat in this engagement."
+                )
         
         user_message = Message(
             conversation_id=conversation_id,
@@ -441,36 +469,36 @@ class ChatService:
                 Diagnostic.created_by_user_id == conversation.user_id,
                 Diagnostic.status == "completed"
             ).order_by(Diagnostic.completed_at.desc()).first()
-            
-            if diagnostic:
-                return None
         
         if not diagnostic:
             return None
-        
-        context_parts = []
-        
-        # Add diagnostic summary
-        if diagnostic.ai_analysis and isinstance(diagnostic.ai_analysis, dict):
-            summary = diagnostic.ai_analysis.get("summary", "")
-            if summary:
-                context_parts.append(f"Diagnostic Summary:\n{summary}")
-        
-            advice = diagnostic.ai_analysis.get("advisorReport", "")
-            if advice:
-                # Truncate advice to first 2000 characters if too long
-                advice_truncated = advice[:2000] + "..." if len(advice) > 2000 else advice
-                context_parts.append(f"Diagnostic Advice:\n{advice_truncated}")
-        
-        if context_parts:
-            context = (
-                "Use the following information from the user's completed diagnostic to respond. "
-                "Remind the user about significant information and events from their diagnostic.\n\n"
-                + "\n\n".join(context_parts)
-            )
-            return context
-        
-        return None
+
+        # Provide full diagnostic context (not only summary/advice).
+        # This gives the chatbot access to complete diagnostic data for better answers.
+        full_diagnostic_payload = {
+            "id": str(diagnostic.id),
+            "engagement_id": str(diagnostic.engagement_id),
+            "created_by_user_id": str(diagnostic.created_by_user_id),
+            "status": diagnostic.status,
+            "diagnostic_type": diagnostic.diagnostic_type,
+            "diagnostic_version": diagnostic.diagnostic_version,
+            "overall_score": float(diagnostic.overall_score) if diagnostic.overall_score is not None else None,
+            "started_at": diagnostic.started_at.isoformat() if diagnostic.started_at else None,
+            "completed_at": diagnostic.completed_at.isoformat() if diagnostic.completed_at else None,
+            "questions": diagnostic.questions,
+            "module_scores": diagnostic.module_scores,
+            "scoring_data": diagnostic.scoring_data,
+            "ai_analysis": diagnostic.ai_analysis,
+            "user_responses": diagnostic.user_responses,
+        }
+
+        context = (
+            "Use the following completed diagnostic as source-of-truth context for this conversation. "
+            "Base your answers on this data, reference relevant findings when helpful, and keep recommendations aligned "
+            "with the diagnostic.\n\n"
+            f"Full Diagnostic JSON:\n{json.dumps(full_diagnostic_payload, default=str)}"
+        )
+        return context
     
     async def _generate_welcome_message(self, category: str) -> Optional[str]:
         """

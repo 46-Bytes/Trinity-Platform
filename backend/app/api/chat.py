@@ -61,7 +61,7 @@ async def create_conversation(
     Create a new conversation.
     
     Args:
-        conversation_data: Conversation creation data (category, optional diagnostic_id)
+        conversation_data: Conversation creation data (category, optional diagnostic_id, optional engagement_id)
         
     Returns:
         Created conversation
@@ -77,7 +77,8 @@ async def create_conversation(
     conversation = chat_service.get_or_create_conversation(
         user_id=current_user.id,
         category=conversation_data.category,
-        diagnostic_id=conversation_data.diagnostic_id
+        diagnostic_id=conversation_data.diagnostic_id,
+        engagement_id=conversation_data.engagement_id
     )
     
     logger.info(f"  API: Conversation created/retrieved: {conversation.id}")

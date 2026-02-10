@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Search, MoreHorizontal, Building2, Loader2, Eye, Plus, Mail, Phone, Trash2 } from 'lucide-react';
+import { Search, Building2, Loader2, Eye, Plus, Mail, Phone, Trash2 } from 'lucide-react';
 import { cn, getUniqueClientIds } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchEngagements } from '@/store/slices/engagementReducer';
@@ -11,12 +11,6 @@ import {
   getClientFetchingStrategy,
   type Client as ClientType,
 } from '@/lib/clientFetcher';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -36,6 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { SERVFAIL } from 'dns';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -207,7 +202,8 @@ export default function ClientsPage() {
   }, [shouldUseFirmClients, strategy.shouldUseAdminClients, firmClients, adminClients, clients]);
 
   const clientsWithEngagements = useMemo<Client[]>(() => {
-    if (shouldUseFirmClients || strategy.shouldUseAdminClients) {
+    // For admin-wide clients, just return base clients without engagement aggregation
+    if (strategy.shouldUseAdminClients) {
       return baseClients;
     }
 
@@ -262,7 +258,7 @@ export default function ClientsPage() {
         engagements: clientEngagements.engagementCount,
       };
     });
-  }, [baseClients, engagements, shouldUseFirmClients, strategy.shouldUseAdminClients]);
+  }, [baseClients, engagements, strategy.shouldUseAdminClients]);
 
 
   const filteredClients = clientsWithEngagements.filter(c => {
@@ -543,7 +539,15 @@ export default function ClientsPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 w-full min-w-0">
               {filteredClients.map((client) => (
-                <div key={client.id} className="card-trinity p-3 sm:p-4 md:p-5 hover:shadow-trinity-md cursor-pointer group w-full min-w-0" style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+                <div
+                  key={client.id}
+                  onClick={() => {
+                    setSelectedClient(client);
+                    setIsDetailDialogOpen(true);
+                  }}
+                  className="card-trinity p-3 sm:p-4 md:p-5 hover:shadow-trinity-md cursor-pointer group w-full min-w-0"
+                  style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
+                >
                   <div className="flex items-start justify-between mb-3 sm:mb-4 gap-2 w-full min-w-0">
                     <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                       <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -559,37 +563,20 @@ export default function ClientsPage() {
                         )}
                       </div>
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="p-1.5 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0">
-                          <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem 
-                          className="cursor-pointer"
-                          onClick={() => {
-                            setSelectedClient(client);
-                            setIsDetailDialogOpen(true);
-                          }}
-                        >
-                          <Eye className="w-4 h-4 mr-2" />
-                          View Details
-                        </DropdownMenuItem>
-                        {shouldUseFirmClients && user?.role === 'firm_admin' && (
-                          <DropdownMenuItem 
-                            className="cursor-pointer text-destructive focus:text-destructive"
-                            onClick={() => {
-                              setClientToRemove(client);
-                              setIsRemoveDialogOpen(true);
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Remove Client
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    {shouldUseFirmClients && user && ['super_admin', 'admin', 'firm_admin'].includes(user.role) && (
+                      <button
+                        type="button"
+                        className="p-1.5 rounded-full hover:bg-destructive/10 text-destructive transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setClientToRemove(client);
+                          setIsRemoveDialogOpen(true);
+                        }}
+                        aria-label="Remove client"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-border gap-2 flex-wrap">

@@ -102,26 +102,29 @@ def get_superadmin_dashboard_stats(db: Session) -> DashboardStatsResponse:
     # Total Users - All time
     total_users_all = db.query(func.count(User.id)).scalar() or 0
     
-    # Active Engagements - Current month
+    # Active Engagements - Current month (exclude soft-deleted)
     active_engagements_current = db.query(func.count(Engagement.id)).filter(
         and_(
             Engagement.status == 'active',
+            Engagement.is_deleted.is_(False),
             Engagement.created_at >= current_month_start
         )
     ).scalar() or 0
     
-    # Active Engagements - Last month
+    # Active Engagements - Last month (exclude soft-deleted)
     active_engagements_last = db.query(func.count(Engagement.id)).filter(
         and_(
             Engagement.status == 'active',
+            Engagement.is_deleted.is_(False),
             Engagement.created_at >= last_month_start,
             Engagement.created_at <= last_month_end
         )
     ).scalar() or 0
     
-    # Active Engagements - All time (current active count)
+    # Active Engagements - All time (current active count, exclude soft-deleted)
     active_engagements_all = db.query(func.count(Engagement.id)).filter(
-        Engagement.status == 'active'
+        Engagement.status == 'active',
+        Engagement.is_deleted.is_(False)
     ).scalar() or 0
     
     # Total Firms - Current month

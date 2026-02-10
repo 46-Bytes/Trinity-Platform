@@ -558,9 +558,6 @@ export default function ClientsPage() {
                           {client.name}
                         </h3>
                         <p className="text-xs sm:text-sm text-muted-foreground truncate break-words" style={{ maxWidth: '100%' }}>{client.email}</p>
-                        {client.industry && (
-                          <p className="text-xs sm:text-sm text-muted-foreground mt-1 break-words" style={{ maxWidth: '100%' }}>{client.industry}</p>
-                        )}
                       </div>
                     </div>
                     {shouldUseFirmClients && user && ['super_admin', 'admin', 'firm_admin'].includes(user.role) && (

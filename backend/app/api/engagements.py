@@ -184,7 +184,7 @@ async def list_engagements(
     - Client: Engagements where they are the client
     """
     # Build base query
-    query = db.query(Engagement)
+    query = db.query(Engagement).filter(Engagement.is_deleted == False)
     
     if current_user.role == UserRole.SUPER_ADMIN:
         if firm_id:
@@ -525,7 +525,7 @@ async def get_engagement(
     
     User must have access to the engagement based on their role.
     """
-    engagement = db.query(Engagement).filter(Engagement.id == engagement_id).first()
+    engagement = db.query(Engagement).filter(Engagement.id == engagement_id, Engagement.is_deleted == False).first()
     
     if not engagement:
         raise HTTPException(
@@ -636,11 +636,11 @@ async def delete_engagement(
     current_user: User = Depends(get_current_user_from_token),
 ):
     """
-    Delete an engagement.
+    Soft delete an engagement by marking it as is_deleted=True.
     
-    Only super admins and admins can delete engagements.
+    Only super admins, admins, and firm admins can delete engagements.
     """
-    engagement = db.query(Engagement).filter(Engagement.id == engagement_id).first()
+    engagement = db.query(Engagement).filter(Engagement.id == engagement_id, Engagement.is_deleted == False).first()
     
     if not engagement:
         raise HTTPException(
@@ -648,14 +648,16 @@ async def delete_engagement(
             detail="Engagement not found."
         )
     
-    # Check permissions - only admins can delete
-    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+    # Check permissions - only admin-level roles can delete
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can delete engagements."
+            detail="Only admins and firm admins can delete engagements."
         )
     
-    db.delete(engagement)
+    # Soft delete: mark engagement as deleted instead of removing the row
+    engagement.is_deleted = True
+    db.commit()
     db.commit()
     
     return None

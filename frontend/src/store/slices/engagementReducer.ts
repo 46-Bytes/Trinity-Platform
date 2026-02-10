@@ -24,6 +24,7 @@ export interface Engagement {
   diagnosticsCount?: number;
   notesCount?: number;
   documentsCount?: number;
+  is_deleted?: boolean;
 }
 
 export interface Advisor {
@@ -142,6 +143,7 @@ export const fetchEngagements = createAsyncThunk(
         diagnosticsCount: item.diagnostics_count || 0,
         notesCount: item.notes_count || 0,
         documentsCount: item.documents_count || 0,
+        is_deleted: item.is_deleted ?? false,
       }));
 
       return engagements;

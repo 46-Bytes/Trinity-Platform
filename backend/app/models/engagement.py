@@ -1,7 +1,7 @@
 """
 Engagement model for client-advisor workspaces
 """
-from sqlalchemy import Column, String, Text, DateTime, ARRAY, func, ForeignKey
+from sqlalchemy import Column, String, Text, DateTime, ARRAY, func, ForeignKey, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
@@ -34,6 +34,7 @@ class Engagement(Base):
     
     # Status and timestamps
     status = Column(String(50), nullable=False, server_default='active', index=True, comment="active, paused, completed, archived")
+    is_deleted = Column(Boolean, nullable=False, server_default='false', comment="Whether the engagement has been soft deleted")
     created_at = Column(DateTime, nullable=False, server_default=func.current_timestamp())
     updated_at = Column(DateTime, nullable=False, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
     completed_at = Column(DateTime, nullable=True)

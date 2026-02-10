@@ -17,11 +17,22 @@ depends_on = None
 
 
 def upgrade() -> None:
-    pass
+    # Add is_deleted boolean column to engagements table for soft delete
+    op.add_column(
+        'engagements',
+        sa.Column(
+            'is_deleted',
+            sa.Boolean(),
+            nullable=False,
+            server_default='false',
+            comment='Whether the engagement has been soft deleted',
+        ),
+    )
 
 
 def downgrade() -> None:
-    pass
+    # Remove is_deleted column from engagements table
+    op.drop_column('engagements', 'is_deleted')
 
 
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, ArrowRight, FileText, CheckSquare, Calendar, Loader2, Users } from 'lucide-react';
-import { fetchEngagements, fetchUserRoleData } from '@/store/slices/engagementReducer';
+import { Search, Plus, ArrowRight, FileText, CheckSquare, Calendar, Loader2, Users, Trash2 } from 'lucide-react';
+import { fetchEngagements, fetchUserRoleData, deleteEngagement } from '@/store/slices/engagementReducer';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -15,8 +15,10 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { EngagementForm } from "@/components/engagement/form";
 import { SecondaryAdvisorDialog } from './SecondaryAdvisorDialog';
+import { DeleteEngagementDialog } from './DeleteEngagementDialog';
 import { toast } from "sonner";
 import type { Engagement } from '@/store/slices/engagementReducer';
+import { Button } from '@/components/ui/button';
 
 interface EngagementsPageProps {
   firmId?: string;
@@ -33,9 +35,13 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSecondaryAdvisorDialogOpen, setIsSecondaryAdvisorDialogOpen] = useState(false);
   const [selectedEngagement, setSelectedEngagement] = useState<Engagement | null>(null);
+  const [engagementToDelete, setEngagementToDelete] = useState<Engagement | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const isClient = user?.role === 'client';
   const isFirmAdvisor = user?.role === 'firm_advisor';
+  const canDeleteEngagements = user && ['super_admin', 'admin', 'firm_admin'].includes(user.role);
 
   // Fetch user role data for firm advisors to get advisors list
   useEffect(() => {
@@ -68,6 +74,7 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
 
   // Filter engagements locally (backend already filters, but we can do additional client-side filtering)
   const filteredEngagements = engagements.filter(e => {
+    if (e.is_deleted) return false;
     const matchesSearch = !searchQuery || 
       e.clientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       e.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -130,6 +137,28 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
   const handleSecondaryAdvisorDialogClose = () => {
     setIsSecondaryAdvisorDialogOpen(false);
     setSelectedEngagement(null);
+  };
+
+  const handleDeleteClick = (engagement: Engagement, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEngagementToDelete(engagement);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!engagementToDelete) return;
+
+    try {
+      setIsDeleting(true);
+      await dispatch(deleteEngagement(engagementToDelete.id)).unwrap();
+      toast.success('Engagement deleted successfully');
+      setIsDeleteDialogOpen(false);
+      setEngagementToDelete(null);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete engagement');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -206,15 +235,15 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
                 const statusDisplay = formatStatus(engagement.status);
                 
                 return (
-                  <div 
+                <div 
                     key={engagement.id} 
                     onClick={() => navigate(`/dashboard/engagements/${engagement.id}`)}
                     className="p-5 rounded-xl border border-border hover:border-accent/50 hover:shadow-trinity-md transition-all cursor-pointer group"
                   >
                     <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                       <div className="flex-1">
-                        <div className="flex items-start justify-between lg:justify-start gap-3 mb-2">
-                          <div>
+                      <div className="flex items-start justify-between lg:justify-start gap-3 mb-2">
+                        <div>
                             <h3 className="font-semibold text-foreground group-hover:text-accent transition-colors">
                               {engagement.title}
                             </h3>
@@ -222,6 +251,7 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
                               {engagement.clientName || engagement.businessName}
                             </p>
                           </div>
+                        <div className="flex items-center gap-2">
                           <span className={cn(
                             "status-badge flex-shrink-0",
                             engagement.status === 'active' && "status-success",
@@ -231,6 +261,17 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
                           )}>
                             {statusDisplay}
                           </span>
+                          {canDeleteEngagements && (
+                            <button
+                              type="button"
+                              onClick={(e) => handleDeleteClick(engagement, e)}
+                              className="p-1.5 rounded-full hover:bg-destructive/10 text-destructive transition-colors"
+                              aria-label="Delete engagement"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                         </div>
                         
                         <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
@@ -334,6 +375,19 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Engagement Dialog */}
+      <DeleteEngagementDialog
+        open={isDeleteDialogOpen}
+        title={engagementToDelete?.title}
+        isDeleting={isDeleting}
+        onCancel={() => {
+          if (isDeleting) return;
+          setIsDeleteDialogOpen(false);
+          setEngagementToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+      />
 
       {/* Manage Secondary Advisors Dialog */}
       {isFirmAdvisor && (

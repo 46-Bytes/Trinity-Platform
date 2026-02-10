@@ -73,6 +73,17 @@ export function EngagementChatbot({ engagementId }: EngagementChatbotProps) {
     scrollToBottom();
   }, [messages]);
 
+  // Reset chat state when switching engagements to prevent stale conversation leakage.
+  useEffect(() => {
+    setConversation(null);
+    setMessages([]);
+    setInput('');
+    setError(null);
+    setShowCategorySelector(true);
+    setSelectedCategory('general');
+    setIsInitializing(false);
+  }, [engagementId]);
+
   // Initialize conversation when category is selected
   const initializeConversation = async (category: ChatCategory) => {
     setIsInitializing(true);
@@ -96,6 +107,7 @@ export function EngagementChatbot({ engagementId }: EngagementChatbotProps) {
           },
           body: JSON.stringify({
             category: category,
+            engagement_id: engagementId,
           }),
         }
       );

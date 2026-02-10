@@ -46,13 +46,14 @@ def get_superadmin_activity_data(db: Session, days: int) -> ActivityDataResponse
         cast(User.created_at, Date)
     ).all()
     
-    # Query engagements by date
+    # Query engagements by date 
     engagements_by_date = db.query(
         cast(Engagement.created_at, Date).label('date'),
         func.count(Engagement.id).label('count')
     ).filter(
         cast(Engagement.created_at, Date) >= start_date,
-        cast(Engagement.created_at, Date) <= end_date
+        cast(Engagement.created_at, Date) <= end_date,
+        Engagement.is_deleted.is_(False)
     ).group_by(
         cast(Engagement.created_at, Date)
     ).all()

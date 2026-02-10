@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, Trash2, X, AlertTriangle } from 'lucide-react';
+import { Search, Plus, Trash2, X, AlertTriangle, User, Mail } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchFirm, fetchFirmAdvisors, addAdvisorToFirm, removeAdvisorFromFirm, getAdvisorEngagements, suspendAdvisor, reactivateAdvisor, fetchFirmClients } from '@/store/slices/firmReducer';
@@ -55,6 +55,8 @@ export default function AdvisorsPage() {
   const [isLoadingEngagements, setIsLoadingEngagements] = useState(false);
   const [associateDialogOpen, setAssociateDialogOpen] = useState(false);
   const [selectedAdvisorForAssociation, setSelectedAdvisorForAssociation] = useState<Advisor | null>(null);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [selectedAdvisor, setSelectedAdvisor] = useState<Advisor | null>(null);
   const [formData, setFormData] = useState({
     email: '',
     given_name: '',
@@ -334,6 +336,14 @@ export default function AdvisorsPage() {
     }
   };
 
+  const handleViewDetails = (advisorId: string) => {
+    const advisor = advisorsWithoutAdmins.find((a) => a.id === advisorId);
+    if (advisor) {
+      setSelectedAdvisor(advisor);
+      setIsDetailDialogOpen(true);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -463,6 +473,7 @@ export default function AdvisorsPage() {
           onSuspend={handleSuspendClick}
           onReactivate={handleReactivate}
           onDelete={handleDeleteClick}
+          onViewDetails={handleViewDetails}
           onAssociateClients={handleAssociateClients}
         />
       </div>
@@ -483,6 +494,65 @@ export default function AdvisorsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Advisor Detail Dialog */}
+      <Dialog
+        open={isDetailDialogOpen}
+        onOpenChange={(open) => {
+          setIsDetailDialogOpen(open);
+          if (!open) {
+            setSelectedAdvisor(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Advisor Details</DialogTitle>
+            <DialogDescription>
+              View detailed information about the advisor
+            </DialogDescription>
+          </DialogHeader>
+          {selectedAdvisor && (
+            <div className="space-y-4 mt-4">
+              <div className="flex items-center gap-3 pb-4 border-b">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <User className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg">
+                    {selectedAdvisor.name || 'Unknown'}
+                  </h3>
+                  <p className="text-sm text-muted-foreground capitalize">
+                    {selectedAdvisor.role.replace('_', ' ')}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Status</Label>
+                  <span
+                    className={cn(
+                      'status-badge text-xs',
+                      selectedAdvisor.is_active ? 'status-success' : 'status-warning'
+                    )}
+                  >
+                    {selectedAdvisor.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Email</Label>
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-muted-foreground" />
+                    <p className="text-sm font-medium">{selectedAdvisor.email}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Suspend Advisor Dialog */}
       <Dialog open={suspendDialogOpen} onOpenChange={setSuspendDialogOpen}>

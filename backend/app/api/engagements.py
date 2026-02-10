@@ -202,11 +202,19 @@ async def list_engagements(
             # If firm_admin has no firm_id, return empty result
             query = query.filter(False)
     elif current_user.role in [UserRole.ADVISOR, UserRole.FIRM_ADVISOR]:
-        # Advisors and firm advisors see engagements where they are primary or secondary advisor
+        # Advisors and firm advisors see:
+        associated_client_ids_subq = db.query(AdvisorClient.client_id).filter(
+            AdvisorClient.advisor_id == current_user.id,
+            AdvisorClient.status == "active",
+        ).subquery()
+
         query = query.filter(
             or_(
                 Engagement.primary_advisor_id == current_user.id,
-                text("secondary_advisor_ids @> ARRAY[:user_id]::uuid[]").bindparams(user_id=current_user.id)
+                text("secondary_advisor_ids @> ARRAY[:user_id]::uuid[]").bindparams(
+                    user_id=current_user.id
+                ),
+                Engagement.client_id.in_(associated_client_ids_subq),
             )
         )
     elif current_user.role == UserRole.CLIENT:
@@ -526,7 +534,7 @@ async def get_engagement(
         )
     
     # Check access
-    if not check_engagement_access(engagement, current_user):
+    if not check_engagement_access(engagement, current_user, db=db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to this engagement."
@@ -571,7 +579,9 @@ async def update_engagement(
         )
     
     # Check access
-    if not check_engagement_access(engagement, current_user, require_advisor=True):
+    if not check_engagement_access(
+        engagement, current_user, require_advisor=True, db=db
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to update this engagement."

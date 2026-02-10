@@ -914,7 +914,7 @@ async def update_diagnostic_tag(
             detail="Engagement not found"
         )
     
-    if not check_engagement_access(engagement, current_user) and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+    if not check_engagement_access(engagement, current_user, db=db) and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have access to tag this diagnostic"

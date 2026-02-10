@@ -47,7 +47,7 @@ async def create_task(
         )
     
     # Check engagement access
-    if not check_engagement_access(engagement, current_user):
+    if not check_engagement_access(engagement, current_user, db=db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to this engagement."
@@ -141,7 +141,7 @@ async def create_tasks_from_diagnostic(
             detail="Engagement not found."
         )
     
-    if not check_engagement_access(engagement, current_user):
+    if not check_engagement_access(engagement, current_user, db=db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to this engagement."
@@ -243,7 +243,7 @@ async def list_tasks(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Engagement not found."
             )
-        if not check_engagement_access(engagement, current_user):
+        if not check_engagement_access(engagement, current_user, db=db):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have access to this engagement."
@@ -361,7 +361,7 @@ async def get_task(
             detail="Engagement not found."
         )
     
-    if not check_engagement_access(engagement, current_user):
+    if not check_engagement_access(engagement, current_user, db=db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to this engagement."
@@ -399,7 +399,7 @@ async def update_task(
             detail="Engagement not found."
         )
     
-    if not check_engagement_access(engagement, current_user):
+    if not check_engagement_access(engagement, current_user, db=db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to this engagement."
@@ -495,7 +495,7 @@ async def delete_task(
             detail="Engagement not found."
         )
     
-    if not check_engagement_access(engagement, current_user):
+    if not check_engagement_access(engagement, current_user, db=db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to this engagement."

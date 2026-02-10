@@ -129,7 +129,7 @@ async def list_notes(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Engagement not found."
             )
-        if not check_engagement_access(engagement, current_user):
+        if not check_engagement_access(engagement, current_user, db=db):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have access to this engagement."
@@ -219,7 +219,7 @@ async def get_note(
             detail="Engagement not found."
         )
     
-    if not check_engagement_access(engagement, current_user):
+    if not check_engagement_access(engagement, current_user, db=db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to this engagement."
@@ -263,7 +263,7 @@ async def update_note(
             detail="Engagement not found."
         )
     
-    if not check_engagement_access(engagement, current_user):
+    if not check_engagement_access(engagement, current_user, db=db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to this engagement."
@@ -324,7 +324,7 @@ async def delete_note(
             detail="Engagement not found."
         )
     
-    if not check_engagement_access(engagement, current_user):
+    if not check_engagement_access(engagement, current_user, db=db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to this engagement."

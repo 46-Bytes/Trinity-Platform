@@ -15,6 +15,9 @@ from ..models.diagnostic import Diagnostic
 from ..models.task import Task
 from ..models.note import Note
 from ..models.adv_client import AdvisorClient
+from ..models.task import Task
+from ..models.note import Note
+from ..models.diagnostic import Diagnostic
 from ..schemas.engagement import (
     EngagementCreate,
     EngagementUpdate,
@@ -638,9 +641,15 @@ async def delete_engagement(
     """
     Soft delete an engagement by marking it as is_deleted=True.
     
+    Additionally hard delete all related tasks, notes, and diagnostics so
+    no orphaned work items remain.
+    
     Only super admins, admins, and firm admins can delete engagements.
     """
-    engagement = db.query(Engagement).filter(Engagement.id == engagement_id, Engagement.is_deleted == False).first()
+    engagement = db.query(Engagement).filter(
+        Engagement.id == engagement_id,
+        Engagement.is_deleted == False,
+    ).first()
     
     if not engagement:
         raise HTTPException(
@@ -655,10 +664,14 @@ async def delete_engagement(
             detail="Only admins and firm admins can delete engagements."
         )
     
+    # Hard delete related work items tied to this engagement
+    db.query(Task).filter(Task.engagement_id == engagement_id).delete(synchronize_session=False)
+    db.query(Note).filter(Note.engagement_id == engagement_id).delete(synchronize_session=False)
+    db.query(Diagnostic).filter(Diagnostic.engagement_id == engagement_id).delete(synchronize_session=False)
+
     # Soft delete: mark engagement as deleted instead of removing the row
     engagement.is_deleted = True
     db.commit()
-    db.commit()
-    
+
     return None
 

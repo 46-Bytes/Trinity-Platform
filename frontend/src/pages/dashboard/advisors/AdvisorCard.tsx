@@ -26,7 +26,10 @@ export default function AdvisorCard({
   onAssociateClients,
 }: AdvisorCardProps) {
   return (
-    <div className="card-trinity p-5 hover:shadow-trinity-md group">
+    <div
+      className="card-trinity p-5 hover:shadow-trinity-md cursor-pointer group"
+      onClick={() => onViewDetails?.(advisor.id)}
+    >
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -40,23 +43,21 @@ export default function AdvisorCard({
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="p-1.5 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100">
+            <button
+              className="p-1.5 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100"
+              onClick={(e) => e.stopPropagation()}
+            >
               <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            {onViewDetails && (
-              <DropdownMenuItem 
-                className="cursor-pointer"
-                onClick={() => onViewDetails(advisor.id)}
-              >
-                View Details
-              </DropdownMenuItem>
-            )}
             {onAssociateClients && (
               <DropdownMenuItem 
                 className="cursor-pointer"
-                onClick={() => onAssociateClients(advisor.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAssociateClients(advisor.id);
+                }}
               >
                 Associate Clients
               </DropdownMenuItem>
@@ -64,21 +65,30 @@ export default function AdvisorCard({
             {advisor.is_active ? (
               <DropdownMenuItem 
                 className="cursor-pointer text-warning"
-                onClick={() => onSuspend(advisor.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSuspend(advisor.id);
+                }}
               >
                 Suspend Advisor
               </DropdownMenuItem>
             ) : (
               <DropdownMenuItem 
                 className="cursor-pointer text-green-600 hover:text-green-700"
-                onClick={() => onReactivate(advisor.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onReactivate(advisor.id);
+                }}
               >
                 Reactivate Advisor
               </DropdownMenuItem>
             )}
             <DropdownMenuItem 
               className="cursor-pointer text-destructive"
-              onClick={() => onDelete(advisor.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(advisor.id);
+              }}
             >
               Remove from Firm
             </DropdownMenuItem>

@@ -3,8 +3,8 @@ Phase 2 – BBA Excel Task Planner (Engagement Planner) service.
 
 This service:
 - Stores advisor/timing context (lead/support advisors, capacity, start month/year)
-- Generates structured task rows from the BBA 12‑month plan
-- Calculates per‑month BBA hours and capacity warnings
+- Generates structured task rows via OpenAI from the BBA 12-month plan
+- Calculates per-month BBA hours and capacity warnings (deterministic post-processing)
 
 The generated task rows map 1:1 to the Excel columns:
 Rec #, Recommendation, Owner, Task, Advisor Hrs, Advisor, Status, Notes, Timing.
@@ -15,6 +15,7 @@ from __future__ import annotations
 from typing import Dict, Any, List, Tuple
 from uuid import UUID
 from datetime import datetime
+import json
 import logging
 import re
 import calendar
@@ -25,6 +26,8 @@ from app.models.bba import BBA
 from app.schemas.bba import (
     BBATaskPlannerSettings,
 )
+from app.services.openai_service import OpenAIService
+from app.services.bba_conversation_engine import load_bba_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +35,15 @@ logger = logging.getLogger(__name__)
 class BBATaskPlannerService:
     """
     Service for Phase 2 – Excel Task Planner built on top of the BBA tool.
+
+    Uses OpenAI to generate focused, practical task rows from the 12-month plan,
+    then applies deterministic post-processing for hour summaries and capacity
+    warnings.
     """
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, openai_service: OpenAIService | None = None):
         self.db = db
+        self.openai_service = openai_service or OpenAIService()
 
     # -------------------------------------------------------------------------
     # Settings persistence
@@ -79,43 +87,36 @@ class BBATaskPlannerService:
         return BBATaskPlannerSettings.model_validate(bba.task_planner_settings)
 
     # -------------------------------------------------------------------------
-    # Task + summary generation
+    # Task + summary generation (AI-driven)
     # -------------------------------------------------------------------------
 
-    def generate_tasks_and_summary(
+    async def generate_tasks_and_summary(
         self,
         bba: BBA,
         settings: BBATaskPlannerSettings,
     ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """
-        Generate task rows and summary data from a BBA 12‑month plan.
+        Generate task rows via OpenAI and compute summary data.
 
-        The algorithm:
-        - Uses each recommendation from `bba.twelve_month_plan["recommendations"]`
-        - Parses the plan's `timing` field to relative months (e.g. Month 1–3)
-        - Maps relative months to real calendar months from start_month/start_year
-        - Creates:
-          * One Client‑owned task summarising each recommendation
-          * One or more BBA‑owned tasks based on the `actions` list
-        - Allocates BBA hours per recommendation based on:
-          total_monthly_capacity = advisor_count × max_hours_per_month,
-          scaled by the recommendation's month span (months_span / 12)
-        - Spreads each recommendation's hours evenly across its active months
-          to build a per‑month capacity view
+        Flow:
+        1. Build timing metadata for each recommendation
+        2. Construct AI prompt with full context
+        3. Call OpenAI to generate focused task rows
+        4. Post-process: compute monthly BBA hours and capacity warnings
         """
         if not bba.twelve_month_plan:
             raise ValueError(
-                "12‑month plan is not available. Complete Phase 1 before using the task planner."
+                "12-month plan is not available. Complete Phase 1 before using the task planner."
             )
 
         plan = bba.twelve_month_plan or {}
         recommendations = plan.get("recommendations") or []
         if not recommendations:
             raise ValueError(
-                "12‑month plan has no recommendations to build tasks from."
+                "12-month plan has no recommendations to build tasks from."
             )
 
-        # Pre‑compute recommendation timing ranges and labels
+        # Pre-compute recommendation timing ranges and labels
         rec_meta = self._build_recommendation_timing_metadata(
             recommendations=recommendations,
             start_month=settings.start_month,
@@ -125,107 +126,190 @@ class BBATaskPlannerService:
         # Combined monthly capacity across all advisors
         monthly_capacity = float(settings.advisor_count * settings.max_hours_per_month)
 
-        tasks: List[Dict[str, Any]] = []
+        # Build per-recommendation context for the AI (including allocated hours)
+        rec_context = []
+        for rec, meta in zip(recommendations, rec_meta):
+            months_span = meta["months_span"]
+            rec_total_hours = round(monthly_capacity * (months_span / 12.0), 2)
+
+            rec_context.append({
+                "rec_number": meta["rec_number"],
+                "title": rec.get("title") or f"Recommendation {meta['rec_number']}",
+                "timing_label": meta["timing_label"],
+                "months_span": months_span,
+                "allocated_bba_hours": rec_total_hours,
+                "purpose": rec.get("purpose", ""),
+                "key_objectives": rec.get("key_objectives", []),
+                "actions": rec.get("actions", []),
+                "bba_support": rec.get("bba_support", ""),
+                "expected_outcomes": rec.get("expected_outcomes", []),
+            })
+
+        # --- Call OpenAI ---
+        tasks = await self._generate_tasks_via_ai(
+            bba=bba,
+            settings=settings,
+            rec_context=rec_context,
+        )
+
+        # --- Deterministic post-processing: monthly hours + warnings ---
+        summary = self._compute_summary(
+            tasks=tasks,
+            rec_meta=rec_meta,
+            settings=settings,
+            monthly_capacity=monthly_capacity,
+        )
+
+        return tasks, summary
+
+    async def _generate_tasks_via_ai(
+        self,
+        bba: BBA,
+        settings: BBATaskPlannerSettings,
+        rec_context: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """
+        Call OpenAI to generate focused task rows from the 12-month plan.
+        """
+        # Load prompts
+        try:
+            system_prompt = load_bba_prompt("bba_system_prompt")
+            step_prompt = load_bba_prompt("phase2_task_generation")
+        except FileNotFoundError as e:
+            logger.error("[BBA Task Planner] Failed to load prompts: %s", e)
+            raise
+
+        system_content = f"{system_prompt}\n\n{step_prompt}"
+
+        # Build user content with full context
+        user_content = f"""Generate the advisor task list for this engagement.
+
+## Client Context
+- Client Name: {bba.client_name or 'Unknown'}
+- Industry: {bba.industry or 'Unknown'}
+- Strategic Priorities: {bba.strategic_priorities or 'Not specified'}
+
+## Engagement Settings
+- Lead Advisor: {settings.lead_advisor}
+- Support Advisor: {settings.support_advisor or 'None'}
+- Total Advisors: {settings.advisor_count}
+- Maximum Hours per Month (combined): {settings.advisor_count * settings.max_hours_per_month}
+- Engagement Start: {calendar.month_name[settings.start_month]} {settings.start_year}
+
+## Recommendations (from 12-Month Plan)
+
+{json.dumps(rec_context, indent=2)}
+
+## Instructions
+
+For each recommendation above, generate:
+- 1 Client-owned task (owner="Client", advisorHrs=0, advisor=null)
+- 1 to 3 BBA-owned tasks (owner="BBA") with hours summing to the `allocated_bba_hours` for that recommendation
+- Use the `timing_label` as the `timing` value
+- Assign "{settings.lead_advisor}" as the primary advisor; assign "{settings.support_advisor or settings.lead_advisor}" to secondary tasks where appropriate
+
+Return ONLY a JSON object with a "tasks" key containing the array of task rows.
+"""
+
+        messages = [
+            {"role": "system", "content": system_content},
+            {"role": "user", "content": user_content},
+        ]
+
+        try:
+            logger.info("[BBA Task Planner] Calling OpenAI for task generation...")
+            result = await self.openai_service.generate_json_completion(
+                messages=messages,
+                reasoning_effort="medium",
+            )
+
+            parsed = result.get("parsed_content", {})
+            tasks = parsed.get("tasks", [])
+
+            if not tasks:
+                logger.warning(
+                    "[BBA Task Planner] AI returned no tasks; parsed_content keys: %s",
+                    list(parsed.keys()),
+                )
+                raise ValueError("AI did not return any tasks. Please try again.")
+
+            logger.info(
+                "[BBA Task Planner] AI generated %d task rows (tokens: %s)",
+                len(tasks),
+                result.get("tokens_used", "?"),
+            )
+
+            return tasks
+
+        except Exception as e:
+            logger.error(
+                "[BBA Task Planner] Failed to generate tasks via AI: %s",
+                str(e),
+                exc_info=True,
+            )
+            raise
+
+    # -------------------------------------------------------------------------
+    # Deterministic post-processing
+    # -------------------------------------------------------------------------
+
+    def _compute_summary(
+        self,
+        tasks: List[Dict[str, Any]],
+        rec_meta: List[Dict[str, Any]],
+        settings: BBATaskPlannerSettings,
+        monthly_capacity: float,
+    ) -> Dict[str, Any]:
+        """
+        Compute monthly BBA hours and capacity warnings from the AI-generated
+        task rows. This is deterministic math and does not use AI.
+        """
+        # Build a lookup: rec_number -> list of YYYY-MM labels
+        rec_ym_map: Dict[int, List[str]] = {}
+        for meta in rec_meta:
+            rec_ym_map[meta["rec_number"]] = meta["ym_labels"]
+
         monthly_hours: Dict[str, float] = {}
         total_bba_hours = 0.0
 
-        for rec, meta in zip(recommendations, rec_meta):
-            rec_number = meta["rec_number"]
-            recommendation_title = rec.get("title") or f"Recommendation {rec_number}"
-            timing_label = meta["timing_label"]
-            months_span = meta["months_span"]
+        for task in tasks:
+            hrs = float(task.get("advisorHrs") or task.get("advisor_hrs") or 0)
+            if hrs <= 0:
+                continue
 
-            # Approximate total BBA hours for this recommendation.
-            # Scale by month span relative to a 12‑month window.
-            rec_total_hours = monthly_capacity * (months_span / 12.0)
-            total_bba_hours += rec_total_hours
+            total_bba_hours += hrs
+            rec_num = task.get("rec_number")
+            ym_labels = rec_ym_map.get(rec_num, [])
 
-            # Distribute hours evenly across each active month for capacity summary.
-            per_month_hours = rec_total_hours / float(months_span)
-            for ym_label in meta["ym_labels"]:
-                monthly_hours[ym_label] = monthly_hours.get(ym_label, 0.0) + per_month_hours
+            if ym_labels:
+                per_month = hrs / len(ym_labels)
+                for ym in ym_labels:
+                    monthly_hours[ym] = monthly_hours.get(ym, 0.0) + per_month
+            # If rec_number not found in meta, hours are still counted in total
 
-            # ------------------------------------------------------------------
-            # Client task – one summary row per recommendation
-            # ------------------------------------------------------------------
-            purpose = (rec.get("purpose") or "").strip()
-            client_task_text = (
-                purpose
-                if purpose
-                else f"Implement recommendation {rec_number}: {recommendation_title}"
-            )
-
-            tasks.append(
-                {
-                    "rec_number": rec_number,
-                    "recommendation": recommendation_title,
-                    "owner": "Client",
-                    "task": client_task_text,
-                    "advisorHrs": 0.0,
-                    "advisor": None,
-                    "status": "Not yet started",
-                    "notes": "",
-                    "timing": timing_label,
-                }
-            )
-
-            # ------------------------------------------------------------------
-            # BBA tasks – derived from actions (or a single generic support task)
-            # ------------------------------------------------------------------
-            actions = rec.get("actions") or []
-            bba_actions: List[str] = [
-                a.strip() for a in actions if isinstance(a, str) and a.strip()
-            ]
-
-            if not bba_actions:
-                bba_actions = [
-                    f"Support client to implement '{recommendation_title}'",
-                ]
-
-            num_bba_tasks = len(bba_actions)
-            per_task_hours = rec_total_hours / float(num_bba_tasks) if num_bba_tasks else 0.0
-
-            for idx, action_text in enumerate(bba_actions):
-                advisor_name = settings.lead_advisor
-                if settings.support_advisor and (idx % 2 == 1):
-                    advisor_name = settings.support_advisor
-
-                tasks.append(
-                    {
-                        "rec_number": rec_number,
-                        "recommendation": recommendation_title,
-                        "owner": "BBA",
-                        "task": action_text,
-                        "advisorHrs": round(per_task_hours, 2),
-                        "advisor": advisor_name,
-                        "status": "Not yet started",
-                        "notes": "",
-                        "timing": timing_label,
-                    }
-                )
-
-        # Build summary and capacity warnings
-        monthly_capacity_combined = monthly_capacity
+        # Capacity warnings
         warnings: List[str] = []
         rounded_monthly_hours: Dict[str, float] = {}
 
         for ym, hours in sorted(monthly_hours.items()):
             rounded = round(hours, 2)
             rounded_monthly_hours[ym] = rounded
-            if rounded > monthly_capacity_combined + 1e-6:
+            if rounded > monthly_capacity + 1e-6:
                 warnings.append(
                     f"Month {ym} is scheduled for {rounded:.1f} BBA hours, "
-                    f"which exceeds the configured monthly capacity of {monthly_capacity_combined:.1f} hours."
+                    f"which exceeds the configured monthly capacity of {monthly_capacity:.1f} hours."
                 )
 
-        summary: Dict[str, Any] = {
+        return {
             "total_bba_hours": round(total_bba_hours, 2),
-            "max_hours_per_month": monthly_capacity_combined,
+            "max_hours_per_month": monthly_capacity,
             "monthly_hours": rounded_monthly_hours,
             "warnings": warnings,
         }
 
-        return tasks, summary
+    # -------------------------------------------------------------------------
+    # Persistence
+    # -------------------------------------------------------------------------
 
     def save_tasks_and_summary(
         self,
@@ -270,9 +354,9 @@ class BBATaskPlannerService:
         """
         For each recommendation, parse its timing string and map to:
         - rec_number
-        - months_span (relative, e.g. Month 1–3 => 3)
+        - months_span (relative, e.g. Month 1-3 => 3)
         - ym_labels: list of YYYY-MM labels for each active month
-        - timing_label: human label for UI/Excel (e.g. 'Nov–Dec 2025')
+        - timing_label: human label for UI/Excel (e.g. 'Nov-Dec 2025')
 
         If timing cannot be parsed, defaults to Month 1.
         """
@@ -306,7 +390,7 @@ class BBATaskPlannerService:
                 timing_label = (
                     start_label_human
                     if start_label_human == end_label_human
-                    else f"{start_label_human}–{end_label_human}"
+                    else f"{start_label_human}\u2013{end_label_human}"
                 )
             else:
                 timing_label = self._human_month_label_from_index(base_index)
@@ -329,11 +413,11 @@ class BBATaskPlannerService:
         """
         Parse a timing string such as:
         - "Month 1-3"
-        - "Months 4–6"
+        - "Months 4-6"
         - "Month 7"
         - "1-3"
 
-        Returns (start_month, end_month) as 1‑based indices relative to the
+        Returns (start_month, end_month) as 1-based indices relative to the
         start of the engagement (Month 1).
         """
         if not timing:
@@ -350,7 +434,7 @@ class BBATaskPlannerService:
     @staticmethod
     def _year_month_label_from_index(index: int) -> str:
         """
-        Convert an absolute month index (year * 12 + month‑0‑based) into
+        Convert an absolute month index (year * 12 + month-0-based) into
         a canonical YYYY-MM label (e.g. '2025-11').
         """
         year = index // 12
@@ -368,7 +452,9 @@ class BBATaskPlannerService:
         return f"{month_abbr} {year}"
 
 
-def get_bba_task_planner_service(db: Session) -> BBATaskPlannerService:
+def get_bba_task_planner_service(
+    db: Session,
+    openai_service: OpenAIService | None = None,
+) -> BBATaskPlannerService:
     """FastAPI dependency factory for the BBA task planner service."""
-    return BBATaskPlannerService(db)
-
+    return BBATaskPlannerService(db, openai_service)

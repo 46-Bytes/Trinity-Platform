@@ -13,6 +13,7 @@ from .adv_client import AdvisorClient
 from .subscription import Subscription
 from .impersonation import ImpersonationSession
 from .bba import BBA
+from .firm import Firm
 
 __all__ = [
     "User",
@@ -27,6 +28,7 @@ __all__ = [
     "Subscription",
     "ImpersonationSession",
     "BBA",
+    "Firm",
 ]
 
 

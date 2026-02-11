@@ -530,20 +530,27 @@ class OpenAIService:
         Returns:
             Dictionary containing generated tasks and metadata
         """
-        # Build context similar to PHP implementation
+        # Build context with strict data-grounding requirements
         context = (
             f"You are an expert business advisor named 'Trinity'. "
             f"Based on the following diagnostic data, provide a JSON object with a 'tasks' array containing tasks "
             f"a business owner should action within the next 30 days.\n\n"
+            f"CRITICAL RULE: Every task you generate MUST be directly supported by specific data in the "
+            f"Diagnostic Data (Q&A) or the Priority Roadmap below. DO NOT generate generic business advice "
+            f"or tasks that are not directly evidenced by this business's actual responses. "
+            f"If a module scored Green (≥ 4.0), do NOT create tasks for it unless the Q&A reveals a specific gap. "
+            f"Quality and accuracy matter far more than quantity.\n\n"
             f"Summary: {diagnostic_summary}\n\n"
             f"Diagnostic Data (Q&A): {json.dumps(json_extract)}\n\n"
             f"Priority Roadmap (Modules by Priority):\n{json.dumps(roadmap, indent=2)}\n\n"
-            f"Focus on the highest priority modules (lowest rank = highest priority).\n\n"
+            f"Focus on the highest priority modules (lowest rank = highest priority). "
+            f"Only create tasks for modules with Amber or Red RAG status.\n\n"
             f"Template: {{\"tasks\": [{{"
             f'"title": "Task Title (Keep it short and concise)", '
             f'"description": "Task description with step-by-step instructions. Every step must be in a new line with 1. 2. 3. Numbering", '
             f'"category": "general|legal-licensing|financial|operations|human-resources|customers|competitive-forces|due-diligence|tax", '
-            f'"priority": "low|medium|high|critical"'
+            f'"priority": "low|medium|high|critical", '
+            f'"data_reference": "Brief reference to the specific Q&A response(s) or roadmap finding that justifies this task"'
             f"}}]}}\n\n"
             f"{task_prompt}"
         )
@@ -556,13 +563,16 @@ class OpenAIService:
             {
                 "role": "user",
                 "content": (
-                    f"Generate MULTIPLE actionable tasks in JSON format (minimum 5-10 tasks, ideally 8-12 tasks). "
-                    f"Focus on the priority modules from the roadmap. "
-                    f"Generate at least 1-2 tasks for each of the top 3-5 priority modules. "
-                    f"Cover different categories to ensure comprehensive coverage. "
+                    f"Generate actionable tasks in JSON format based ONLY on the supplied diagnostic data. "
+                    f"IMPORTANT: Do NOT invent or assume issues that are not evidenced in the data. "
+                    f"Each task must be directly traceable to a specific Q&A response or roadmap finding. "
+                    f"Only create tasks for Amber/Red modules — skip Green modules unless there is a clear specific gap in the Q&A. "
+                    f"Generate only as many tasks as the data genuinely supports (typically 3-8 tasks). "
+                    f"It is better to have fewer accurate tasks than many irrelevant ones. "
+                    f"Include a 'data_reference' field in each task citing the specific evidence. "
                     f"Provide detailed descriptions with step-by-step instructions for each task. "
                     f"CRITICAL: Return a JSON OBJECT with a 'tasks' key containing an array of task objects. "
-                    f"Format: {{\"tasks\": [{{task1}}, {{task2}}, {{task3}}, ...]}} with at least 5-10 tasks. "
+                    f"Format: {{\"tasks\": [{{task1}}, {{task2}}, ...]}}. "
                     f"Return ONLY the JSON object, no markdown, no explanations."
                 )
             }

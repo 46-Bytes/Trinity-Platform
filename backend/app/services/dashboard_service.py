@@ -341,26 +341,34 @@ def get_firm_advisor_dashboard_stats(db: Session, firm_advisor_user_id: UUID) ->
     active_clients = len(associations)
     
     # Get engagements where firm_advisor is primary or secondary advisor
-    # Also filter by firm_id to ensure we only get engagements from the same firm
+    # Also filter by firm_id and exclude soft-deleted engagements
     firm_advisor = db.query(User).filter(User.id == firm_advisor_user_id).first()
     firm_id = firm_advisor.firm_id if firm_advisor else None
-    
-    # Get engagements where advisor is primary advisor
-    primary_engagements = db.query(Engagement).filter(
-        Engagement.primary_advisor_id == firm_advisor_user_id
+
+    primary_query = db.query(Engagement).filter(
+        Engagement.primary_advisor_id == firm_advisor_user_id,
+        Engagement.is_deleted.is_(False),
     )
-    
-    # Get engagements where advisor is in secondary_advisor_ids array
-    # Using PostgreSQL array contains operator
-    secondary_engagements = db.query(Engagement).filter(
-        text("secondary_advisor_ids @> ARRAY[:advisor_id]::uuid[]").params(advisor_id=firm_advisor_user_id)
+    secondary_query = db.query(Engagement).filter(
+        Engagement.is_deleted.is_(False),
+        text("secondary_advisor_ids @> ARRAY[:advisor_id]::uuid[]").params(
+            advisor_id=firm_advisor_user_id
+        ),
     )
+
+    # If the firm advisor is tied to a firm, only count engagements for that firm
+    if firm_id:
+        primary_query = primary_query.filter(Engagement.firm_id == firm_id)
+        secondary_query = secondary_query.filter(Engagement.firm_id == firm_id)
+
+    primary_engagements = primary_query.all()
+    secondary_engagements = secondary_query.all()
     
     # Combine both queries
     all_engagement_ids = set()
-    for eng in primary_engagements.all():
+    for eng in primary_engagements:
         all_engagement_ids.add(eng.id)
-    for eng in secondary_engagements.all():
+    for eng in secondary_engagements:
         all_engagement_ids.add(eng.id)
     
     engagement_ids = list(all_engagement_ids)

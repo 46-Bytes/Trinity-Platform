@@ -1026,7 +1026,7 @@ class DiagnosticService:
         if tasks_list and len(tasks_list) > 0:
             logger.info(f"Sample task structure (first task): {tasks_list[0]}")
         
-        # Create Task records
+        # Create Task records (no extra validation step – rely on prompt to keep tasks relevant)
         tasks_created = 0
         created_tasks = []  # Track successfully created tasks
         

@@ -16,6 +16,7 @@ export interface Note {
   visibility: 'all' | 'advisor_only' | 'client_only';
   tags?: string[];
   attachments?: any[];
+  readBy?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -74,6 +75,7 @@ function mapBackendNoteToFrontend(item: any): Note {
     visibility: item.visibility || 'all',
     tags: item.tags || [],
     attachments: item.attachments || [],
+    readBy: Array.isArray(item.read_by) ? item.read_by.map((id: any) => String(id)) : [],
     createdAt: item.created_at,
     updatedAt: item.updated_at,
   };
@@ -254,6 +256,36 @@ export const deleteNote = createAsyncThunk(
   }
 );
 
+export const markNoteRead = createAsyncThunk(
+  'note/markNoteRead',
+  async (id: string, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/notes/${id}/read`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to mark note as read' }));
+        throw new Error(errorData.detail || `HTTP ${response.status}: Failed to mark note as read`);
+      }
+
+      const data = await response.json();
+      return mapBackendNoteToFrontend(data);
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to mark note as read');
+    }
+  }
+);
+
 // Initial state
 const initialState: NoteState = {
   notes: [],
@@ -343,6 +375,16 @@ const noteSlice = createSlice({
       .addCase(deleteNote.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
+      })
+      .addCase(markNoteRead.fulfilled, (state, action) => {
+        const updatedNote = action.payload;
+        const index = state.notes.findIndex((n) => n.id === updatedNote.id);
+        if (index !== -1) {
+          state.notes[index] = updatedNote;
+        }
+        if (state.selectedNote?.id === updatedNote.id) {
+          state.selectedNote = updatedNote;
+        }
       });
   },
 });

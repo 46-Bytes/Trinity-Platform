@@ -92,6 +92,7 @@ async def create_note(
         visibility=note_data.visibility,
         tags=note_data.tags or [],
         attachments=note_data.attachments or [],
+        read_by=[current_user.id],
     )
     
     db.add(note)
@@ -232,6 +233,56 @@ async def get_note(
             detail="You do not have permission to view this note."
         )
     
+    return NoteResponse.model_validate(note)
+
+
+@router.post("/{note_id}/read", response_model=NoteResponse)
+async def mark_note_read(
+    note_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_from_token),
+):
+    """
+    Mark a note as read by the current user.
+
+    User must have access to the engagement and note visibility.
+    """
+    note = db.query(Note).filter(Note.id == note_id).first()
+
+    if not note:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Note not found."
+        )
+
+    # Check engagement access
+    engagement = db.query(Engagement).filter(Engagement.id == note.engagement_id).first()
+    if not engagement:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Engagement not found."
+        )
+
+    if not check_engagement_access(engagement, current_user, db=db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this engagement."
+        )
+
+    # Check note visibility
+    if not check_note_visibility(note, current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view this note."
+        )
+
+    # Update read_by list (reassign to ensure SQLAlchemy detects change)
+    existing_read_by = list(note.read_by or [])
+    if current_user.id not in existing_read_by:
+        note.read_by = existing_read_by + [current_user.id]
+        db.commit()
+        db.refresh(note)
+
     return NoteResponse.model_validate(note)
 
 

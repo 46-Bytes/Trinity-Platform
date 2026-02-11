@@ -12,6 +12,7 @@ from ..database import get_db
 from ..models.engagement import Engagement
 from ..models.user import User, UserRole
 from ..models.task import Task
+from ..models.note import Note
 from ..schemas.task import (
     TaskCreate,
     TaskUpdate,
@@ -22,6 +23,7 @@ from ..schemas.task import (
 )
 from ..models.diagnostic import Diagnostic
 from ..services.role_check import get_current_user_from_token, check_engagement_access
+from .note import check_note_visibility
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
@@ -304,7 +306,7 @@ async def list_tasks(
         Task.created_at.desc()
     ).offset(skip).limit(limit).all()
     
-    # Build response with user names
+    # Build response with user names and unread note counts
     result = []
     for task in tasks:
         # Get engagement name
@@ -322,12 +324,32 @@ async def list_tasks(
         # Get creator name
         creator = db.query(User).filter(User.id == task.created_by_user_id).first()
         created_by_name = creator.name or creator.email if creator else None
+
+        # Compute unread notes count for the current user
+        unread_notes_count_for_current_user = 0
+        if engagement:
+            notes = (
+                db.query(Note)
+                .filter(
+                    Note.engagement_id == task.engagement_id,
+                    Note.task_id == task.id,
+                )
+                .all()
+            )
+
+            unread_notes_count_for_current_user = sum(
+                1
+                for note in notes
+                if check_note_visibility(note, current_user)
+                and (not note.read_by or current_user.id not in note.read_by)
+            )
         
         task_dict = {
             **task.__dict__,
             "engagement_name": engagement_name,
             "assigned_to_name": assigned_to_name,
             "created_by_name": created_by_name,
+            "unread_notes_count_for_current_user": unread_notes_count_for_current_user,
         }
         result.append(TaskListItem(**task_dict))
     

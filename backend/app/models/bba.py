@@ -60,6 +60,33 @@ class BBA(Base):
     executive_summary = Column(Text, nullable=True, comment="2-4 paragraph executive summary")
     final_report = Column(JSONB, nullable=True, comment="Complete compiled report data")
     report_version = Column(Integer, nullable=False, server_default='1', comment="Report version number")
+
+    # Phase 2 – Excel Task Planner (Engagement Planner)
+    task_planner_settings = Column(
+        JSONB,
+        nullable=True,
+        comment=(
+            "Phase 2 task planner context: lead/support advisors, advisor_count, "
+            "max_hours_per_month, start_month, start_year"
+        ),
+    )
+    task_planner_tasks = Column(
+        JSONB,
+        nullable=True,
+        comment=(
+            "Phase 2 generated task rows used for Excel export. "
+            "Each row matches the Excel columns: Rec #, Recommendation, Owner, "
+            "Task, Advisor Hrs, Advisor, Status, Notes, Timing."
+        ),
+    )
+    task_planner_summary = Column(
+        JSONB,
+        nullable=True,
+        comment=(
+            "Phase 2 summary data including total BBA hours, per-month hours, "
+            "and any capacity warnings."
+        ),
+    )
     
     # Conversation history (for context continuity)
     conversation_history = Column(JSONB, nullable=True, comment="Message history for AI conversation context")
@@ -112,5 +139,8 @@ class BBA(Base):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "questionnaire_completed_at": self.questionnaire_completed_at.isoformat() if self.questionnaire_completed_at else None,
+            "task_planner_settings": self.task_planner_settings,
+            "task_planner_tasks": self.task_planner_tasks,
+            "task_planner_summary": self.task_planner_summary,
         }
 

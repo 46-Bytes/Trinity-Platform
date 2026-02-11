@@ -1027,7 +1027,8 @@ async def preview_task_planner(
             ),
         )
 
-    task_planner_service = get_bba_task_planner_service(db)
+    openai_service = OpenAIService()
+    task_planner_service = get_bba_task_planner_service(db, openai_service)
 
     # Determine effective settings: use provided payload if present,
     # otherwise fall back to stored settings.
@@ -1044,7 +1045,7 @@ async def preview_task_planner(
             )
 
     try:
-        tasks, summary = task_planner_service.generate_tasks_and_summary(
+        tasks, summary = await task_planner_service.generate_tasks_and_summary(
             bba=bba,
             settings=effective_settings,
         )
@@ -1080,12 +1081,12 @@ async def preview_task_planner(
     }
 
 
-@router.post("/{project_id}/tasks/export/excel", status_code=status.HTTP_200_OK)
+@router.post("/{project_id}/tasks/export/excel")
 async def export_task_planner_excel(
     project_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> Dict[str, Any]:
+):
     """
     Generate the Excel (.xlsx) advisor task list for a BBA project.
 
@@ -1093,8 +1094,7 @@ async def export_task_planner_excel(
     - Uses stored task planner settings (must be configured first)
     - Uses stored task rows & summary if present
       – otherwise regenerates them from the 12‑month plan
-    - Writes the Excel file under the backend `files/bba_tasks/` directory
-    - Returns a download URL and the summary payload
+    - Returns a streaming Excel file download
     """
     bba_service = get_bba_service(db)
     bba = bba_service.get_bba(project_id)
@@ -1120,7 +1120,8 @@ async def export_task_planner_excel(
             ),
         )
 
-    task_planner_service = get_bba_task_planner_service(db)
+    openai_service = OpenAIService()
+    task_planner_service = get_bba_task_planner_service(db, openai_service)
 
     try:
         settings = task_planner_service.load_settings(bba)
@@ -1136,7 +1137,7 @@ async def export_task_planner_excel(
 
     if not tasks or not summary:
         try:
-            tasks, summary = task_planner_service.generate_tasks_and_summary(
+            tasks, summary = await task_planner_service.generate_tasks_and_summary(
                 bba=bba,
                 settings=settings,
             )
@@ -1177,40 +1178,18 @@ async def export_task_planner_excel(
             detail=f"Failed to generate Excel workbook: {str(e)}",
         )
 
-    # Persist Excel file under backend/files/bba_tasks/
-    try:
-        base_dir = Path(__file__).resolve().parents[2] / "files" / "bba_tasks"
-        base_dir.mkdir(parents=True, exist_ok=True)
+    # Build a safe filename for the download
+    client_name = bba.client_name or "Client"
+    safe_client_name = "".join(
+        c for c in client_name if c.isalnum() or c in (" ", "_", "-")
+    ).strip() or "Client"
+    safe_client_name = safe_client_name.replace(" ", "_")
+    file_name = f"{safe_client_name}_Advisor_Task_List.xlsx"
 
-        client_name = bba.client_name or "Client"
-        safe_client_name = "".join(
-            c for c in client_name if c.isalnum() or c in (" ", "_", "-")
-        ).strip() or "Client"
-        safe_client_name = safe_client_name.replace(" ", "_")
-
-        file_name = f"{safe_client_name}_Advisor_Task_List.xlsx"
-        file_path = base_dir / file_name
-
-        with open(file_path, "wb") as f:
-            f.write(excel_bytes)
-
-        download_url = f"/files/bba_tasks/{file_name}"
-    except Exception as e:
-        logger.error(
-            "Failed to write Excel file to disk for BBA %s: %s",
-            project_id,
-            str(e),
-            exc_info=True,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to persist Excel file: {str(e)}",
-        )
-
-    return {
-        "success": True,
-        "message": "Excel advisor task list generated successfully",
-        "download_url": download_url,
-        "file_name": file_name,
-        "summary": summary,
-    }
+    return StreamingResponse(
+        io.BytesIO(excel_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="{file_name}"',
+        },
+    )

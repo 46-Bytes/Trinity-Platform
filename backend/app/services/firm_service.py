@@ -275,15 +275,17 @@ class FirmService:
         if not advisor or advisor.firm_id != firm_id:
             raise ValueError("Advisor not found in firm")
         
-        # Get engagements where advisor is primary
+        # Get engagements where advisor is primary (exclude soft-deleted)
         primary_engagements = self.db.query(Engagement).filter(
             Engagement.primary_advisor_id == advisor_id,
-            Engagement.firm_id == firm_id
+            Engagement.firm_id == firm_id,
+            Engagement.is_deleted == False,  # only non-deleted engagements
         ).all()
         
-        # Get engagements where advisor is secondary
+        # Get engagements where advisor is secondary (exclude soft-deleted)
         secondary_engagements = self.db.query(Engagement).filter(
-            Engagement.firm_id == firm_id
+            Engagement.firm_id == firm_id,
+            Engagement.is_deleted == False,  # only non-deleted engagements
         ).all()
         
         # Filter to only those where advisor is in secondary_advisor_ids

@@ -82,6 +82,9 @@ class TaskListItem(TaskResponse):
     engagement_name: Optional[str] = Field(None, description="Name of the engagement")
     assigned_to_name: Optional[str] = Field(None, description="Name of assigned user")
     created_by_name: Optional[str] = Field(None, description="Name of creator")
+    unread_notes_count_for_current_user: int = Field(
+        0, description="Number of notes on this task the current user has not read yet"
+    )
 
 
 # Schema for bulk task creation (for diagnostic processing)

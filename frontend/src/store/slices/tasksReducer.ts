@@ -23,6 +23,7 @@ export interface Task {
   completedAt?: string;
   createdAt: string;
   updatedAt: string;
+  unreadNotesCountForCurrentUser?: number;
 }
 
 export interface TaskCreatePayload {
@@ -97,6 +98,7 @@ function mapBackendTaskToFrontend(item: any): Task {
     completedAt: item.completed_at,
     createdAt: item.created_at,
     updatedAt: item.updated_at,
+    unreadNotesCountForCurrentUser: item.unread_notes_count_for_current_user ?? 0,
   };
 }
 
@@ -337,6 +339,19 @@ const taskSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
+    clearUnreadNotesForTask: (state, action: PayloadAction<string>) => {
+      const taskId = action.payload;
+      const task = state.tasks.find((t) => t.id === taskId);
+      if (task) {
+        task.unreadNotesCountForCurrentUser = 0;
+      }
+      if (state.selectedTask?.id === taskId) {
+        state.selectedTask = {
+          ...state.selectedTask,
+          unreadNotesCountForCurrentUser: 0,
+        };
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -424,6 +439,6 @@ const taskSlice = createSlice({
   },
 });
 
-export const { setSelectedTask, setFilters, clearFilters, clearError } = taskSlice.actions;
+export const { setSelectedTask, setFilters, clearFilters, clearError, clearUnreadNotesForTask } = taskSlice.actions;
 export default taskSlice.reducer;
 

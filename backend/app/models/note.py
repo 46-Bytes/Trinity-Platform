@@ -42,7 +42,7 @@ class Note(Base):
     # Organization
     tags = Column(ARRAY(String), nullable=True, comment="Array of tags for categorization")
     attachments = Column(JSONB, nullable=True, comment="Array of attachment metadata (file URLs, names, types)")
-    
+    read_by = Column(ARRAY(UUID(as_uuid=True)), nullable=False, server_default="{}", comment="Array of user IDs who have read this note",)
     # Timestamps
     created_at = Column(DateTime, nullable=False, server_default=func.current_timestamp(), index=True)
     updated_at = Column(DateTime, nullable=False, server_default=func.current_timestamp(), onupdate=func.current_timestamp())

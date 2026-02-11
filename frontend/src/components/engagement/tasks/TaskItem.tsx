@@ -10,6 +10,7 @@ import { NotesList } from './NotesList';
 import { useAppDispatch } from '@/store/hooks';
 import { createNote, fetchNotes } from '@/store/slices/notesReducer';
 import { capitalizeFirstLetter, getPriorityBadgeClassName } from '@/lib/utils';
+import { clearUnreadNotesForTask } from '@/store/slices/tasksReducer';
 
 interface TaskItemProps {
   task: Task;
@@ -46,6 +47,8 @@ export function TaskItem({ task, onEdit, onDelete, onStatusChange, onClick }: Ta
     setShowNoteForm(false);
     // Fetch notes when dialog opens
     dispatch(fetchNotes({ engagementId: task.engagementId, taskId: task.id }));
+    // Optimistically clear unread badge for this task for current user
+    dispatch(clearUnreadNotesForTask(task.id));
   };
 
   const getStatusBadgeClassName = (status: string) => {
@@ -133,14 +136,26 @@ export function TaskItem({ task, onEdit, onDelete, onStatusChange, onClick }: Ta
             </div>
           </div>
           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleOpenNotesDialog}
-              title="View notes"
-            >
-              <StickyNote className="h-4 w-4" />
-            </Button>
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleOpenNotesDialog}
+                title="View notes"
+              >
+                <StickyNote className="h-4 w-4" />
+              </Button>
+              {task.unreadNotesCountForCurrentUser && task.unreadNotesCountForCurrentUser > 0 && (
+                <span className="absolute -top-1 -right-1">
+                  <Badge
+                    variant="destructive"
+                    className="h-4 min-w-[1rem] px-1 py-0 text-[10px] leading-none rounded-full flex items-center justify-center"
+                  >
+                    {task.unreadNotesCountForCurrentUser}
+                  </Badge>
+                </span>
+              )}
+            </div>
             {task.status !== 'completed' && (
               <Button
                 variant="ghost"

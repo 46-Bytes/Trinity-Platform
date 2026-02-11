@@ -45,6 +45,7 @@ class NoteResponse(NoteBase):
     model_config = ConfigDict(from_attributes=True)
     
     id: UUID
+    read_by: List[UUID] = Field(default_factory=list, description="Array of user IDs who have read this note")
     engagement_id: UUID
     diagnostic_id: Optional[UUID] = None
     task_id: Optional[UUID] = None

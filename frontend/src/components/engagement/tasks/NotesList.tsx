@@ -1,11 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { fetchNotes, deleteNote, type Note } from '@/store/slices/notesReducer';
+import { fetchNotes, deleteNote, type Note, markNoteRead } from '@/store/slices/notesReducer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Trash2, Pin, User, Calendar } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useAuth } from '@/context/AuthContext';
 
 interface NotesListProps {
   engagementId: string;
@@ -16,11 +17,37 @@ interface NotesListProps {
 export function NotesList({ engagementId, taskId, onAddNote }: NotesListProps) {
   const dispatch = useAppDispatch();
   const { notes, isLoading, error } = useAppSelector((state) => state.note);
+  const { user } = useAuth();
+  const hasMarkedAllReadRef = useRef(false);
 
   useEffect(() => {
     // Fetch notes for this task
     dispatch(fetchNotes({ engagementId, taskId }));
   }, [dispatch, engagementId, taskId]);
+
+  useEffect(() => {
+    // After notes are loaded, mark them as read for the current user (once per dialog open)
+    if (!user) return;
+    if (hasMarkedAllReadRef.current) return;
+    if (!notes || notes.length === 0) return;
+
+    const unreadNotes = notes.filter((note: Note) => {
+      const alreadyRead = Array.isArray(note.readBy) && note.readBy.includes(user.id);
+      return !alreadyRead;
+    });
+
+    if (unreadNotes.length === 0) {
+      hasMarkedAllReadRef.current = true;
+      return;
+    }
+
+    unreadNotes.forEach((note) => {
+      dispatch(markNoteRead(note.id));
+    });
+
+    // Avoid re-marking on subsequent state updates for this dialog open
+    hasMarkedAllReadRef.current = true;
+  }, [dispatch, notes, user]);
 
   const handleDeleteNote = async (noteId: string) => {
     if (window.confirm('Are you sure you want to delete this note?')) {
@@ -101,8 +128,17 @@ export function NotesList({ engagementId, taskId, onAddNote }: NotesListProps) {
       ) : (
         <ScrollArea className="h-[400px] pr-4">
           <div className="space-y-3">
-            {sortedNotes.map((note) => (
-              <Card key={note.id} className={note.isPinned ? 'border-primary' : ''}>
+            {sortedNotes.map((note) => {
+              const isUnreadForCurrentUser =
+                !!user && (!note.readBy || !note.readBy.includes(user.id));
+
+              return (
+                <Card
+                  key={note.id}
+                  className={`${
+                    note.isPinned ? 'border-primary' : ''
+                  } ${isUnreadForCurrentUser ? 'bg-muted/60' : ''}`}
+                >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -161,7 +197,8 @@ export function NotesList({ engagementId, taskId, onAddNote }: NotesListProps) {
                   )}
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </div>
         </ScrollArea>
       )}

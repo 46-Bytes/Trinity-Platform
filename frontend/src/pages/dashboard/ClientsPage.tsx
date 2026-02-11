@@ -215,6 +215,10 @@ export default function ClientsPage() {
     }>();
 
     engagements.forEach(engagement => {
+      if (engagement.is_deleted) {
+        return;
+      }
+      
       const clientId = engagement.clientId;
       if (!engagementMap.has(clientId)) {
         engagementMap.set(clientId, {

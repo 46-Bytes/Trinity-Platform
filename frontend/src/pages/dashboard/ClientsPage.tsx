@@ -688,7 +688,7 @@ export default function ClientsPage() {
           <DialogHeader>
             <DialogTitle>Remove Client</DialogTitle>
             <DialogDescription>
-              Are you sure you want to remove {clientToRemove?.name || clientToRemove?.email}? This action cannot be undone.
+              Are you sure you want to remove {clientToRemove?.name || clientToRemove?.email}? This will also delete all related engagements, diagnostics, data, and notes for this client. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2 pt-4">

@@ -3,7 +3,7 @@ Engagement CRUD API endpoints.
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, func, text
+from sqlalchemy import or_, func, text, select
 from typing import List, Optional
 from uuid import UUID
 import logging
@@ -206,10 +206,10 @@ async def list_engagements(
             query = query.filter(False)
     elif current_user.role in [UserRole.ADVISOR, UserRole.FIRM_ADVISOR]:
         # Advisors and firm advisors see:
-        associated_client_ids_subq = db.query(AdvisorClient.client_id).filter(
+        associated_client_ids_stmt = select(AdvisorClient.client_id).where(
             AdvisorClient.advisor_id == current_user.id,
             AdvisorClient.status == "active",
-        ).subquery()
+        )
 
         query = query.filter(
             or_(
@@ -217,7 +217,7 @@ async def list_engagements(
                 text("secondary_advisor_ids @> ARRAY[:user_id]::uuid[]").bindparams(
                     user_id=current_user.id
                 ),
-                Engagement.client_id.in_(associated_client_ids_subq),
+                Engagement.client_id.in_(associated_client_ids_stmt),
             )
         )
     elif current_user.role == UserRole.CLIENT:

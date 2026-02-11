@@ -40,6 +40,10 @@ from sqlalchemy import func
 from ..models.engagement import Engagement
 from ..models.diagnostic import Diagnostic
 from ..models.task import Task
+from ..models.note import Note
+from ..models.bba import BBA
+from ..models.media import Media
+from ..models.conversation import Conversation
 from ..models.adv_client import AdvisorClient
 
 router = APIRouter(prefix="/api/firms", tags=["firms"])
@@ -509,7 +513,37 @@ async def remove_client(
     # Also deactivate any advisor-client associations for this client so they no longer appear as "active"
     db.query(AdvisorClient).filter(AdvisorClient.client_id == client.id,AdvisorClient.status == 'active').update({"status": "inactive"}, synchronize_session=False)
 
-    db.commit()
+    # Delete all client-related work/data (engagements/diagnostics/tasks/notes/etc.)
+    # We keep the client row (soft delete) but remove the related operational data.
+    try:
+        engagement_ids = [
+            row[0] for row in db.query(Engagement.id).filter(Engagement.client_id == client.id).all()
+        ]
+
+        if engagement_ids:
+            # Hard delete work items tied to the client's engagements
+            db.query(Task).filter(Task.engagement_id.in_(engagement_ids)).delete(synchronize_session=False)
+            db.query(Note).filter(Note.engagement_id.in_(engagement_ids)).delete(synchronize_session=False)
+            db.query(Diagnostic).filter(Diagnostic.engagement_id.in_(engagement_ids)).delete(synchronize_session=False)
+            db.query(BBA).filter(BBA.engagement_id.in_(engagement_ids)).delete(synchronize_session=False)
+
+            # Soft delete engagements (keep row for history/audit, consistent with engagement delete API)
+            db.query(Engagement).filter(Engagement.id.in_(engagement_ids)).update(
+                {"is_deleted": True},
+                synchronize_session=False
+            )
+
+        # Delete any client-created BBA projects that might not be tied to an engagement
+        db.query(BBA).filter(BBA.created_by_user_id == client.id).delete(synchronize_session=False)
+
+        # Delete uploaded files and chat history for this client
+        db.query(Media).filter(Media.user_id == client.id).delete(synchronize_session=False)
+        db.query(Conversation).filter(Conversation.user_id == client.id).delete(synchronize_session=False)
+
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     
     return None
 

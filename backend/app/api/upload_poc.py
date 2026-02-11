@@ -1,17 +1,25 @@
 """
-POC: File Upload API endpoint for OpenAI Files API integration
-This is a standalone POC, separate from the main file upload system.
-Now uses database (BBA model) instead of session storage.
+BBA Tool API: Phases 1 & 2
 
-Includes endpoints for the BBA Report Builder workflow:
-- Step 1: File Upload (existing)
-- Step 2: Context Capture / Questionnaire (existing)
+This module implements the backend for the Benchmark Business Advisory (BBA)
+tool, including:
+
+Phase 1 – Diagnostic Report Builder
+-----------------------------------
+- Step 1: File Upload
+- Step 2: Context Capture / Questionnaire
 - Step 3: Draft Findings
 - Step 4: Expand Findings
 - Step 5: Snapshot Table
 - Step 6: 12-Month Plan
 - Step 7: Review & Edit
 - Export: Word document generation
+
+Phase 2 – Excel Task List Generator (Engagement Planner)
+--------------------------------------------------------
+- Task planner context setup (advisors, capacity, start month/year)
+- Recommendation-by-recommendation task generation & preview
+- Excel (.xlsx) advisor task list export
 """
 from fastapi import APIRouter, UploadFile, File, HTTPException, status, Depends, BackgroundTasks
 from fastapi.responses import StreamingResponse
@@ -19,6 +27,7 @@ from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 from uuid import UUID
 from datetime import datetime
+from pathlib import Path
 import tempfile
 import os
 import logging
@@ -26,6 +35,8 @@ import io
 from app.services.openai_service import OpenAIService
 from app.services.bba_service import get_bba_service, BBAService
 from app.services.bba_conversation_engine import get_bba_conversation_engine
+from app.services.bba_task_planner_service import get_bba_task_planner_service
+from app.services.bba_task_list_export import get_bba_task_list_exporter
 from app.utils.auth import get_current_user
 from app.models.user import User
 from app.database import get_db
@@ -36,11 +47,12 @@ from app.schemas.bba import (
     BBADraftFindingsRequest,
     BBAFindingsEdit,
     BBAEditRequest,
+    BBATaskPlannerSettings,
 )
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/poc", tags=["upload-poc"])
+router = APIRouter(prefix="/api/poc", tags=["bba"])
 
 
 @router.post("/create-project", status_code=status.HTTP_201_CREATED)
@@ -912,3 +924,293 @@ async def export_to_word(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to export to Word: {str(e)}"
         )
+
+
+# =============================================================================
+# PHASE 2 – Excel Task Planner (Engagement Planner)
+# =============================================================================
+
+
+@router.post("/{project_id}/tasks/settings", status_code=status.HTTP_200_OK)
+async def configure_task_planner_settings(
+    project_id: UUID,
+    settings: BBATaskPlannerSettings,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Configure Phase 2 task planner settings for a BBA project.
+
+    Captures:
+    - Lead and support advisors
+    - Total advisors on the engagement
+    - Maximum advisor hours per month
+    - Engagement start month/year
+
+    These values are stored on the BBA record and reused for task generation
+    and Excel export.
+    """
+    bba_service = get_bba_service(db)
+    bba = bba_service.get_bba(project_id)
+
+    if not bba:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="BBA project not found",
+        )
+
+    if bba.created_by_user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this project",
+        )
+
+    # Require that the 12‑month plan exists before enabling the task planner
+    if not bba.twelve_month_plan:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "12-month plan has not been generated yet. "
+                "Complete Step 6 before configuring the task planner."
+            ),
+        )
+
+    task_planner_service = get_bba_task_planner_service(db)
+    updated_bba = task_planner_service.save_settings(project_id, settings)
+
+    return {
+        "success": True,
+        "message": "Task planner settings saved successfully",
+        "settings": settings.model_dump(),
+        "project": updated_bba.to_dict(),
+    }
+
+
+@router.post("/{project_id}/tasks/preview", status_code=status.HTTP_200_OK)
+async def preview_task_planner(
+    project_id: UUID,
+    settings: Optional[BBATaskPlannerSettings] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Generate a preview of Phase 2 task planner rows for a BBA project.
+
+    - Uses existing stored settings, or updates them if a new settings payload
+      is provided in the request body.
+    - Builds Client and BBA task rows for each recommendation in the 12‑month
+      plan.
+    - Calculates total BBA hours and monthly capacity utilisation.
+    - Stores tasks and summary back on the BBA record.
+    """
+    bba_service = get_bba_service(db)
+    bba = bba_service.get_bba(project_id)
+
+    if not bba:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="BBA project not found",
+        )
+
+    if bba.created_by_user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this project",
+        )
+
+    if not bba.twelve_month_plan:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "12-month plan has not been generated yet. "
+                "Complete Step 6 before generating the task planner."
+            ),
+        )
+
+    task_planner_service = get_bba_task_planner_service(db)
+
+    # Determine effective settings: use provided payload if present,
+    # otherwise fall back to stored settings.
+    if settings:
+        effective_settings = settings
+        task_planner_service.save_settings(project_id, effective_settings)
+    else:
+        try:
+            effective_settings = task_planner_service.load_settings(bba)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e),
+            )
+
+    try:
+        tasks, summary = task_planner_service.generate_tasks_and_summary(
+            bba=bba,
+            settings=effective_settings,
+        )
+        updated_bba = task_planner_service.save_tasks_and_summary(
+            bba_id=project_id,
+            tasks=tasks,
+            summary=summary,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error(
+            "Failed to generate task planner preview for BBA %s: %s",
+            project_id,
+            str(e),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate task planner preview: {str(e)}",
+        )
+
+    return {
+        "success": True,
+        "message": "Task planner preview generated successfully",
+        "settings": effective_settings.model_dump(),
+        "tasks": tasks,
+        "summary": summary,
+        "project": updated_bba.to_dict(),
+    }
+
+
+@router.post("/{project_id}/tasks/export/excel", status_code=status.HTTP_200_OK)
+async def export_task_planner_excel(
+    project_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Generate the Excel (.xlsx) advisor task list for a BBA project.
+
+    Behaviour:
+    - Uses stored task planner settings (must be configured first)
+    - Uses stored task rows & summary if present
+      – otherwise regenerates them from the 12‑month plan
+    - Writes the Excel file under the backend `files/bba_tasks/` directory
+    - Returns a download URL and the summary payload
+    """
+    bba_service = get_bba_service(db)
+    bba = bba_service.get_bba(project_id)
+
+    if not bba:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="BBA project not found",
+        )
+
+    if bba.created_by_user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this project",
+        )
+
+    if not bba.twelve_month_plan:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "12-month plan has not been generated yet. "
+                "Complete Step 6 before exporting the Excel task list."
+            ),
+        )
+
+    task_planner_service = get_bba_task_planner_service(db)
+
+    try:
+        settings = task_planner_service.load_settings(bba)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+    # Use existing tasks/summary if available; otherwise regenerate
+    tasks = bba.task_planner_tasks
+    summary = bba.task_planner_summary
+
+    if not tasks or not summary:
+        try:
+            tasks, summary = task_planner_service.generate_tasks_and_summary(
+                bba=bba,
+                settings=settings,
+            )
+            task_planner_service.save_tasks_and_summary(
+                bba_id=project_id,
+                tasks=tasks,
+                summary=summary,
+            )
+        except Exception as e:
+            logger.error(
+                "Failed to generate task planner data for Excel export (BBA %s): %s",
+                project_id,
+                str(e),
+                exc_info=True,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to generate task planner data for Excel export: {str(e)}",
+            )
+
+    try:
+        exporter = get_bba_task_list_exporter()
+        excel_bytes = exporter.generate_workbook_bytes(tasks=tasks, summary=summary or {})
+    except ImportError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error(
+            "Failed to generate Excel workbook for BBA %s: %s",
+            project_id,
+            str(e),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate Excel workbook: {str(e)}",
+        )
+
+    # Persist Excel file under backend/files/bba_tasks/
+    try:
+        base_dir = Path(__file__).resolve().parents[2] / "files" / "bba_tasks"
+        base_dir.mkdir(parents=True, exist_ok=True)
+
+        client_name = bba.client_name or "Client"
+        safe_client_name = "".join(
+            c for c in client_name if c.isalnum() or c in (" ", "_", "-")
+        ).strip() or "Client"
+        safe_client_name = safe_client_name.replace(" ", "_")
+
+        file_name = f"{safe_client_name}_Advisor_Task_List.xlsx"
+        file_path = base_dir / file_name
+
+        with open(file_path, "wb") as f:
+            f.write(excel_bytes)
+
+        download_url = f"/files/bba_tasks/{file_name}"
+    except Exception as e:
+        logger.error(
+            "Failed to write Excel file to disk for BBA %s: %s",
+            project_id,
+            str(e),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to persist Excel file: {str(e)}",
+        )
+
+    return {
+        "success": True,
+        "message": "Excel advisor task list generated successfully",
+        "download_url": download_url,
+        "file_name": file_name,
+        "summary": summary,
+    }

@@ -152,7 +152,123 @@ class BBATwelveMonthPlanResponse(BaseModel):
     model: str = ""
 
 
-# Step 7: Edit schemas
+# Phase 2 – Excel Task Planner (Engagement Planner)
+
+class BBATaskPlannerSettings(BaseModel):
+    """
+    Phase 2 task planner context.
+    Mirrors the advisor interaction:
+    - lead/support advisors
+    - total advisors
+    - max advisor hours per month
+    - engagement start month/year
+    """
+
+    lead_advisor: str = Field(..., description="Lead advisor display name")
+    support_advisor: Optional[str] = Field(
+        None, description="Support advisor display name (optional)"
+    )
+    advisor_count: int = Field(
+        ...,
+        gt=0,
+        description="Total number of advisors working on the engagement",
+    )
+    max_hours_per_month: int = Field(
+        ...,
+        gt=0,
+        description="Maximum combined advisor hours available per month",
+    )
+    # Use numeric months for backend logic; frontend can map from 'November 2025'
+    start_month: int = Field(
+        ...,
+        ge=1,
+        le=12,
+        description="Engagement start month as number (1=January, 12=December)",
+    )
+    start_year: int = Field(
+        ...,
+        ge=2000,
+        le=2100,
+        description="Engagement start year (four digits)",
+    )
+
+
+class BBATaskRow(BaseModel):
+    """
+    Single row in the Excel task planner.
+    Matches Excel columns:
+    Rec #, Recommendation, Owner, Task, Advisor Hrs, Advisor, Status, Notes, Timing.
+    """
+
+    rec_number: int = Field(..., description="Recommendation number (1–10)")
+    recommendation: str = Field(..., description="Recommendation title")
+    owner: str = Field(
+        ...,
+        description="Owner of the task (e.g. 'Client', 'BBA', 'Advisor')",
+    )
+    task: str = Field(..., description="One task per row")
+    advisor_hrs: float = Field(
+        ...,
+        alias="advisorHrs",
+        description="Estimated BBA advisor hours for this task (0 for client-only tasks)",
+    )
+    advisor: Optional[str] = Field(
+        None,
+        description="Assigned advisor name (typically lead or support advisor)",
+    )
+    status: str = Field(
+        "Not yet started",
+        description="Task status; default is 'Not yet started'",
+    )
+    notes: Optional[str] = Field(
+        "",
+        description="Free-text notes. Kept blank by default for human input.",
+    )
+    timing: str = Field(
+        ...,
+        description="Human-readable real-month timing (e.g. 'Nov–Dec 2025')",
+    )
+
+
+class BBATaskPlannerSummary(BaseModel):
+    """Summary for the Phase 2 task planner, including capacity validation."""
+
+    total_bba_hours: float = Field(
+        ...,
+        description="Total BBA advisor hours allocated across all tasks",
+    )
+    max_hours_per_month: int = Field(
+        ...,
+        description=(
+            "Configured maximum combined advisor hours per month across all advisors "
+            "(capacity = advisor_count × max_hours_per_month)."
+        ),
+    )
+    monthly_hours: Dict[str, float] = Field(
+        ...,
+        description=(
+            "Map of YYYY-MM label to total BBA hours scheduled for that month. "
+            "Used to validate per-month capacity."
+        ),
+    )
+    warnings: List[str] = Field(
+        default_factory=list,
+        description="Any capacity warnings (e.g. months exceeding max_hours_per_month)",
+    )
+
+
+class BBATaskPlannerPreviewResponse(BaseModel):
+    """
+    Response for the Phase 2 task planner preview.
+    Returned by the backend before Excel generation so the UI can show/edit rows.
+    """
+
+    settings: BBATaskPlannerSettings
+    tasks: List[BBATaskRow]
+    summary: BBATaskPlannerSummary
+
+
+# Step 7: Edit schemas (still part of Phase 1 report workflow)
 class BBAEditRequest(BaseModel):
     """Request schema for applying edits"""
     edit_type: str = Field(..., description="Type: rerank, timing, language, add, remove, merge")
@@ -201,6 +317,9 @@ class BBAResponse(BBABase):
     created_at: datetime
     updated_at: datetime
     questionnaire_completed_at: Optional[datetime] = None
+    task_planner_settings: Optional[Dict[str, Any]] = None
+    task_planner_tasks: Optional[List[Dict[str, Any]]] = None
+    task_planner_summary: Optional[Dict[str, Any]] = None
 
     class Config:
         from_attributes = True

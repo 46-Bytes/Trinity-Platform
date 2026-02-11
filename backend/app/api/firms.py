@@ -720,15 +720,17 @@ async def get_firm_stats(
             )
     
     
-    # Count engagements
+    # Count engagements (non-deleted only)
     engagements_count = db.query(func.count(Engagement.id)).filter(
-        Engagement.firm_id == firm_id
+        Engagement.firm_id == firm_id,
+        Engagement.is_deleted == False
     ).scalar() or 0
     
-    # Count active engagements
+    # Count active engagements (non-deleted and status active only)
     active_engagements = db.query(func.count(Engagement.id)).filter(
         Engagement.firm_id == firm_id,
-        Engagement.status == "active"
+        Engagement.status == "active",
+        Engagement.is_deleted == False
     ).scalar() or 0
     
     # Count diagnostics

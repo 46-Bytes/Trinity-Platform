@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { StatCard } from '@/components/ui/stat-card';
 import { 
   Users, 
@@ -8,10 +8,12 @@ import {
 import { cn } from '@/lib/utils';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { fetchFirm, fetchFirmAdvisors, fetchFirmClients, fetchFirmStats } from '@/store/slices/firmReducer';
+import { fetchEngagements } from '@/store/slices/engagementReducer';
 
 export function FirmAdminDashboard() {
   const dispatch = useAppDispatch();
   const { firm, advisors, clients, stats, subscription, isLoading } = useAppSelector((state) => state.firm);
+  const { engagements } = useAppSelector((state) => state.engagement);
 
   useEffect(() => {
     if (!firm) {
@@ -24,6 +26,8 @@ export function FirmAdminDashboard() {
       dispatch(fetchFirmAdvisors(firm.id));
       dispatch(fetchFirmClients());
       dispatch(fetchFirmStats(firm.id));
+      // Fetch engagements for the firm to get accurate count
+      dispatch(fetchEngagements({ firm_id: firm.id }));
     }
   }, [dispatch, firm?.id]);
 
@@ -56,7 +60,23 @@ export function FirmAdminDashboard() {
   // Use stats for available seats to ensure consistency
   const availableSeats = stats?.seats_available ?? Math.max(seatCount - seatsUsed, 0);
   const totalClients = clients.length;
-  const activeEngagements = stats?.active_engagements ?? 0;
+  
+  // Calculate active engagements from fetched engagements as fallback
+  const activeEngagementsFromList = useMemo(() => {
+    if (!firm?.id || engagements.length === 0) {
+      return 0;
+    }
+    return engagements.filter(
+      (engagement) => 
+        !engagement.is_deleted && 
+        engagement.status === 'active'
+    ).length;
+  }, [engagements, firm?.id]);
+  
+  // Use direct count if we have engagements loaded, otherwise fall back to stats
+  const activeEngagements = engagements.length > 0
+    ? activeEngagementsFromList
+    : (stats?.active_engagements ?? 0);
 
   // Calculate subscription days remaining
   const calculateSubscriptionDays = () => {

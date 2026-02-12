@@ -152,26 +152,26 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className }: 
   const getImpactColor = (impact: string) => {
     switch (impact) {
       case 'high':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-100 text-red-800 hover:bg-red-50 hover:text-red-800';
       case 'medium':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-yellow-100 text-yellow-800 hover:bg-yellow-50 hover:text-yellow-800';
       case 'low':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-100 text-green-800 hover:bg-green-50 hover:text-green-800';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 hover:bg-gray-50 hover:text-gray-800';
     }
   };
 
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
       case 'immediate':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-100 text-red-800 hover:bg-red-50 hover:text-red-800';
       case 'short-term':
-        return 'bg-orange-100 text-orange-800';
+        return 'bg-orange-100 text-orange-800 hover:bg-orange-50 hover:text-orange-800';
       case 'medium-term':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-blue-100 text-blue-800 hover:bg-blue-50 hover:text-blue-800';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 hover:bg-gray-50 hover:text-gray-800';
     }
   };
 

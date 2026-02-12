@@ -354,74 +354,27 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
   };
 
   return (
-    <Card className={cn('w-full max-w-4xl mx-auto', className)}>
+    <Card className={cn('w-full max-w-8xl mx-auto', className)}>
       <CardHeader>
         <CardTitle>BBA Report Builder</CardTitle>
-        <CardDescription>
-          {isPhase2
-            ? `Phase 2 – Step ${displayStep}: ${stepLabels[currentStep]}`
-            : `Step ${currentStep}: ${stepLabels[currentStep]}`
-          }
-        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Step Indicator */}
-        <div className="space-y-2 mb-6">
-          {/* Phase 1 Steps */}
-          <div className="flex flex-wrap items-center gap-1">
-            <span className={cn(
-              'text-xs font-semibold mr-1 px-1.5 py-0.5 rounded',
-              !isPhase2 ? 'bg-primary/10 text-primary' : 'text-muted-foreground'
-            )}>
-              Phase 1
-            </span>
-            {phase1Steps.map(({ step, label }, idx) => (
-              <React.Fragment key={step}>
-                {idx > 0 && <ArrowRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
-                <div
-                  className={cn(
-                    'flex items-center gap-1 px-2 py-1 rounded text-xs font-medium',
-                    currentStep === step
-                      ? 'bg-primary text-primary-foreground'
-                      : currentStep > step
-                        ? 'bg-muted text-muted-foreground'
-                        : 'bg-muted text-muted-foreground/60'
-                  )}
-                >
-                  <span>{step}. {label}</span>
-                  {currentStep > step && <CheckCircle2 className="w-3 h-3" />}
-                </div>
-              </React.Fragment>
-            ))}
-          </div>
-
-          {/* Phase 2 Steps */}
-          <div className="flex flex-wrap items-center gap-1">
-            <span className={cn(
-              'text-xs font-semibold mr-1 px-1.5 py-0.5 rounded',
-              isPhase2 ? 'bg-primary/10 text-primary' : 'text-muted-foreground/60'
-            )}>
-              Phase 2
-            </span>
-            {phase2Steps.map(({ step, label }, idx) => (
-              <React.Fragment key={step}>
-                {idx > 0 && <ArrowRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
-                <div
-                  className={cn(
-                    'flex items-center gap-1 px-2 py-1 rounded text-xs font-medium',
-                    currentStep === step
-                      ? 'bg-primary text-primary-foreground'
-                      : currentStep > step
-                        ? 'bg-muted text-muted-foreground'
-                        : 'bg-muted text-muted-foreground/60'
-                  )}
-                >
-                  <span>{step - 7}. {label}</span>
-                  {currentStep > step && <CheckCircle2 className="w-3 h-3" />}
-                </div>
-              </React.Fragment>
-            ))}
-          </div>
+        <div className="flex flex-wrap justify-center items-center gap-1 mb-6">
+          {([1, 2, 3, 4, 5, 6, 7] as const).map((step) => (
+            <React.Fragment key={step}>
+              {step > 1 && <ArrowRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
+              <div
+                className={cn(
+                  'flex items-center gap-1 px-4 py-2 rounded text-xs font-medium',
+                  currentStep === step ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                )}
+              >
+                <span>{step}. {stepLabels[step]}</span>
+                {currentStep > step && <CheckCircle2 className="w-3 h-3" />}
+              </div>
+            </React.Fragment>
+          ))}
         </div>
 
         {/* Step 1: File Upload */}
@@ -470,11 +423,7 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <span>Total: {files.length}</span>
-                {pendingCount > 0 && <span>Pending: {pendingCount}</span>}
-                {successCount > 0 && (
-                  <span className="text-green-600">Success: {successCount}</span>
-                )}
+                <span>Total files uploaded: {files.length}</span>
                 {errorCount > 0 && (
                   <span className="text-red-600">Error: {errorCount}</span>
                 )}
@@ -524,11 +473,6 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
                     {fileObj.status === 'uploading' && (
                       <Progress value={fileObj.progress} className="mt-2 h-1" />
                     )}
-                    {fileObj.status === 'success' && fileObj.fileId && (
-                      <p className="text-xs text-green-600 mt-1">
-                        OpenAI File ID: {fileObj.fileId}
-                      </p>
-                    )}
                     {fileObj.status === 'error' && fileObj.error && (
                       <p className="text-xs text-red-600 mt-1">{fileObj.error}</p>
                     )}
@@ -559,24 +503,6 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
             </div>
           </div>
         )}
-
-            {/* File Mappings Display */}
-            {successCount > 0 && (
-              <div className="mt-4 p-4 bg-muted rounded-lg">
-                <p className="text-sm font-medium mb-2">File Mappings (stored in session):</p>
-                <div className="space-y-1">
-                  {files
-                    .filter((f) => f.status === 'success' && f.fileId)
-                    .map((f) => (
-                      <div key={f.id} className="text-xs font-mono">
-                        <span className="text-muted-foreground">{f.file.name}</span>
-                        <span className="mx-2">→</span>
-                        <span className="text-primary">{f.fileId}</span>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
 
             {/* Continue to Step 2 Button */}
             {successCount > 0 && (

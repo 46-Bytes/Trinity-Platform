@@ -465,28 +465,7 @@ export function ReviewEditStep({ projectId, onBack, onContinueToPhase2, classNam
           <Button variant="outline" onClick={onBack}>
             Back
           </Button>
-          <div className="flex gap-2">
-            <Button onClick={handleExport} disabled={isExporting} variant="outline">
-              {isExporting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Exporting...
-                </>
-              ) : (
-                <>
-                  <Download className="w-4 h-4 mr-2" />
-                  Export to Word (.docx)
-                </>
-              )}
-            </Button>
-            {onContinueToPhase2 && (
-              <Button onClick={onContinueToPhase2}>
-                <TableProperties className="w-4 h-4 mr-2" />
-                Phase 2: Excel Planner
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            )}
-          </div>
+
         </div>
       </CardContent>
     </Card>

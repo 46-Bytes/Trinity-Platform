@@ -3,7 +3,7 @@
  * Step 2 of the file upload POC - collects client context and preferences
  */
 import React from 'react';
-import { ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -44,6 +44,7 @@ interface ContextCaptureQuestionnaireProps {
   onBack: () => void;
   files: UploadedFile[];
   successCount: number;
+  isSubmitting: boolean;
 }
 
 export function ContextCaptureQuestionnaire({
@@ -53,6 +54,7 @@ export function ContextCaptureQuestionnaire({
   onBack,
   files,
   successCount,
+  isSubmitting,
 }: ContextCaptureQuestionnaireProps) {
   const isFormValid =
     questionnaireData.clientName &&
@@ -211,16 +213,26 @@ export function ContextCaptureQuestionnaire({
         <Button
           variant="outline"
           onClick={onBack}
+          disabled={isSubmitting}
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back
         </Button>
         <Button
           onClick={onSubmit}
-          disabled={!isFormValid}
+          disabled={!isFormValid || isSubmitting}
         >
-          Confirm & Continue
-          <ArrowRight className="w-4 h-4 ml-2" />
+          {isSubmitting ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Submitting...
+            </>
+          ) : (
+            <>
+              Confirm & Continue
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </>
+          )}
         </Button>
       </div>
     </div>

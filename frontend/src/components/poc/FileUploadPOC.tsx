@@ -13,6 +13,7 @@ import { ExpandedFindingsStep, type ExpandedFinding } from './ExpandedFindingsSt
 import { SnapshotTableStep, type SnapshotTable } from './SnapshotTableStep';
 import { TwelveMonthPlanStep, type TwelveMonthPlan } from './TwelveMonthPlanStep';
 import { ReviewEditStep } from './ReviewEditStep';
+import { TaskPlannerStep } from './TaskPlannerStep';
 import { cn } from '@/lib/utils';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -56,7 +57,7 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4 | 5 | 6 | 7>(1);
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4 | 5 | 6 | 7 | 8>(1);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [questionnaireData, setQuestionnaireData] = useState<QuestionnaireData>({
@@ -322,6 +323,25 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
   const successCount = files.filter((f) => f.status === 'success').length;
   const errorCount = files.filter((f) => f.status === 'error').length;
 
+  // Phase 1 steps (1-7): Word Report Generation
+  // Phase 2 steps (8+):  Excel Engagement Planner
+  const phase1Steps = [
+    { step: 1, label: 'Upload Files' },
+    { step: 2, label: 'Context Capture' },
+    { step: 3, label: 'Draft Findings' },
+    { step: 4, label: 'Expand Findings' },
+    { step: 5, label: 'Snapshot Table' },
+    { step: 6, label: '12-Month Plan' },
+    { step: 7, label: 'Review & Export' },
+  ] as const;
+
+  const phase2Steps = [
+    { step: 8, label: 'Task Planner' },
+  ] as const;
+
+  const isPhase2 = currentStep >= 8;
+  const currentPhase = isPhase2 ? 2 : 1;
+  const displayStep = isPhase2 ? currentStep - 7 : currentStep;
   const stepLabels: Record<number, string> = {
     1: 'Upload Files',
     2: 'Context Capture',
@@ -330,6 +350,7 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
     5: 'Snapshot Table',
     6: '12-Month Plan',
     7: 'Review & Export',
+    8: 'Task Planner',
   };
 
   return (
@@ -551,6 +572,15 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
           <ReviewEditStep
             projectId={projectId}
             onBack={() => setCurrentStep(6)}
+            onContinueToPhase2={() => setCurrentStep(8)}
+          />
+        )}
+
+        {/* Step 8: Phase 2 – Task Planner (Excel Generator) */}
+        {currentStep === 8 && projectId && (
+          <TaskPlannerStep
+            projectId={projectId}
+            onBack={() => setCurrentStep(7)}
           />
         )}
       </CardContent>

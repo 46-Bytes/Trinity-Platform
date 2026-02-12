@@ -14,6 +14,7 @@ import { SnapshotTableStep, type SnapshotTable } from './SnapshotTableStep';
 import { TwelveMonthPlanStep, type TwelveMonthPlan } from './TwelveMonthPlanStep';
 import { ReviewEditStep } from './ReviewEditStep';
 import { TaskPlannerStep } from './TaskPlannerStep';
+import PresentationStep from './PresentationStep';
 import { cn } from '@/lib/utils';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -57,7 +58,7 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4 | 5 | 6 | 7 | 8>(1);
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9>(1);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [questionnaireData, setQuestionnaireData] = useState<QuestionnaireData>({
@@ -339,9 +340,14 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
     { step: 8, label: 'Task Planner' },
   ] as const;
 
-  const isPhase2 = currentStep >= 8;
-  const currentPhase = isPhase2 ? 2 : 1;
-  const displayStep = isPhase2 ? currentStep - 7 : currentStep;
+  const phase3Steps = [
+    { step: 9, label: 'Presentation' },
+  ] as const;
+
+  const isPhase3 = currentStep >= 9;
+  const isPhase2 = currentStep === 8;
+  const currentPhase = isPhase3 ? 3 : isPhase2 ? 2 : 1;
+  const displayStep = isPhase3 ? currentStep - 8 : isPhase2 ? currentStep - 7 : currentStep;
   const stepLabels: Record<number, string> = {
     1: 'Upload Files',
     2: 'Context Capture',
@@ -351,6 +357,7 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
     6: '12-Month Plan',
     7: 'Review & Export',
     8: 'Task Planner',
+    9: 'Presentation',
   };
 
   return (
@@ -358,9 +365,11 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
       <CardHeader>
         <CardTitle>BBA Report Builder</CardTitle>
         <CardDescription>
-          {isPhase2
-            ? `Phase 2 – Step ${displayStep}: ${stepLabels[currentStep]}`
-            : `Step ${currentStep}: ${stepLabels[currentStep]}`
+          {isPhase3
+            ? `Phase 3 – Step ${displayStep}: ${stepLabels[currentStep]}`
+            : isPhase2
+              ? `Phase 2 – Step ${displayStep}: ${stepLabels[currentStep]}`
+              : `Step ${currentStep}: ${stepLabels[currentStep]}`
           }
         </CardDescription>
       </CardHeader>
@@ -417,6 +426,34 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
                   )}
                 >
                   <span>{step - 7}. {label}</span>
+                  {currentStep > step && <CheckCircle2 className="w-3 h-3" />}
+                </div>
+              </React.Fragment>
+            ))}
+          </div>
+
+          {/* Phase 3 Steps */}
+          <div className="flex flex-wrap items-center gap-1">
+            <span className={cn(
+              'text-xs font-semibold mr-1 px-1.5 py-0.5 rounded',
+              isPhase3 ? 'bg-primary/10 text-primary' : 'text-muted-foreground/60'
+            )}>
+              Phase 3
+            </span>
+            {phase3Steps.map(({ step, label }, idx) => (
+              <React.Fragment key={step}>
+                {idx > 0 && <ArrowRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
+                <div
+                  className={cn(
+                    'flex items-center gap-1 px-2 py-1 rounded text-xs font-medium',
+                    currentStep === step
+                      ? 'bg-primary text-primary-foreground'
+                      : currentStep > step
+                        ? 'bg-muted text-muted-foreground'
+                        : 'bg-muted text-muted-foreground/60'
+                  )}
+                >
+                  <span>{step - 8}. {label}</span>
                   {currentStep > step && <CheckCircle2 className="w-3 h-3" />}
                 </div>
               </React.Fragment>
@@ -655,6 +692,15 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
           <TaskPlannerStep
             projectId={projectId}
             onBack={() => setCurrentStep(7)}
+            onContinueToPhase3={() => setCurrentStep(9)}
+          />
+        )}
+
+        {/* Step 9: Phase 3 – Presentation Generator */}
+        {currentStep === 9 && projectId && (
+          <PresentationStep
+            projectId={projectId}
+            onBack={() => setCurrentStep(8)}
           />
         )}
       </CardContent>

@@ -88,6 +88,17 @@ class BBA(Base):
         ),
     )
     
+    # Phase 3 – PowerPoint Presentation Generator
+    presentation_slides = Column(
+        JSONB,
+        nullable=True,
+        comment=(
+            "Phase 3 presentation slide content. Contains a 'slides' array "
+            "with typed slide objects (title, executive_summary, structure, "
+            "recommendation, timeline, next_steps) each with an approved flag."
+        ),
+    )
+
     # Conversation history (for context continuity)
     conversation_history = Column(JSONB, nullable=True, comment="Message history for AI conversation context")
     
@@ -142,5 +153,6 @@ class BBA(Base):
             "task_planner_settings": self.task_planner_settings,
             "task_planner_tasks": self.task_planner_tasks,
             "task_planner_summary": self.task_planner_summary,
+            "presentation_slides": self.presentation_slides,
         }
 

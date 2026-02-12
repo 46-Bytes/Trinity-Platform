@@ -200,7 +200,6 @@ export function ContextCaptureQuestionnaire({
                 <div key={f.id} className="text-xs flex items-center gap-2">
                   <CheckCircle2 className="w-3 h-3 text-green-600" />
                   <span className="text-muted-foreground">{f.file.name}</span>
-                  <span className="text-muted-foreground/60">({f.fileId})</span>
                 </div>
               ))}
           </div>

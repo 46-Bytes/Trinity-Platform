@@ -464,19 +464,7 @@ export function ReviewEditStep({ projectId, onBack, className }: ReviewEditStepP
           <Button variant="outline" onClick={onBack}>
             Back
           </Button>
-          <Button onClick={handleExport} disabled={isExporting}>
-            {isExporting ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Exporting...
-              </>
-            ) : (
-              <>
-                <Download className="w-4 h-4 mr-2" />
-                Export to Word (.docx)
-              </>
-            )}
-          </Button>
+
         </div>
       </CardContent>
     </Card>

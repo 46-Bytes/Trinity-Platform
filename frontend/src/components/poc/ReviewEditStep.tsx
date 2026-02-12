@@ -3,7 +3,7 @@
  * Final review with export capability
  */
 import React, { useState, useEffect } from 'react';
-import { Loader2, CheckCircle2, AlertCircle, FileText, Download, RefreshCw, Eye, Edit2 } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, FileText, Download, RefreshCw, Eye, Edit2, ArrowRight, TableProperties } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -28,10 +28,11 @@ interface BBAProject {
 interface ReviewEditStepProps {
   projectId: string;
   onBack: () => void;
+  onContinueToPhase2?: () => void;
   className?: string;
 }
 
-export function ReviewEditStep({ projectId, onBack, className }: ReviewEditStepProps) {
+export function ReviewEditStep({ projectId, onBack, onContinueToPhase2, className }: ReviewEditStepProps) {
   const [project, setProject] = useState<BBAProject | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);

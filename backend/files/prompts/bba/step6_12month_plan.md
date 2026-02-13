@@ -74,10 +74,35 @@ Return a JSON object with this structure:
 }
 ```
 
+## Timing Rules (CRITICAL)
+
+Distribute all recommendations **sequentially** across the 12 months so they flow one after another with minimal overlap:
+
+- Each recommendation gets a **focused 1–2 month window** (e.g. "Month 1–2", "Month 3–4", "Month 5–6").
+- Recommendations must **not** all start at Month 1. Spread them evenly across the year.
+- The timing pattern should look like a staircase: Rec 1 → Month 1–2, Rec 2 → Month 2–3, Rec 3 → Month 3–4, etc.
+- For 10 recommendations across 12 months, each recommendation should roughly occupy a 2-month window, advancing by ~1 month each step.
+- **DO NOT** use "then ongoing", "ongoing", or open-ended timing. Every recommendation must have a concrete start and end month.
+- The `timing` field must use the exact format: `"Month X–Y"` (e.g. `"Month 1–2"`, `"Month 5–6"`, `"Month 12"`).
+- The `timeline_summary.rows` timing must exactly match the corresponding recommendation timing.
+
+Example for 10 recommendations:
+| Rec | Timing |
+|-----|--------|
+| 1   | Month 1–2 |
+| 2   | Month 2–3 |
+| 3   | Month 3–4 |
+| 4   | Month 4–5 |
+| 5   | Month 5–6 |
+| 6   | Month 6–7 |
+| 7   | Month 7–8 |
+| 8   | Month 8–9 |
+| 9   | Month 9–10 |
+| 10  | Month 12 |
+
 ## Guidelines
 
 - Recommendations should follow the finding ranking order
-- Timing should be realistic and consider dependencies
 - BBA Support should enable client capability, not do the work for them
 - Expected Outcomes should be measurable where possible
 - Use British English spelling throughout

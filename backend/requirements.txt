@@ -44,3 +44,6 @@ python-docx
 
 # Excel generation (Phase 2 – Task Planner)
 openpyxl
+
+# PowerPoint generation (Phase 3 – Presentation Generator)
+python-pptx

@@ -1,5 +1,5 @@
 """
-BBA Tool API: Phases 1 & 2
+BBA Tool API: Phases 1, 2 & 3
 
 This module implements the backend for the Benchmark Business Advisory (BBA)
 tool, including:
@@ -20,6 +20,12 @@ Phase 2 – Excel Task List Generator (Engagement Planner)
 - Task planner context setup (advisors, capacity, start month/year)
 - Recommendation-by-recommendation task generation & preview
 - Excel (.xlsx) advisor task list export
+
+Phase 3 – PowerPoint Presentation Generator
+-------------------------------------------
+- AI-driven slide content generation from diagnostic report data
+- Per-slide review & editing
+- PowerPoint (.pptx) branded export
 """
 from fastapi import APIRouter, UploadFile, File, HTTPException, status, Depends, BackgroundTasks
 from fastapi.responses import StreamingResponse
@@ -37,6 +43,8 @@ from app.services.bba_service import get_bba_service, BBAService
 from app.services.bba_conversation_engine import get_bba_conversation_engine
 from app.services.bba_task_planner_service import get_bba_task_planner_service
 from app.services.bba_task_list_export import get_bba_task_list_exporter
+from app.services.bba_presentation_service import get_bba_presentation_service
+from app.services.bba_pptx_export import BBAPptxExporter
 from app.utils.auth import get_current_user
 from app.models.user import User
 from app.database import get_db
@@ -48,6 +56,7 @@ from app.schemas.bba import (
     BBAFindingsEdit,
     BBAEditRequest,
     BBATaskPlannerSettings,
+    BBAPresentationSlideEdit,
 )
 
 logger = logging.getLogger(__name__)
@@ -1189,6 +1198,275 @@ async def export_task_planner_excel(
     return StreamingResponse(
         io.BytesIO(excel_bytes),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="{file_name}"',
+        },
+    )
+
+
+# =============================================================================
+# PHASE 3 – PowerPoint Presentation Generator
+# =============================================================================
+
+
+@router.post("/{project_id}/presentation/generate", status_code=status.HTTP_200_OK)
+async def generate_presentation_slides(
+    project_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Phase 3: Generate presentation slides via AI from the diagnostic report data.
+
+    Requires a completed 12-month plan (Phase 1, Step 6).
+    Produces typed slide content (title, executive_summary, structure,
+    recommendation, timeline, next_steps) and persists them on the BBA record.
+    """
+    bba_service = get_bba_service(db)
+    bba = bba_service.get_bba(project_id)
+
+    if not bba:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="BBA project not found",
+        )
+
+    if bba.created_by_user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this project",
+        )
+
+    if not bba.twelve_month_plan:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "12-month plan has not been generated yet. "
+                "Complete Phase 1 before generating the presentation."
+            ),
+        )
+
+    openai_service = OpenAIService()
+    presentation_service = get_bba_presentation_service(db, openai_service)
+
+    try:
+        slides = await presentation_service.generate_slides(bba)
+        updated_bba = presentation_service.save_slides(project_id, slides)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error(
+            "Failed to generate presentation slides for BBA %s: %s",
+            project_id,
+            str(e),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate presentation slides: {str(e)}",
+        )
+
+    return {
+        "success": True,
+        "message": "Presentation slides generated successfully",
+        "slides": slides,
+        "project": updated_bba.to_dict(),
+    }
+
+
+@router.post(
+    "/{project_id}/presentation/slides/{slide_index}/edit",
+    status_code=status.HTTP_200_OK,
+)
+async def edit_presentation_slide(
+    project_id: UUID,
+    slide_index: int,
+    slide_edit: BBAPresentationSlideEdit,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Edit a single presentation slide.
+
+    Only non-null fields in the request body are merged into the existing slide.
+    """
+    bba_service = get_bba_service(db)
+    bba = bba_service.get_bba(project_id)
+
+    if not bba:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="BBA project not found",
+        )
+
+    if bba.created_by_user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this project",
+        )
+
+    presentation_service = get_bba_presentation_service(db)
+
+    try:
+        updates = slide_edit.model_dump(exclude_none=True)
+        updated_bba = presentation_service.update_slide(
+            bba_id=project_id,
+            slide_index=slide_index,
+            updates=updates,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error(
+            "Failed to edit presentation slide %d for BBA %s: %s",
+            slide_index,
+            project_id,
+            str(e),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to edit slide: {str(e)}",
+        )
+
+    return {
+        "success": True,
+        "message": f"Slide {slide_index} updated successfully",
+        "slides": updated_bba.presentation_slides.get("slides", []),
+        "project": updated_bba.to_dict(),
+    }
+
+
+@router.delete(
+    "/{project_id}/presentation/slides/{slide_index}",
+    status_code=status.HTTP_200_OK,
+)
+async def delete_presentation_slide(
+    project_id: UUID,
+    slide_index: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Delete a single presentation slide.
+
+    Removes the slide at the given index and reindexes the remaining slides.
+    """
+    bba_service = get_bba_service(db)
+    bba = bba_service.get_bba(project_id)
+
+    if not bba:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="BBA project not found",
+        )
+
+    if bba.created_by_user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this project",
+        )
+
+    presentation_service = get_bba_presentation_service(db)
+
+    try:
+        updated_bba = presentation_service.delete_slide(
+            bba_id=project_id,
+            slide_index=slide_index,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error(
+            "Failed to delete presentation slide %d for BBA %s: %s",
+            slide_index,
+            project_id,
+            str(e),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete slide: {str(e)}",
+        )
+
+    return {
+        "success": True,
+        "message": f"Slide {slide_index} deleted successfully",
+        "slides": updated_bba.presentation_slides.get("slides", []),
+        "project": updated_bba.to_dict(),
+    }
+
+@router.post("/{project_id}/presentation/export/pptx")
+async def export_presentation_pptx(
+    project_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Export the presentation slides to a PowerPoint (.pptx) file.
+
+    Returns a branded Benchmark deck as a streaming file download.
+    """
+    bba_service = get_bba_service(db)
+    bba = bba_service.get_bba(project_id)
+
+    if not bba:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="BBA project not found",
+        )
+
+    if bba.created_by_user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this project",
+        )
+
+    if not bba.presentation_slides or not bba.presentation_slides.get("slides"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No presentation slides exist. Generate slides first.",
+        )
+
+    try:
+        exporter = BBAPptxExporter()
+        pptx_bytes = exporter.generate_presentation(bba)
+    except ImportError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error(
+            "Failed to export presentation for BBA %s: %s",
+            project_id,
+            str(e),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to export presentation: {str(e)}",
+        )
+
+    client_name = bba.client_name or "Client"
+    safe_name = "".join(
+        c for c in client_name if c.isalnum() or c in (" ", "_", "-")
+    ).strip() or "Client"
+    safe_name = safe_name.replace(" ", "_")
+    file_name = f"{safe_name}_Diagnostic_Presentation.pptx"
+
+    return StreamingResponse(
+        io.BytesIO(pptx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         headers={
             "Content-Disposition": f'attachment; filename="{file_name}"',
         },

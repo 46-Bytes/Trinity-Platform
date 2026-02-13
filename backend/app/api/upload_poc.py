@@ -389,22 +389,46 @@ async def update_step_progress(
 @router.get("/", status_code=status.HTTP_200_OK)
 async def list_bba_projects(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    engagement_id: Optional[UUID] = None
 ) -> Dict[str, Any]:
     """
-    Get all BBA projects for the current user.
+    Get BBA projects for the current user.
     
+    If engagement_id is provided, returns the BBA project for that engagement.
+    Otherwise, returns all BBA projects for the user.
+    
+    Args:
+        engagement_id: Optional engagement ID to filter by
+        
     Returns:
-        List of BBA projects
+        List of BBA projects or single project if engagement_id provided
     """
     bba_service = get_bba_service(db)
-    projects = bba_service.get_user_bba_projects(current_user.id)
     
-    return {
-        "success": True,
-        "projects": [project.to_dict() for project in projects],
-        "count": len(projects)
-    }
+    if engagement_id:
+        # Get BBA project for specific engagement
+        project = bba_service.get_bba_by_engagement(engagement_id, current_user.id)
+        if project:
+            return {
+                "success": True,
+                "project": project.to_dict(),
+                "count": 1
+            }
+        else:
+            return {
+                "success": True,
+                "project": None,
+                "count": 0
+            }
+    else:
+        # Get all BBA projects for user
+        projects = bba_service.get_user_bba_projects(current_user.id)
+        return {
+            "success": True,
+            "projects": [project.to_dict() for project in projects],
+            "count": len(projects)
+        }
 
 
 # =============================================================================

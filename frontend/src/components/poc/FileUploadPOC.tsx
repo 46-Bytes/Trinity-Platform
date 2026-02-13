@@ -104,78 +104,41 @@ export function FileUploadPOC({ className, engagementId }: FileUploadPOCProps) {
     }));
   }, []);
 
-  // Restore state from localStorage and backend
+  // Restore state from backend based on engagement ID
   useEffect(() => {
     const restoreState = async () => {
       try {
-        // Get stored project ID
-        const storedProjectId = localStorage.getItem(STORAGE_KEYS.PROJECT_ID);
-        const storedEngagementId = localStorage.getItem(STORAGE_KEYS.ENGAGEMENT_ID);
-        
-        if (storedProjectId) {
-          if (engagementId && storedEngagementId !== engagementId) {
-            // Clear storage if engagement doesn't match
-            localStorage.removeItem(STORAGE_KEYS.PROJECT_ID);
-            localStorage.removeItem(STORAGE_KEYS.CURRENT_STEP);
-            localStorage.removeItem(STORAGE_KEYS.MAX_STEP);
-            localStorage.removeItem(STORAGE_KEYS.QUESTIONNAIRE);
-            localStorage.removeItem(STORAGE_KEYS.ENGAGEMENT_ID);
-            setIsRestoring(false);
-            return;
-          }
+        if (!engagementId) {
+          setIsRestoring(false);
+          return;
+        }
 
-          // Restore project ID
-          setProjectId(storedProjectId);
+        // First, try to find existing BBA project for this engagement from backend
+        try {
+          const token = localStorage.getItem('auth_token');
+          const response = await fetch(`${API_BASE_URL}/api/poc?engagement_id=${engagementId}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            credentials: 'include',
+          });
 
-          // Restore step and max step
-          const storedStep = localStorage.getItem(STORAGE_KEYS.CURRENT_STEP);
-          const storedMaxStep = localStorage.getItem(STORAGE_KEYS.MAX_STEP);
-          if (storedStep) {
-            const stepNum = parseInt(storedStep, 10) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
-            if (stepNum >= 1 && stepNum <= 9) {
-              setCurrentStep(stepNum);
-            }
-          }
-          if (storedMaxStep) {
-            const maxStepNum = parseInt(storedMaxStep, 10);
-            if (maxStepNum >= 1 && maxStepNum <= 9) {
-              setMaxStepReached(maxStepNum);
-            }
-          }
+          if (response.ok) {
+            const result = await response.json();
+            const project = result.project;
 
-          // Restore questionnaire data
-          const storedQuestionnaire = localStorage.getItem(STORAGE_KEYS.QUESTIONNAIRE);
-          if (storedQuestionnaire) {
-            try {
-              const parsed = JSON.parse(storedQuestionnaire);
-              setQuestionnaireData(parsed);
-            } catch (e) {
-              console.error('Failed to parse stored questionnaire data:', e);
-            }
-          }
-
-          // Fetch project data from backend to restore files
-          try {
-            const token = localStorage.getItem('auth_token');
-            const response = await fetch(`${API_BASE_URL}/api/poc/${storedProjectId}`, {
-              method: 'GET',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-              },
-              credentials: 'include',
-            });
-
-            if (response.ok) {
-              const result = await response.json();
-              const project = result.project;
+            if (project && project.id) {
+              // Found existing project for this engagement - restore everything from backend
+              setProjectId(project.id);
+              localStorage.setItem(STORAGE_KEYS.PROJECT_ID, project.id);
+              localStorage.setItem(STORAGE_KEYS.ENGAGEMENT_ID, engagementId);
 
               // Restore files from file_mappings
               if (project.file_mappings && typeof project.file_mappings === 'object') {
                 const restoredFiles: UploadedFile[] = Object.entries(project.file_mappings).map(
                   ([filename, fileId]) => {
-                    // Create a dummy File object for display purposes
-                    // We can't recreate the actual File, but we can show the metadata
                     const dummyFile = new File([], filename, {
                       type: 'application/octet-stream',
                     });
@@ -207,18 +170,24 @@ export function FileUploadPOC({ className, engagementId }: FileUploadPOCProps) {
                 });
               }
 
-              // Restore step progress from backend (preferred over status-based inference)
+              // Restore step progress from backend (this is the key fix!)
               if (project.current_step !== null && project.current_step !== undefined) {
                 const stepNum = parseInt(String(project.current_step), 10) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
                 if (stepNum >= 1 && stepNum <= 9) {
                   setCurrentStep(stepNum);
+                  localStorage.setItem(STORAGE_KEYS.CURRENT_STEP, stepNum.toString());
                 }
+              } else {
+                // Default to step 1 if no step is set
+                setCurrentStep(1);
+                localStorage.setItem(STORAGE_KEYS.CURRENT_STEP, '1');
               }
               
               if (project.max_step_reached !== null && project.max_step_reached !== undefined) {
                 const maxStepNum = parseInt(String(project.max_step_reached), 10);
                 if (maxStepNum >= 1 && maxStepNum <= 9) {
                   setMaxStepReached(maxStepNum);
+                  localStorage.setItem(STORAGE_KEYS.MAX_STEP, maxStepNum.toString());
                 }
               } else if (project.status) {
                 // Fallback to status-based inference if max_step_reached is not set
@@ -232,15 +201,129 @@ export function FileUploadPOC({ className, engagementId }: FileUploadPOCProps) {
                   'completed': 7,
                 };
                 const stepFromStatus = statusToStep[project.status] || 1;
-                setMaxStepReached((prev) => Math.max(prev, stepFromStatus));
+                setMaxStepReached(stepFromStatus);
+                localStorage.setItem(STORAGE_KEYS.MAX_STEP, stepFromStatus.toString());
+              } else {
+                setMaxStepReached(1);
+                localStorage.setItem(STORAGE_KEYS.MAX_STEP, '1');
+              }
+
+              setIsRestoring(false);
+              return; // Successfully restored from backend
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching BBA project for engagement:', error);
+        }
+
+        // No existing project found - check localStorage for backward compatibility
+        const storedProjectId = localStorage.getItem(STORAGE_KEYS.PROJECT_ID);
+        const storedEngagementId = localStorage.getItem(STORAGE_KEYS.ENGAGEMENT_ID);
+        
+        if (storedProjectId && storedEngagementId === engagementId) {
+          // Use stored project if it matches current engagement
+          setProjectId(storedProjectId);
+          
+          // Restore step from localStorage as fallback
+          const storedStep = localStorage.getItem(STORAGE_KEYS.CURRENT_STEP);
+          const storedMaxStep = localStorage.getItem(STORAGE_KEYS.MAX_STEP);
+          if (storedStep) {
+            const stepNum = parseInt(storedStep, 10) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+            if (stepNum >= 1 && stepNum <= 9) {
+              setCurrentStep(stepNum);
+            }
+          }
+          if (storedMaxStep) {
+            const maxStepNum = parseInt(storedMaxStep, 10);
+            if (maxStepNum >= 1 && maxStepNum <= 9) {
+              setMaxStepReached(maxStepNum);
+            }
+          }
+
+          // Try to fetch project details from backend
+          try {
+            const token = localStorage.getItem('auth_token');
+            const response = await fetch(`${API_BASE_URL}/api/poc/${storedProjectId}`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+              credentials: 'include',
+            });
+
+            if (response.ok) {
+              const result = await response.json();
+              const project = result.project;
+
+              // Restore files
+              if (project.file_mappings && typeof project.file_mappings === 'object') {
+                const restoredFiles: UploadedFile[] = Object.entries(project.file_mappings).map(
+                  ([filename, fileId]) => {
+                    const dummyFile = new File([], filename, {
+                      type: 'application/octet-stream',
+                    });
+                    
+                    return {
+                      id: `${Date.now()}-${Math.random()}`,
+                      file: dummyFile,
+                      status: 'success' as const,
+                      progress: 100,
+                      fileId: fileId as string,
+                    };
+                  }
+                );
+                setFiles(restoredFiles);
+              }
+
+              // Restore questionnaire data
+              if (project.client_name || project.industry || project.company_size) {
+                setQuestionnaireData({
+                  clientName: project.client_name || '',
+                  industry: project.industry || '',
+                  companySize: project.company_size || '',
+                  locations: project.locations || '',
+                  exclusions: project.exclusions || '',
+                  constraints: project.constraints || '',
+                  preferredRanking: project.preferred_ranking || '',
+                  strategicPriorities: project.strategic_priorities || '',
+                  excludeSaleReadiness: project.exclude_sale_readiness || false,
+                });
+              }
+
+              // Restore step progress from backend (overrides localStorage)
+              if (project.current_step !== null && project.current_step !== undefined) {
+                const stepNum = parseInt(String(project.current_step), 10) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+                if (stepNum >= 1 && stepNum <= 9) {
+                  setCurrentStep(stepNum);
+                  localStorage.setItem(STORAGE_KEYS.CURRENT_STEP, stepNum.toString());
+                }
+              }
+              
+              if (project.max_step_reached !== null && project.max_step_reached !== undefined) {
+                const maxStepNum = parseInt(String(project.max_step_reached), 10);
+                if (maxStepNum >= 1 && maxStepNum <= 9) {
+                  setMaxStepReached(maxStepNum);
+                  localStorage.setItem(STORAGE_KEYS.MAX_STEP, maxStepNum.toString());
+                }
               }
             }
           } catch (error) {
             console.error('Error restoring project data:', error);
           }
-        } else if (engagementId) {
-          // Store engagement ID for future reference
+        } else {
+          // No project found - clear any stale localStorage data for different engagement
+          if (storedEngagementId && storedEngagementId !== engagementId) {
+            localStorage.removeItem(STORAGE_KEYS.PROJECT_ID);
+            localStorage.removeItem(STORAGE_KEYS.CURRENT_STEP);
+            localStorage.removeItem(STORAGE_KEYS.MAX_STEP);
+            localStorage.removeItem(STORAGE_KEYS.QUESTIONNAIRE);
+          }
+          // Store current engagement ID
           localStorage.setItem(STORAGE_KEYS.ENGAGEMENT_ID, engagementId);
+          // Reset to step 1 for new engagement
+          setCurrentStep(1);
+          setMaxStepReached(1);
         }
       } catch (error) {
         console.error('Error restoring state:', error);

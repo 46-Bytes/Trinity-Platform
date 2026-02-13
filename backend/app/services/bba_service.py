@@ -68,6 +68,22 @@ class BBAService:
             BBA.created_by_user_id == user_id
         ).order_by(BBA.created_at.desc()).all()
     
+    def get_bba_by_engagement(self, engagement_id: UUID, user_id: UUID) -> Optional[BBA]:
+        """
+        Get BBA project by engagement ID
+        
+        Args:
+            engagement_id: Engagement ID
+            user_id: User ID (for authorization check)
+            
+        Returns:
+            BBA object or None if not found
+        """
+        return self.db.query(BBA).filter(
+            BBA.engagement_id == engagement_id,
+            BBA.created_by_user_id == user_id
+        ).order_by(BBA.created_at.desc()).first()
+    
     def update_files(self, bba_id: UUID, file_ids: List[str], file_mappings: dict) -> Optional[BBA]:
         """
         Update BBA with uploaded file information (Step 1)

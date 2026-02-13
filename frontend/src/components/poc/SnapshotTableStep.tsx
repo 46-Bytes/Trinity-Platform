@@ -39,6 +39,8 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState<SnapshotRow | null>(null);
+  const [tokensUsed, setTokensUsed] = useState(0);
   
   // Use ref to store the callback to avoid infinite loops
   const onLoadingStateChangeRef = useRef(onLoadingStateChange);
@@ -90,8 +92,6 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
       onLoadingStateChangeRef.current(isLoading || isGenerating);
     }
   }, [isLoading, isGenerating]);
-  const [editForm, setEditForm] = useState<SnapshotRow | null>(null);
-  const [tokensUsed, setTokensUsed] = useState(0);
 
   // Generate snapshot table
   const handleGenerate = async () => {
@@ -167,6 +167,14 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Initial Loading State */}
+        {isInitialLoading && (
+          <div className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
+            <p className="text-muted-foreground">Loading existing snapshot table...</p>
+          </div>
+        )}
+
         {/* Generate Button */}
         {!isInitialLoading && !snapshotTable && !isGenerating && (
           <div className="text-center py-8">

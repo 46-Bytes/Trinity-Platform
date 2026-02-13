@@ -50,6 +50,7 @@ export function TwelveMonthPlanStep({ projectId, onComplete, onBack, className, 
   const [plan, setPlan] = useState<TwelveMonthPlan | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tokensUsed, setTokensUsed] = useState(0);
   const [openItems, setOpenItems] = useState<number[]>([]);
@@ -63,7 +64,7 @@ export function TwelveMonthPlanStep({ projectId, onComplete, onBack, className, 
   // Load existing 12-month plan on mount
   useEffect(() => {
     const loadExistingData = async () => {
-      // Don't set isLoading for initial load
+      setIsInitialLoading(true);
       try {
         const token = localStorage.getItem('auth_token');
         const response = await fetch(`${API_BASE_URL}/api/poc/${projectId}`, {
@@ -165,6 +166,14 @@ export function TwelveMonthPlanStep({ projectId, onComplete, onBack, className, 
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Initial Loading State */}
+        {isInitialLoading && (
+          <div className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
+            <p className="text-muted-foreground">Loading existing 12-month plan...</p>
+          </div>
+        )}
+
         {/* Generate Button */}
         {!isInitialLoading && !plan && !isGenerating && (
           <div className="text-center py-8">

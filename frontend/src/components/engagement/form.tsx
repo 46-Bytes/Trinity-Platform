@@ -515,12 +515,12 @@ export function EngagementForm({
           console.log('API Success Response:', JSON.stringify(responseData, null, 2));
           console.log('Engagement created successfully with ID:', responseData.id);
           
-          // If BBA Builder is selected, navigate to POC page
+          // If BBA Builder is selected, navigate to BBA tool page
           if (values.tool === 'bba_builder') {
             if (onSuccess) {
               onSuccess();
             }
-            navigate('/poc/file-upload');
+            navigate(`/dashboard/engagements/${responseData.id}/bba`);
             return;
           }
           
@@ -598,13 +598,13 @@ export function EngagementForm({
           console.log('API Success Response:', JSON.stringify(responseData, null, 2));
           console.log('Engagement created successfully with ID:', responseData.id);
           
-          // If BBA Builder is selected, navigate to POC page
+          // If BBA Builder is selected, navigate to BBA tool page
           if (values.tool === 'bba_builder') {
-            console.log('BBA Builder selected, navigating to /poc/file-upload');
+            console.log('BBA Builder selected, navigating to BBA tool');
             if (onSuccess) {
               onSuccess();
             }
-            navigate('/poc/file-upload');
+            navigate(`/dashboard/engagements/${responseData.id}/bba`);
             return;
           }
           

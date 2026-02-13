@@ -268,6 +268,42 @@ class BBATaskPlannerPreviewResponse(BaseModel):
     summary: BBATaskPlannerSummary
 
 
+# Phase 3 – PowerPoint Presentation Generator
+
+class BBAPresentationSlide(BaseModel):
+    """Schema for a single presentation slide."""
+    index: int = Field(..., description="Slide position (0-based)")
+    type: str = Field(
+        ...,
+        description=(
+            "Slide type: title, executive_summary, structure, "
+            "recommendation, timeline, next_steps"
+        ),
+    )
+    title: str = Field(..., description="Slide title / heading")
+    subtitle: Optional[str] = Field(None, description="Subtitle (title slide only)")
+    bullets: Optional[List[str]] = Field(None, description="Bullet points for content slides")
+    finding: Optional[List[str]] = Field(None, description="Finding bullets (recommendation slide)")
+    recommendation_bullets: Optional[List[str]] = Field(
+        None, description="Recommendation bullets (recommendation slide)"
+    )
+    outcome: Optional[List[str]] = Field(None, description="Outcome bullets (recommendation slide)")
+    rows: Optional[List[Dict[str, Any]]] = Field(None, description="Table rows (timeline slide)")
+    approved: bool = Field(False, description="Whether the advisor has approved this slide")
+
+
+class BBAPresentationSlideEdit(BaseModel):
+    """Request schema for editing a single slide."""
+    title: Optional[str] = None
+    subtitle: Optional[str] = None
+    bullets: Optional[List[str]] = None
+    finding: Optional[List[str]] = None
+    recommendation_bullets: Optional[List[str]] = None
+    outcome: Optional[List[str]] = None
+    rows: Optional[List[Dict[str, Any]]] = None
+    approved: Optional[bool] = None
+
+
 # Step 7: Edit schemas (still part of Phase 1 report workflow)
 class BBAEditRequest(BaseModel):
     """Request schema for applying edits"""
@@ -320,6 +356,7 @@ class BBAResponse(BBABase):
     task_planner_settings: Optional[Dict[str, Any]] = None
     task_planner_tasks: Optional[List[Dict[str, Any]]] = None
     task_planner_summary: Optional[Dict[str, Any]] = None
+    presentation_slides: Optional[Dict[str, Any]] = None
 
     class Config:
         from_attributes = True

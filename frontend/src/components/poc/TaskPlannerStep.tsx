@@ -62,6 +62,7 @@ interface TaskPlannerSettings {
 interface TaskPlannerStepProps {
   projectId: string;
   onBack: () => void;
+  onContinueToPhase3?: () => void;
   className?: string;
   onLoadingStateChange?: (isLoading: boolean) => void;
 }
@@ -95,7 +96,7 @@ const STATUS_COLOURS: Record<string, string> = {
 
 // ---------- Component ----------
 
-export function TaskPlannerStep({ projectId, onBack, className, onLoadingStateChange }: TaskPlannerStepProps) {
+export function TaskPlannerStep({ projectId, onBack, onContinueToPhase3, className, onLoadingStateChange }: TaskPlannerStepProps) {
   // --- settings form state ---
   const [settings, setSettings] = useState<TaskPlannerSettings>({
     lead_advisor: '',
@@ -702,21 +703,29 @@ export function TaskPlannerStep({ projectId, onBack, className, onLoadingStateCh
         <Button variant="outline" onClick={onBack}>
           Back to Report
         </Button>
-        {hasPreview && (
-          <Button onClick={handleExportExcel} disabled={isExporting} size="lg">
-            {isExporting ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Exporting...
-              </>
-            ) : (
-              <>
-                <Download className="w-4 h-4 mr-2" />
-                Export to Excel (.xlsx)
-              </>
-            )}
-          </Button>
-        )}
+        <div className="flex gap-3">
+          {hasPreview && (
+            <Button onClick={handleExportExcel} disabled={isExporting} size="lg">
+              {isExporting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Exporting...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4 mr-2" />
+                  Export to Excel (.xlsx)
+                </>
+              )}
+            </Button>
+          )}
+          {onContinueToPhase3 && (
+            <Button onClick={onContinueToPhase3} variant="default" size="lg">
+              Phase 3: Presentation
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -402,6 +402,39 @@ class BBAService:
         logger.info(f"Applied edits to BBA {bba_id}")
         return bba
     
+    def update_step_progress(
+        self,
+        bba_id: UUID,
+        current_step: Optional[int] = None,
+        max_step_reached: Optional[int] = None
+    ) -> Optional[BBA]:
+        """
+        Update BBA step progress markers
+        
+        Args:
+            bba_id: BBA project ID
+            current_step: Current step the user is on (1-9)
+            max_step_reached: Maximum step the user has reached (1-9)
+            
+        Returns:
+            Updated BBA object or None if not found
+        """
+        bba = self.get_bba(bba_id)
+        if not bba:
+            return None
+        
+        if current_step is not None:
+            bba.current_step = current_step
+        if max_step_reached is not None:
+            bba.max_step_reached = max_step_reached
+        
+        bba.updated_at = datetime.utcnow()
+        
+        self.db.commit()
+        self.db.refresh(bba)
+        logger.info(f"Updated BBA {bba_id} step progress: current={current_step}, max={max_step_reached}")
+        return bba
+    
     def delete_bba(self, bba_id: UUID) -> bool:
         """
         Delete BBA project

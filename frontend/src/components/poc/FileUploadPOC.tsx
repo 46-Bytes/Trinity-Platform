@@ -207,8 +207,21 @@ export function FileUploadPOC({ className, engagementId }: FileUploadPOCProps) {
                 });
               }
 
-              // Determine max step based on project status
-              if (project.status) {
+              // Restore step progress from backend (preferred over status-based inference)
+              if (project.current_step !== null && project.current_step !== undefined) {
+                const stepNum = parseInt(String(project.current_step), 10) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+                if (stepNum >= 1 && stepNum <= 9) {
+                  setCurrentStep(stepNum);
+                }
+              }
+              
+              if (project.max_step_reached !== null && project.max_step_reached !== undefined) {
+                const maxStepNum = parseInt(String(project.max_step_reached), 10);
+                if (maxStepNum >= 1 && maxStepNum <= 9) {
+                  setMaxStepReached(maxStepNum);
+                }
+              } else if (project.status) {
+                // Fallback to status-based inference if max_step_reached is not set
                 const statusToStep: Record<string, number> = {
                   'uploaded': 1,
                   'questionnaire_completed': 2,
@@ -250,19 +263,73 @@ export function FileUploadPOC({ className, engagementId }: FileUploadPOCProps) {
     }
   }, [projectId, engagementId]);
 
-  // Persist current step to localStorage
+  // Save step progress to backend when it changes
   useEffect(() => {
-    if (!isRestoring) {
+    if (!isRestoring && projectId) {
+      // Save to localStorage for immediate UI updates
       localStorage.setItem(STORAGE_KEYS.CURRENT_STEP, currentStep.toString());
-    }
-  }, [currentStep, isRestoring]);
+      
+      // Save to backend for persistence across engagements
+      const saveStepProgress = async () => {
+        try {
+          const token = localStorage.getItem('auth_token');
+          const response = await fetch(`${API_BASE_URL}/api/poc/${projectId}/step-progress`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              current_step: currentStep,
+            }),
+          });
 
-  // Persist max step to localStorage
-  useEffect(() => {
-    if (!isRestoring) {
-      localStorage.setItem(STORAGE_KEYS.MAX_STEP, maxStepReached.toString());
+          if (!response.ok) {
+            console.error('Failed to save step progress to backend');
+          }
+        } catch (error) {
+          console.error('Error saving step progress:', error);
+        }
+      };
+
+      saveStepProgress();
     }
-  }, [maxStepReached, isRestoring]);
+  }, [currentStep, projectId, isRestoring]);
+
+  // Save max step reached to backend when it changes
+  useEffect(() => {
+    if (!isRestoring && projectId) {
+      // Save to localStorage for immediate UI updates
+      localStorage.setItem(STORAGE_KEYS.MAX_STEP, maxStepReached.toString());
+      
+      // Save to backend for persistence across engagements
+      const saveMaxStep = async () => {
+        try {
+          const token = localStorage.getItem('auth_token');
+          const response = await fetch(`${API_BASE_URL}/api/poc/${projectId}/step-progress`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              max_step_reached: maxStepReached,
+            }),
+          });
+
+          if (!response.ok) {
+            console.error('Failed to save max step to backend');
+          }
+        } catch (error) {
+          console.error('Error saving max step:', error);
+        }
+      };
+
+      saveMaxStep();
+    }
+  }, [maxStepReached, projectId, isRestoring]);
 
   // Persist questionnaire data to localStorage
   useEffect(() => {
@@ -295,8 +362,13 @@ export function FileUploadPOC({ className, engagementId }: FileUploadPOCProps) {
       return;
     }
     
-    setCurrentStep(step as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9);
-    setMaxStepReached((prev) => Math.max(prev, step));
+    const newStep = step as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+    const newMaxStep = Math.max(maxStepReached, step);
+    
+    setCurrentStep(newStep);
+    setMaxStepReached(newMaxStep);
+    
+    // Step progress will be saved to backend via useEffect hooks
   };
 
   // Validate file

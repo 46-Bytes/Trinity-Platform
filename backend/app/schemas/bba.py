@@ -57,6 +57,12 @@ class BBAUpdate(BaseModel):
     exclude_sale_readiness: Optional[bool] = None
 
 
+class BBAStepProgressUpdate(BaseModel):
+    """Schema for updating BBA step progress"""
+    current_step: Optional[int] = Field(None, ge=1, le=9, description="Current step the user is on (1-9)")
+    max_step_reached: Optional[int] = Field(None, ge=1, le=9, description="Maximum step the user has reached (1-9)")
+
+
 # Step 3: Draft Findings schemas
 class BBAFinding(BaseModel):
     """Schema for a single finding"""

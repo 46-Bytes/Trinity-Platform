@@ -26,6 +26,9 @@ class BBA(Base):
     # Status tracking
     status = Column(String(50), nullable=False, server_default='uploaded', index=True,
                    comment="uploaded, questionnaire_completed, draft_findings, expanded_findings, completed")
+    # Step tracking for UI persistence
+    current_step = Column(Integer, nullable=True, comment="Current step the user is on (1-9)")
+    max_step_reached = Column(Integer, nullable=True, comment="Maximum step the user has reached (1-9)")
     # Step 1: File uploads
     file_ids = Column(JSONB, nullable=True, comment="List of OpenAI file_ids: ['file-abc123', 'file-xyz789']")
     file_mappings = Column(JSONB, nullable=True, comment="Mapping of filename to file_id: {'doc.pdf': 'file-abc123'}")
@@ -154,5 +157,7 @@ class BBA(Base):
             "task_planner_tasks": self.task_planner_tasks,
             "task_planner_summary": self.task_planner_summary,
             "presentation_slides": self.presentation_slides,
+            "current_step": self.current_step,
+            "max_step_reached": self.max_step_reached,
         }
 

@@ -57,6 +57,7 @@ from app.schemas.bba import (
     BBAEditRequest,
     BBATaskPlannerSettings,
     BBAPresentationSlideEdit,
+    BBAStepProgressUpdate,
 )
 
 logger = logging.getLogger(__name__)
@@ -328,6 +329,60 @@ async def get_bba_project(
     return {
         "success": True,
         "project": bba.to_dict()
+    }
+
+
+@router.patch("/{project_id}/step-progress", status_code=status.HTTP_200_OK)
+async def update_step_progress(
+    project_id: UUID,
+    step_progress: BBAStepProgressUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Update BBA project step progress markers.
+    
+    This endpoint allows the frontend to persist the current step and max step reached
+    so that progress is maintained when switching between engagements.
+    
+    Args:
+        project_id: BBA project ID
+        step_progress: Step progress update data
+        
+    Returns:
+        Updated BBA project data
+    """
+    bba_service = get_bba_service(db)
+    bba = bba_service.get_bba(project_id)
+    
+    if not bba:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="BBA project not found"
+        )
+    
+    if bba.created_by_user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this project"
+        )
+    
+    updated_bba = bba_service.update_step_progress(
+        bba_id=project_id,
+        current_step=step_progress.current_step,
+        max_step_reached=step_progress.max_step_reached
+    )
+    
+    if not updated_bba:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update step progress"
+        )
+    
+    return {
+        "success": True,
+        "message": "Step progress updated successfully",
+        "project": updated_bba.to_dict()
     }
 
 

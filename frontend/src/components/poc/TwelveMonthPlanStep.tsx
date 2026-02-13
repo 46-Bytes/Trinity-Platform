@@ -2,7 +2,7 @@
  * Step 6: 12-Month Plan Component
  * Displays the detailed recommendations plan
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Loader2, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, RefreshCw, Calendar, Target, ListChecks, Users, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,15 +43,61 @@ interface TwelveMonthPlanStepProps {
   onComplete: (plan: TwelveMonthPlan) => void;
   onBack: () => void;
   className?: string;
+  onLoadingStateChange?: (isLoading: boolean) => void;
 }
 
-export function TwelveMonthPlanStep({ projectId, onComplete, onBack, className }: TwelveMonthPlanStepProps) {
+export function TwelveMonthPlanStep({ projectId, onComplete, onBack, className, onLoadingStateChange }: TwelveMonthPlanStepProps) {
   const [plan, setPlan] = useState<TwelveMonthPlan | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tokensUsed, setTokensUsed] = useState(0);
   const [openItems, setOpenItems] = useState<number[]>([]);
+
+  // Load existing 12-month plan on mount
+  useEffect(() => {
+    const loadExistingData = async () => {
+      setIsLoading(true);
+      try {
+        const token = localStorage.getItem('auth_token');
+        const response = await fetch(`${API_BASE_URL}/api/poc/${projectId}`, {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: 'include',
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const project = result.project;
+          
+          if (project?.twelve_month_plan) {
+            const planData = project.twelve_month_plan;
+            // Check if it's wrapped in a key or direct
+            const actualPlan = planData.twelve_month_plan || planData;
+            if (actualPlan && actualPlan.recommendations && Array.isArray(actualPlan.recommendations) && actualPlan.recommendations.length > 0) {
+              setPlan(actualPlan);
+              setOpenItems([0]);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load existing 12-month plan:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (projectId) {
+      loadExistingData();
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    if (onLoadingStateChange) {
+      onLoadingStateChange(isLoading || isGenerating);
+    }
+  }, [isLoading, isGenerating, onLoadingStateChange]);
 
   // Generate 12-month plan
   const handleGenerate = async () => {

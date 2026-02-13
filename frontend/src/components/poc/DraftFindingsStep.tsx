@@ -27,17 +27,71 @@ interface DraftFindingsStepProps {
   onComplete: (findings: Finding[]) => void;
   onBack: () => void;
   className?: string;
+  onLoadingStateChange?: (isLoading: boolean) => void;
 }
 
-export function DraftFindingsStep({ projectId, onComplete, onBack, className }: DraftFindingsStepProps) {
+export function DraftFindingsStep({ projectId, onComplete, onBack, className, onLoadingStateChange }: DraftFindingsStepProps) {
   const [findings, setFindings] = useState<Finding[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<Finding | null>(null);
   const [tokensUsed, setTokensUsed] = useState(0);
   const [analysisNotes, setAnalysisNotes] = useState<string>('');
+
+  // Load existing findings on mount
+  useEffect(() => {
+    const loadExistingData = async () => {
+      setIsInitialLoading(true);
+      try {
+        const token = localStorage.getItem('auth_token');
+        const response = await fetch(`${API_BASE_URL}/api/poc/${projectId}`, {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: 'include',
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const project = result.project;
+          
+          console.log('Loading draft findings from project:', project?.draft_findings);
+          
+          if (project?.draft_findings) {
+            const findingsData = project.draft_findings.findings || 
+                                 (Array.isArray(project.draft_findings) ? project.draft_findings : []);
+            console.log('Extracted findings data:', findingsData);
+            if (findingsData && findingsData.length > 0) {
+              setFindings(findingsData);
+              setAnalysisNotes(project.draft_findings?.analysis_notes || '');
+              console.log('Successfully loaded', findingsData.length, 'findings');
+            } else {
+              console.log('No findings found in draft_findings');
+            }
+          } else {
+            console.log('No draft_findings in project');
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load existing findings:', err);
+      } finally {
+        setIsInitialLoading(false);
+      }
+    };
+
+    if (projectId) {
+      loadExistingData();
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    if (onLoadingStateChange) {
+      onLoadingStateChange(isLoading || isGenerating);
+    }
+  }, [isLoading, isGenerating, onLoadingStateChange]);
 
   // Generate draft findings
   const handleGenerate = async (customInstructions?: string) => {
@@ -77,6 +131,11 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className }: 
 
   // Confirm findings and proceed
   const handleConfirm = async () => {
+    if (findings.length === 0) {
+      setError('No findings to confirm. Please generate findings first.');
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -99,10 +158,17 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className }: 
         throw new Error(errorData.detail || `HTTP ${response.status}`);
       }
 
-      onComplete(findings);
+      // Success - proceed to next step
+      setIsLoading(false);
+      
+      // Call onComplete to proceed to next step
+      setTimeout(() => {
+        onComplete(findings);
+      }, 50);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to confirm findings');
-    } finally {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to confirm findings';
+      setError(errorMessage);
+      console.error('Error confirming findings:', err);
       setIsLoading(false);
     }
   };
@@ -184,8 +250,16 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className }: 
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Initial Loading State */}
+        {isInitialLoading && (
+          <div className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
+            <p className="text-muted-foreground">Loading existing findings...</p>
+          </div>
+        )}
+
         {/* Generate Button */}
-        {findings.length === 0 && !isGenerating && (
+        {!isInitialLoading && findings.length === 0 && !isGenerating && (
           <div className="text-center py-8">
             <p className="text-muted-foreground mb-4">
               Click the button below to analyse your uploaded files and generate draft findings.
@@ -218,7 +292,7 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className }: 
         )}
 
         {/* Findings List */}
-        {findings.length > 0 && (
+        {!isInitialLoading && findings.length > 0 && (
           <>
             {/* Analysis Notes */}
             {analysisNotes && (
@@ -371,15 +445,26 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className }: 
             {/* Action Buttons */}
             <div className="flex justify-between pt-4 border-t">
               <div className="flex gap-2">
-                <Button variant="outline" onClick={onBack}>
+                <Button 
+                  variant="outline" 
+                  onClick={onBack}
+                  disabled={isLoading || isGenerating}
+                >
                   Back
                 </Button>
-                <Button variant="outline" onClick={() => handleGenerate()}>
+                <Button 
+                  variant="outline" 
+                  onClick={() => handleGenerate()}
+                  disabled={isLoading || isGenerating}
+                >
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Regenerate
                 </Button>
               </div>
-              <Button onClick={handleConfirm} disabled={isLoading || findings.length === 0}>
+              <Button 
+                onClick={handleConfirm} 
+                disabled={isLoading || isGenerating || findings.length === 0}
+              >
                 {isLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -388,7 +473,7 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className }: 
                 ) : (
                   <>
                     <CheckCircle2 className="w-4 h-4 mr-2" />
-                    Confirm & Continue
+                    Confirm & Continue to Expand Findings
                   </>
                 )}
               </Button>

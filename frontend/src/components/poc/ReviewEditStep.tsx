@@ -30,9 +30,10 @@ interface ReviewEditStepProps {
   onBack: () => void;
   onContinueToPhase2?: () => void;
   className?: string;
+  onLoadingStateChange?: (isLoading: boolean) => void;
 }
 
-export function ReviewEditStep({ projectId, onBack, onContinueToPhase2, className }: ReviewEditStepProps) {
+export function ReviewEditStep({ projectId, onBack, onContinueToPhase2, className, onLoadingStateChange }: ReviewEditStepProps) {
   const [project, setProject] = useState<BBAProject | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
@@ -43,6 +44,13 @@ export function ReviewEditStep({ projectId, onBack, onContinueToPhase2, classNam
   const [editingSummary, setEditingSummary] = useState(false);
   const [summaryDraft, setSummaryDraft] = useState('');
   const [hasTriedAutoGenerate, setHasTriedAutoGenerate] = useState(false);
+
+  // Notify parent of loading state changes
+  useEffect(() => {
+    if (onLoadingStateChange) {
+      onLoadingStateChange(isLoading || isExporting || isGeneratingSummary);
+    }
+  }, [isLoading, isExporting, isGeneratingSummary, onLoadingStateChange]);
 
   // Load project data
   useEffect(() => {

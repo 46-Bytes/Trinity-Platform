@@ -2,7 +2,7 @@
  * Step 7: Review & Edit Component
  * Final review with export capability
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Loader2, CheckCircle2, AlertCircle, FileText, Download, RefreshCw, Eye, Edit2, ArrowRight, TableProperties } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,13 +44,19 @@ export function ReviewEditStep({ projectId, onBack, onContinueToPhase2, classNam
   const [editingSummary, setEditingSummary] = useState(false);
   const [summaryDraft, setSummaryDraft] = useState('');
   const [hasTriedAutoGenerate, setHasTriedAutoGenerate] = useState(false);
+  
+  // Use ref to store the callback to avoid infinite loops
+  const onLoadingStateChangeRef = useRef(onLoadingStateChange);
+  useEffect(() => {
+    onLoadingStateChangeRef.current = onLoadingStateChange;
+  }, [onLoadingStateChange]);
 
   // Notify parent of loading state changes
   useEffect(() => {
-    if (onLoadingStateChange) {
-      onLoadingStateChange(isLoading || isExporting || isGeneratingSummary);
+    if (onLoadingStateChangeRef.current) {
+      onLoadingStateChangeRef.current(isLoading || isExporting || isGeneratingSummary);
     }
-  }, [isLoading, isExporting, isGeneratingSummary, onLoadingStateChange]);
+  }, [isLoading, isExporting, isGeneratingSummary]);
 
   // Load project data
   useEffect(() => {

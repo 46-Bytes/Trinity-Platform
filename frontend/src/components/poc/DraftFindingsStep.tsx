@@ -2,7 +2,7 @@
  * Step 3: Draft Findings Component
  * Displays AI-generated findings for advisor review and editing
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Loader2, CheckCircle2, AlertCircle, GripVertical, Pencil, Save, X, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,6 +40,12 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
   const [editForm, setEditForm] = useState<Finding | null>(null);
   const [tokensUsed, setTokensUsed] = useState(0);
   const [analysisNotes, setAnalysisNotes] = useState<string>('');
+  
+  // Use ref to store the callback to avoid infinite loops
+  const onLoadingStateChangeRef = useRef(onLoadingStateChange);
+  useEffect(() => {
+    onLoadingStateChangeRef.current = onLoadingStateChange;
+  }, [onLoadingStateChange]);
 
   // Load existing findings on mount
   useEffect(() => {
@@ -88,10 +94,10 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
   }, [projectId]);
 
   useEffect(() => {
-    if (onLoadingStateChange) {
-      onLoadingStateChange(isLoading || isGenerating);
+    if (onLoadingStateChangeRef.current) {
+      onLoadingStateChangeRef.current(isLoading || isGenerating);
     }
-  }, [isLoading, isGenerating, onLoadingStateChange]);
+  }, [isLoading, isGenerating]);
 
   // Generate draft findings
   const handleGenerate = async (customInstructions?: string) => {

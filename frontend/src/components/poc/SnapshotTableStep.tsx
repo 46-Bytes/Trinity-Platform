@@ -2,7 +2,7 @@
  * Step 5: Snapshot Table Component
  * Displays the Key Findings & Recommendations Snapshot table
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Loader2, CheckCircle2, AlertCircle, Pencil, Save, X, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,13 +36,20 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
   const [snapshotTable, setSnapshotTable] = useState<SnapshotTable | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  
+  // Use ref to store the callback to avoid infinite loops
+  const onLoadingStateChangeRef = useRef(onLoadingStateChange);
+  useEffect(() => {
+    onLoadingStateChangeRef.current = onLoadingStateChange;
+  }, [onLoadingStateChange]);
 
   // Load existing snapshot table on mount
   useEffect(() => {
     const loadExistingData = async () => {
-      setIsLoading(true);
+      setIsInitialLoading(true);
       try {
         const token = localStorage.getItem('auth_token');
         const response = await fetch(`${API_BASE_URL}/api/poc/${projectId}`, {
@@ -68,7 +75,7 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
       } catch (err) {
         console.error('Failed to load existing snapshot table:', err);
       } finally {
-        setIsLoading(false);
+        setIsInitialLoading(false);
       }
     };
 
@@ -79,10 +86,10 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
 
   // Notify parent of loading state changes
   useEffect(() => {
-    if (onLoadingStateChange) {
-      onLoadingStateChange(isLoading || isGenerating);
+    if (onLoadingStateChangeRef.current) {
+      onLoadingStateChangeRef.current(isLoading || isGenerating);
     }
-  }, [isLoading, isGenerating, onLoadingStateChange]);
+  }, [isLoading, isGenerating]);
   const [editForm, setEditForm] = useState<SnapshotRow | null>(null);
   const [tokensUsed, setTokensUsed] = useState(0);
 
@@ -161,7 +168,7 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Generate Button */}
-        {!snapshotTable && !isGenerating && (
+        {!isInitialLoading && !snapshotTable && !isGenerating && (
           <div className="text-center py-8">
             <p className="text-muted-foreground mb-4">
               Click below to generate the snapshot table from your expanded findings.
@@ -193,7 +200,7 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
         )}
 
         {/* Snapshot Table */}
-        {snapshotTable && (
+        {!isInitialLoading && snapshotTable && (
           <>
             {/* Token Usage */}
             {tokensUsed > 0 && (

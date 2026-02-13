@@ -2,7 +2,7 @@
  * Step 4: Expanded Findings Component
  * Displays expanded findings with full paragraphs for each finding
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Loader2, CheckCircle2, AlertCircle, Pencil, Save, X, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,16 +33,23 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
   const [expandedFindings, setExpandedFindings] = useState<ExpandedFinding[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<ExpandedFinding | null>(null);
   const [tokensUsed, setTokensUsed] = useState(0);
   const [openItems, setOpenItems] = useState<number[]>([]);
+  
+  // Use ref to store the callback to avoid infinite loops
+  const onLoadingStateChangeRef = useRef(onLoadingStateChange);
+  useEffect(() => {
+    onLoadingStateChangeRef.current = onLoadingStateChange;
+  }, [onLoadingStateChange]);
 
   // Load existing expanded findings on mount
   useEffect(() => {
     const loadExistingData = async () => {
-      setIsLoading(true);
+      setIsInitialLoading(true);
       try {
         const token = localStorage.getItem('auth_token');
         const response = await fetch(`${API_BASE_URL}/api/poc/${projectId}`, {
@@ -69,7 +76,7 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
       } catch (err) {
         console.error('Failed to load existing expanded findings:', err);
       } finally {
-        setIsLoading(false);
+        setIsInitialLoading(false);
       }
     };
 
@@ -78,11 +85,12 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
     }
   }, [projectId]);
 
+  // Notify parent of loading state changes (only for processing states, not initial load)
   useEffect(() => {
-    if (onLoadingStateChange) {
-      onLoadingStateChange(isLoading || isGenerating);
+    if (onLoadingStateChangeRef.current) {
+      onLoadingStateChangeRef.current(isLoading || isGenerating);
     }
-  }, [isLoading, isGenerating, onLoadingStateChange]);
+  }, [isLoading, isGenerating]);
 
   // Generate expanded findings
   const handleGenerate = async () => {
@@ -207,7 +215,7 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
         )}
 
         {/* Expanded Findings List */}
-        {expandedFindings.length > 0 && (
+        {!isInitialLoading && expandedFindings.length > 0 && (
           <>
             {/* Token Usage */}
             {tokensUsed > 0 && (

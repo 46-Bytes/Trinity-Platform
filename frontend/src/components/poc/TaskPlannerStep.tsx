@@ -5,7 +5,7 @@
  * allows the advisor to configure engagement settings, preview the
  * generated task rows, and export the Excel (.xlsx) advisor task list.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Loader2,
   AlertCircle,
@@ -120,13 +120,19 @@ export function TaskPlannerStep({ projectId, onBack, onContinueToPhase3, classNa
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [showSummary, setShowSummary] = useState(true);
   const [activeSection, setActiveSection] = useState<'settings' | 'preview'>('settings');
+  
+  // Use ref to store the callback to avoid infinite loops
+  const onLoadingStateChangeRef = useRef(onLoadingStateChange);
+  useEffect(() => {
+    onLoadingStateChangeRef.current = onLoadingStateChange;
+  }, [onLoadingStateChange]);
 
   // Notify parent of loading state changes
   useEffect(() => {
-    if (onLoadingStateChange) {
-      onLoadingStateChange(isLoadingProject || isGenerating || isExporting);
+    if (onLoadingStateChangeRef.current) {
+      onLoadingStateChangeRef.current(isLoadingProject || isGenerating || isExporting);
     }
-  }, [isLoadingProject, isGenerating, isExporting, onLoadingStateChange]);
+  }, [isLoadingProject, isGenerating, isExporting]);
 
   // --- Load existing settings/tasks from the project on mount ---
   useEffect(() => {

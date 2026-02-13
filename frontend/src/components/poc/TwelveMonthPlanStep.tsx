@@ -2,7 +2,7 @@
  * Step 6: 12-Month Plan Component
  * Displays the detailed recommendations plan
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Loader2, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, RefreshCw, Calendar, Target, ListChecks, Users, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -53,11 +53,17 @@ export function TwelveMonthPlanStep({ projectId, onComplete, onBack, className, 
   const [error, setError] = useState<string | null>(null);
   const [tokensUsed, setTokensUsed] = useState(0);
   const [openItems, setOpenItems] = useState<number[]>([]);
+  
+  // Use ref to store the callback to avoid infinite loops
+  const onLoadingStateChangeRef = useRef(onLoadingStateChange);
+  useEffect(() => {
+    onLoadingStateChangeRef.current = onLoadingStateChange;
+  }, [onLoadingStateChange]);
 
   // Load existing 12-month plan on mount
   useEffect(() => {
     const loadExistingData = async () => {
-      setIsLoading(true);
+      // Don't set isLoading for initial load
       try {
         const token = localStorage.getItem('auth_token');
         const response = await fetch(`${API_BASE_URL}/api/poc/${projectId}`, {
@@ -84,7 +90,7 @@ export function TwelveMonthPlanStep({ projectId, onComplete, onBack, className, 
       } catch (err) {
         console.error('Failed to load existing 12-month plan:', err);
       } finally {
-        setIsLoading(false);
+        setIsInitialLoading(false);
       }
     };
 
@@ -94,10 +100,10 @@ export function TwelveMonthPlanStep({ projectId, onComplete, onBack, className, 
   }, [projectId]);
 
   useEffect(() => {
-    if (onLoadingStateChange) {
-      onLoadingStateChange(isLoading || isGenerating);
+    if (onLoadingStateChangeRef.current) {
+      onLoadingStateChangeRef.current(isLoading || isGenerating);
     }
-  }, [isLoading, isGenerating, onLoadingStateChange]);
+  }, [isLoading, isGenerating]);
 
   // Generate 12-month plan
   const handleGenerate = async () => {
@@ -160,7 +166,7 @@ export function TwelveMonthPlanStep({ projectId, onComplete, onBack, className, 
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Generate Button */}
-        {!plan && !isGenerating && (
+        {!isInitialLoading && !plan && !isGenerating && (
           <div className="text-center py-8">
             <p className="text-muted-foreground mb-4">
               Click below to generate the 12-month recommendations plan.
@@ -193,7 +199,7 @@ export function TwelveMonthPlanStep({ projectId, onComplete, onBack, className, 
         )}
 
         {/* Plan Content */}
-        {plan && (
+        {!isInitialLoading && plan && (
           <>
             {/* Token Usage */}
             {tokensUsed > 0 && (

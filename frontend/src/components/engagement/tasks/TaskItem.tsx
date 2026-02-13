@@ -145,14 +145,9 @@ export function TaskItem({ task, onEdit, onDelete, onStatusChange, onClick }: Ta
               >
                 <StickyNote className="h-4 w-4" />
               </Button>
-              {task.unreadNotesCountForCurrentUser && task.unreadNotesCountForCurrentUser > 0 && (
-                <span className="absolute -top-1 -right-1">
-                  <Badge
-                    variant="destructive"
-                    className="h-4 min-w-[1rem] px-1 py-0 text-[10px] leading-none rounded-full flex items-center justify-center"
-                  >
-                    {task.unreadNotesCountForCurrentUser}
-                  </Badge>
+              {task.unreadNotesCountForCurrentUser > 0 && (
+                <span className="absolute -top-1 -right-1 flex items-center justify-center h-4 min-w-[1rem] rounded-full bg-red-500 text-white text-[10px] leading-none px-1">
+                  {task.unreadNotesCountForCurrentUser}
                 </span>
               )}
             </div>

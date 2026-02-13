@@ -74,6 +74,11 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const goToStep = (step: number) => {
+    setCurrentStep(step);
+    setMaxStepReached((prev) => Math.max(prev, step));
+  };
+
   // Validate file
   const validateFile = (file: File): { valid: boolean; error?: string } => {
     // Check file size
@@ -258,10 +263,10 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
         prev.map((f) =>
           f.status === 'uploading'
             ? {
-                ...f,
-                status: 'error',
-                error: error instanceof Error ? error.message : 'Upload failed',
-              }
+              ...f,
+              status: 'error',
+              error: error instanceof Error ? error.message : 'Upload failed',
+            }
             : f
         )
       );
@@ -295,6 +300,7 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
       return;
     }
 
+    setIsQuestionnaireSubmitting(true);
     try {
       const token = localStorage.getItem('auth_token');
       const response = await fetch(`${API_BASE_URL}/api/poc/${projectId}/submit-questionnaire`, {
@@ -314,9 +320,11 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
 
       const result = await response.json();
       console.log('Questionnaire submitted successfully:', result);
-      setCurrentStep(3);
+      goToStep(3);
     } catch (error) {
       console.error('Failed to submit questionnaire:', error);
+    } finally {
+      setIsQuestionnaireSubmitting(false);
     }
   };
 
@@ -359,9 +367,12 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
     8: 'Task Planner',
     9: 'Presentation',
   };
+  
+  const isAnyStepBusy =
+    isUploading || isCreatingProject || isQuestionnaireSubmitting;
 
   return (
-    <Card className={cn('w-full max-w-4xl mx-auto', className)}>
+    <Card className={cn('w-full max-w-8xl mx-auto', className)}>
       <CardHeader>
         <CardTitle>BBA Report Builder</CardTitle>
         <CardDescription>
@@ -375,61 +386,84 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Step Indicator */}
-        <div className="space-y-2 mb-6">
-          {/* Phase 1 Steps */}
-          <div className="flex flex-wrap items-center gap-1">
-            <span className={cn(
-              'text-xs font-semibold mr-1 px-1.5 py-0.5 rounded',
-              !isPhase2 ? 'bg-primary/10 text-primary' : 'text-muted-foreground'
-            )}>
+        {/* Step Indicator */}
+        <div className="space-y-3 mb-6">
+          {/* Phase 1 */}
+          <div>
+            <p className="text-xs font-semibold uppercase text-muted-foreground mb-1">
               Phase 1
-            </span>
-            {phase1Steps.map(({ step, label }, idx) => (
-              <React.Fragment key={step}>
-                {idx > 0 && <ArrowRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
-                <div
-                  className={cn(
-                    'flex items-center gap-1 px-2 py-1 rounded text-xs font-medium',
-                    currentStep === step
-                      ? 'bg-primary text-primary-foreground'
-                      : currentStep > step
-                        ? 'bg-muted text-muted-foreground'
-                        : 'bg-muted text-muted-foreground/60'
-                  )}
-                >
-                  <span>{step}. {label}</span>
-                  {currentStep > step && <CheckCircle2 className="w-3 h-3" />}
-                </div>
-              </React.Fragment>
-            ))}
+            </p>
+            <div className="flex flex-wrap justify-center items-center gap-1">
+              {[1, 2, 3, 4, 5, 6, 7].map((step) => {
+                const isEnabled = step <= maxStepReached && !isAnyStepBusy;
+
+                return (
+                  <React.Fragment key={step}>
+                    {step > 1 && (
+                      <ArrowRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isEnabled) {
+                          goToStep(step);
+                        }
+                      }}
+                      disabled={!isEnabled}
+                      className={cn(
+                        'flex items-center gap-1 px-4 py-2 rounded text-xs font-medium',
+                        currentStep === step
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-muted-foreground',
+                        isEnabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
+                      )}
+                    >
+                      <span>
+                        {step}. {stepLabels[step]}
+                      </span>
+                      {currentStep > step && <CheckCircle2 className="w-3 h-3" />}
+                    </button>
+                  </React.Fragment>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Phase 2 Steps */}
-          <div className="flex flex-wrap items-center gap-1">
-            <span className={cn(
-              'text-xs font-semibold mr-1 px-1.5 py-0.5 rounded',
-              isPhase2 ? 'bg-primary/10 text-primary' : 'text-muted-foreground/60'
-            )}>
+          {/* Phase 2 */}
+          <div>
+            <p className="text-xs font-semibold uppercase text-muted-foreground mb-1">
               Phase 2
-            </span>
-            {phase2Steps.map(({ step, label }, idx) => (
-              <React.Fragment key={step}>
-                {idx > 0 && <ArrowRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
-                <div
-                  className={cn(
-                    'flex items-center gap-1 px-2 py-1 rounded text-xs font-medium',
-                    currentStep === step
-                      ? 'bg-primary text-primary-foreground'
-                      : currentStep > step
-                        ? 'bg-muted text-muted-foreground'
-                        : 'bg-muted text-muted-foreground/60'
-                  )}
-                >
-                  <span>{step - 7}. {label}</span>
-                  {currentStep > step && <CheckCircle2 className="w-3 h-3" />}
-                </div>
-              </React.Fragment>
-            ))}
+            </p>
+            <div className="flex flex-wrap justify-center items-center gap-1">
+              {[8].map((step) => {
+                const isEnabled = step <= maxStepReached && !isAnyStepBusy;
+
+                return (
+                  <button
+                    key={step}
+                    type="button"
+                    onClick={() => {
+                      if (isEnabled) {
+                        goToStep(step);
+                      }
+                    }}
+                    disabled={!isEnabled}
+                    className={cn(
+                      'flex items-center gap-1 px-4 py-2 rounded text-xs font-medium',
+                      currentStep === step
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground',
+                      isEnabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
+                    )}
+                  >
+                    {/* Shown as Phase 2 – Step 1 */}
+                    <span>1. {stepLabels[step]}</span>
+                    {currentStep > step && <CheckCircle2 className="w-3 h-3" />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Phase 3 Steps */}
@@ -464,153 +498,126 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
         {/* Step 1: File Upload */}
         {currentStep === 1 && (
           <>
-        {/* Drag and Drop Zone */}
-        <div
-          onDragEnter={handleDragEnter}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          className={cn(
-            'border-2 border-dashed rounded-lg p-12 text-center transition-colors',
-            isDragging
-              ? 'border-primary bg-primary/5'
-              : 'border-muted-foreground/25 hover:border-muted-foreground/50'
-          )}
-        >
-          <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-          <p className="text-lg font-medium mb-2">
-            Drag and drop files here, or click to select
-          </p>
-          <p className="text-sm text-muted-foreground mb-4">
-            Max file size: {MAX_FILE_SIZE / (1024 * 1024)}MB
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
-          >
-            Select Files
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={handleFileInputChange}
-            accept={ALLOWED_FILE_TYPES.join(',')}
-          />
-        </div>
-
-        {/* File List */}
-        {files.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <span>Total: {files.length}</span>
-                {pendingCount > 0 && <span>Pending: {pendingCount}</span>}
-                {successCount > 0 && (
-                  <span className="text-green-600">Success: {successCount}</span>
-                )}
-                {errorCount > 0 && (
-                  <span className="text-red-600">Error: {errorCount}</span>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={clearAll}
-                  disabled={isUploading}
-                >
-                  Clear All
-                </Button>
-                <Button
-                  type="button"
-                  onClick={handleUpload}
-                  disabled={isUploading || pendingCount === 0}
-                >
-                  {isUploading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="mr-2 h-4 w-4" />
-                      Upload {pendingCount > 0 && `(${pendingCount})`}
-                    </>
-                  )}
-                </Button>
-              </div>
+            {/* Drag and Drop Zone */}
+            <div
+              onDragEnter={handleDragEnter}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={cn(
+                'border-2 border-dashed rounded-lg p-12 text-center transition-colors',
+                isDragging
+                  ? 'border-primary bg-primary/5'
+                  : 'border-muted-foreground/25 hover:border-muted-foreground/50'
+              )}
+            >
+              <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+              <p className="text-lg font-medium mb-2">
+                Drag and drop files here, or click to select
+              </p>
+              <p className="text-sm text-muted-foreground mb-4">
+                Max file size: {MAX_FILE_SIZE / (1024 * 1024)}MB
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+              >
+                Select Files
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={handleFileInputChange}
+                accept={ALLOWED_FILE_TYPES.join(',')}
+              />
             </div>
 
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {files.map((fileObj) => (
-                <div
-                  key={fileObj.id}
-                  className="flex items-center gap-4 p-3 border rounded-lg bg-card"
-                >
-                  <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{fileObj.file.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {(fileObj.file.size / 1024).toFixed(2)} KB
-                    </p>
-                    {fileObj.status === 'uploading' && (
-                      <Progress value={fileObj.progress} className="mt-2 h-1" />
-                    )}
-                    {fileObj.status === 'success' && fileObj.fileId && (
-                      <p className="text-xs text-green-600 mt-1">
-                        OpenAI File ID: {fileObj.fileId}
-                      </p>
-                    )}
-                    {fileObj.status === 'error' && fileObj.error && (
-                      <p className="text-xs text-red-600 mt-1">{fileObj.error}</p>
+            {/* File List */}
+            {files.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <span>Total files uploaded: {files.length}</span>
+                    {errorCount > 0 && (
+                      <span className="text-red-600">Error: {errorCount}</span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {fileObj.status === 'success' && (
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
-                    )}
-                    {fileObj.status === 'error' && (
-                      <AlertCircle className="h-5 w-5 text-red-600" />
-                    )}
-                    {fileObj.status === 'uploading' && (
-                      <Loader2 className="h-5 w-5 text-primary animate-spin" />
-                    )}
+                  <div className="flex gap-2">
                     <Button
                       type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => removeFile(fileObj.id)}
-                      disabled={fileObj.status === 'uploading'}
+                      variant="outline"
+                      size="sm"
+                      onClick={clearAll}
+                      disabled={isUploading}
                     >
-                      <X className="h-4 w-4" />
+                      Clear All
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={handleUpload}
+                      disabled={isUploading || pendingCount === 0}
+                    >
+                      {isUploading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="mr-2 h-4 w-4" />
+                          Upload {pendingCount > 0 && `(${pendingCount})`}
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
 
-            {/* File Mappings Display */}
-            {successCount > 0 && (
-              <div className="mt-4 p-4 bg-muted rounded-lg">
-                <p className="text-sm font-medium mb-2">File Mappings (stored in session):</p>
-                <div className="space-y-1">
-                  {files
-                    .filter((f) => f.status === 'success' && f.fileId)
-                    .map((f) => (
-                      <div key={f.id} className="text-xs font-mono">
-                        <span className="text-muted-foreground">{f.file.name}</span>
-                        <span className="mx-2">→</span>
-                        <span className="text-primary">{f.fileId}</span>
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {files.map((fileObj) => (
+                    <div
+                      key={fileObj.id}
+                      className="flex items-center gap-4 p-3 border rounded-lg bg-card"
+                    >
+                      <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{fileObj.file.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(fileObj.file.size / 1024).toFixed(2)} KB
+                        </p>
+                        {fileObj.status === 'uploading' && (
+                          <Progress value={fileObj.progress} className="mt-2 h-1" />
+                        )}
+                        {fileObj.status === 'error' && fileObj.error && (
+                          <p className="text-xs text-red-600 mt-1">{fileObj.error}</p>
+                        )}
                       </div>
-                    ))}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {fileObj.status === 'success' && (
+                          <CheckCircle2 className="h-5 w-5 text-green-600" />
+                        )}
+                        {fileObj.status === 'error' && (
+                          <AlertCircle className="h-5 w-5 text-red-600" />
+                        )}
+                        {fileObj.status === 'uploading' && (
+                          <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                        )}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => removeFile(fileObj.id)}
+                          disabled={fileObj.status === 'uploading'}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -619,7 +626,7 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
             {successCount > 0 && (
               <div className="flex justify-end pt-4 border-t">
                 <Button
-                  onClick={() => setCurrentStep(2)}
+                  onClick={() => goToStep(2)}
                   disabled={successCount === 0}
                 >
                   Continue to Step 2
@@ -636,9 +643,10 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
             questionnaireData={questionnaireData}
             onQuestionnaireChange={handleQuestionnaireChange}
             onSubmit={handleQuestionnaireSubmit}
-            onBack={() => setCurrentStep(1)}
+            onBack={() => goToStep(1)}
             files={files}
             successCount={successCount}
+            isSubmitting={isQuestionnaireSubmitting}
           />
         )}
 
@@ -646,8 +654,8 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
         {currentStep === 3 && projectId && (
           <DraftFindingsStep
             projectId={projectId}
-            onComplete={() => setCurrentStep(4)}
-            onBack={() => setCurrentStep(2)}
+            onComplete={() => goToStep(4)}
+            onBack={() => goToStep(2)}
           />
         )}
 
@@ -655,8 +663,8 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
         {currentStep === 4 && projectId && (
           <ExpandedFindingsStep
             projectId={projectId}
-            onComplete={() => setCurrentStep(5)}
-            onBack={() => setCurrentStep(3)}
+            onComplete={() => goToStep(5)}
+            onBack={() => goToStep(3)}
           />
         )}
 
@@ -664,8 +672,8 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
         {currentStep === 5 && projectId && (
           <SnapshotTableStep
             projectId={projectId}
-            onComplete={() => setCurrentStep(6)}
-            onBack={() => setCurrentStep(4)}
+            onComplete={() => goToStep(6)}
+            onBack={() => goToStep(4)}
           />
         )}
 
@@ -673,8 +681,8 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
         {currentStep === 6 && projectId && (
           <TwelveMonthPlanStep
             projectId={projectId}
-            onComplete={() => setCurrentStep(7)}
-            onBack={() => setCurrentStep(5)}
+            onComplete={() => goToStep(7)}
+            onBack={() => goToStep(5)}
           />
         )}
 

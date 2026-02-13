@@ -105,11 +105,9 @@ export function ContextCaptureQuestionnaire({
               <SelectValue placeholder="Select company size" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="startup">Startup (1-10 employees)</SelectItem>
-              <SelectItem value="small">Small (11-50 employees)</SelectItem>
-              <SelectItem value="medium">Medium (51-200 employees)</SelectItem>
-              <SelectItem value="large">Large (201-1000 employees)</SelectItem>
-              <SelectItem value="enterprise">Enterprise (1000+ employees)</SelectItem>
+              <SelectItem value="startup">Small (1-10 employees)</SelectItem>
+              <SelectItem value="medium">Medium (11-15 employees)</SelectItem>
+              <SelectItem value="large">Large (51+ employees)</SelectItem>
             </SelectContent>
           </Select>
         </div>

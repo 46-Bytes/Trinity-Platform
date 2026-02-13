@@ -2,7 +2,7 @@
  * POC: File Upload Component with Drag-and-Drop
  * BBA Report Builder workflow: Steps 1-7
  */
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Upload, X, CheckCircle2, AlertCircle, Loader2, FileText, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +18,15 @@ import PresentationStep from './PresentationStep';
 import { cn } from '@/lib/utils';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+// localStorage keys for persistence
+const STORAGE_KEYS = {
+  PROJECT_ID: 'bba_project_id',
+  CURRENT_STEP: 'bba_current_step',
+  MAX_STEP: 'bba_max_step',
+  QUESTIONNAIRE: 'bba_questionnaire_data',
+  ENGAGEMENT_ID: 'bba_engagement_id',
+} as const;
 
 // File validation constants
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
@@ -85,6 +94,7 @@ export function FileUploadPOC({ className, engagementId }: FileUploadPOCProps) {
     7: false, 
     8: false, 
   });
+  const [isRestoring, setIsRestoring] = useState(true);
 
   // Update loading state for a specific step
   const updateStepLoadingState = useCallback((step: number, isLoading: boolean) => {
@@ -93,6 +103,173 @@ export function FileUploadPOC({ className, engagementId }: FileUploadPOCProps) {
       [step]: isLoading,
     }));
   }, []);
+
+  // Restore state from localStorage and backend
+  useEffect(() => {
+    const restoreState = async () => {
+      try {
+        // Get stored project ID
+        const storedProjectId = localStorage.getItem(STORAGE_KEYS.PROJECT_ID);
+        const storedEngagementId = localStorage.getItem(STORAGE_KEYS.ENGAGEMENT_ID);
+        
+        if (storedProjectId) {
+          if (engagementId && storedEngagementId !== engagementId) {
+            // Clear storage if engagement doesn't match
+            localStorage.removeItem(STORAGE_KEYS.PROJECT_ID);
+            localStorage.removeItem(STORAGE_KEYS.CURRENT_STEP);
+            localStorage.removeItem(STORAGE_KEYS.MAX_STEP);
+            localStorage.removeItem(STORAGE_KEYS.QUESTIONNAIRE);
+            localStorage.removeItem(STORAGE_KEYS.ENGAGEMENT_ID);
+            setIsRestoring(false);
+            return;
+          }
+
+          // Restore project ID
+          setProjectId(storedProjectId);
+
+          // Restore step and max step
+          const storedStep = localStorage.getItem(STORAGE_KEYS.CURRENT_STEP);
+          const storedMaxStep = localStorage.getItem(STORAGE_KEYS.MAX_STEP);
+          if (storedStep) {
+            const stepNum = parseInt(storedStep, 10) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+            if (stepNum >= 1 && stepNum <= 9) {
+              setCurrentStep(stepNum);
+            }
+          }
+          if (storedMaxStep) {
+            const maxStepNum = parseInt(storedMaxStep, 10);
+            if (maxStepNum >= 1 && maxStepNum <= 9) {
+              setMaxStepReached(maxStepNum);
+            }
+          }
+
+          // Restore questionnaire data
+          const storedQuestionnaire = localStorage.getItem(STORAGE_KEYS.QUESTIONNAIRE);
+          if (storedQuestionnaire) {
+            try {
+              const parsed = JSON.parse(storedQuestionnaire);
+              setQuestionnaireData(parsed);
+            } catch (e) {
+              console.error('Failed to parse stored questionnaire data:', e);
+            }
+          }
+
+          // Fetch project data from backend to restore files
+          try {
+            const token = localStorage.getItem('auth_token');
+            const response = await fetch(`${API_BASE_URL}/api/poc/${storedProjectId}`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+              credentials: 'include',
+            });
+
+            if (response.ok) {
+              const result = await response.json();
+              const project = result.project;
+
+              // Restore files from file_mappings
+              if (project.file_mappings && typeof project.file_mappings === 'object') {
+                const restoredFiles: UploadedFile[] = Object.entries(project.file_mappings).map(
+                  ([filename, fileId]) => {
+                    // Create a dummy File object for display purposes
+                    // We can't recreate the actual File, but we can show the metadata
+                    const dummyFile = new File([], filename, {
+                      type: 'application/octet-stream',
+                    });
+                    
+                    return {
+                      id: `${Date.now()}-${Math.random()}`,
+                      file: dummyFile,
+                      status: 'success' as const,
+                      progress: 100,
+                      fileId: fileId as string,
+                    };
+                  }
+                );
+                setFiles(restoredFiles);
+              }
+
+              // Restore questionnaire data from backend if available
+              if (project.client_name || project.industry || project.company_size) {
+                setQuestionnaireData({
+                  clientName: project.client_name || '',
+                  industry: project.industry || '',
+                  companySize: project.company_size || '',
+                  locations: project.locations || '',
+                  exclusions: project.exclusions || '',
+                  constraints: project.constraints || '',
+                  preferredRanking: project.preferred_ranking || '',
+                  strategicPriorities: project.strategic_priorities || '',
+                  excludeSaleReadiness: project.exclude_sale_readiness || false,
+                });
+              }
+
+              // Determine max step based on project status
+              if (project.status) {
+                const statusToStep: Record<string, number> = {
+                  'uploaded': 1,
+                  'questionnaire_completed': 2,
+                  'draft_findings': 3,
+                  'expanded_findings': 4,
+                  'snapshot_table': 5,
+                  'twelve_month_plan': 6,
+                  'completed': 7,
+                };
+                const stepFromStatus = statusToStep[project.status] || 1;
+                setMaxStepReached((prev) => Math.max(prev, stepFromStatus));
+              }
+            }
+          } catch (error) {
+            console.error('Error restoring project data:', error);
+          }
+        } else if (engagementId) {
+          // Store engagement ID for future reference
+          localStorage.setItem(STORAGE_KEYS.ENGAGEMENT_ID, engagementId);
+        }
+      } catch (error) {
+        console.error('Error restoring state:', error);
+      } finally {
+        setIsRestoring(false);
+      }
+    };
+
+    restoreState();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engagementId]); // Only run on mount or when engagementId changes
+
+  // Persist project ID to localStorage
+  useEffect(() => {
+    if (projectId) {
+      localStorage.setItem(STORAGE_KEYS.PROJECT_ID, projectId);
+      if (engagementId) {
+        localStorage.setItem(STORAGE_KEYS.ENGAGEMENT_ID, engagementId);
+      }
+    }
+  }, [projectId, engagementId]);
+
+  // Persist current step to localStorage
+  useEffect(() => {
+    if (!isRestoring) {
+      localStorage.setItem(STORAGE_KEYS.CURRENT_STEP, currentStep.toString());
+    }
+  }, [currentStep, isRestoring]);
+
+  // Persist max step to localStorage
+  useEffect(() => {
+    if (!isRestoring) {
+      localStorage.setItem(STORAGE_KEYS.MAX_STEP, maxStepReached.toString());
+    }
+  }, [maxStepReached, isRestoring]);
+
+  // Persist questionnaire data to localStorage
+  useEffect(() => {
+    if (!isRestoring) {
+      localStorage.setItem(STORAGE_KEYS.QUESTIONNAIRE, JSON.stringify(questionnaireData));
+    }
+  }, [questionnaireData, isRestoring]);
 
   const goToStep = (step: number) => {
     // Check if any step is currently loading/processing
@@ -231,8 +408,14 @@ export function FileUploadPOC({ className, engagementId }: FileUploadPOCProps) {
       }
 
       const result = await response.json();
-      setProjectId(result.project_id);
-      return result.project_id;
+      const newProjectId = result.project_id;
+      setProjectId(newProjectId);
+      // Store in localStorage
+      localStorage.setItem(STORAGE_KEYS.PROJECT_ID, newProjectId);
+      if (engagementId) {
+        localStorage.setItem(STORAGE_KEYS.ENGAGEMENT_ID, engagementId);
+      }
+      return newProjectId;
     } catch (error) {
       console.error('Failed to create project:', error);
       throw error;
@@ -422,6 +605,20 @@ export function FileUploadPOC({ className, engagementId }: FileUploadPOCProps) {
     isQuestionnaireSubmitting ||
     Object.values(stepLoadingStates).some(isLoading => isLoading);
 
+  // Show loading state while restoring
+  if (isRestoring) {
+    return (
+      <Card className={cn('w-full max-w-8xl mx-auto', className)}>
+        <CardContent className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+            <p className="text-muted-foreground">Loading your project...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className={cn('w-full max-w-8xl mx-auto', className)}>
       <CardHeader>
@@ -435,7 +632,7 @@ export function FileUploadPOC({ className, engagementId }: FileUploadPOCProps) {
             <p className="text-xs font-semibold uppercase text-muted-foreground mb-1">
               Phase 1
             </p>
-            <div className="flex flex-wrap justify-center items-center gap-1">
+            <div className="flex flex-wrap justify-start items-center gap-1">
               {[1, 2, 3, 4, 5, 6, 7].map((step) => {
                 // Check if current step is busy
                 const isCurrentStepBusy = stepLoadingStates[currentStep] || false;
@@ -481,7 +678,7 @@ export function FileUploadPOC({ className, engagementId }: FileUploadPOCProps) {
             <p className="text-xs font-semibold uppercase text-muted-foreground mb-1">
               Phase 2
             </p>
-            <div className="flex flex-wrap justify-center items-center gap-1">
+            <div className="flex flex-wrap justify-start items-center gap-1">
               {[8].map((step) => {
                 // Check if current step is busy
                 const isCurrentStepBusy = stepLoadingStates[currentStep] || false;
@@ -516,32 +713,47 @@ export function FileUploadPOC({ className, engagementId }: FileUploadPOCProps) {
             </div>
           </div>
 
-          {/* Phase 3 Steps */}
-          <div className="flex flex-wrap items-center gap-1">
-            <span className={cn(
-              'text-xs font-semibold mr-1 px-1.5 py-0.5 rounded',
-              isPhase3 ? 'bg-primary/10 text-primary' : 'text-muted-foreground/60'
-            )}>
+          {/* Phase 3 */}
+          <div>
+            <p className="text-xs font-semibold uppercase text-muted-foreground mb-1">
               Phase 3
-            </span>
-            {phase3Steps.map(({ step, label }, idx) => (
-              <React.Fragment key={step}>
-                {idx > 0 && <ArrowRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
-                <div
-                  className={cn(
-                    'flex items-center gap-1 px-2 py-1 rounded text-xs font-medium',
-                    currentStep === step
-                      ? 'bg-primary text-primary-foreground'
-                      : currentStep > step
-                        ? 'bg-muted text-muted-foreground'
-                        : 'bg-muted text-muted-foreground/60'
-                  )}
-                >
-                  <span>{step - 8}. {label}</span>
-                  {currentStep > step && <CheckCircle2 className="w-3 h-3" />}
-                </div>
-              </React.Fragment>
-            ))}
+            </p>
+            <div className="flex flex-wrap justify-start items-center gap-1">
+              {phase3Steps.map(({ step, label }, idx) => {
+                // Check if current step is busy
+                const isCurrentStepBusy = stepLoadingStates[currentStep] || false;
+                // Block navigation if current step is busy
+                const isMovingForward = step > currentStep;
+                const isEnabled = step <= maxStepReached && !isCurrentStepBusy && (!isAnyStepBusy || !isMovingForward);
+
+                return (
+                  <React.Fragment key={step}>
+                    {idx > 0 && (
+                      <ArrowRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isEnabled) {
+                          goToStep(step);
+                        }
+                      }}
+                      disabled={!isEnabled}
+                      className={cn(
+                        'flex items-center gap-1 px-4 py-2 rounded text-xs font-medium',
+                        currentStep === step
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-muted-foreground',
+                        isEnabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
+                      )}
+                    >
+                      <span>{step - 8}. {label}</span>
+                      {currentStep > step && <CheckCircle2 className="w-3 h-3" />}
+                    </button>
+                  </React.Fragment>
+                );
+              })}
+            </div>
           </div>
         </div>
 

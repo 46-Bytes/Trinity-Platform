@@ -59,6 +59,8 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9>(1);
+  const [isQuestionnaireSubmitting, setIsQuestionnaireSubmitting] = useState(false);
+  const [maxStepReached, setMaxStepReached] = useState<number>(1);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [questionnaireData, setQuestionnaireData] = useState<QuestionnaireData>({
@@ -115,7 +117,7 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
       return;
     }
     
-    setCurrentStep(step);
+    setCurrentStep(step as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9);
     setMaxStepReached((prev) => Math.max(prev, step));
   };
 

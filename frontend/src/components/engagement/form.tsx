@@ -26,6 +26,7 @@ import { createEngagement, updateEngagement, fetchUserRoleData, fetchEngagements
 import type { Engagement } from "@/store/slices/engagementReducer";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 // Base schema fields (common fields for all roles)
 const baseSchemaFields = {
@@ -39,7 +40,7 @@ const baseSchemaFields = {
     message: "Engagement name must be at least 3 characters.",
   }),
   description: z.string().optional(),
-  tool: z.enum(['diagnostic', 'kpi_builder'], {
+  tool: z.enum(['diagnostic', 'kpi_builder', 'bba_builder'], {
     message: "Please select a tool.",
   }),
 };
@@ -97,6 +98,7 @@ export function EngagementForm({
   const { isLoading, userRoleData } = useAppSelector((state) => state.engagement);
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   
   console.log('Redux state:', { isLoading, hasUserRoleData: !!userRoleData });
   
@@ -170,7 +172,7 @@ export function EngagementForm({
           description: engagement.description || "",
           clientId: engagement.clientId || "",
           advisorId: (engagement as any).primaryAdvisorId || "",
-          tool: (engagement.tool as 'diagnostic' | 'kpi_builder') || "diagnostic",
+          tool: (engagement.tool as 'diagnostic' | 'kpi_builder' | 'bba_builder') || "diagnostic",
         } as any);
       } else if (isFirmContext) {
         form.reset({
@@ -179,7 +181,7 @@ export function EngagementForm({
           engagementName: engagement.title || "",
           description: engagement.description || "",
           clientId: engagement.clientId || "",
-          tool: (engagement.tool as 'diagnostic' | 'kpi_builder') || "diagnostic",
+          tool: (engagement.tool as 'diagnostic' | 'kpi_builder' | 'bba_builder') || "diagnostic",
         });
       } else {
         form.reset({
@@ -188,7 +190,7 @@ export function EngagementForm({
           engagementName: engagement.title || "",
           description: engagement.description || "",
           clientOrAdvisorId: engagement.clientId || "",
-          tool: (engagement.tool as 'diagnostic' | 'kpi_builder') || "diagnostic",
+          tool: (engagement.tool as 'diagnostic' | 'kpi_builder' | 'bba_builder') || "diagnostic",
         });
       }
     }
@@ -513,6 +515,15 @@ export function EngagementForm({
           console.log('API Success Response:', JSON.stringify(responseData, null, 2));
           console.log('Engagement created successfully with ID:', responseData.id);
           
+          // If BBA Builder is selected, navigate to POC page
+          if (values.tool === 'bba_builder') {
+            if (onSuccess) {
+              onSuccess();
+            }
+            navigate('/poc/file-upload');
+            return;
+          }
+          
           // Call onSuccess callback to close dialog and refresh list
           if (onSuccess) {
             console.log('Calling onSuccess callback for admin/firm_admin...');
@@ -586,6 +597,16 @@ export function EngagementForm({
           const responseData = await response.json();
           console.log('API Success Response:', JSON.stringify(responseData, null, 2));
           console.log('Engagement created successfully with ID:', responseData.id);
+          
+          // If BBA Builder is selected, navigate to POC page
+          if (values.tool === 'bba_builder') {
+            console.log('BBA Builder selected, navigating to /poc/file-upload');
+            if (onSuccess) {
+              onSuccess();
+            }
+            navigate('/poc/file-upload');
+            return;
+          }
           
           // Call onSuccess callback to close dialog and refresh list
           if (onSuccess) {
@@ -847,7 +868,7 @@ export function EngagementForm({
                   </FormControl>
                   <SelectContent>
                     <SelectItem value="diagnostic">Diagnostic</SelectItem>
-                    <SelectItem value="kpi_builder">KPI Builder</SelectItem>
+                    <SelectItem value="bba_builder">BBA Builder</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormDescription>

@@ -75,7 +75,47 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [stepLoadingStates, setStepLoadingStates] = useState<Record<number, boolean>>({
+    3: false, 
+    4: false, 
+    5: false, 
+    6: false, 
+    7: false, 
+    8: false, 
+  });
+
+  // Update loading state for a specific step
+  const updateStepLoadingState = useCallback((step: number, isLoading: boolean) => {
+    setStepLoadingStates((prev) => ({
+      ...prev,
+      [step]: isLoading,
+    }));
+  }, []);
+
   const goToStep = (step: number) => {
+    // Check if any step is currently loading/processing
+    const isAnyStepBusy = 
+      isUploading || 
+      isCreatingProject || 
+      isQuestionnaireSubmitting ||
+      Object.values(stepLoadingStates).some(isLoading => isLoading);
+    
+    // Check if the current step is busy
+    const isCurrentStepBusy = stepLoadingStates[currentStep] || false;
+    
+    // Block navigation if current step is busy (both forward and backward)
+    if (isCurrentStepBusy) {
+      console.log('Cannot navigate: current step is currently processing');
+      return;
+    }
+    
+    // Block forward navigation if any step is busy
+    const isMovingForward = step > currentStep;
+    if (isAnyStepBusy && isMovingForward) {
+      console.log('Cannot navigate forward: a step is currently processing');
+      return;
+    }
+    
     setCurrentStep(step);
     setMaxStepReached((prev) => Math.max(prev, step));
   };
@@ -364,7 +404,10 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
   };
   
   const isAnyStepBusy =
-    isUploading || isCreatingProject || isQuestionnaireSubmitting;
+    isUploading || 
+    isCreatingProject || 
+    isQuestionnaireSubmitting ||
+    Object.values(stepLoadingStates).some(isLoading => isLoading);
 
   return (
     <Card className={cn('w-full max-w-8xl mx-auto', className)}>
@@ -382,7 +425,11 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
             </p>
             <div className="flex flex-wrap justify-center items-center gap-1">
               {[1, 2, 3, 4, 5, 6, 7].map((step) => {
-                const isEnabled = step <= maxStepReached && !isAnyStepBusy;
+                // Check if current step is busy
+                const isCurrentStepBusy = stepLoadingStates[currentStep] || false;
+                // Block navigation if current step is busy
+                const isMovingForward = step > currentStep;
+                const isEnabled = step <= maxStepReached && !isCurrentStepBusy && (!isAnyStepBusy || !isMovingForward);
 
                 return (
                   <React.Fragment key={step}>
@@ -424,7 +471,11 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
             </p>
             <div className="flex flex-wrap justify-center items-center gap-1">
               {[8].map((step) => {
-                const isEnabled = step <= maxStepReached && !isAnyStepBusy;
+                // Check if current step is busy
+                const isCurrentStepBusy = stepLoadingStates[currentStep] || false;
+                // Block navigation if current step is busy
+                const isMovingForward = step > currentStep;
+                const isEnabled = step <= maxStepReached && !isCurrentStepBusy && (!isAnyStepBusy || !isMovingForward);
 
                 return (
                   <button
@@ -615,6 +666,7 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
             projectId={projectId}
             onComplete={() => goToStep(4)}
             onBack={() => goToStep(2)}
+            onLoadingStateChange={(isLoading) => updateStepLoadingState(3, isLoading)}
           />
         )}
 
@@ -624,6 +676,7 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
             projectId={projectId}
             onComplete={() => goToStep(5)}
             onBack={() => goToStep(3)}
+            onLoadingStateChange={(isLoading) => updateStepLoadingState(4, isLoading)}
           />
         )}
 
@@ -633,6 +686,7 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
             projectId={projectId}
             onComplete={() => goToStep(6)}
             onBack={() => goToStep(4)}
+            onLoadingStateChange={(isLoading) => updateStepLoadingState(5, isLoading)}
           />
         )}
 
@@ -642,6 +696,7 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
             projectId={projectId}
             onComplete={() => goToStep(7)}
             onBack={() => goToStep(5)}
+            onLoadingStateChange={(isLoading) => updateStepLoadingState(6, isLoading)}
           />
         )}
 
@@ -649,8 +704,9 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
         {currentStep === 7 && projectId && (
           <ReviewEditStep
             projectId={projectId}
-            onBack={() => setCurrentStep(6)}
-            onContinueToPhase2={() => setCurrentStep(8)}
+            onBack={() => goToStep(6)}
+            onContinueToPhase2={() => goToStep(8)}
+            onLoadingStateChange={(isLoading) => updateStepLoadingState(7, isLoading)}
           />
         )}
 
@@ -658,7 +714,8 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
         {currentStep === 8 && projectId && (
           <TaskPlannerStep
             projectId={projectId}
-            onBack={() => setCurrentStep(7)}
+            onBack={() => goToStep(7)}
+            onLoadingStateChange={(isLoading) => updateStepLoadingState(8, isLoading)}
           />
         )}
       </CardContent>

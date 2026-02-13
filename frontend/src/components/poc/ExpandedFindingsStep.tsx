@@ -2,7 +2,7 @@
  * Step 4: Expanded Findings Component
  * Displays expanded findings with full paragraphs for each finding
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Loader2, CheckCircle2, AlertCircle, Pencil, Save, X, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,9 +26,10 @@ interface ExpandedFindingsStepProps {
   onComplete: (expandedFindings: ExpandedFinding[]) => void;
   onBack: () => void;
   className?: string;
+  onLoadingStateChange?: (isLoading: boolean) => void;
 }
 
-export function ExpandedFindingsStep({ projectId, onComplete, onBack, className }: ExpandedFindingsStepProps) {
+export function ExpandedFindingsStep({ projectId, onComplete, onBack, className, onLoadingStateChange }: ExpandedFindingsStepProps) {
   const [expandedFindings, setExpandedFindings] = useState<ExpandedFinding[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -37,6 +38,51 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className 
   const [editForm, setEditForm] = useState<ExpandedFinding | null>(null);
   const [tokensUsed, setTokensUsed] = useState(0);
   const [openItems, setOpenItems] = useState<number[]>([]);
+
+  // Load existing expanded findings on mount
+  useEffect(() => {
+    const loadExistingData = async () => {
+      setIsLoading(true);
+      try {
+        const token = localStorage.getItem('auth_token');
+        const response = await fetch(`${API_BASE_URL}/api/poc/${projectId}`, {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: 'include',
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const project = result.project;
+          
+          // Load existing expanded findings if available
+          if (project?.expanded_findings) {
+            const findingsData = project.expanded_findings.expanded_findings || 
+                                 (Array.isArray(project.expanded_findings) ? project.expanded_findings : []);
+            if (findingsData.length > 0) {
+              setExpandedFindings(findingsData);
+              setOpenItems(findingsData.map((_: any, i: number) => i));
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load existing expanded findings:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (projectId) {
+      loadExistingData();
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    if (onLoadingStateChange) {
+      onLoadingStateChange(isLoading || isGenerating);
+    }
+  }, [isLoading, isGenerating, onLoadingStateChange]);
 
   // Generate expanded findings
   const handleGenerate = async () => {

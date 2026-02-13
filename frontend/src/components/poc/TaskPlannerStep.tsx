@@ -63,6 +63,7 @@ interface TaskPlannerStepProps {
   projectId: string;
   onBack: () => void;
   className?: string;
+  onLoadingStateChange?: (isLoading: boolean) => void;
 }
 
 // ---------- Helpers ----------
@@ -94,7 +95,7 @@ const STATUS_COLOURS: Record<string, string> = {
 
 // ---------- Component ----------
 
-export function TaskPlannerStep({ projectId, onBack, className }: TaskPlannerStepProps) {
+export function TaskPlannerStep({ projectId, onBack, className, onLoadingStateChange }: TaskPlannerStepProps) {
   // --- settings form state ---
   const [settings, setSettings] = useState<TaskPlannerSettings>({
     lead_advisor: '',
@@ -118,6 +119,13 @@ export function TaskPlannerStep({ projectId, onBack, className }: TaskPlannerSte
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [showSummary, setShowSummary] = useState(true);
   const [activeSection, setActiveSection] = useState<'settings' | 'preview'>('settings');
+
+  // Notify parent of loading state changes
+  useEffect(() => {
+    if (onLoadingStateChange) {
+      onLoadingStateChange(isLoadingProject || isGenerating || isExporting);
+    }
+  }, [isLoadingProject, isGenerating, isExporting, onLoadingStateChange]);
 
   // --- Load existing settings/tasks from the project on mount ---
   useEffect(() => {

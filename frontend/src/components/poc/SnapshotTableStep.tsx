@@ -2,7 +2,7 @@
  * Step 5: Snapshot Table Component
  * Displays the Key Findings & Recommendations Snapshot table
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Loader2, CheckCircle2, AlertCircle, Pencil, Save, X, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,14 +29,60 @@ interface SnapshotTableStepProps {
   onComplete: (snapshotTable: SnapshotTable) => void;
   onBack: () => void;
   className?: string;
+  onLoadingStateChange?: (isLoading: boolean) => void;
 }
 
-export function SnapshotTableStep({ projectId, onComplete, onBack, className }: SnapshotTableStepProps) {
+export function SnapshotTableStep({ projectId, onComplete, onBack, className, onLoadingStateChange }: SnapshotTableStepProps) {
   const [snapshotTable, setSnapshotTable] = useState<SnapshotTable | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+
+  // Load existing snapshot table on mount
+  useEffect(() => {
+    const loadExistingData = async () => {
+      setIsLoading(true);
+      try {
+        const token = localStorage.getItem('auth_token');
+        const response = await fetch(`${API_BASE_URL}/api/poc/${projectId}`, {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: 'include',
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const project = result.project;
+          
+          // Load existing snapshot table if available
+          // snapshot_table can be: {snapshot_table: {...}} or just the object
+          if (project?.snapshot_table) {
+            const tableData = project.snapshot_table.snapshot_table || project.snapshot_table;
+            if (tableData && tableData.rows && Array.isArray(tableData.rows) && tableData.rows.length > 0) {
+              setSnapshotTable(tableData);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load existing snapshot table:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (projectId) {
+      loadExistingData();
+    }
+  }, [projectId]);
+
+  // Notify parent of loading state changes
+  useEffect(() => {
+    if (onLoadingStateChange) {
+      onLoadingStateChange(isLoading || isGenerating);
+    }
+  }, [isLoading, isGenerating, onLoadingStateChange]);
   const [editForm, setEditForm] = useState<SnapshotRow | null>(null);
   const [tokensUsed, setTokensUsed] = useState(0);
 

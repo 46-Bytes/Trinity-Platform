@@ -46,9 +46,9 @@ Each task is a single row with these columns:
 ### BBA Hour Allocation
 
 You will be given the total BBA hours available for each recommendation in the
-context below (calculated as `monthly_capacity × months_span / 12`). Distribute
-these hours across the BBA tasks for that recommendation proportionally based on
-effort.
+context below (calculated as `monthly_capacity × months_span` — the total advisor
+capacity during that recommendation's time window). Distribute these hours across
+the BBA tasks for that recommendation proportionally based on effort.
 
 ### Advisor Assignment
 

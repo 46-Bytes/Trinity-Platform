@@ -490,7 +490,9 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
                 const isCurrentStepBusy = stepLoadingStates[currentStep] || false;
                 // Block navigation if current step is busy
                 const isMovingForward = step > currentStep;
-                const isEnabled = step <= maxStepReached && !isCurrentStepBusy && (!isAnyStepBusy || !isMovingForward);
+                // Phase 2 is reachable once user has reached step 7 (Review & Export) or beyond
+                const canReachPhase2 = maxStepReached >= 7;
+                const isEnabled = (step <= maxStepReached || (step === 8 && canReachPhase2)) && !isCurrentStepBusy && (!isAnyStepBusy || !isMovingForward);
 
                 return (
                   <button

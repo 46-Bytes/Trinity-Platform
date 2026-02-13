@@ -12,10 +12,6 @@ import {
   Download,
   Settings2,
   TableProperties,
-  BarChart3,
-  AlertTriangle,
-  ChevronDown,
-  ChevronUp,
   CheckCircle2,
   ArrowRight,
 } from 'lucide-react';
@@ -41,13 +37,6 @@ interface TaskRow {
   status: string;
   notes: string;
   timing: string;
-}
-
-interface TaskSummary {
-  total_bba_hours: number;
-  max_hours_per_month: number;
-  monthly_hours: Record<string, number>;
-  warnings: string[];
 }
 
 interface TaskPlannerSettings {
@@ -87,6 +76,15 @@ const MONTHS = [
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 6 }, (_, i) => currentYear + i);
 
+const STATUS_OPTIONS = [
+  'Not yet started',
+  'In progress',
+  'Complete',
+  'Awaiting review',
+] as const;
+
+const OWNER_OPTIONS = ['Client', 'BBA'] as const;
+
 const STATUS_COLOURS: Record<string, string> = {
   'Not yet started': 'bg-gray-100 text-gray-700',
   'In progress': 'bg-yellow-100 text-yellow-800',
@@ -109,18 +107,19 @@ export function TaskPlannerStep({ projectId, onBack, onContinueToPhase3, classNa
 
   // --- preview / export state ---
   const [tasks, setTasks] = useState<TaskRow[]>([]);
-  const [summary, setSummary] = useState<TaskSummary | null>(null);
   const [hasPreview, setHasPreview] = useState(false);
 
   // --- UI state ---
   const [isLoadingProject, setIsLoadingProject] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isSavingTasks, setIsSavingTasks] = useState(false);
+  const [tasksDirty, setTasksDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [settingsSaved, setSettingsSaved] = useState(false);
-  const [showSummary, setShowSummary] = useState(true);
   const [activeSection, setActiveSection] = useState<'settings' | 'preview'>('settings');
-  
+  const [editingCell, setEditingCell] = useState<{ rowIndex: number; field: keyof TaskRow } | null>(null);
+
   // Use ref to store the callback to avoid infinite loops
   const onLoadingStateChangeRef = useRef(onLoadingStateChange);
   useEffect(() => {
@@ -129,10 +128,18 @@ export function TaskPlannerStep({ projectId, onBack, onContinueToPhase3, classNa
 
   // Notify parent of loading state changes
   useEffect(() => {
-    if (onLoadingStateChangeRef.current) {
-      onLoadingStateChangeRef.current(isLoadingProject || isGenerating || isExporting);
+    if (onLoadingStateChange) {
+      onLoadingStateChange(
+        isLoadingProject || isGenerating || isExporting || isSavingTasks
+      );
     }
-  }, [isLoadingProject, isGenerating, isExporting]);
+  }, [
+    isLoadingProject,
+    isGenerating,
+    isExporting,
+    isSavingTasks,
+    onLoadingStateChange,
+  ]);
 
   // --- Load existing settings/tasks from the project on mount ---
   useEffect(() => {
@@ -162,12 +169,12 @@ export function TaskPlannerStep({ projectId, onBack, onContinueToPhase3, classNa
         setSettingsSaved(true);
       }
 
-      // Pre-fill tasks/summary if already generated
-      if (project.task_planner_tasks && project.task_planner_summary) {
+      // Pre-fill tasks if already generated
+      if (project.task_planner_tasks?.length) {
         setTasks(project.task_planner_tasks);
-        setSummary(project.task_planner_summary);
         setHasPreview(true);
         setActiveSection('preview');
+        setTasksDirty(false);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load project data');
@@ -214,14 +221,53 @@ export function TaskPlannerStep({ projectId, onBack, onContinueToPhase3, classNa
 
       const result = await response.json();
       setTasks(result.tasks || []);
-      setSummary(result.summary || null);
       setHasPreview(true);
       setSettingsSaved(true);
       setActiveSection('preview');
+      setTasksDirty(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate preview');
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  // --- Update a single task field (inline edit) ---
+  const updateTask = (idx: number, field: keyof TaskRow, value: string | number) => {
+    setTasks((prev) =>
+      prev.map((t, i) =>
+        i === idx ? { ...t, [field]: value } : t
+      )
+    );
+    setTasksDirty(true);
+  };
+
+  // --- Save edited tasks to server ---
+  const handleSaveTasks = async () => {
+    if (!tasks.length) return;
+    setIsSavingTasks(true);
+    setError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/poc/${projectId}/tasks`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        credentials: 'include',
+        body: JSON.stringify(tasks),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to save tasks' }));
+        throw new Error(errorData.detail || `HTTP ${response.status}`);
+      }
+
+      setTasksDirty(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save task list');
+    } finally {
+      setIsSavingTasks(false);
     }
   };
 
@@ -494,111 +540,6 @@ export function TaskPlannerStep({ projectId, onBack, onContinueToPhase3, classNa
       {/* ─────────── PREVIEW SECTION ─────────── */}
       {activeSection === 'preview' && hasPreview && (
         <>
-          {/* Summary Card */}
-          {summary && (
-            <Card>
-              <CardHeader
-                className="cursor-pointer"
-                onClick={() => setShowSummary(!showSummary)}
-              >
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5" />
-                    Capacity Summary
-                  </CardTitle>
-                  <div className="flex items-center gap-3">
-                    <Badge variant="outline">
-                      {summary.total_bba_hours.toFixed(1)} total BBA hours
-                    </Badge>
-                    {summary.warnings.length > 0 && (
-                      <Badge variant="destructive" className="gap-1">
-                        <AlertTriangle className="w-3 h-3" />
-                        {summary.warnings.length} warning{summary.warnings.length > 1 ? 's' : ''}
-                      </Badge>
-                    )}
-                    {showSummary ? (
-                      <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-
-              {showSummary && (
-                <CardContent className="space-y-4">
-                  {/* Monthly Hours Table */}
-                  {Object.keys(summary.monthly_hours).length > 0 && (
-                    <div className="border rounded-lg overflow-hidden">
-                      <table className="w-full text-sm">
-                        <thead className="bg-muted">
-                          <tr>
-                            <th className="p-3 text-left font-semibold">Month</th>
-                            <th className="p-3 text-right font-semibold">BBA Hours</th>
-                            <th className="p-3 text-right font-semibold">Capacity</th>
-                            <th className="p-3 text-right font-semibold">Utilisation</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {Object.entries(summary.monthly_hours)
-                            .sort(([a], [b]) => a.localeCompare(b))
-                            .map(([month, hours]) => {
-                              const capacity = summary.max_hours_per_month;
-                              const utilisation = capacity > 0 ? (hours / capacity) * 100 : 0;
-                              const isOver = hours > capacity;
-                              return (
-                                <tr
-                                  key={month}
-                                  className={cn('border-t', isOver && 'bg-red-50')}
-                                >
-                                  <td className="p-3 font-medium">{month}</td>
-                                  <td className={cn('p-3 text-right', isOver && 'text-red-600 font-semibold')}>
-                                    {hours.toFixed(1)}
-                                  </td>
-                                  <td className="p-3 text-right text-muted-foreground">
-                                    {capacity.toFixed(1)}
-                                  </td>
-                                  <td className="p-3 text-right">
-                                    <span
-                                      className={cn(
-                                        'inline-block px-2 py-0.5 rounded text-xs font-medium',
-                                        utilisation > 100
-                                          ? 'bg-red-100 text-red-700'
-                                          : utilisation > 80
-                                            ? 'bg-yellow-100 text-yellow-700'
-                                            : 'bg-green-100 text-green-700'
-                                      )}
-                                    >
-                                      {utilisation.toFixed(0)}%
-                                    </span>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                  {/* Warnings */}
-                  {summary.warnings.length > 0 && (
-                    <div className="space-y-2">
-                      {summary.warnings.map((warning, i) => (
-                        <div
-                          key={i}
-                          className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg"
-                        >
-                          <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                          <span className="text-sm text-amber-800">{warning}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              )}
-            </Card>
-          )}
-
           {/* Task Table */}
           <Card>
             <CardHeader>
@@ -609,10 +550,30 @@ export function TaskPlannerStep({ projectId, onBack, onContinueToPhase3, classNa
                     Advisor Task List
                   </CardTitle>
                   <CardDescription>
-                    {tasks.length} tasks generated from {new Set(tasks.map((t) => t.rec_number)).size} recommendations
+                    {tasks.length} tasks generated from {new Set(tasks.map((t) => t.rec_number)).size} recommendations.
+                    Click any cell to edit.
+                    {tasksDirty && (
+                      <span className="ml-2 text-amber-600 font-medium">· Unsaved changes</span>
+                    )}
                   </CardDescription>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
+                  {tasksDirty && (
+                    <Button
+                      variant="default"
+                      onClick={handleSaveTasks}
+                      disabled={isSavingTasks}
+                    >
+                      {isSavingTasks ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        'Save changes'
+                      )}
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     onClick={() => setActiveSection('settings')}
@@ -652,50 +613,255 @@ export function TaskPlannerStep({ projectId, onBack, onContinueToPhase3, classNa
                     </tr>
                   </thead>
                   <tbody>
-                    {tasks.map((task, idx) => (
-                      <tr
-                        key={idx}
-                        className={cn(
-                          'border-t',
-                          idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
-                        )}
-                      >
-                        <td className="p-3 font-bold text-primary">{task.rec_number}</td>
-                        <td className="p-3 max-w-[200px]">
-                          <span className="line-clamp-2">{task.recommendation}</span>
-                        </td>
-                        <td className="p-3">
-                          <Badge
-                            variant={task.owner === 'BBA' ? 'default' : 'secondary'}
-                            className="text-xs"
-                          >
-                            {task.owner}
-                          </Badge>
-                        </td>
-                        <td className="p-3">
-                          <span className="line-clamp-3">{task.task}</span>
-                        </td>
-                        <td className="p-3 text-right font-mono">
-                          {task.advisorHrs > 0 ? task.advisorHrs.toFixed(1) : '—'}
-                        </td>
-                        <td className="p-3 text-muted-foreground">
-                          {task.advisor || '—'}
-                        </td>
-                        <td className="p-3">
-                          <span
-                            className={cn(
-                              'inline-block px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap',
-                              STATUS_COLOURS[task.status] || 'bg-gray-100 text-gray-700'
+                    {tasks.map((task, idx) => {
+                      const isEditing = (field: keyof TaskRow) =>
+                        editingCell?.rowIndex === idx && editingCell?.field === field;
+                      const startEdit = (field: keyof TaskRow) =>
+                        setEditingCell({ rowIndex: idx, field });
+                      const stopEdit = () => setEditingCell(null);
+
+                      return (
+                        <tr
+                          key={idx}
+                          className={cn(
+                            'border-t',
+                            idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
+                          )}
+                        >
+                          {/* Rec # */}
+                          <td className="p-3 align-middle">
+                            {isEditing('rec_number') ? (
+                              <Input
+                                type="number"
+                                min={1}
+                                className="h-8 w-14 font-bold text-primary"
+                                value={task.rec_number}
+                                onChange={(e) =>
+                                  updateTask(idx, 'rec_number', parseInt(e.target.value) || 1)
+                                }
+                                onBlur={stopEdit}
+                                onKeyDown={(e) => e.key === 'Enter' && stopEdit()}
+                                autoFocus
+                              />
+                            ) : (
+                              <span
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => startEdit('rec_number')}
+                                onKeyDown={(e) => e.key === 'Enter' && startEdit('rec_number')}
+                                className="font-bold text-primary cursor-pointer hover:bg-slate-100 rounded px-1 py-0.5 -mx-1 -my-0.5"
+                              >
+                                {task.rec_number}
+                              </span>
                             )}
-                          >
-                            {task.status}
-                          </span>
-                        </td>
-                        <td className="p-3 text-muted-foreground whitespace-nowrap">
-                          {task.timing}
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          {/* Recommendation */}
+                          <td className="p-3 max-w-[200px] align-middle">
+                            {isEditing('recommendation') ? (
+                              <Input
+                                className="h-8 w-full text-sm"
+                                value={task.recommendation}
+                                onChange={(e) =>
+                                  updateTask(idx, 'recommendation', e.target.value)
+                                }
+                                onBlur={stopEdit}
+                                onKeyDown={(e) => e.key === 'Enter' && stopEdit()}
+                                autoFocus
+                              />
+                            ) : (
+                              <span
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => startEdit('recommendation')}
+                                onKeyDown={(e) => e.key === 'Enter' && startEdit('recommendation')}
+                                className="line-clamp-2 cursor-pointer hover:bg-slate-100 rounded px-1 py-0.5 -mx-1 -my-0.5 block"
+                              >
+                                {task.recommendation}
+                              </span>
+                            )}
+                          </td>
+                          {/* Owner */}
+                          <td className="p-3 align-middle">
+                            {isEditing('owner') ? (
+                              <Select
+                                value={task.owner}
+                                onValueChange={(val) => {
+                                  updateTask(idx, 'owner', val);
+                                  stopEdit();
+                                }}
+                                onOpenChange={(open) => !open && stopEdit()}
+                              >
+                                <SelectTrigger className="h-8 w-[100px]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {OWNER_OPTIONS.map((o) => (
+                                    <SelectItem key={o} value={o}>
+                                      {o}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <span
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => startEdit('owner')}
+                                onKeyDown={(e) => e.key === 'Enter' && startEdit('owner')}
+                                className="cursor-pointer hover:bg-slate-100 rounded px-1 py-0.5 -mx-1 -my-0.5 inline-block"
+                              >
+                                <Badge
+                                  variant={task.owner === 'BBA' ? 'default' : 'secondary'}
+                                  className="text-xs"
+                                >
+                                  {task.owner}
+                                </Badge>
+                              </span>
+                            )}
+                          </td>
+                          {/* Task */}
+                          <td className="p-3 min-w-[280px] align-middle">
+                            {isEditing('task') ? (
+                              <Input
+                                className="h-8 w-full min-w-[200px] text-sm"
+                                value={task.task}
+                                onChange={(e) => updateTask(idx, 'task', e.target.value)}
+                                onBlur={stopEdit}
+                                onKeyDown={(e) => e.key === 'Enter' && stopEdit()}
+                                autoFocus
+                              />
+                            ) : (
+                              <span
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => startEdit('task')}
+                                onKeyDown={(e) => e.key === 'Enter' && startEdit('task')}
+                                className="line-clamp-3 cursor-pointer hover:bg-slate-100 rounded px-1 py-0.5 -mx-1 -my-0.5 block"
+                              >
+                                {task.task}
+                              </span>
+                            )}
+                          </td>
+                          {/* Advisor Hrs */}
+                          <td className="p-3 text-right align-middle">
+                            {isEditing('advisorHrs') ? (
+                              <Input
+                                type="number"
+                                min={0}
+                                step={0.5}
+                                className="h-8 w-16 text-right font-mono"
+                                value={task.advisorHrs > 0 ? task.advisorHrs : ''}
+                                onChange={(e) =>
+                                  updateTask(idx, 'advisorHrs', parseFloat(e.target.value) || 0)
+                                }
+                                onBlur={stopEdit}
+                                onKeyDown={(e) => e.key === 'Enter' && stopEdit()}
+                                autoFocus
+                              />
+                            ) : (
+                              <span
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => startEdit('advisorHrs')}
+                                onKeyDown={(e) => e.key === 'Enter' && startEdit('advisorHrs')}
+                                className="font-mono cursor-pointer hover:bg-slate-100 rounded px-1 py-0.5 -mx-1 -my-0.5 inline-block"
+                              >
+                                {task.advisorHrs > 0 ? task.advisorHrs.toFixed(1) : '—'}
+                              </span>
+                            )}
+                          </td>
+                          {/* Advisor */}
+                          <td className="p-3 align-middle text-muted-foreground">
+                            {isEditing('advisor') ? (
+                              <Input
+                                className="h-8 w-[120px] text-sm"
+                                value={task.advisor ?? ''}
+                                onChange={(e) => updateTask(idx, 'advisor', e.target.value)}
+                                onBlur={stopEdit}
+                                onKeyDown={(e) => e.key === 'Enter' && stopEdit()}
+                                autoFocus
+                              />
+                            ) : (
+                              <span
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => startEdit('advisor')}
+                                onKeyDown={(e) => e.key === 'Enter' && startEdit('advisor')}
+                                className="cursor-pointer hover:bg-slate-100 rounded px-1 py-0.5 -mx-1 -my-0.5 inline-block"
+                              >
+                                {task.advisor || '—'}
+                              </span>
+                            )}
+                          </td>
+                          {/* Status */}
+                          <td className="p-3 align-middle">
+                            {isEditing('status') ? (
+                              <Select
+                                value={task.status}
+                                onValueChange={(val) => {
+                                  updateTask(idx, 'status', val);
+                                  stopEdit();
+                                }}
+                                onOpenChange={(open) => !open && stopEdit()}
+                              >
+                                <SelectTrigger
+                                  className={cn('h-8 w-[140px]', STATUS_COLOURS[task.status] || '')}
+                                >
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {STATUS_OPTIONS.map((s) => (
+                                    <SelectItem key={s} value={s}>
+                                      {s}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <span
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => startEdit('status')}
+                                onKeyDown={(e) => e.key === 'Enter' && startEdit('status')}
+                                className="cursor-pointer hover:bg-slate-100 rounded px-1 py-0.5 -mx-1 -my-0.5 inline-block"
+                              >
+                                <span
+                                  className={cn(
+                                    'inline-block px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap',
+                                    STATUS_COLOURS[task.status] || 'bg-gray-100 text-gray-700'
+                                  )}
+                                >
+                                  {task.status}
+                                </span>
+                              </span>
+                            )}
+                          </td>
+                          {/* Timing */}
+                          <td className="p-3 align-middle text-muted-foreground whitespace-nowrap">
+                            {isEditing('timing') ? (
+                              <Input
+                                className="h-8 w-[120px] text-sm"
+                                value={task.timing}
+                                onChange={(e) => updateTask(idx, 'timing', e.target.value)}
+                                onBlur={stopEdit}
+                                onKeyDown={(e) => e.key === 'Enter' && stopEdit()}
+                                autoFocus
+                              />
+                            ) : (
+                              <span
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => startEdit('timing')}
+                                onKeyDown={(e) => e.key === 'Enter' && startEdit('timing')}
+                                className="cursor-pointer hover:bg-slate-100 rounded px-1 py-0.5 -mx-1 -my-0.5 inline-block"
+                              >
+                                {task.timing}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

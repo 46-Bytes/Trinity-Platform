@@ -56,6 +56,7 @@ from app.schemas.bba import (
     BBAFindingsEdit,
     BBAEditRequest,
     BBATaskPlannerSettings,
+    BBATaskRow,
     BBAPresentationSlideEdit,
 )
 
@@ -720,6 +721,59 @@ async def generate_12month_plan(
         )
 
 
+@router.patch("/{project_id}/step6/plan", status_code=status.HTTP_200_OK)
+async def update_12month_plan(
+    project_id: UUID,
+    body: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Save edits to the 12-month plan (plan_notes, recommendations including add/delete).
+    Accepts { "plan_notes": str, "recommendations": [ { number, title, timing, purpose, ... } ] }.
+    """
+    bba_service = get_bba_service(db)
+    bba = bba_service.get_bba(project_id)
+
+    if not bba:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="BBA project not found",
+        )
+
+    if bba.created_by_user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this project",
+        )
+
+    recommendations = body.get("recommendations")
+    if recommendations is not None and not isinstance(recommendations, list):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="recommendations must be an array",
+        )
+
+    existing = bba.twelve_month_plan or {}
+    twelve_month_plan = {
+        "plan_notes": body.get("plan_notes", existing.get("plan_notes", "")),
+        "recommendations": recommendations if recommendations is not None else existing.get("recommendations", []),
+    }
+
+    updated_bba = bba_service.update_twelve_month_plan(
+        bba_id=project_id,
+        twelve_month_plan=twelve_month_plan,
+        plan_notes=twelve_month_plan.get("plan_notes"),
+    )
+
+    return {
+        "success": True,
+        "message": "12-month plan updated",
+        "twelve_month_plan": twelve_month_plan,
+        "project": updated_bba.to_dict(),
+    }
+
+
 # =============================================================================
 # STEP 7: Review & Edit
 # =============================================================================
@@ -1009,8 +1063,7 @@ async def preview_task_planner(
       is provided in the request body.
     - Builds Client and BBA task rows for each recommendation in the 12‑month
       plan.
-    - Calculates total BBA hours and monthly capacity utilisation.
-    - Stores tasks and summary back on the BBA record.
+    - Stores tasks back on the BBA record (no capacity summary).
     """
     bba_service = get_bba_service(db)
     bba = bba_service.get_bba(project_id)
@@ -1054,14 +1107,13 @@ async def preview_task_planner(
             )
 
     try:
-        tasks, summary = await task_planner_service.generate_tasks_and_summary(
+        tasks, _ = await task_planner_service.generate_tasks_and_summary(
             bba=bba,
             settings=effective_settings,
         )
         updated_bba = task_planner_service.save_tasks_and_summary(
             bba_id=project_id,
             tasks=tasks,
-            summary=summary,
         )
     except ValueError as e:
         raise HTTPException(
@@ -1085,7 +1137,47 @@ async def preview_task_planner(
         "message": "Task planner preview generated successfully",
         "settings": effective_settings.model_dump(),
         "tasks": tasks,
-        "summary": summary,
+        "project": updated_bba.to_dict(),
+    }
+
+
+@router.patch("/{project_id}/tasks", status_code=status.HTTP_200_OK)
+async def update_task_planner_tasks(
+    project_id: UUID,
+    tasks: List[BBATaskRow],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Save edited task planner rows for a BBA project.
+    Replaces the stored task list with the provided list (e.g. after user edits in the UI).
+    """
+    bba_service = get_bba_service(db)
+    bba = bba_service.get_bba(project_id)
+
+    if not bba:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="BBA project not found",
+        )
+
+    if bba.created_by_user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this project",
+        )
+
+    task_planner_service = get_bba_task_planner_service(db)
+    task_dicts = [t.model_dump(by_alias=True) for t in tasks]
+    updated_bba = task_planner_service.save_tasks_and_summary(
+        bba_id=project_id,
+        tasks=task_dicts,
+    )
+
+    return {
+        "success": True,
+        "message": "Task list updated",
+        "tasks": task_dicts,
         "project": updated_bba.to_dict(),
     }
 
@@ -1101,7 +1193,7 @@ async def export_task_planner_excel(
 
     Behaviour:
     - Uses stored task planner settings (must be configured first)
-    - Uses stored task rows & summary if present
+    - Uses stored task rows if present
       – otherwise regenerates them from the 12‑month plan
     - Returns a streaming Excel file download
     """
@@ -1140,20 +1232,18 @@ async def export_task_planner_excel(
             detail=str(e),
         )
 
-    # Use existing tasks/summary if available; otherwise regenerate
+    # Use existing tasks if available; otherwise regenerate
     tasks = bba.task_planner_tasks
-    summary = bba.task_planner_summary
 
-    if not tasks or not summary:
+    if not tasks:
         try:
-            tasks, summary = await task_planner_service.generate_tasks_and_summary(
+            tasks, _ = await task_planner_service.generate_tasks_and_summary(
                 bba=bba,
                 settings=settings,
             )
             task_planner_service.save_tasks_and_summary(
                 bba_id=project_id,
                 tasks=tasks,
-                summary=summary,
             )
         except Exception as e:
             logger.error(
@@ -1169,7 +1259,7 @@ async def export_task_planner_excel(
 
     try:
         exporter = get_bba_task_list_exporter()
-        excel_bytes = exporter.generate_workbook_bytes(tasks=tasks, summary=summary or {})
+        excel_bytes = exporter.generate_workbook_bytes(tasks=tasks)
     except ImportError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

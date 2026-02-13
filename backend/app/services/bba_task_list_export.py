@@ -22,7 +22,6 @@ try:
     from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
     from openpyxl.worksheet.datavalidation import DataValidation
     from openpyxl.formatting.rule import CellIsRule
-
     OPENPYXL_AVAILABLE = True
 except ImportError:  # pragma: no cover - dependency may not be installed in all environments
     OPENPYXL_AVAILABLE = False
@@ -41,6 +40,8 @@ class BBATaskListExporter:
         "Complete",
         "Awaiting review",
     ]
+
+    OWNER_OPTIONS = ["Client", "BBA"]
 
     def __init__(self) -> None:
         if not OPENPYXL_AVAILABLE:
@@ -74,7 +75,10 @@ class BBATaskListExporter:
 
         self._write_header_row(ws)
         self._write_task_rows(ws, tasks)
-        self._apply_status_validation(ws, first_row=2, last_row=ws.max_row)
+        last_row = ws.max_row
+        self._apply_owner_validation(ws, first_row=2, last_row=last_row)
+        self._apply_advisor_validation(ws, first_row=2, last_row=last_row, tasks=tasks)
+        self._apply_status_validation(ws, first_row=2, last_row=last_row)
         self._apply_basic_formatting(ws)
         self._apply_status_conditional_formatting(ws, first_row=2, last_row=ws.max_row)
         self._set_footer(ws)
@@ -130,24 +134,74 @@ class BBATaskListExporter:
                 ]
             )
 
+    def _apply_owner_validation(self, ws, first_row: int, last_row: int) -> None:
+        """Add Excel data validation (dropdown) to the Owner column (C)."""
+        if last_row < first_row:
+            return
+        # Inline list so dropdown arrow shows reliably in Excel
+        options_str = ",".join(self.OWNER_OPTIONS)
+        formula1 = f'"{options_str}"'
+        dv = DataValidation(
+            type="list",
+            formula1=formula1,
+            allow_blank=False,
+            showDropDown=True,
+            showInputMessage=True,
+            promptTitle="Owner",
+            prompt="Select Client or BBA",
+        )
+        ws.add_data_validation(dv)
+        dv.add(f"C{first_row}:C{last_row}")
+
+    def _apply_advisor_validation(
+        self, ws, first_row: int, last_row: int, tasks: List[Dict[str, Any]]
+    ) -> None:
+        """Add Excel data validation (dropdown) to the Advisor column (F) from task names."""
+        if last_row < first_row:
+            return
+        advisor_names = sorted(
+            {str(t.get("advisor") or "").strip() for t in tasks if t.get("advisor")}
+        )
+        if not advisor_names:
+            return
+        options_str = ",".join(advisor_names)
+        formula1 = f'"{options_str}"'
+        dv = DataValidation(
+            type="list",
+            formula1=formula1,
+            allow_blank=True,
+            showDropDown=True,
+            showInputMessage=True,
+            promptTitle="Advisor",
+            prompt="Select an advisor",
+        )
+        ws.add_data_validation(dv)
+        dv.add(f"F{first_row}:F{last_row}")
+
     def _apply_status_validation(self, ws, first_row: int, last_row: int) -> None:
         """
-        Add Excel data validation (dropdown) to the Status column.
+        Add Excel data validation (dropdown) to the Status column (G) with
+        options: Not yet started, In progress, Complete, Awaiting review.
+        Uses inline list so the dropdown arrow shows when the cell is selected.
         """
         if last_row < first_row:
             return
-
-        # Create a comma‑separated list for the validation formula
+        # Inline list: comma-separated values in quotes (Excel list validation)
         options_str = ",".join(self.STATUS_OPTIONS)
+        formula1 = f'"{options_str}"'
         dv = DataValidation(
             type="list",
-            formula1=f'"{options_str}"',
+            formula1=formula1,
             allow_blank=False,
             showDropDown=True,
+            showInputMessage=True,
+            promptTitle="Status",
+            prompt="Select a status from the list",
         )
+        dv.error = "Please choose a status from the dropdown list."
+        dv.errorTitle = "Invalid Status"
         ws.add_data_validation(dv)
-        status_col_letter = "G"  # 7th column
-        dv.add(f"{status_col_letter}{first_row}:{status_col_letter}{last_row}")
+        dv.add(f"G{first_row}:G{last_row}")
 
     def _apply_basic_formatting(self, ws) -> None:
         # Column widths (approximate for readability)

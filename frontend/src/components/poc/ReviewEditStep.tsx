@@ -528,7 +528,14 @@ export function ReviewEditStep({ projectId, onBack, onContinueToPhase2, classNam
           <Button variant="outline" onClick={onBack}>
             Back
           </Button>
-
+          <div className="flex gap-2">
+            {onContinueToPhase2 && (
+              <Button onClick={onContinueToPhase2} className="gap-2">
+                Phase 2: Task Planner
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>

@@ -3,7 +3,7 @@
  * Displays the Key Findings & Recommendations Snapshot table
  */
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, CheckCircle2, AlertCircle, Pencil, Save, X, RefreshCw } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, Pencil, Save, X, RefreshCw, ChevronUp, ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -40,8 +40,6 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
   const [error, setError] = useState<string | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<SnapshotRow | null>(null);
-  const [tokensUsed, setTokensUsed] = useState(0);
-  
   // Use ref to store the callback to avoid infinite loops
   const onLoadingStateChangeRef = useRef(onLoadingStateChange);
   useEffect(() => {
@@ -117,7 +115,6 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
       const result = await response.json();
       const tableData = result.snapshot_table?.snapshot_table || result.snapshot_table || { title: 'Key Findings & Recommendations Snapshot', rows: [] };
       setSnapshotTable(tableData);
-      setTokensUsed(result.tokens_used || 0);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate snapshot table');
     } finally {
@@ -156,6 +153,56 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
   const cancelEdit = () => {
     setEditingIndex(null);
     setEditForm(null);
+  };
+
+  const renumberRanks = (rows: SnapshotRow[]) =>
+    rows.map((r, i) => ({ ...r, rank: i + 1 }));
+
+  const moveRowUp = (index: number) => {
+    if (index <= 0 || !snapshotTable) return;
+    const rows = [...snapshotTable.rows];
+    [rows[index - 1], rows[index]] = [rows[index], rows[index - 1]];
+    setSnapshotTable({ ...snapshotTable, rows: renumberRanks(rows) });
+    if (editingIndex === index) setEditingIndex(index - 1);
+    else if (editingIndex === index - 1) setEditingIndex(index);
+  };
+
+  const moveRowDown = (index: number) => {
+    if (!snapshotTable || index >= snapshotTable.rows.length - 1) return;
+    const rows = [...snapshotTable.rows];
+    [rows[index], rows[index + 1]] = [rows[index + 1], rows[index]];
+    setSnapshotTable({ ...snapshotTable, rows: renumberRanks(rows) });
+    if (editingIndex === index) setEditingIndex(index + 1);
+    else if (editingIndex === index + 1) setEditingIndex(index);
+  };
+
+  const addRow = () => {
+    if (!snapshotTable) return;
+    const rows = [...snapshotTable.rows];
+    const nextRank = rows.length + 1;
+    const newRow: SnapshotRow = {
+      rank: nextRank,
+      priority_area: '',
+      key_finding: '',
+      recommendation: '',
+    };
+    rows.push(newRow);
+    setSnapshotTable({ ...snapshotTable, rows });
+    setEditingIndex(rows.length - 1);
+    setEditForm(newRow);
+  };
+
+  const deleteRow = (index: number) => {
+    if (!snapshotTable?.rows.length) return;
+    if (!window.confirm('Remove this row from the snapshot table?')) return;
+    const rows = snapshotTable.rows.filter((_, i) => i !== index);
+    setSnapshotTable({ ...snapshotTable, rows: renumberRanks(rows) });
+    if (editingIndex === index) {
+      setEditingIndex(null);
+      setEditForm(null);
+    } else if (editingIndex !== null && editingIndex > index) {
+      setEditingIndex(editingIndex - 1);
+    }
   };
 
   return (
@@ -210,13 +257,6 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
         {/* Snapshot Table */}
         {!isInitialLoading && snapshotTable && (
           <>
-            {/* Token Usage */}
-            {tokensUsed > 0 && (
-              <p className="text-sm text-muted-foreground">
-                Tokens used: {tokensUsed.toLocaleString()}
-              </p>
-            )}
-
             {/* Table Title */}
             <h3 className="text-lg font-semibold">{snapshotTable.title}</h3>
 
@@ -226,6 +266,7 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-12">#</TableHead>
+                    <TableHead className="w-20">Order</TableHead>
                     <TableHead className="w-1/5">Priority Area</TableHead>
                     <TableHead className="w-2/5">Key Finding</TableHead>
                     <TableHead className="w-2/5">Recommendation</TableHead>
@@ -239,6 +280,16 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
                         // Edit Mode
                         <>
                           <TableCell className="font-bold">{row.rank}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-0.5">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => moveRowUp(index)} disabled={index === 0} title="Move up">
+                                <ChevronUp className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => moveRowDown(index)} disabled={index === snapshotTable.rows.length - 1} title="Move down">
+                                <ChevronDown className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <Input
                               value={editForm.priority_area}
@@ -262,11 +313,14 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-1">
-                              <Button variant="ghost" size="sm" onClick={saveEdit}>
+                              <Button variant="ghost" size="sm" onClick={saveEdit} title="Save">
                                 <Save className="w-4 h-4" />
                               </Button>
-                              <Button variant="ghost" size="sm" onClick={cancelEdit}>
+                              <Button variant="ghost" size="sm" onClick={cancelEdit} title="Cancel">
                                 <X className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => deleteRow(index)} className="text-destructive hover:text-destructive" title="Delete row">
+                                <Trash2 className="w-4 h-4" />
                               </Button>
                             </div>
                           </TableCell>
@@ -275,13 +329,28 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
                         // View Mode
                         <>
                           <TableCell className="font-bold">{row.rank}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-0.5">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => moveRowUp(index)} disabled={index === 0} title="Move up">
+                                <ChevronUp className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => moveRowDown(index)} disabled={index === snapshotTable.rows.length - 1} title="Move down">
+                                <ChevronDown className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
                           <TableCell className="font-medium">{row.priority_area}</TableCell>
                           <TableCell>{row.key_finding}</TableCell>
                           <TableCell>{row.recommendation}</TableCell>
                           <TableCell>
-                            <Button variant="ghost" size="sm" onClick={() => startEdit(index)}>
-                              <Pencil className="w-4 h-4" />
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="sm" onClick={() => startEdit(index)} title="Edit">
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => deleteRow(index)} className="text-destructive hover:text-destructive" title="Delete row">
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </>
                       )}
@@ -290,6 +359,11 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
                 </TableBody>
               </Table>
             </div>
+
+            <Button type="button" variant="outline" className="mt-2" onClick={addRow}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add row
+            </Button>
 
             {/* Action Buttons */}
             <div className="flex justify-between pt-4 border-t">

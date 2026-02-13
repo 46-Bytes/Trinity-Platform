@@ -52,9 +52,10 @@ interface UploadedFile {
 
 interface FileUploadPOCProps {
   className?: string;
+  engagementId?: string;
 }
 
-export function FileUploadPOC({ className }: FileUploadPOCProps) {
+export function FileUploadPOC({ className, engagementId }: FileUploadPOCProps) {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -210,7 +211,12 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
     setIsCreatingProject(true);
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${API_BASE_URL}/api/poc/create-project`, {
+      const url = new URL(`${API_BASE_URL}/api/poc/create-project`);
+      if (engagementId) {
+        url.searchParams.append('engagement_id', engagementId);
+      }
+      
+      const response = await fetch(url.toString(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -420,18 +426,9 @@ export function FileUploadPOC({ className }: FileUploadPOCProps) {
     <Card className={cn('w-full max-w-8xl mx-auto', className)}>
       <CardHeader>
         <CardTitle>BBA Report Builder</CardTitle>
-        <CardDescription>
-          {isPhase3
-            ? `Phase 3 – Step ${displayStep}: ${stepLabels[currentStep]}`
-            : isPhase2
-              ? `Phase 2 – Step ${displayStep}: ${stepLabels[currentStep]}`
-              : `Step ${currentStep}: ${stepLabels[currentStep]}`
-          }
-        </CardDescription>
+
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Step Indicator */}
-        {/* Step Indicator */}
         <div className="space-y-3 mb-6">
           {/* Phase 1 */}
           <div>

@@ -74,6 +74,7 @@ function AppRoutes() {
         <Route path="advisors" element={<AdvisorsPage />} />
         <Route path="engagements" element={<EngagementsPage />} />
         <Route path="engagements/:engagementId" element={<EngagementDetailPage />} />
+        <Route path="engagements/:engagementId/bba" element={<FileUploadPOCPage />} />
         <Route path="tasks" element={<TasksPage />} />
         <Route path="documents" element={<DocumentsPage />} />
         <Route path="ai-tools" element={<AIToolsPage />} />
@@ -94,14 +95,6 @@ function AppRoutes() {
         <Route path="security" element={<DashboardHome />} />
       </Route>
       
-      {/* POC Route - Accessible from sidebar for all roles, uses DashboardLayout */}
-      <Route path="/poc" element={
-        <ProtectedRoute>
-          <DashboardLayout />
-        </ProtectedRoute>
-      }>
-        <Route path="file-upload" element={<FileUploadPOCPage />} />
-      </Route>
       
       <Route path="*" element={<NotFound />} />
     </Routes>

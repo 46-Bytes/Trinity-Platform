@@ -1,18 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { Search, Loader2, Building2, Users, Briefcase, Mail, Plus, MoreVertical, Eye, Ban, CheckCircle } from 'lucide-react';
+import { Search, Loader2, Building2, Users, Briefcase, Mail, Plus, Ban, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchFirms, revokeFirm, reactivateFirm } from '@/store/slices/firmReducer';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { CreateFirmDialog } from '@/components/firms/CreateFirmDialog';
 import { RevokeFirmDialog } from '@/components/firms/RevokeFirmDialog';
 
@@ -148,7 +142,11 @@ export default function FirmsPage() {
                 </thead>
                 <tbody>
                   {filteredFirms.map((firm) => (
-                    <tr key={firm.id} className="group">
+                    <tr 
+                      key={firm.id} 
+                      className="group cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => navigate(`/dashboard/firms/${firm.id}/clients`)}
+                    >
                       <td>
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
@@ -205,47 +203,37 @@ export default function FirmsPage() {
                         {formatDate(firm.created_at)}
                       </td>
                       <td>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              title="Firm actions"
-                            >
-                              <MoreVertical className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => navigate(`/dashboard/firms/${firm.id}/clients`)}
-                            >
-                              <Eye className="w-4 h-4 mr-2" />
-                              View Details
-                            </DropdownMenuItem>
-                            {isSuperAdmin && (
-                              <>
-                                {firm.is_active !== false ? (
-                                  <DropdownMenuItem
-                                    onClick={() => handleRevokeFirmClick(firm.id, firm.firm_name)}
-                                    className="text-destructive focus:text-destructive"
-                                  >
-                                    <Ban className="w-4 h-4 mr-2" />
-                                    Revoke Firm
-                                  </DropdownMenuItem>
-                                ) : (
-                                  <DropdownMenuItem
-                                    onClick={() => handleReactivateFirm(firm.id)}
-                                    className="text-green-600 focus:text-green-600"
-                                  >
-                                    <CheckCircle className="w-4 h-4 mr-2" />
-                                    Reactivate Firm
-                                  </DropdownMenuItem>
-                                )}
-                              </>
+                        {isSuperAdmin && (
+                          <>
+                            {firm.is_active !== false ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRevokeFirmClick(firm.id, firm.firm_name);
+                                }}
+                                title="Revoke Firm"
+                              >
+                                <Ban className="w-4 h-4" />
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleReactivateFirm(firm.id);
+                                }}
+                                title="Reactivate Firm"
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                              </Button>
                             )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))}

@@ -61,6 +61,9 @@ class BBAReportExporter:
         # Set up styles
         self._setup_styles(doc)
         
+        # Set up headers and footers (different first page)
+        self._setup_headers_footers(doc, bba)
+        
         # Add content
         self._add_title_page(doc, bba)
         self._add_page_break(doc)
@@ -77,8 +80,7 @@ class BBAReportExporter:
         if bba.twelve_month_plan:
             self._add_recommendations_plan(doc, bba)
         
-        # Add footer
-        self._add_footer(doc, bba)
+        # Footer is already set up in _setup_headers_footers
         
         # Save to bytes
         buffer = io.BytesIO()
@@ -317,12 +319,11 @@ class BBAReportExporter:
         Full width banner with blue background.
         """
         try:
-            # Get available width
+            # Get full page width (edge to edge, ignoring margins for banner)
             section = doc.sections[0]
             page_width = section.page_width
-            left_margin = section.left_margin
-            right_margin = section.right_margin
-            available_width = page_width - left_margin - right_margin
+            # Use full page width for banner (not subtracting margins)
+            full_page_width = page_width
             
             # Get Australia map image path
             map_image_path = self._get_australia_map_path()
@@ -335,35 +336,41 @@ class BBAReportExporter:
             from docx.oxml.ns import nsdecls
             from docx.oxml import parse_xml
             
-            # Set table to full width
+            # Set table to full page width (edge to edge)
             tbl = table._tbl
             tblPr = tbl.tblPr
             if tblPr is None:
                 tblPr = parse_xml(f'<w:tblPr {nsdecls("w")}/>')
                 tbl.insert(0, tblPr)
             
-            available_width_twips = int((available_width / 914400) * 1440)
-            tblW = parse_xml(f'<w:tblW {nsdecls("w")} w:w="{available_width_twips}" w:type="dxa"/>')
+            # Convert full page width to twips (1 inch = 1440 twips, 1 EMU = 914400 per inch)
+            full_page_width_twips = int((full_page_width / 914400) * 1440)
+            tblW = parse_xml(f'<w:tblW {nsdecls("w")} w:w="{full_page_width_twips}" w:type="dxa"/>')
             for elem in tblPr:
                 if elem.tag.endswith('tblW'):
                     tblPr.remove(elem)
             tblPr.append(tblW)
             
-            # Remove table indentation
+            # Remove table indentation to ensure full width
             tblInd = parse_xml(f'<w:tblInd {nsdecls("w")} w:w="0" w:type="dxa"/>')
             for elem in tblPr:
                 if elem.tag.endswith('tblInd'):
                     tblPr.remove(elem)
             tblPr.append(tblInd)
             
+            # Ensure table alignment is left (no centering that might reduce width)
+            for elem in tblPr:
+                if elem.tag.endswith('jc'):
+                    tblPr.remove(elem)
+            
             # Left cell - Text
             left_cell = table.rows[0].cells[0]
             left_cell.vertical_alignment = 1  # Center vertically
             
-            # Set blue background for left cell
+            # Set blue background for left cell (lighter blue)
             tc = left_cell._tc
             tcPr = tc.get_or_add_tcPr()
-            shading = parse_xml(f'<w:shd {nsdecls("w")} w:fill="1a365d"/>')  # Dark blue
+            shading = parse_xml(f'<w:shd {nsdecls("w")} w:fill="5a8bb7"/>')  # Lighter blue
             # Remove existing shading if present
             for elem in tcPr:
                 if elem.tag.endswith('shd'):
@@ -397,10 +404,10 @@ class BBAReportExporter:
             right_cell = table.rows[0].cells[1]
             right_cell.vertical_alignment = 1  # Center vertically
             
-            # Set blue background for right cell too
+            # Set blue background for right cell too (lighter blue)
             tc_right = right_cell._tc
             tcPr_right = tc_right.get_or_add_tcPr()
-            shading_right = parse_xml(f'<w:shd {nsdecls("w")} w:fill="1a365d"/>')  # Dark blue
+            shading_right = parse_xml(f'<w:shd {nsdecls("w")} w:fill="5a8bb7"/>')  # Lighter blue
             for elem in tcPr_right:
                 if elem.tag.endswith('shd'):
                     tcPr_right.remove(elem)
@@ -431,9 +438,28 @@ class BBAReportExporter:
                 except Exception as e:
                     logger.error(f"[BBA Export] Failed to add map image: {str(e)}")
             
-            # Set column widths - text takes more space, image takes less
-            left_cell.width = available_width * 0.7  # 70% for text
-            right_cell.width = available_width * 0.3  # 30% for image
+            # Set column widths - make banner full page width (edge to edge)
+            left_cell.width = full_page_width * 0.6  # 60% for text
+            right_cell.width = full_page_width * 0.4  # 40% for image
+            
+            # Set cell widths explicitly in twips for both cells
+            left_cell_twips = int((full_page_width * 0.6 / 914400) * 1440)
+            right_cell_twips = int((full_page_width * 0.4 / 914400) * 1440)
+            
+            # Set cell width properties directly
+            for cell in [left_cell, right_cell]:
+                tc = cell._tc
+                tcPr = tc.get_or_add_tcPr()
+                # Remove existing tcW if present
+                for elem in tcPr:
+                    if elem.tag.endswith('tcW'):
+                        tcPr.remove(elem)
+                # Add new tcW with full width
+                if cell == left_cell:
+                    tcW = parse_xml(f'<w:tcW {nsdecls("w")} w:w="{left_cell_twips}" w:type="dxa"/>')
+                else:
+                    tcW = parse_xml(f'<w:tcW {nsdecls("w")} w:w="{right_cell_twips}" w:type="dxa"/>')
+                tcPr.append(tcW)
             
             logger.info(f"[BBA Export] Added blue banner with Australia map")
             
@@ -455,9 +481,9 @@ class BBAReportExporter:
         grid_image_paths = self._get_grid_image_paths()
         if grid_image_paths:
             self._add_image_grid(doc, grid_image_paths, cols=4)
-            doc.add_paragraph()  # Spacing after grid
+            # No spacing - banner immediately follows
         
-        # Add blue banner with Australia map below the 4 images
+        # Add blue banner with Australia map below the 4 images (no spacing)
         self._add_blue_banner(doc)
         doc.add_paragraph()  # Spacing after banner
         doc.add_paragraph()
@@ -726,23 +752,214 @@ class BBAReportExporter:
                 row.cells[3].text = row_data.get('timing', '')
                 row.cells[4].text = row_data.get('key_outcome', '')
     
-    def _add_footer(self, doc: Document, bba: BBA):
-        """Add footer to document."""
-        client_name = bba.client_name or "Client"
-        version = bba.report_version or 1
-        date_str = datetime.utcnow().strftime("%B %Y")
+    def _get_logo_path(self) -> Optional[str]:
+        """Get the path to the Benchmark logo."""
+        base_dir = Path(__file__).resolve().parents[2]
+        # Try multiple possible locations
+        possible_paths = [
+            base_dir / "files" / "prompts" / "bba" / "images" / "logo.png",
+            base_dir / "files" / "prompts" / "bba" / "images" / "benchmark_logo.png",
+            base_dir / "files" / "prompts" / "bba" / "images" / "unnamed (1).png",
+        ]
         
-        # Add a section for footer
+        for img_path in possible_paths:
+            if img_path.exists():
+                return str(img_path)
+        
+        logger.warning(f"[BBA Export] Logo not found, tried: {possible_paths}")
+        return None
+    
+    def _setup_headers_footers(self, doc: Document, bba: BBA):
+        """Set up headers and footers for all pages (except first page)."""
+        from docx.oxml.ns import nsdecls
+        from docx.oxml import parse_xml
+        
         section = doc.sections[0]
+        
+        # Enable different first page header/footer
+        sectPr = section._sectPr
+        if sectPr is None:
+            sectPr = parse_xml(f'<w:sectPr {nsdecls("w")}/>')
+            section._element.append(sectPr)
+        
+        # Set different first page
+        titlePg = parse_xml(f'<w:titlePg {nsdecls("w")}/>')
+        # Remove existing titlePg if present
+        for elem in sectPr:
+            if elem.tag.endswith('titlePg'):
+                sectPr.remove(elem)
+        sectPr.append(titlePg)
+        
+        # Setup header (for pages 2+)
+        header = section.header
+        header.is_linked_to_previous = False
+        
+        # Clear existing paragraphs
+        for para in header.paragraphs:
+            para.clear()
+        
+        # Calculate section width first
+        section_width = section.page_width - section.left_margin - section.right_margin
+        
+        # Create header table with logo on right and text on left
+        header_table = header.add_table(rows=1, cols=2, width=section_width)
+        header_table.style = None
+        
+        # Set table to full width (additional XML configuration for compatibility)
+        tbl = header_table._tbl
+        tblPr = tbl.tblPr
+        if tblPr is None:
+            tblPr = parse_xml(f'<w:tblPr {nsdecls("w")}/>')
+            tbl.insert(0, tblPr)
+        
+        available_width_twips = int((section_width / 914400) * 1440)
+        tblW = parse_xml(f'<w:tblW {nsdecls("w")} w:w="{available_width_twips}" w:type="dxa"/>')
+        for elem in tblPr:
+            if elem.tag.endswith('tblW'):
+                tblPr.remove(elem)
+        tblPr.append(tblW)
+        
+        # Left cell - Logo (moved from right to left, smaller size)
+        left_cell = header_table.rows[0].cells[0]
+        left_cell.vertical_alignment = 1
+        left_para = left_cell.paragraphs[0]
+        left_para.clear()
+        left_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        
+        logo_path = self._get_logo_path()
+        if logo_path:
+            try:
+                logo_run = left_para.add_run()
+                # Make logo smaller - reduced from 0.5 to 0.3 inches
+                logo_run.add_picture(logo_path, height=Inches(0.3))
+            except Exception as e:
+                logger.error(f"[BBA Export] Failed to add logo to header: {str(e)}")
+        
+        # Right cell - Confidential text (moved from left to right)
+        right_cell = header_table.rows[0].cells[1]
+        right_cell.vertical_alignment = 1
+        right_para = right_cell.paragraphs[0]
+        right_para.clear()
+        right_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        
+        # Get date with ordinal suffix (e.g., "20th Oct 2025")
+        date_obj = datetime.utcnow()
+        day = date_obj.day
+        # Add ordinal suffix (st, nd, rd, th)
+        if 4 <= day <= 20 or 24 <= day <= 30:
+            suffix = "th"
+        else:
+            suffix = ["st", "nd", "rd"][day % 10 - 1]
+        
+        # Format: "20th Oct 2025"
+        month_abbr = date_obj.strftime("%b")
+        date_str = f"{day}{suffix} {month_abbr} {date_obj.year}"
+        
+        conf_run = right_para.add_run("CONFIDENTIAL - SAMPLE REPORT – ")
+        conf_run.font.size = Pt(10)
+        conf_run.font.color.rgb = RGBColor(64, 64, 64)
+        
+        date_run = right_para.add_run(date_str)
+        date_run.font.size = Pt(10)
+        date_run.font.color.rgb = RGBColor(64, 64, 64)
+        
+        # Set column widths - logo on left takes less space, text on right takes more
+        left_cell.width = section_width * 0.2  # 20% for logo
+        right_cell.width = section_width * 0.8  # 80% for text
+        
+        # Setup footer (for pages 2+)
         footer = section.footer
-        footer_para = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
+        footer.is_linked_to_previous = False
+        
+        # Clear existing paragraphs
+        for para in footer.paragraphs:
+            para.clear()
+        
+        footer_para = footer.add_paragraph()
         footer_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = footer_para.add_run(
-            f"Confidential – Prepared by Benchmark Business Advisory for {client_name} | "
-            f"Version {version}.0 – {date_str}"
-        )
-        run.font.size = Pt(8)
-        run.font.color.rgb = RGBColor(128, 128, 128)
+        
+        # Add footer text with hyperlink for email
+        from docx.oxml.ns import nsdecls
+        from docx.oxml import parse_xml
+        
+        # Part 1: Before email
+        footer_run1 = footer_para.add_run("BenchmarkBusinessAdvisory.ccom.au | ")
+        footer_run1.font.size = Pt(9)
+        footer_run1.font.color.rgb = RGBColor(0, 0, 0)
+        
+        # Part 2: Email as hyperlink
+        email_text = "chat@benchmarkbusinessadvisory.com.au"
+        email_url = f"mailto:{email_text}"
+        
+        try:
+            # Get the document part to add relationship
+            part = footer.part
+            # Add hyperlink relationship
+            r_id = part.relate_to(email_url, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", is_external=True)
+            
+            # Create hyperlink element with run inside
+            hyperlink_elem = parse_xml(
+                f'<w:hyperlink {nsdecls("w", "r")} r:id="{r_id}">'
+                f'<w:r><w:rPr><w:color w:val="00007A"/><w:u w:val="single"/></w:rPr>'
+                f'<w:t>{email_text}</w:t></w:r></w:hyperlink>'
+            )
+            
+            # Append hyperlink to paragraph
+            footer_para._p.append(hyperlink_elem)
+            
+        except Exception as e:
+            logger.warning(f"[BBA Export] Failed to create email hyperlink, using styled text: {str(e)}")
+            # Fallback: add email as styled text (looks like a link but not clickable)
+            email_run = footer_para.add_run(email_text)
+            email_run.font.size = Pt(9)
+            email_run.font.color.rgb = RGBColor(0, 0, 122)  # Blue
+            email_run.underline = True
+        
+        # Part 3: After email
+        footer_run3 = footer_para.add_run(" | 1300 366 521 | Page | ")
+        footer_run3.font.size = Pt(9)
+        footer_run3.font.color.rgb = RGBColor(0, 0, 0)
+        
+        # Add page number field - use separate runs for better compatibility
+        # Create a run for the page number field
+        page_run = footer_para.add_run()
+        page_run.font.size = Pt(9)
+        page_run.font.color.rgb = RGBColor(0, 0, 0)
+        
+        # Get the run element to modify
+        run_element = page_run._element
+        
+        # Clear any existing content
+        run_element.clear()
+        
+        # Add run properties
+        rPr = parse_xml(f'<w:rPr {nsdecls("w")}><w:color w:val="000000"/><w:sz w:val="18"/></w:rPr>')
+        run_element.append(rPr)
+        
+        # Add field begin
+        fldChar_begin = parse_xml(f'<w:fldChar {nsdecls("w")} w:fldCharType="begin"/>')
+        run_element.append(fldChar_begin)
+        
+        # Add instruction text
+        instrText = parse_xml(f'<w:instrText {nsdecls("w")}>PAGE</w:instrText>')
+        run_element.append(instrText)
+        
+        # Add field separate (required for field to display result)
+        fldChar_separate = parse_xml(f'<w:fldChar {nsdecls("w")} w:fldCharType="separate"/>')
+        run_element.append(fldChar_separate)
+        
+        # Add empty text element (where the page number will appear)
+        text_elem = parse_xml(f'<w:t {nsdecls("w")}/>')
+        run_element.append(text_elem)
+        
+        # Add field end
+        fldChar_end = parse_xml(f'<w:fldChar {nsdecls("w")} w:fldCharType="end"/>')
+        run_element.append(fldChar_end)
+    
+    def _add_footer(self, doc: Document, bba: BBA):
+        """Add footer to document (legacy method - now handled by _setup_headers_footers)."""
+        # This method is kept for backward compatibility but now uses the new setup
+        self._setup_headers_footers(doc, bba)
 
 
 # Factory function

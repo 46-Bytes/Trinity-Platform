@@ -40,6 +40,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { AdvisorClientDialog } from '@/components/users/AdvisorClientDialog';
+import { UserDetailDialog } from '@/components/users/UserDetailDialog';
 import type { User } from '@/store/slices/userReducer';
 import { sortUsersByLastEdited } from '@/lib/userSortUtils';
 
@@ -58,6 +59,8 @@ export default function UsersPage() {
   const [selectedAdvisor, setSelectedAdvisor] = useState<User | null>(null);
   const [isAssociationDialogOpen, setIsAssociationDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   
   // Form state
   const [newUserEmail, setNewUserEmail] = useState('');
@@ -263,7 +266,14 @@ export default function UsersPage() {
                 </thead>
                 <tbody>
                   {sortedUsers.map((u) => (
-                    <tr key={u.id} className="group">
+                    <tr 
+                      key={u.id} 
+                      className="group cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => {
+                        setSelectedUser(u);
+                        setIsDetailDialogOpen(true);
+                      }}
+                    >
                       <td>
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-medium">
@@ -306,15 +316,21 @@ export default function UsersPage() {
                       <td>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <button className="p-1.5 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100">
+                            <button 
+                              className="p-1.5 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100"
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
                             </button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                             {user?.role === 'super_admin' && (
                               <DropdownMenuItem 
                                 className="cursor-pointer"
-                                onClick={() => navigate(`/dashboard/users/${u.id}`)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/dashboard/users/${u.id}`);
+                                }}
                               >
                                 <Eye className="w-4 h-4 mr-2" />
                                 View Details
@@ -323,7 +339,8 @@ export default function UsersPage() {
                             {user?.role === 'super_admin' && !isImpersonating && u.role !== 'super_admin' && (
                               <DropdownMenuItem
                                 className="cursor-pointer"
-                                onClick={async () => {
+                                onClick={async (e) => {
+                                  e.stopPropagation();
                                   try {
                                     await startImpersonation(u.id);
                                     // Redirect happens automatically in startImpersonation
@@ -339,7 +356,10 @@ export default function UsersPage() {
                             )}
                             <DropdownMenuItem 
                               className="cursor-pointer"
-                              onClick={() => handleEditUser(u)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditUser(u);
+                              }}
                             >
                               <Edit className="w-4 h-4 mr-2" />
                               Edit
@@ -347,7 +367,8 @@ export default function UsersPage() {
                             {u.role === 'advisor' && (
                               <DropdownMenuItem
                                 className="cursor-pointer"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setSelectedAdvisor(u);
                                   setIsAssociationDialogOpen(true);
                                 }}
@@ -554,6 +575,13 @@ export default function UsersPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* User Detail Dialog */}
+      <UserDetailDialog
+        open={isDetailDialogOpen}
+        onOpenChange={setIsDetailDialogOpen}
+        user={selectedUser}
+      />
 
       {/* Advisor-Client Association Dialog */}
       {selectedAdvisor && (

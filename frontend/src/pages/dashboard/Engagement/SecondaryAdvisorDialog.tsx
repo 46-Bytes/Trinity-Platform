@@ -10,11 +10,9 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { updateEngagement, fetchEngagements } from '@/store/slices/engagementReducer';
-import { fetchFirmAdvisors } from '@/store/slices/firmReducer';
+import { updateEngagement, fetchEngagements, fetchSecondaryAdvisorCandidates } from '@/store/slices/engagementReducer';
 import { useAuth } from '@/context/AuthContext';
-import type { Engagement, Advisor } from '@/store/slices/engagementReducer';
-import type { Advisor as FirmAdvisor } from '@/store/slices/firmReducer';
+import type { Engagement, Advisor, SecondaryAdvisorCandidate } from '@/store/slices/engagementReducer';
 
 interface SecondaryAdvisorDialogProps {
   open: boolean;
@@ -37,18 +35,15 @@ export function SecondaryAdvisorDialog({
 }: SecondaryAdvisorDialogProps) {
   const dispatch = useAppDispatch();
   const { user } = useAuth();
-  const { advisors: firmAdvisors, isLoading: isLoadingAdvisors } = useAppSelector((state) => state.firm);
+  const { secondaryAdvisorCandidates, isLoadingCandidates } = useAppSelector((state) => state.engagement);
   const [selectedSecondaryAdvisors, setSelectedSecondaryAdvisors] = useState<string[]>([]);
 
-  // Get firm_id directly from user (firm_advisor always has firmId) or from prop
-  const firmIdToUse = user?.firmId || firmId;
-
-  // Fetch firm advisors when dialog opens
+  // Fetch secondary advisor candidates when dialog opens
   useEffect(() => {
-    if (open && firmIdToUse && user?.role === 'firm_advisor') {
-      dispatch(fetchFirmAdvisors(firmIdToUse));
+    if (open && engagement?.id) {
+      dispatch(fetchSecondaryAdvisorCandidates(engagement.id));
     }
-  }, [open, firmIdToUse, user?.role, dispatch]);
+  }, [open, engagement?.id, dispatch]);
 
   // Initialize selected advisors when engagement changes
   useEffect(() => {
@@ -101,27 +96,22 @@ export function SecondaryAdvisorDialog({
     setSelectedSecondaryAdvisors(selectedSecondaryAdvisors.filter(id => id !== advisorId));
   };
 
-  // Get all firm advisors from Redux store (fetched via fetchFirmAdvisors)
-  const allFirmAdvisors = useMemo(() => {
-    return (firmAdvisors || []).map((advisor: FirmAdvisor) => ({
-      id: advisor.id,
-      name: advisor.name,
-    })) as Advisor[];
-  }, [firmAdvisors]);
-
-  // Get available advisors, excluding:
-  // 1. The current user (primary advisor)
-  // 2. Already selected secondary advisors
+  // Get available advisors, excluding already selected secondary advisors
   const availableAdvisors = useMemo(() => {
-    return allFirmAdvisors.filter((advisor: Advisor) => {
-      // Exclude current user (primary advisor)
-      if (user?.id && String(advisor.id) === String(user.id)) {
-        return false;
-      }
+    return (secondaryAdvisorCandidates || []).filter((candidate: SecondaryAdvisorCandidate) => {
       // Exclude already selected secondary advisors
-      return !selectedSecondaryAdvisors.some(id => String(id) === String(advisor.id));
+      return !selectedSecondaryAdvisors.some(id => String(id) === String(candidate.id));
     });
-  }, [allFirmAdvisors, user?.id, selectedSecondaryAdvisors]);
+  }, [secondaryAdvisorCandidates, selectedSecondaryAdvisors]);
+
+  // Create a map of all candidates (including selected ones) for display
+  const allCandidatesMap = useMemo(() => {
+    const map = new Map<string, SecondaryAdvisorCandidate>();
+    (secondaryAdvisorCandidates || []).forEach((candidate: SecondaryAdvisorCandidate) => {
+      map.set(candidate.id, candidate);
+    });
+    return map;
+  }, [secondaryAdvisorCandidates]);
 
   if (!engagement) return null;
 
@@ -131,7 +121,8 @@ export function SecondaryAdvisorDialog({
         <DialogHeader>
           <DialogTitle>Manage Secondary Advisors</DialogTitle>
           <DialogDescription>
-            Add or remove secondary advisors from this engagement. Only advisors from your firm can be added.
+            Add or remove secondary advisors (co-advisors) from this engagement. 
+            Eligible advisors will be shown based on the engagement context.
           </DialogDescription>
         </DialogHeader>
         
@@ -148,10 +139,10 @@ export function SecondaryAdvisorDialog({
             ) : (
               <div className="space-y-2">
                 {selectedSecondaryAdvisors.map(advisorId => {
-                  const advisor = allFirmAdvisors.find((a: Advisor) => String(a.id) === String(advisorId));
-                  return advisor ? (
+                  const candidate = allCandidatesMap.get(advisorId);
+                  return candidate ? (
                     <div key={advisorId} className="flex items-center justify-between p-2 rounded-md border border-border">
-                      <span className="text-sm">{advisor.name}</span>
+                      <span className="text-sm">{candidate.name}</span>
                       <button
                         onClick={() => handleRemoveSecondaryAdvisor(advisorId)}
                         className="text-destructive hover:text-destructive/80 transition-colors"
@@ -177,20 +168,16 @@ export function SecondaryAdvisorDialog({
 
           <div>
             <label className="text-sm font-medium mb-2 block">Add Secondary Advisor</label>
-            {!firmIdToUse ? (
-              <p className="text-sm text-muted-foreground">Unable to determine firm. Please refresh the page.</p>
-            ) : isLoadingAdvisors ? (
+            {isLoadingCandidates ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Loading advisors...
               </div>
             ) : availableAdvisors.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                {allFirmAdvisors.length === 0
-                  ? "No advisors available in your firm"
-                  : allFirmAdvisors.length === 1 && String(allFirmAdvisors[0]?.id) === String(user?.id)
-                  ? "You are the only advisor in your firm"
-                  : "No available advisors to add (all advisors are already assigned)"}
+                {secondaryAdvisorCandidates.length === 0
+                  ? "No eligible advisors available to add"
+                  : "No available advisors to add (all eligible advisors are already assigned)"}
               </p>
             ) : (
               <Select onValueChange={handleAddSecondaryAdvisor}>
@@ -198,9 +185,9 @@ export function SecondaryAdvisorDialog({
                   <SelectValue placeholder="Select an advisor to add" />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableAdvisors.map((advisor: Advisor) => (
-                    <SelectItem key={advisor.id} value={advisor.id}>
-                      {advisor.name}
+                  {availableAdvisors.map((candidate: SecondaryAdvisorCandidate) => (
+                    <SelectItem key={candidate.id} value={candidate.id}>
+                      {candidate.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -24,6 +24,8 @@ from ..schemas.engagement import (
     EngagementResponse,
     EngagementListItem,
     EngagementDetail,
+    SecondaryAdvisorCandidatesResponse,
+    SecondaryAdvisorCandidate,
 )
 from ..services.role_check import get_current_user_from_token, check_engagement_access
 from ..models.adv_client import AdvisorClient
@@ -98,22 +100,61 @@ async def create_engagement(
             detail="Primary advisor not found or invalid advisor ID."
         )
     
-    # Verify secondary advisors if provided (can be ADVISOR, FIRM_ADVISOR)
-    if engagement_data.secondary_advisor_ids:
-        secondary_advisors = db.query(User).filter(
-            User.id.in_(engagement_data.secondary_advisor_ids),
-            User.role.in_([UserRole.ADVISOR, UserRole.FIRM_ADVISOR])
-        ).all()
-        if len(secondary_advisors) != len(engagement_data.secondary_advisor_ids):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="One or more secondary advisors not found or invalid."
-            )
-    
     # Auto-set firm_id for firm_admin and firm_advisor users if not provided
     firm_id = engagement_data.firm_id
     if not firm_id and current_user.role in [UserRole.FIRM_ADMIN, UserRole.FIRM_ADVISOR]:
         firm_id = current_user.firm_id
+    
+    # Verify secondary advisors if provided - validate based on engagement context
+    unique_secondary_ids = []
+    if engagement_data.secondary_advisor_ids:
+        # Remove duplicates
+        unique_secondary_ids = list(set(engagement_data.secondary_advisor_ids))
+        if len(unique_secondary_ids) != len(engagement_data.secondary_advisor_ids):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Duplicate secondary advisor IDs are not allowed."
+            )
+        
+        # Ensure primary advisor is not in secondary list
+        if primary_advisor_id in unique_secondary_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Primary advisor cannot be added as a secondary advisor."
+            )
+        
+        # Validate based on current user role AND engagement context
+        if current_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.ADVISOR]:
+            # Admin/advisor users can ONLY add advisor role users (solo advisors)
+            secondary_advisors = db.query(User).filter(
+                User.id.in_(unique_secondary_ids),
+                User.role == UserRole.ADVISOR,
+                User.firm_id.is_(None),
+                User.is_active == True
+            ).all()
+            if len(secondary_advisors) != len(unique_secondary_ids):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Admins and advisors can only add advisor role users (solo advisors) as secondary advisors."
+                )
+        elif current_user.role in [UserRole.FIRM_ADMIN, UserRole.FIRM_ADVISOR]:
+            # Firm users can ONLY add firm_advisor role users from the same firm
+            if firm_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Firm engagements require a firm_id. Cannot add secondary advisors to solo engagements."
+                )
+            secondary_advisors = db.query(User).filter(
+                User.id.in_(unique_secondary_ids),
+                User.role == UserRole.FIRM_ADVISOR,
+                User.firm_id == firm_id,
+                User.is_active == True
+            ).all()
+            if len(secondary_advisors) != len(unique_secondary_ids):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="For firm engagements, secondary advisors must be firm_advisor role users from the same firm."
+                )
     
     # Create engagement
     engagement = Engagement(
@@ -126,7 +167,7 @@ async def create_engagement(
         client_id=engagement_data.client_id,
         primary_advisor_id=primary_advisor_id,
         firm_id=firm_id,
-        secondary_advisor_ids=engagement_data.secondary_advisor_ids or [],
+        secondary_advisor_ids=unique_secondary_ids,
     )
     
     db.add(engagement)
@@ -553,6 +594,79 @@ async def get_engagement(
     return EngagementDetail(**engagement_dict)
 
 
+@router.get("/{engagement_id}/secondary-advisor-candidates", response_model=SecondaryAdvisorCandidatesResponse)
+async def get_secondary_advisor_candidates(
+    engagement_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_from_token),
+):
+    """
+    Get eligible secondary advisor candidates for an engagement.
+    
+    Returns:
+    - For solo engagements (firm_id is None): advisor role users with no firm_id
+    - For firm engagements (firm_id is not None): firm_advisor role users from the same firm
+    
+    User must have advisor access to the engagement.
+    """
+    engagement = db.query(Engagement).filter(
+        Engagement.id == engagement_id,
+        Engagement.is_deleted == False
+    ).first()
+    
+    if not engagement:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Engagement not found."
+        )
+    
+    # Check access - require advisor access
+    if not check_engagement_access(engagement, current_user, require_advisor=True, db=db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this engagement."
+        )
+    
+    # Determine eligible candidates based on current user role AND engagement context
+    if current_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.ADVISOR]:
+        # Admin/advisor users can ONLY see advisor role users (solo advisors)
+        candidates = db.query(User).filter(
+            User.role == UserRole.ADVISOR,
+            User.firm_id.is_(None),
+            User.is_active == True,
+            User.is_deleted == False,
+            User.id != engagement.primary_advisor_id  # Exclude primary advisor
+        ).all()
+    elif current_user.role in [UserRole.FIRM_ADMIN, UserRole.FIRM_ADVISOR]:
+        # Firm users can ONLY see firm_advisor role users from the same firm
+        if engagement.firm_id is None:
+            # No candidates for firm users on solo engagements
+            candidates = []
+        else:
+            candidates = db.query(User).filter(
+                User.role == UserRole.FIRM_ADVISOR,
+                User.firm_id == engagement.firm_id,
+                User.is_active == True,
+                User.is_deleted == False,
+                User.id != engagement.primary_advisor_id  # Exclude primary advisor
+            ).all()
+    else:
+        # Other roles (shouldn't reach here due to access check, but handle gracefully)
+        candidates = []
+    
+    # Convert to response format
+    candidate_list = [
+        SecondaryAdvisorCandidate(
+            id=candidate.id,
+            name=candidate.name or candidate.email or candidate.nickname or "Unknown",
+            email=candidate.email or ""
+        )
+        for candidate in candidates
+    ]
+    
+    return SecondaryAdvisorCandidatesResponse(candidates=candidate_list)
+
+
 @router.patch("/{engagement_id}", response_model=EngagementResponse)
 async def update_engagement(
     engagement_id: UUID,
@@ -596,25 +710,56 @@ async def update_engagement(
     # Handle secondary_advisor_ids separately if provided
     if "secondary_advisor_ids" in update_data:
         if update_data["secondary_advisor_ids"] is not None:
-            # Verify all secondary advisors exist and have valid roles
-            secondary_advisors = db.query(User).filter(
-                User.id.in_(update_data["secondary_advisor_ids"]),
-                User.role.in_([UserRole.ADVISOR, UserRole.FIRM_ADVISOR])
-            ).all()
-            if len(secondary_advisors) != len(update_data["secondary_advisor_ids"]):
+            # Remove duplicates
+            unique_secondary_ids = list(set(update_data["secondary_advisor_ids"]))
+            if len(unique_secondary_ids) != len(update_data["secondary_advisor_ids"]):
                 raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="One or more secondary advisors not found or invalid."
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Duplicate secondary advisor IDs are not allowed."
                 )
             
-            # For firm engagements, ensure all secondary advisors are from the same firm
-            if engagement.firm_id:
-                for advisor in secondary_advisors:
-                    if advisor.firm_id != engagement.firm_id:
-                        raise HTTPException(
-                            status_code=status.HTTP_400_BAD_REQUEST,
-                            detail=f"Secondary advisor {advisor.name or advisor.email} must be from the same firm as the engagement."
-                        )
+            # Ensure primary advisor is not in secondary list
+            if engagement.primary_advisor_id in unique_secondary_ids:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Primary advisor cannot be added as a secondary advisor."
+                )
+            
+            # Validate based on current user role AND engagement context
+            if current_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.ADVISOR]:
+                # Admin/advisor users can ONLY add advisor role users (solo advisors)
+                secondary_advisors = db.query(User).filter(
+                    User.id.in_(unique_secondary_ids),
+                    User.role == UserRole.ADVISOR,
+                    User.firm_id.is_(None),
+                    User.is_active == True
+                ).all()
+                if len(secondary_advisors) != len(unique_secondary_ids):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Admins and advisors can only add advisor role users (solo advisors) as secondary advisors."
+                    )
+            elif current_user.role in [UserRole.FIRM_ADMIN, UserRole.FIRM_ADVISOR]:
+                # Firm users can ONLY add firm_advisor role users from the same firm
+                if engagement.firm_id is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Firm users cannot add secondary advisors to solo engagements."
+                    )
+                secondary_advisors = db.query(User).filter(
+                    User.id.in_(unique_secondary_ids),
+                    User.role == UserRole.FIRM_ADVISOR,
+                    User.firm_id == engagement.firm_id,
+                    User.is_active == True
+                ).all()
+                if len(secondary_advisors) != len(unique_secondary_ids):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="For firm engagements, secondary advisors must be firm_advisor role users from the same firm."
+                    )
+            
+            # Update the value in update_data to use the validated unique list
+            update_data["secondary_advisor_ids"] = unique_secondary_ids
     
     for field, value in update_data.items():
         setattr(engagement, field, value)

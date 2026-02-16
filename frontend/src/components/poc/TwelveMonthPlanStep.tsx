@@ -394,7 +394,7 @@ export function TwelveMonthPlanStep({ projectId, onComplete, onBack, className, 
                                     updateRec(index, 'key_objectives', arr);
                                   }}
                                 />
-                                <Button type="button" variant="ghost" size="sm" className="text-destructive shrink-0" onClick={() => updateRec(index, 'key_objectives', (rec.key_objectives ?? []).filter((_, j) => j !== i))}>Remove</Button>
+                                <Button type="button" variant="ghost" size="sm" className="text-destructive shrink-0" onClick={() => updateRec(index, 'key_objectives', (rec.key_objectives ?? []).filter((_, j) => j !== i))} title="Remove"><Trash2 className="w-4 h-4" /></Button>
                               </li>
                             ))}
                             <li>
@@ -422,7 +422,7 @@ export function TwelveMonthPlanStep({ projectId, onComplete, onBack, className, 
                                     updateRec(index, 'actions', arr);
                                   }}
                                 />
-                                <Button type="button" variant="ghost" size="sm" className="text-destructive shrink-0" onClick={() => updateRec(index, 'actions', (rec.actions ?? []).filter((_, j) => j !== i))}>Remove</Button>
+                                <Button type="button" variant="ghost" size="sm" className="text-destructive shrink-0" onClick={() => updateRec(index, 'actions', (rec.actions ?? []).filter((_, j) => j !== i))} title="Remove"><Trash2 className="w-4 h-4" /></Button>
                               </li>
                             ))}
                             <li>
@@ -463,7 +463,7 @@ export function TwelveMonthPlanStep({ projectId, onComplete, onBack, className, 
                                     updateRec(index, 'expected_outcomes', arr);
                                   }}
                                 />
-                                <Button type="button" variant="ghost" size="sm" className="text-destructive shrink-0" onClick={() => updateRec(index, 'expected_outcomes', (rec.expected_outcomes ?? []).filter((_, j) => j !== i))}>Remove</Button>
+                                <Button type="button" variant="ghost" size="sm" className="text-destructive shrink-0" onClick={() => updateRec(index, 'expected_outcomes', (rec.expected_outcomes ?? []).filter((_, j) => j !== i))} title="Remove"><Trash2 className="w-4 h-4" /></Button>
                               </li>
                             ))}
                             <li>

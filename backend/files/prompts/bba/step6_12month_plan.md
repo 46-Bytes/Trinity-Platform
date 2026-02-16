@@ -2,33 +2,26 @@
 
 ## Your Task
 
-Expand each finding into a practical recommendation using a structured format.
-Also include the "Notes on the 12-Month Recommendations Plan" disclaimer.
+Expand each finding into a **short, practical** recommendation. Keep every section concise—avoid long paragraphs or long lists. Also include the "Notes on the 12-Month Recommendations Plan" disclaimer.
 
-## Recommendation Structure
+## Recommendation Structure (keep each section brief)
 
 For each finding, create a recommendation containing:
 
 ### Purpose
-A concise explanation of the goal and outcome (1-2 sentences).
+**One short sentence** (max two) stating the goal and outcome. No lengthy explanation.
 
 ### Key Objectives
-3-5 bullets describing what success looks like.
+**2–3 short bullets** only. One line each; what success looks like.
 
 ### Actions to Complete
-5-10 short, specific steps that the client can follow.
+**3–5 short, specific steps** that the client can follow. One line per action; no sub-bullets or long descriptions.
 
 ### BBA Support Outline
-Clarify what BBA will do - advisory, facilitation, mentoring, training.
-Choose only what applies from:
-- Co-authoring a strategic or operational plan (when relevant)
-- Providing finance-related mentoring and training
-- Delivering change-management or project-management guidance
-- Offering 1:1 leadership mentoring or helping set up internal mentoring
-- Training staff on developing and maintaining their own SOPs
+**1–2 sentences** only. Say what BBA will do (advisory, facilitation, mentoring, or training) from: co-authoring plans, finance mentoring, change/project guidance, leadership mentoring, or training on SOPs. Pick only what applies.
 
 ### Expected Outcomes
-4-6 measurable, positive outcomes.
+**2–3 measurable outcomes** only. One short line each.
 
 ## Output Format
 
@@ -42,20 +35,20 @@ Return a JSON object with this structure:
       "number": 1,
       "title": "Recommendation Title",
       "timing": "Month 1-3",
-      "purpose": "Explanation of goal and outcome",
+      "purpose": "One short sentence for goal and outcome.",
       "key_objectives": [
-        "Objective 1",
-        "Objective 2",
-        "Objective 3"
+        "Short objective 1",
+        "Short objective 2"
       ],
       "actions": [
-        "Action step 1",
-        "Action step 2"
+        "Short action 1",
+        "Short action 2",
+        "Short action 3"
       ],
-      "bba_support": "Description of BBA's role and support",
+      "bba_support": "1–2 sentences on BBA's role (advisory, mentoring, or training).",
       "expected_outcomes": [
-        "Outcome 1",
-        "Outcome 2"
+        "Measurable outcome 1",
+        "Measurable outcome 2"
       ]
     }
   ],
@@ -102,8 +95,10 @@ Example for 10 recommendations:
 
 ## Guidelines
 
+- **Be concise**: every field should be short. No long paragraphs or padded lists.
 - Recommendations should follow the finding ranking order
 - BBA Support should enable client capability, not do the work for them
 - Expected Outcomes should be measurable where possible
 - Use British English spelling throughout
 - Keep the timeline summary to one page
+- If in doubt, use fewer bullets and shorter text—quality over quantity

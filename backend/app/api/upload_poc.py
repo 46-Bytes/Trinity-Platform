@@ -28,7 +28,7 @@ Phase 3 – PowerPoint Presentation Generator
 - PowerPoint (.pptx) branded export
 """
 from fastapi import APIRouter, UploadFile, File, HTTPException, status, Depends, BackgroundTasks
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 from uuid import UUID
@@ -48,6 +48,7 @@ from app.services.bba_pptx_export import BBAPptxExporter
 from app.utils.auth import get_current_user
 from app.models.user import User
 from app.database import get_db
+from app.config import settings
 from app.services.bba_report_export import BBAReportExporter
 from app.schemas.bba import (
     BBAQuestionnaire, 
@@ -64,6 +65,23 @@ from app.schemas.bba import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/poc", tags=["bba"])
+
+# Base directory for persisting BBA uploaded files (under app UPLOAD_DIR)
+def _bba_uploads_base() -> Path:
+    base = Path(settings.UPLOAD_DIR)
+    if not base.is_absolute():
+        base = Path(__file__).resolve().parent.parent.parent / base
+    return base / "bba"
+
+
+def _sanitize_filename(filename: str) -> str:
+    """Return a safe filename (no path separators or traversal)."""
+    name = os.path.basename(filename)
+    safe = "".join(c for c in name if c.isalnum() or c in "._- ").strip()
+    if not safe:
+        ext = os.path.splitext(name)[1]
+        safe = f"file{ext}" if ext else "file"
+    return safe[:200]
 
 
 @router.post("/create-project", status_code=status.HTTP_201_CREATED)
@@ -142,7 +160,8 @@ async def upload_files_poc(
     results = []
     file_mapping = {}
     file_ids = []
-    
+    stored_file_mapping = {}  # filename -> relative path for persisted copies
+
     # Process each file
     for file in files:
         temp_file_path = None
@@ -168,11 +187,25 @@ async def upload_files_poc(
                 if openai_result and openai_result.get("id"):
                     file_id = openai_result["id"]
                     filename = file.filename
-                    
+                    safe_name = _sanitize_filename(filename)
+
+                    # Persist file to disk so it remains available after refresh/completion
+                    try:
+                        bba_base = _bba_uploads_base()
+                        project_dir = bba_base / str(project_id)
+                        project_dir.mkdir(parents=True, exist_ok=True)
+                        stored_path = project_dir / safe_name
+                        stored_path.write_bytes(file_content)
+                        relative_path = f"{project_id}/{safe_name}"
+                        stored_file_mapping[filename] = relative_path
+                        logger.info(f"Stored file {filename} at {stored_path}")
+                    except Exception as store_err:
+                        logger.warning(f"Failed to persist file {filename} to disk: {store_err}")
+
                     # Store mapping and file_id
                     file_mapping[filename] = file_id
                     file_ids.append(file_id)
-                    
+
                     results.append({
                         "filename": filename,
                         "file_id": file_id,
@@ -184,7 +217,7 @@ async def upload_files_poc(
                             "created_at": openai_result.get("created_at")
                         }
                     })
-                    
+
                     logger.info(f"Successfully uploaded {filename} to OpenAI. File ID: {file_id}")
                 else:
                     results.append({
@@ -229,12 +262,15 @@ async def upload_files_poc(
         updated_file_ids = list(set(existing_file_ids + file_ids))
         updated_file_mappings = {**existing_file_mappings, **file_mapping}
         
+        existing_stored = bba.stored_files or {}
+        updated_stored = {**existing_stored, **stored_file_mapping}
         bba_service.update_files(
             bba_id=project_id,
             file_ids=updated_file_ids,
-            file_mappings=updated_file_mappings
+            file_mappings=updated_file_mappings,
+            stored_files=updated_stored,
         )
-        
+
         logger.info(f"Updated BBA project {project_id} with {len(updated_file_ids)} file(s)")
     
     # Return results
@@ -247,6 +283,41 @@ async def upload_files_poc(
         "successful_uploads": len([r for r in results if r["status"] == "success"]),
         "project_id": str(project_id)
     }
+
+
+@router.get("/{project_id}/files/{filename:path}", response_class=FileResponse)
+async def download_bba_file(
+    project_id: UUID,
+    filename: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Download a file that was uploaded to this BBA project (Step 1).
+    Files are persisted on the server so they remain available after refresh or completion.
+    """
+    bba_service = get_bba_service(db)
+    bba = bba_service.get_bba(project_id)
+    if not bba:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="BBA project not found")
+    if bba.created_by_user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this project")
+
+    stored = bba.stored_files or {}
+    relative_path = stored.get(filename)
+    if not relative_path:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found in this project")
+
+    full_path = _bba_uploads_base() / relative_path
+    if not full_path.is_file():
+        logger.warning(f"Stored file missing on disk: {full_path}")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found on server")
+
+    return FileResponse(
+        path=str(full_path),
+        filename=filename,
+        media_type="application/octet-stream",
+    )
 
 
 @router.post("/{project_id}/submit-questionnaire", status_code=status.HTTP_200_OK)

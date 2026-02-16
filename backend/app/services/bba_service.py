@@ -84,27 +84,29 @@ class BBAService:
             BBA.created_by_user_id == user_id
         ).order_by(BBA.created_at.desc()).first()
     
-    def update_files(self, bba_id: UUID, file_ids: List[str], file_mappings: dict) -> Optional[BBA]:
+    def update_files(
+        self,
+        bba_id: UUID,
+        file_ids: List[str],
+        file_mappings: dict,
+        stored_files: Optional[dict] = None,
+    ) -> Optional[BBA]:
         """
-        Update BBA with uploaded file information (Step 1)
-        
-        Args:
-            bba_id: BBA project ID
-            file_ids: List of OpenAI file IDs
-            file_mappings: Dictionary mapping filename to file_id
-            
-        Returns:
-            Updated BBA object or None if not found
+        Update BBA with uploaded file information (Step 1).
+        stored_files: optional dict mapping filename to relative storage path for persisted copies.
         """
         bba = self.get_bba(bba_id)
         if not bba:
             return None
-        
+
         bba.file_ids = file_ids
         bba.file_mappings = file_mappings
+        if stored_files is not None:
+            existing_stored = bba.stored_files or {}
+            bba.stored_files = {**existing_stored, **stored_files}
         bba.status = 'uploaded'
         bba.updated_at = datetime.utcnow()
-        
+
         self.db.commit()
         self.db.refresh(bba)
         logger.info(f"Updated BBA {bba_id} with {len(file_ids)} files")

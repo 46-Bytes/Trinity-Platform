@@ -685,6 +685,7 @@ export function TaskPlannerStep({ projectId, onBack, onContinueToPhase3, classNa
                             {isEditing('owner') ? (
                               <Select
                                 value={task.owner}
+                                open={true}
                                 onValueChange={(val) => {
                                   updateTask(idx, 'owner', val);
                                   stopEdit();
@@ -798,6 +799,7 @@ export function TaskPlannerStep({ projectId, onBack, onContinueToPhase3, classNa
                             {isEditing('status') ? (
                               <Select
                                 value={task.status}
+                                open={true}
                                 onValueChange={(val) => {
                                   updateTask(idx, 'status', val);
                                   stopEdit();

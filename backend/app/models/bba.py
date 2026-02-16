@@ -32,6 +32,7 @@ class BBA(Base):
     # Step 1: File uploads
     file_ids = Column(JSONB, nullable=True, comment="List of OpenAI file_ids: ['file-abc123', 'file-xyz789']")
     file_mappings = Column(JSONB, nullable=True, comment="Mapping of filename to file_id: {'doc.pdf': 'file-abc123'}")
+    stored_files = Column(JSONB, nullable=True, comment="Mapping of filename to relative storage path for persisted uploads: {'doc.pdf': 'project_id/doc.pdf'}")
     # Step 2: Context Capture (Questionnaire)
     client_name = Column(String(255), nullable=True)
     industry = Column(String(255), nullable=True)
@@ -130,6 +131,7 @@ class BBA(Base):
             "status": self.status,
             "file_ids": self.file_ids,
             "file_mappings": self.file_mappings,
+            "stored_files": self.stored_files,
             "client_name": self.client_name,
             "industry": self.industry,
             "company_size": self.company_size,

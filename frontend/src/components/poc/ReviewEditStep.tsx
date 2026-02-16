@@ -314,44 +314,6 @@ export function ReviewEditStep({ projectId, onBack, onContinueToPhase2, classNam
                 )}
               </div>
             )}
-
-            {/* Snapshot Table - handle different data structures */}
-            {(() => {
-              // Try different possible data structures
-              const snapshotData = project.snapshot_table?.snapshot_table || project.snapshot_table;
-              const rows = snapshotData?.rows || [];
-              
-              if (rows.length > 0) {
-                return (
-                  <div className="mt-6 space-y-2">
-                    <h5 className="font-semibold">Key Findings & Recommendations Snapshot</h5>
-                    <div className="border rounded-lg overflow-hidden">
-                      <table className="w-full text-sm">
-                        <thead className="bg-muted">
-                          <tr>
-                            <th className="p-3 text-left font-semibold">#</th>
-                            <th className="p-3 text-left font-semibold">Priority Area</th>
-                            <th className="p-3 text-left font-semibold">Key Finding</th>
-                            <th className="p-3 text-left font-semibold">Recommendation</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {rows.map((row: any, index: number) => (
-                            <tr key={index} className="border-t">
-                              <td className="p-3 font-bold">{row.rank}</td>
-                              <td className="p-3">{row.priority_area}</td>
-                              <td className="p-3">{row.key_finding}</td>
-                              <td className="p-3">{row.recommendation}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                );
-              }
-              return null;
-            })()}
           </TabsContent>
 
           {/* Findings Tab */}
@@ -478,23 +440,6 @@ export function ReviewEditStep({ projectId, onBack, onContinueToPhase2, classNam
                   <p className="whitespace-pre-wrap">{project.executive_summary}</p>
                 </div>
               )}
-
-              {/* Snapshot Table Preview */}
-              {(() => {
-                const snapshotData = project.snapshot_table?.snapshot_table || project.snapshot_table;
-                const rows = snapshotData?.rows || [];
-                if (rows.length > 0) {
-                  return (
-                    <div className="mb-8">
-                      <h2 className="text-lg font-bold border-b pb-2 mb-4">Key Findings & Recommendations Snapshot</h2>
-                      <p className="text-sm text-muted-foreground">
-                        {rows.length} findings summarised
-                      </p>
-                    </div>
-                  );
-                }
-                return null;
-              })()}
 
               {/* Key Findings Preview */}
               {project.expanded_findings?.expanded_findings && (

@@ -221,10 +221,17 @@ class BBATaskListExporter:
 
         # Alternating row shading for readability
         fill_alt = PatternFill("solid", fgColor="f7fafc")
+        # Status (G) and Timing (I): same "dropdown" style - light fill so they match in the xlsx
+        fill_dropdown = PatternFill("solid", fgColor="E8F4F8")
+        status_col = 7   # G
+        timing_col = 9   # I
         for row in range(2, ws.max_row + 1):
             if row % 2 == 0:
                 for col in range(1, 10):
                     ws.cell(row=row, column=col).fill = fill_alt
+            # Apply same dropdown-style fill to Status and Timing
+            ws.cell(row=row, column=status_col).fill = fill_dropdown
+            ws.cell(row=row, column=timing_col).fill = fill_dropdown
 
         # Wrap text for Task, Notes, Recommendation
         wrap_alignment = Alignment(wrap_text=True, vertical="top")

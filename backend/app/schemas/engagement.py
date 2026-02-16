@@ -107,3 +107,16 @@ class EngagementDetail(EngagementResponse):
     # notes: Optional[List['NoteResponse']] = []
     pass
 
+
+# Schema for secondary advisor candidate
+class SecondaryAdvisorCandidate(BaseModel):
+    """Schema for a secondary advisor candidate"""
+    id: UUID
+    name: str
+    email: str
+
+
+# Schema for secondary advisor candidates response
+class SecondaryAdvisorCandidatesResponse(BaseModel):
+    """Schema for secondary advisor candidates list"""
+    candidates: List[SecondaryAdvisorCandidate]

@@ -32,6 +32,12 @@ export interface Advisor {
   name: string;
 }
 
+export interface SecondaryAdvisorCandidate {
+  id: string;
+  name: string;
+  email: string;
+}
+
 export interface Client {
   id: string;
   name: string;
@@ -49,6 +55,8 @@ interface EngagementState {
   isLoading: boolean;
   error: string | null;
   userRoleData: UserRoleData | null;
+  secondaryAdvisorCandidates: SecondaryAdvisorCandidate[];
+  isLoadingCandidates: boolean;
   filters: {
     status?: string;
     clientId?: string;
@@ -383,6 +391,34 @@ export const deleteEngagement = createAsyncThunk(
   }
 );
 
+export const fetchSecondaryAdvisorCandidates = createAsyncThunk(
+  'engagement/fetchSecondaryAdvisorCandidates',
+  async (engagementId: string, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/engagements/${engagementId}/secondary-advisor-candidates`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to fetch secondary advisor candidates' }));
+        throw new Error(errorData.detail || 'Failed to fetch secondary advisor candidates');
+      }
+
+      const data = await response.json();
+      return data.candidates as SecondaryAdvisorCandidate[];
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to fetch secondary advisor candidates');
+    }
+  }
+);
+
 // Initial state
 const initialState: EngagementState = {
   engagements: [],
@@ -390,6 +426,8 @@ const initialState: EngagementState = {
   isLoading: false,
   error: null,
   userRoleData: null,
+  secondaryAdvisorCandidates: [],
+  isLoadingCandidates: false,
   filters: {},
 };
 
@@ -498,6 +536,19 @@ const engagementSlice = createSlice({
       })
       .addCase(deleteEngagement.rejected, (state, action) => {
         state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // Fetch secondary advisor candidates
+      .addCase(fetchSecondaryAdvisorCandidates.pending, (state) => {
+        state.isLoadingCandidates = true;
+        state.error = null;
+      })
+      .addCase(fetchSecondaryAdvisorCandidates.fulfilled, (state, action) => {
+        state.isLoadingCandidates = false;
+        state.secondaryAdvisorCandidates = action.payload;
+      })
+      .addCase(fetchSecondaryAdvisorCandidates.rejected, (state, action) => {
+        state.isLoadingCandidates = false;
         state.error = action.payload as string;
       });
   },

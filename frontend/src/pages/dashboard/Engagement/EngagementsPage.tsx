@@ -42,6 +42,7 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
   const isClient = user?.role === 'client';
   const isFirmAdvisor = user?.role === 'firm_advisor';
   const canDeleteEngagements = user && ['super_admin', 'admin', 'firm_admin'].includes(user.role);
+  const canManageSecondaryAdvisors = user && ['advisor', 'firm_advisor', 'firm_admin', 'admin', 'super_admin'].includes(user.role);
 
   // Fetch user role data for firm advisors to get advisors list
   useEffect(() => {
@@ -294,8 +295,9 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
                           {engagement.industryName && (
                             <span>Industry: {engagement.industryName}</span>
                           )}
-                          {isFirmAdvisor && (
+                          {canManageSecondaryAdvisors && (
                             <button
+                              type="button"
                               onClick={(e) => handleManageSecondaryAdvisors(engagement, e)}
                               className="flex items-center gap-1.5 text-accent hover:text-accent/80 transition-colors"
                               title="Manage secondary advisors"
@@ -396,7 +398,7 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
       />
 
       {/* Manage Secondary Advisors Dialog */}
-      {isFirmAdvisor && (
+      {!isClient && canManageSecondaryAdvisors && (
         <SecondaryAdvisorDialog
           open={isSecondaryAdvisorDialogOpen}
           onOpenChange={handleSecondaryAdvisorDialogClose}

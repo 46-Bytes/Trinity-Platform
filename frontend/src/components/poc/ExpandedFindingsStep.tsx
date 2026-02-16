@@ -37,7 +37,6 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
   const [error, setError] = useState<string | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<ExpandedFinding | null>(null);
-  const [tokensUsed, setTokensUsed] = useState(0);
   const [openItems, setOpenItems] = useState<number[]>([]);
   
   // Use ref to store the callback to avoid infinite loops
@@ -116,7 +115,6 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
       const result = await response.json();
       const findingsData = result.expanded_findings?.expanded_findings || result.expanded_findings || [];
       setExpandedFindings(findingsData);
-      setTokensUsed(result.tokens_used || 0);
       // Open all items by default
       setOpenItems(findingsData.map((_: any, i: number) => i));
     } catch (err) {
@@ -217,13 +215,6 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
         {/* Expanded Findings List */}
         {!isInitialLoading && expandedFindings.length > 0 && (
           <>
-            {/* Token Usage */}
-            {tokensUsed > 0 && (
-              <p className="text-sm text-muted-foreground">
-                Tokens used: {tokensUsed.toLocaleString()}
-              </p>
-            )}
-
             {/* Findings */}
             <div className="space-y-4">
               {expandedFindings.map((finding, index) => (

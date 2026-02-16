@@ -41,7 +41,7 @@ Return a JSON object with this structure:
 
 ## Guidelines
 
-- Maximum 10 rows
+- Include as many rows as the expanded findings support (typically 5–15; no hard maximum)
 - Each cell should be concise but complete
 - Use action-oriented language in recommendations
 - Ensure consistency with the expanded findings

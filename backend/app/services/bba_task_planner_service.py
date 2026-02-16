@@ -4,7 +4,6 @@ Phase 2 – BBA Excel Task Planner (Engagement Planner) service.
 This service:
 - Stores advisor/timing context (lead/support advisors, capacity, start month/year)
 - Generates structured task rows via OpenAI from the BBA 12-month plan
-- Calculates per-month BBA hours and capacity warnings (deterministic post-processing)
 
 The generated task rows map 1:1 to the Excel columns:
 Rec #, Recommendation, Owner, Task, Advisor Hrs, Advisor, Status, Notes, Timing.
@@ -12,7 +11,7 @@ Rec #, Recommendation, Owner, Task, Advisor Hrs, Advisor, Status, Notes, Timing.
 
 from __future__ import annotations
 
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Optional, Tuple
 from uuid import UUID
 from datetime import datetime
 import json
@@ -87,22 +86,21 @@ class BBATaskPlannerService:
         return BBATaskPlannerSettings.model_validate(bba.task_planner_settings)
 
     # -------------------------------------------------------------------------
-    # Task + summary generation (AI-driven)
+    # Task generation (AI-driven); no capacity summary
     # -------------------------------------------------------------------------
 
     async def generate_tasks_and_summary(
         self,
         bba: BBA,
         settings: BBATaskPlannerSettings,
-    ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    ) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
         """
-        Generate task rows via OpenAI and compute summary data.
+        Generate task rows via OpenAI. No capacity summary is computed.
 
         Flow:
         1. Build timing metadata for each recommendation
         2. Construct AI prompt with full context
         3. Call OpenAI to generate focused task rows
-        4. Post-process: compute monthly BBA hours and capacity warnings
         """
         if not bba.twelve_month_plan:
             raise ValueError(
@@ -123,14 +121,16 @@ class BBATaskPlannerService:
             start_year=settings.start_year,
         )
 
-        # Combined monthly capacity across all advisors
+        # Combined monthly capacity across all advisors (for AI context only)
         monthly_capacity = float(settings.advisor_count * settings.max_hours_per_month)
 
         # Build per-recommendation context for the AI (including allocated hours)
+        # Allocated hours = total BBA capacity during this recommendation's time window
+        # (monthly_capacity × months_span), not a fraction of one month
         rec_context = []
         for rec, meta in zip(recommendations, rec_meta):
             months_span = meta["months_span"]
-            rec_total_hours = round(monthly_capacity * (months_span / 12.0), 2)
+            rec_total_hours = round(monthly_capacity * months_span, 2)
 
             rec_context.append({
                 "rec_number": meta["rec_number"],
@@ -152,15 +152,7 @@ class BBATaskPlannerService:
             rec_context=rec_context,
         )
 
-        # --- Deterministic post-processing: monthly hours + warnings ---
-        summary = self._compute_summary(
-            tasks=tasks,
-            rec_meta=rec_meta,
-            settings=settings,
-            monthly_capacity=monthly_capacity,
-        )
-
-        return tasks, summary
+        return tasks, None
 
     async def _generate_tasks_via_ai(
         self,
@@ -250,64 +242,6 @@ Return ONLY a JSON object with a "tasks" key containing the array of task rows.
             raise
 
     # -------------------------------------------------------------------------
-    # Deterministic post-processing
-    # -------------------------------------------------------------------------
-
-    def _compute_summary(
-        self,
-        tasks: List[Dict[str, Any]],
-        rec_meta: List[Dict[str, Any]],
-        settings: BBATaskPlannerSettings,
-        monthly_capacity: float,
-    ) -> Dict[str, Any]:
-        """
-        Compute monthly BBA hours and capacity warnings from the AI-generated
-        task rows. This is deterministic math and does not use AI.
-        """
-        # Build a lookup: rec_number -> list of YYYY-MM labels
-        rec_ym_map: Dict[int, List[str]] = {}
-        for meta in rec_meta:
-            rec_ym_map[meta["rec_number"]] = meta["ym_labels"]
-
-        monthly_hours: Dict[str, float] = {}
-        total_bba_hours = 0.0
-
-        for task in tasks:
-            hrs = float(task.get("advisorHrs") or task.get("advisor_hrs") or 0)
-            if hrs <= 0:
-                continue
-
-            total_bba_hours += hrs
-            rec_num = task.get("rec_number")
-            ym_labels = rec_ym_map.get(rec_num, [])
-
-            if ym_labels:
-                per_month = hrs / len(ym_labels)
-                for ym in ym_labels:
-                    monthly_hours[ym] = monthly_hours.get(ym, 0.0) + per_month
-            # If rec_number not found in meta, hours are still counted in total
-
-        # Capacity warnings
-        warnings: List[str] = []
-        rounded_monthly_hours: Dict[str, float] = {}
-
-        for ym, hours in sorted(monthly_hours.items()):
-            rounded = round(hours, 2)
-            rounded_monthly_hours[ym] = rounded
-            if rounded > monthly_capacity + 1e-6:
-                warnings.append(
-                    f"Month {ym} is scheduled for {rounded:.1f} BBA hours, "
-                    f"which exceeds the configured monthly capacity of {monthly_capacity:.1f} hours."
-                )
-
-        return {
-            "total_bba_hours": round(total_bba_hours, 2),
-            "max_hours_per_month": monthly_capacity,
-            "monthly_hours": rounded_monthly_hours,
-            "warnings": warnings,
-        }
-
-    # -------------------------------------------------------------------------
     # Persistence
     # -------------------------------------------------------------------------
 
@@ -315,21 +249,21 @@ Return ONLY a JSON object with a "tasks" key containing the array of task rows.
         self,
         bba_id: UUID,
         tasks: List[Dict[str, Any]],
-        summary: Dict[str, Any],
+        summary: Dict[str, Any] | None = None,
     ) -> BBA:
         """
-        Persist generated tasks and summary to the BBA record.
+        Persist generated tasks to the BBA record. Summary is no longer used.
         """
         bba = self._get_bba(bba_id)
         bba.task_planner_tasks = tasks
-        bba.task_planner_summary = summary
+        bba.task_planner_summary = None  # Phase 2 no longer produces capacity summary
         bba.updated_at = datetime.utcnow()
 
         self.db.commit()
         self.db.refresh(bba)
 
         logger.info(
-            "[BBA Task Planner] Saved %d task rows and summary for BBA %s",
+            "[BBA Task Planner] Saved %d task rows for BBA %s",
             len(tasks),
             bba_id,
         )

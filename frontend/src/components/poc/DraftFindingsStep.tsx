@@ -38,7 +38,6 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
   const [error, setError] = useState<string | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<Finding | null>(null);
-  const [tokensUsed, setTokensUsed] = useState(0);
   const [analysisNotes, setAnalysisNotes] = useState<string>('');
   
   // Use ref to store the callback to avoid infinite loops
@@ -126,7 +125,6 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
       const result = await response.json();
       const findingsData = result.findings?.findings || result.findings || [];
       setFindings(findingsData);
-      setTokensUsed(result.tokens_used || 0);
       setAnalysisNotes(result.findings?.analysis_notes || '');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate findings');
@@ -310,12 +308,6 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
             )}
 
             {/* Token Usage */}
-            {tokensUsed > 0 && (
-              <p className="text-sm text-muted-foreground">
-                Tokens used: {tokensUsed.toLocaleString()}
-              </p>
-            )}
-
             {/* Findings */}
             <div className="space-y-4">
               {findings.map((finding, index) => (

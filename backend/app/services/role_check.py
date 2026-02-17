@@ -217,6 +217,12 @@ def check_engagement_access(
     if user.role == UserRole.CLIENT:
         if require_advisor:
             return False
-        return engagement.client_id == user.id
+        # Support multi-client engagements via `client_ids` array.
+
+        if engagement.client_id == user.id:
+            return True
+        if engagement.client_ids and user.id in engagement.client_ids:
+            return True
+        return False
     
     return False

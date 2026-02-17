@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   fetchAssociations,
@@ -77,26 +77,30 @@ export function AdvisorClientDialog({ open, onOpenChange, advisor, firmClients }
   }, [error]);
 
   // Get clients that are not yet associated with this advisor
-  const associatedClientIds = new Set(associations.map((assoc) => assoc.client_id));
+  const associatedClientIds = useMemo(() => {
+    return new Set(associations.map((assoc) => assoc.client_id));
+  }, [associations]);
   
   // Get set of firm client IDs to exclude for regular advisors
-  const firmClientIds = new Set(firmClientsFromStore.map((c) => c.id));
+  const firmClientIds = useMemo(() => {
+    return new Set(firmClientsFromStore.map((c) => c.id));
+  }, [firmClientsFromStore]);
   
   // Use firmClients if provided or available in store, otherwise use users from store
-  let availableClients: Array<User | Client>;
-  
-  if (clientsToUse) {
-    availableClients = clientsToUse.filter(
-      (client) => !associatedClientIds.has(client.id)
-    );
-  } else {
-    availableClients = users.filter(
-      (user) => 
-        user.role === 'client' && 
-        !associatedClientIds.has(user.id) &&
-        !firmClientIds.has(user.id)  // Exclude clients that belong to firms
-    );
-  }
+  const availableClients = useMemo(() => {
+    if (clientsToUse) {
+      return clientsToUse.filter(
+        (client) => !associatedClientIds.has(client.id)
+      );
+    } else {
+      return users.filter(
+        (user) => 
+          user.role === 'client' && 
+          !associatedClientIds.has(user.id) &&
+          !firmClientIds.has(user.id)  // Exclude clients that belong to firms
+      );
+    }
+  }, [clientsToUse, users, associatedClientIds, firmClientIds]);
 
   // Helper function to get client details
   const getClientDetails = (association: AdvisorClientAssociation) => {
@@ -131,11 +135,13 @@ export function AdvisorClientDialog({ open, onOpenChange, advisor, firmClients }
   };
 
   // Filter available clients by search query
-  const filteredAvailableClients = availableClients.filter(
-    (client) =>
-      client.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      client.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredAvailableClients = useMemo(() => {
+    return availableClients.filter(
+      (client) =>
+        client.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        client.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [availableClients, searchQuery]);
 
   const handleCreateAssociation = async () => {
     if (!selectedClientId) {
@@ -144,17 +150,20 @@ export function AdvisorClientDialog({ open, onOpenChange, advisor, firmClients }
     }
 
     try {
-      await dispatch(
+      const result = await dispatch(
         createAssociation({
           advisorId: advisor.id,
           clientId: selectedClientId,
         })
       ).unwrap();
+      
       toast.success('Client associated successfully');
       setShowAddDialog(false);
       setSelectedClientId('');
       setSearchQuery('');
+      
       // Refetch associations to get the full data with user details
+      // This ensures we have complete client information (name, email) in the association
       dispatch(fetchAssociations(advisor.id));
     } catch (error) {
       // Error is handled by the reducer and shown in toast
@@ -165,6 +174,8 @@ export function AdvisorClientDialog({ open, onOpenChange, advisor, firmClients }
     try {
       await dispatch(deleteAssociation(associationId)).unwrap();
       toast.success('Association removed successfully');
+      // Refetch associations to ensure UI is in sync
+      dispatch(fetchAssociations(advisor.id));
     } catch (error) {
       // Error is handled by the reducer and shown in toast
     }
@@ -190,7 +201,7 @@ export function AdvisorClientDialog({ open, onOpenChange, advisor, firmClients }
                 <p className="text-sm mt-2">Click "Add Client" to create an association.</p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2" key={`associations-${associations.length}-${associations.map(a => a.id).join('-')}`}>
                 {associations.map((association) => {
                   const clientDetails = getClientDetails(association);
                   return (

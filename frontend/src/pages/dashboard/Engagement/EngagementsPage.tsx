@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, ArrowRight, FileText, CheckSquare, Calendar, Loader2, Users, Trash2 } from 'lucide-react';
+import { Search, Plus, ArrowRight, FileText, CheckSquare, Calendar, Loader2, Users, Trash2, UserPlus } from 'lucide-react';
 import { fetchEngagements, fetchUserRoleData, deleteEngagement } from '@/store/slices/engagementReducer';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { EngagementForm } from "@/components/engagement/form";
 import { SecondaryAdvisorDialog } from './SecondaryAdvisorDialog';
+import { AddClientsDialog } from '@/components/engagement/AddClientsDialog';
 import { DeleteEngagementDialog } from './DeleteEngagementDialog';
 import { toast } from "sonner";
 import type { Engagement } from '@/store/slices/engagementReducer';
@@ -34,6 +35,7 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSecondaryAdvisorDialogOpen, setIsSecondaryAdvisorDialogOpen] = useState(false);
+  const [isAddClientsDialogOpen, setIsAddClientsDialogOpen] = useState(false);
   const [selectedEngagement, setSelectedEngagement] = useState<Engagement | null>(null);
   const [engagementToDelete, setEngagementToDelete] = useState<Engagement | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -43,6 +45,7 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
   const isFirmAdvisor = user?.role === 'firm_advisor';
   const canDeleteEngagements = user && ['super_admin', 'admin', 'firm_admin'].includes(user.role);
   const canManageSecondaryAdvisors = user && ['advisor', 'firm_advisor', 'firm_admin', 'admin', 'super_admin'].includes(user.role);
+  const canManageClients = user && ['advisor', 'firm_advisor', 'firm_admin', 'admin', 'super_admin'].includes(user.role);
 
   // Fetch user role data for firm advisors to get advisors list
   useEffect(() => {
@@ -137,6 +140,17 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
 
   const handleSecondaryAdvisorDialogClose = () => {
     setIsSecondaryAdvisorDialogOpen(false);
+    setSelectedEngagement(null);
+  };
+
+  const handleManageClients = (engagement: Engagement, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent navigation to engagement detail
+    setSelectedEngagement(engagement);
+    setIsAddClientsDialogOpen(true);
+  };
+
+  const handleAddClientsDialogClose = () => {
+    setIsAddClientsDialogOpen(false);
     setSelectedEngagement(null);
   };
 
@@ -286,9 +300,11 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
                             <Calendar className="w-4 h-4" />
                             Started {formatDate(engagement.startDate)}
                           </span>
-                          {engagement.clientName && (
+                          {engagement.clientNames && engagement.clientNames.length > 0 ? (
+                            <span>Clients: {engagement.clientNames.join(', ')}</span>
+                          ) : engagement.clientName ? (
                             <span>Client: {engagement.clientName}</span>
-                          )}
+                          ) : null}
                           {engagement.advisorName && (
                             <span>Advisor: {engagement.advisorName}</span>
                           )}
@@ -304,6 +320,17 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
                             >
                               <Users className="w-4 h-4" />
                               {engagement.assignedUsers?.length || 0} Secondary
+                            </button>
+                          )}
+                          {canManageClients && (
+                            <button
+                              type="button"
+                              onClick={(e) => handleManageClients(engagement, e)}
+                              className="flex items-center gap-1.5 text-accent hover:text-accent/80 transition-colors"
+                              title="Manage clients"
+                            >
+                              <UserPlus className="w-4 h-4" />
+                              Add Clients
                             </button>
                           )}
                         </div>
@@ -402,6 +429,26 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
         <SecondaryAdvisorDialog
           open={isSecondaryAdvisorDialogOpen}
           onOpenChange={handleSecondaryAdvisorDialogClose}
+          engagement={selectedEngagement}
+          firmId={firmId}
+          statusFilter={statusFilter}
+          searchQuery={searchQuery}
+          onSuccess={() => {
+            // Refetch engagements after successful update
+            dispatch(fetchEngagements({
+              status: statusFilter !== 'all' ? statusFilter : undefined,
+              search: searchQuery || undefined,
+              firm_id: firmId,
+            }));
+          }}
+        />
+      )}
+
+      {/* Manage Clients Dialog */}
+      {!isClient && canManageClients && (
+        <AddClientsDialog
+          open={isAddClientsDialogOpen}
+          onOpenChange={handleAddClientsDialogClose}
           engagement={selectedEngagement}
           firmId={firmId}
           statusFilter={statusFilter}

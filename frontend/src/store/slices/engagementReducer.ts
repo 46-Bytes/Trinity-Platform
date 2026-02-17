@@ -3,8 +3,10 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 // Types
 export interface Engagement {
   id: string;
-  clientId: string;
-  clientName: string;
+  clientId?: string;  // Kept for backward compatibility
+  clientIds: string[];  // New array format
+  clientName?: string;  // Kept for backward compatibility
+  clientNames: string[];  // New array format
   advisorName?: string;
   businessName: string;
   title: string;
@@ -128,31 +130,41 @@ export const fetchEngagements = createAsyncThunk(
       const data = await response.json();
       
       // Transform backend data to match frontend Engagement interface
-      const engagements: Engagement[] = (Array.isArray(data) ? data : []).map((item: any) => ({
-        id: item.id,
-        clientId: item.client_id,
-        clientName: item.client_name || 'Unknown Client',
-        advisorName: item.advisor_name || undefined,
-        businessName: item.business_name || '',
-        title: item.title || item.engagement_name || '',
-        description: item.description || '',
-        industryName: item.industry_name || item.industry || '',
-        tool: item.tool || undefined,
-        status: mapBackendStatusToFrontend(item.status),
-        startDate: item.start_date || item.created_at || new Date().toISOString(),
-        endDate: item.end_date || item.completed_at || undefined,
-        budget: undefined, // Not in backend model yet
-        assignedUsers: item.assigned_users || item.secondary_advisor_ids?.map((id: string) => String(id)) || [],
-        createdAt: item.created_at || new Date().toISOString(),
-        updatedAt: item.updated_at || new Date().toISOString(),
-        // Additional fields from backend
-        tasksCount: item.tasks_count || 0,
-        pendingTasksCount: item.pending_tasks_count || 0,
-        diagnosticsCount: item.diagnostics_count || 0,
-        notesCount: item.notes_count || 0,
-        documentsCount: item.documents_count || 0,
-        is_deleted: item.is_deleted ?? false,
-      }));
+      const engagements: Engagement[] = (Array.isArray(data) ? data : []).map((item: any) => {
+        // Handle client_ids array (new format) or fallback to client_id (backward compatibility)
+        const clientIds = item.client_ids?.map((id: any) => String(id)) || 
+                         (item.client_id ? [String(item.client_id)] : []);
+        const clientNames = item.client_names || 
+                           (item.client_name ? [item.client_name] : []);
+        
+        return {
+          id: item.id,
+          clientId: item.client_id ? String(item.client_id) : undefined,  // Keep for backward compatibility
+          clientIds: clientIds,  // New array format
+          clientName: item.client_name || clientNames[0] || undefined,  // Keep for backward compatibility
+          clientNames: clientNames,  // New array format
+          advisorName: item.advisor_name || undefined,
+          businessName: item.business_name || '',
+          title: item.title || item.engagement_name || '',
+          description: item.description || '',
+          industryName: item.industry_name || item.industry || '',
+          tool: item.tool || undefined,
+          status: mapBackendStatusToFrontend(item.status),
+          startDate: item.start_date || item.created_at || new Date().toISOString(),
+          endDate: item.end_date || item.completed_at || undefined,
+          budget: undefined, // Not in backend model yet
+          assignedUsers: item.assigned_users || item.secondary_advisor_ids?.map((id: string) => String(id)) || [],
+          createdAt: item.created_at || new Date().toISOString(),
+          updatedAt: item.updated_at || new Date().toISOString(),
+          // Additional fields from backend
+          tasksCount: item.tasks_count || 0,
+          pendingTasksCount: item.pending_tasks_count || 0,
+          diagnosticsCount: item.diagnostics_count || 0,
+          notesCount: item.notes_count || 0,
+          documentsCount: item.documents_count || 0,
+          is_deleted: item.is_deleted ?? false,
+        };
+      });
 
       return engagements;
     } catch (error) {
@@ -267,21 +279,36 @@ export const createEngagement = createAsyncThunk(
 
       const data = await response.json();
       
+      // Handle client_ids array (new format) or fallback to client_id (backward compatibility)
+      const clientIds_array = data.client_ids?.map((id: any) => String(id)) || 
+                             (data.client_id ? [String(data.client_id)] : []);
+      const clientNames_array = data.client_names || 
+                               (data.client_name ? [data.client_name] : []);
+      
       // Transform backend response to frontend format
       return {
         id: data.id,
-        clientId: data.client_id,
-        clientName: data.client_name || engagement.clientName,
+        clientId: data.client_id ? String(data.client_id) : undefined,
+        clientIds: clientIds_array,
+        clientName: data.client_name || clientNames_array[0] || engagement.clientName,
+        clientNames: clientNames_array,
         businessName: data.business_name || engagement.businessName,
         title: data.title || data.engagement_name || engagement.title,
         description: data.description || engagement.description,
         industryName: data.industry_name || data.industry || engagement.industryName,
+        tool: data.tool || engagement.tool,
         status: mapBackendStatusToFrontend(data.status),
         startDate: data.start_date || data.created_at || new Date().toISOString(),
         endDate: data.end_date || data.completed_at || undefined,
         assignedUsers: data.assigned_users || data.secondary_advisor_ids?.map((id: string) => String(id)) || [],
         createdAt: data.created_at || new Date().toISOString(),
         updatedAt: data.updated_at || new Date().toISOString(),
+        tasksCount: data.tasks_count || 0,
+        pendingTasksCount: data.pending_tasks_count || 0,
+        diagnosticsCount: data.diagnostics_count || 0,
+        notesCount: data.notes_count || 0,
+        documentsCount: data.documents_count || 0,
+        is_deleted: data.is_deleted ?? false,
       } as Engagement;
     } catch (error) {
       return rejectWithValue(error instanceof Error ? error.message : 'Failed to create engagement');
@@ -309,7 +336,7 @@ export const updateEngagement = createAsyncThunk(
       
       // Map frontend fields to backend fields
       const backendUpdates: any = {};
-      if (updates.engagement_name !== undefined) backendUpdates.engagement_name = updates.engagement_name;
+      if (updates.title !== undefined) backendUpdates.engagement_name = updates.title;
       if (updates.businessName !== undefined) backendUpdates.business_name = updates.businessName;
       if (updates.industryName !== undefined) backendUpdates.industry = updates.industryName;
       if (updates.description !== undefined) backendUpdates.description = updates.description;
@@ -346,21 +373,36 @@ export const updateEngagement = createAsyncThunk(
 
       const data = await response.json();
       
+      // Handle client_ids array (new format) or fallback to client_id (backward compatibility)
+      const clientIds_array = data.client_ids?.map((id: any) => String(id)) || 
+                             (data.client_id ? [String(data.client_id)] : []);
+      const clientNames_array = data.client_names || 
+                               (data.client_name ? [data.client_name] : []);
+      
       // Transform backend response to frontend format
       return {
         id: data.id,
-        clientId: data.client_id,
-        clientName: data.client_name || updates.clientName,
+        clientId: data.client_id ? String(data.client_id) : undefined,
+        clientIds: clientIds_array,
+        clientName: data.client_name || clientNames_array[0] || updates.clientName,
+        clientNames: clientNames_array,
         businessName: data.business_name || updates.businessName,
         title: data.title || data.engagement_name || updates.title,
         description: data.description || updates.description,
         industryName: data.industry_name || data.industry || updates.industryName,
-        status: data.status || updates.status,
+        tool: data.tool || updates.tool,
+        status: mapBackendStatusToFrontend(data.status) || updates.status,
         startDate: data.start_date || data.created_at || updates.startDate,
         endDate: data.end_date || data.completed_at || updates.endDate,
         assignedUsers: data.assigned_users || data.secondary_advisor_ids?.map((id: string) => String(id)) || [],
         createdAt: data.created_at || updates.createdAt,
         updatedAt: data.updated_at || new Date().toISOString(),
+        tasksCount: data.tasks_count || 0,
+        pendingTasksCount: data.pending_tasks_count || 0,
+        diagnosticsCount: data.diagnostics_count || 0,
+        notesCount: data.notes_count || 0,
+        documentsCount: data.documents_count || 0,
+        is_deleted: data.is_deleted ?? false,
       } as Engagement;
     } catch (error) {
       return rejectWithValue(error instanceof Error ? error.message : 'Failed to update engagement');
@@ -415,6 +457,129 @@ export const fetchSecondaryAdvisorCandidates = createAsyncThunk(
       return data.candidates as SecondaryAdvisorCandidate[];
     } catch (error) {
       return rejectWithValue(error instanceof Error ? error.message : 'Failed to fetch secondary advisor candidates');
+    }
+  }
+);
+
+export const addClientsToEngagement = createAsyncThunk(
+  'engagement/addClientsToEngagement',
+  async ({ engagementId, clientIds }: { engagementId: string; clientIds: string[] }, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/engagements/${engagementId}/clients`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ client_ids: clientIds }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to add clients to engagement' }));
+        throw new Error(errorData.detail || 'Failed to add clients to engagement');
+      }
+
+      const data = await response.json();
+      
+      // Transform backend response to frontend format
+      const clientIds_array = data.client_ids?.map((id: any) => String(id)) || 
+                             (data.client_id ? [String(data.client_id)] : []);
+      const clientNames_array = data.client_names || 
+                               (data.client_name ? [data.client_name] : []);
+      
+      return {
+        id: data.id,
+        clientId: data.client_id ? String(data.client_id) : undefined,
+        clientIds: clientIds_array,
+        clientName: data.client_name || clientNames_array[0] || undefined,
+        clientNames: clientNames_array,
+        advisorName: data.advisor_name || undefined,
+        businessName: data.business_name || '',
+        title: data.title || data.engagement_name || '',
+        description: data.description || '',
+        industryName: data.industry_name || data.industry || '',
+        tool: data.tool || undefined,
+        status: mapBackendStatusToFrontend(data.status),
+        startDate: data.start_date || data.created_at || new Date().toISOString(),
+        endDate: data.end_date || data.completed_at || undefined,
+        assignedUsers: data.assigned_users || data.secondary_advisor_ids?.map((id: string) => String(id)) || [],
+        createdAt: data.created_at || new Date().toISOString(),
+        updatedAt: data.updated_at || new Date().toISOString(),
+        tasksCount: data.tasks_count || 0,
+        pendingTasksCount: data.pending_tasks_count || 0,
+        diagnosticsCount: data.diagnostics_count || 0,
+        notesCount: data.notes_count || 0,
+        documentsCount: data.documents_count || 0,
+        is_deleted: data.is_deleted ?? false,
+      } as Engagement;
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to add clients to engagement');
+    }
+  }
+);
+
+export const removeClientFromEngagement = createAsyncThunk(
+  'engagement/removeClientFromEngagement',
+  async ({ engagementId, clientId }: { engagementId: string; clientId: string }, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/engagements/${engagementId}/clients/${clientId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to remove client from engagement' }));
+        throw new Error(errorData.detail || 'Failed to remove client from engagement');
+      }
+
+      const data = await response.json();
+      
+      // Transform backend response to frontend format
+      const clientIds_array = data.client_ids?.map((id: any) => String(id)) || 
+                             (data.client_id ? [String(data.client_id)] : []);
+      const clientNames_array = data.client_names || 
+                               (data.client_name ? [data.client_name] : []);
+      
+      return {
+        id: data.id,
+        clientId: data.client_id ? String(data.client_id) : undefined,
+        clientIds: clientIds_array,
+        clientName: data.client_name || clientNames_array[0] || undefined,
+        clientNames: clientNames_array,
+        advisorName: data.advisor_name || undefined,
+        businessName: data.business_name || '',
+        title: data.title || data.engagement_name || '',
+        description: data.description || '',
+        industryName: data.industry_name || data.industry || '',
+        tool: data.tool || undefined,
+        status: mapBackendStatusToFrontend(data.status),
+        startDate: data.start_date || data.created_at || new Date().toISOString(),
+        endDate: data.end_date || data.completed_at || undefined,
+        assignedUsers: data.assigned_users || data.secondary_advisor_ids?.map((id: string) => String(id)) || [],
+        createdAt: data.created_at || new Date().toISOString(),
+        updatedAt: data.updated_at || new Date().toISOString(),
+        tasksCount: data.tasks_count || 0,
+        pendingTasksCount: data.pending_tasks_count || 0,
+        diagnosticsCount: data.diagnostics_count || 0,
+        notesCount: data.notes_count || 0,
+        documentsCount: data.documents_count || 0,
+        is_deleted: data.is_deleted ?? false,
+      } as Engagement;
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to remove client from engagement');
     }
   }
 );
@@ -549,6 +714,44 @@ const engagementSlice = createSlice({
       })
       .addCase(fetchSecondaryAdvisorCandidates.rejected, (state, action) => {
         state.isLoadingCandidates = false;
+        state.error = action.payload as string;
+      })
+      // Add clients to engagement
+      .addCase(addClientsToEngagement.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(addClientsToEngagement.fulfilled, (state, action) => {
+        state.isLoading = false;
+        const index = state.engagements.findIndex((e) => e.id === action.payload.id);
+        if (index !== -1) {
+          state.engagements[index] = action.payload;
+        }
+        if (state.selectedEngagement?.id === action.payload.id) {
+          state.selectedEngagement = action.payload;
+        }
+      })
+      .addCase(addClientsToEngagement.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // Remove client from engagement
+      .addCase(removeClientFromEngagement.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(removeClientFromEngagement.fulfilled, (state, action) => {
+        state.isLoading = false;
+        const index = state.engagements.findIndex((e) => e.id === action.payload.id);
+        if (index !== -1) {
+          state.engagements[index] = action.payload;
+        }
+        if (state.selectedEngagement?.id === action.payload.id) {
+          state.selectedEngagement = action.payload;
+        }
+      })
+      .addCase(removeClientFromEngagement.rejected, (state, action) => {
+        state.isLoading = false;
         state.error = action.payload as string;
       });
   },

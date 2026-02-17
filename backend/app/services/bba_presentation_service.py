@@ -16,6 +16,7 @@ import json
 import logging
 
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.models.bba import BBA
 from app.services.openai_service import OpenAIService
@@ -152,13 +153,16 @@ class BBAPresentationService:
                 f"Slide index {slide_index} is out of range (0–{len(slides) - 1})."
             )
 
-        # Merge only non-None updates
+        # Build new slide dict with merged updates (so JSONB change is detected)
+        merged = dict(slides[slide_index])
         for key, value in updates.items():
             if value is not None:
-                slides[slide_index][key] = value
+                merged[key] = value
 
-        # Force SQLAlchemy to detect the JSONB mutation
-        bba.presentation_slides = {**bba.presentation_slides, "slides": slides}
+        new_slides = list(slides)
+        new_slides[slide_index] = merged
+        bba.presentation_slides = {**bba.presentation_slides, "slides": new_slides}
+        flag_modified(bba, "presentation_slides")
         bba.updated_at = datetime.utcnow()
 
         self.db.commit()
@@ -192,8 +196,7 @@ class BBAPresentationService:
                 f"Slide index {slide_index} is out of range (0–{len(slides) - 1})."
             )
 
-        # Remove the requested slide
-        removed = slides.pop(slide_index)
+        removed = slides[slide_index]
         logger.info(
             "[BBA Presentation] Deleting slide %d for BBA %s (title=%s)",
             slide_index,
@@ -201,11 +204,15 @@ class BBAPresentationService:
             removed.get("title"),
         )
 
-        # Reindex remaining slides so their `index` fields stay in sync
-        for i, slide in enumerate(slides):
+        # New list without the removed slide; reindex so `index` stays in sync
+        new_slides = [s for i, s in enumerate(slides) if i != slide_index]
+        for i, slide in enumerate(new_slides):
+            slide = dict(slide)
             slide["index"] = i
+            new_slides[i] = slide
 
-        bba.presentation_slides = {**bba.presentation_slides, "slides": slides}
+        bba.presentation_slides = {**bba.presentation_slides, "slides": new_slides}
+        flag_modified(bba, "presentation_slides")
         bba.updated_at = datetime.utcnow()
 
         self.db.commit()

@@ -9,7 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -343,66 +342,28 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
                           />
                         </div>
                         <div>
-                          <label className="text-sm font-medium mb-2 block">Impact</label>
-                          <Select
+                          <label className="text-sm font-medium">Impact</label>
+                          <select
                             value={editForm.impact}
-                            onValueChange={(value) => setEditForm({ ...editForm, impact: value as any })}
+                            onChange={(e) => setEditForm({ ...editForm, impact: e.target.value as any })}
+                            className="w-full h-10 rounded-md border px-3"
                           >
-                            <SelectTrigger className={cn("w-full", getImpactColor(editForm.impact), "hover:opacity-90")}>
-                              <SelectValue>
-                                {editForm.impact.charAt(0).toUpperCase() + editForm.impact.slice(1)}
-                              </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="high">
-                                <div className="flex items-center gap-2">
-                                  <Badge className={getImpactColor('high')}>High</Badge>
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="medium">
-                                <div className="flex items-center gap-2">
-                                  <Badge className={getImpactColor('medium')}>Medium</Badge>
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="low">
-                                <div className="flex items-center gap-2">
-                                  <Badge className={getImpactColor('low')}>Low</Badge>
-                                </div>
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
+                            <option value="high">High</option>
+                            <option value="medium">Medium</option>
+                            <option value="low">Low</option>
+                          </select>
                         </div>
                         <div>
-                          <label className="text-sm font-medium mb-2 block">Urgency</label>
-                          <Select
+                          <label className="text-sm font-medium">Urgency</label>
+                          <select
                             value={editForm.urgency}
-                            onValueChange={(value) => setEditForm({ ...editForm, urgency: value as any })}
+                            onChange={(e) => setEditForm({ ...editForm, urgency: e.target.value as any })}
+                            className="w-full h-10 rounded-md border px-3"
                           >
-                            <SelectTrigger className={cn("w-full", getUrgencyColor(editForm.urgency), "hover:opacity-90")}>
-                              <SelectValue>
-                                {editForm.urgency === 'short-term' ? 'Short-term' : 
-                                 editForm.urgency === 'medium-term' ? 'Medium-term' : 
-                                 editForm.urgency.charAt(0).toUpperCase() + editForm.urgency.slice(1)}
-                              </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="immediate">
-                                <div className="flex items-center gap-2">
-                                  <Badge className={getUrgencyColor('immediate')}>Immediate</Badge>
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="short-term">
-                                <div className="flex items-center gap-2">
-                                  <Badge className={getUrgencyColor('short-term')}>Short-term</Badge>
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="medium-term">
-                                <div className="flex items-center gap-2">
-                                  <Badge className={getUrgencyColor('medium-term')}>Medium-term</Badge>
-                                </div>
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
+                            <option value="immediate">Immediate</option>
+                            <option value="short-term">Short-term</option>
+                            <option value="medium-term">Medium-term</option>
+                          </select>
                         </div>
                       </div>
                       <div className="flex justify-end gap-2">

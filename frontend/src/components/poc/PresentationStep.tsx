@@ -168,7 +168,7 @@ export default function PresentationStep({
     );
 
     try {
-      await fetch(
+      const res = await fetch(
         `${API_BASE_URL}/api/poc/${projectId}/presentation/slides/${index}/edit`,
         {
           method: 'POST',
@@ -180,8 +180,18 @@ export default function PresentationStep({
           body: JSON.stringify({ approved: newApproved }),
         }
       );
-    } catch {
-      // Revert on error
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.detail || `Failed to save approval (${res.status})`);
+      }
+      // Optionally sync from response so server state is source of truth
+      const data = await res.json().catch(() => null);
+      if (data?.slides?.length) {
+        setSlides(data.slides);
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to save approval');
+      // Revert on error so UI matches server
       setSlides((prev) =>
         prev.map((s, i) =>
           i === index ? { ...s, approved: !newApproved } : s
@@ -391,8 +401,9 @@ export default function PresentationStep({
             {slides.length > 0 && (
               <Button
                 onClick={handleExport}
-                disabled={exporting}
+                disabled={exporting || approvedCount === 0}
                 variant="outline"
+                title={approvedCount === 0 ? 'Approve at least one slide to export' : undefined}
               >
                 {exporting ? (
                   <>

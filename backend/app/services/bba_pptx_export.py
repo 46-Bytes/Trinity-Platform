@@ -53,15 +53,29 @@ class BBAPptxExporter:
     def generate_presentation(self, bba: BBA) -> bytes:
         """
         Build a complete .pptx deck from bba.presentation_slides.
+        Only slides that have been approved by the user are included in the export.
+        Unapproved slides are skipped.
 
         Returns:
             Bytes of the generated PowerPoint file.
         """
         logger.info("[BBA PPTX] Generating presentation for BBA %s", bba.id)
 
-        slides_data = (bba.presentation_slides or {}).get("slides", [])
-        if not slides_data:
+        all_slides = (bba.presentation_slides or {}).get("slides", [])
+        if not all_slides:
             raise ValueError("No presentation slides exist. Generate slides first.")
+
+        slides_data = [s for s in all_slides if s.get("approved")]
+        if not slides_data:
+            raise ValueError(
+                "No approved slides. Approve at least one slide before exporting."
+            )
+
+        logger.info(
+            "[BBA PPTX] Exporting %d approved slide(s) (skipping %d unapproved)",
+            len(slides_data),
+            len(all_slides) - len(slides_data),
+        )
 
         prs = Presentation()
         prs.slide_width = SLIDE_WIDTH

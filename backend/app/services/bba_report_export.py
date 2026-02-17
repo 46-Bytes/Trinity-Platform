@@ -65,8 +65,10 @@ class BBAReportExporter:
         self._setup_headers_footers(doc, bba)
         
         # Add content
+        # Title page is followed immediately by the Executive Summary; we no longer
+        # insert a manual page break here, otherwise Word can create an extra
+        # blank page between the title page and page 2.
         self._add_title_page(doc, bba)
-        self._add_page_break(doc)
         
         if bba.executive_summary:
             self._add_executive_summary(doc, bba)
@@ -501,8 +503,16 @@ class BBAReportExporter:
         run.font.size = Pt(24)
         run.font.color.rgb = RGBColor(0x1a, 0x36, 0x5d)
         
-        # Spacing
+        # Small spacing after title
         doc.add_paragraph()
+        
+        # Prepared by (placed near the top, directly under the title)
+        prepared = doc.add_paragraph()
+        prepared.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        prepared_run = prepared.add_run("Prepared by Benchmark Business Advisory")
+        prepared_run.font.size = Pt(12)
+        
+        # Spacing before client name
         doc.add_paragraph()
         
         # Client name
@@ -518,14 +528,8 @@ class BBAReportExporter:
         date_str = datetime.utcnow().strftime("%B %Y")
         date_para.add_run(date_str)
         
-        # Spacing
-        for _ in range(10):
-            doc.add_paragraph()
-        
-        # Prepared by
-        prepared = doc.add_paragraph()
-        prepared.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        prepared.add_run("Prepared by Benchmark Business Advisory")
+        # Small spacing after date so the rest of the page isn't left blank
+        doc.add_paragraph()
     
     def _add_executive_summary(self, doc: Document, bba: BBA):
         """Add the executive summary section."""
@@ -895,8 +899,8 @@ class BBAReportExporter:
         tblPr.append(tblW)
         footer_table.alignment = WD_TABLE_ALIGNMENT.CENTER
         
-        # Set relative column widths: left 25%, middle 30%, right 45%
-        width_ratios = [0.25, 0.30, 0.45]
+        # Set relative column widths: left 35%, middle 30%, right 35%.
+        width_ratios = [0.35, 0.30, 0.35]
         row = footer_table.rows[0]
         for idx, cell in enumerate(row.cells):
             cell_twips = int(available_width_twips * width_ratios[idx])

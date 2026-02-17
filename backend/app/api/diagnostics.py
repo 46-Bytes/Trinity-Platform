@@ -42,6 +42,38 @@ import asyncio
 
 router = APIRouter(prefix="/diagnostics", tags=["diagnostics"])
 
+def _require_engagement_access(db: Session, engagement_id: UUID, current_user: User) -> Engagement:
+    """
+    Load an engagement and enforce that the current user has access to it.
+    This is critical for CLIENT users when engagements use `client_ids` (array).
+    """
+    engagement = (
+        db.query(Engagement)
+        .filter(Engagement.id == engagement_id, Engagement.is_deleted == False)
+        .first()
+    )
+    if not engagement:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Engagement not found")
+
+    if not check_engagement_access(engagement, current_user, db=db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this engagement",
+        )
+    return engagement
+
+def _require_diagnostic_access(db: Session, diagnostic: Diagnostic, current_user: User) -> Engagement:
+    """
+    Enforce access to a diagnostic via its engagement.
+    """
+    if not diagnostic.engagement_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Engagement not found for this diagnostic",
+        )
+    return _require_engagement_access(db=db, engagement_id=diagnostic.engagement_id, current_user=current_user)
+
+
 @router.post("/create", response_model=DiagnosticResponse, status_code=status.HTTP_201_CREATED)
 async def create_diagnostic(
     diagnostic_data: DiagnosticCreate,
@@ -727,6 +759,9 @@ async def get_diagnostic_status(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Diagnostic {diagnostic_id} not found"
         )
+
+    # Enforce engagement access (clients may be in engagement.client_ids)
+    _require_diagnostic_access(db=db, diagnostic=diagnostic, current_user=current_user)
     
     return {
         "status": diagnostic.status,
@@ -761,6 +796,9 @@ async def get_diagnostic(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Diagnostic {diagnostic_id} not found"
         )
+
+    # Enforce engagement access (clients may be in engagement.client_ids)
+    _require_diagnostic_access(db=db, diagnostic=diagnostic, current_user=current_user)
     
     # Filter report content for admin/firm_admin if they didn't create/complete
     diagnostic = filter_diagnostic_report_for_user(diagnostic, current_user)
@@ -796,6 +834,9 @@ async def get_diagnostic_results(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Diagnostic {diagnostic_id} not found"
         )
+
+    # Enforce engagement access (clients may be in engagement.client_ids)
+    _require_diagnostic_access(db=db, diagnostic=diagnostic, current_user=current_user)
     
     if diagnostic.status != "completed":
         raise HTTPException(
@@ -825,6 +866,9 @@ async def list_engagement_diagnostics(
         List of diagnostics for the engagement
     """
     service = get_diagnostic_service(db)
+
+    # Enforce engagement access (clients may be in engagement.client_ids)
+    _require_engagement_access(db=db, engagement_id=engagement_id, current_user=current_user)
     
     diagnostics = service.get_engagement_diagnostics(engagement_id)
     
@@ -962,6 +1006,9 @@ async def download_diagnostic_report(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Diagnostic not found"
             )
+
+        # Enforce engagement access (clients may be in engagement.client_ids)
+        _require_diagnostic_access(db=db, diagnostic=diagnostic, current_user=current_user)
 
         if current_user.role in [UserRole.ADMIN, UserRole.FIRM_ADMIN]:
             is_created_by_admin = diagnostic.created_by_user_id == current_user.id

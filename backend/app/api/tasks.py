@@ -275,10 +275,12 @@ async def list_tasks(
                 )
             )
         elif current_user.role == UserRole.CLIENT:
-            query = query.filter(
+            # Clients should see tasks for engagements they have access to.
+            # Engagement membership can be represented by legacy `client_id` or the newer `client_ids` array.
+            query = query.join(Engagement).filter(
                 or_(
-                    Task.created_by_user_id == current_user.id,
-                    text("assigned_to_user_ids @> ARRAY[:user_id]::uuid[]").bindparams(user_id=current_user.id)
+                    Engagement.client_id == current_user.id,
+                    text("client_ids @> ARRAY[:user_id]::uuid[]").bindparams(user_id=current_user.id),
                 )
             )
         else:

@@ -26,6 +26,7 @@ from ..schemas.engagement import (
     EngagementDetail,
     SecondaryAdvisorCandidatesResponse,
     SecondaryAdvisorCandidate,
+    EngagementClientAdd,
 )
 from ..services.role_check import get_current_user_from_token, check_engagement_access
 from ..models.adv_client import AdvisorClient
@@ -157,6 +158,9 @@ async def create_engagement(
                 )
     
     # Create engagement
+    # Convert single client_id to client_ids array
+    client_ids_array = [engagement_data.client_id]
+    
     engagement = Engagement(
         engagement_name=engagement_data.engagement_name,
         business_name=engagement_data.business_name,
@@ -164,7 +168,8 @@ async def create_engagement(
         description=engagement_data.description,
         tool=engagement_data.tool,
         status=engagement_data.status,
-        client_id=engagement_data.client_id,
+        client_id=engagement_data.client_id,  # Keep for backward compatibility
+        client_ids=client_ids_array,  # New array format
         primary_advisor_id=primary_advisor_id,
         firm_id=firm_id,
         secondary_advisor_ids=unique_secondary_ids,
@@ -199,7 +204,9 @@ async def create_engagement(
     # Create response using Pydantic model_validate (handles SQLAlchemy models properly)
     response = EngagementResponse.model_validate(engagement)
     # Add client_name and advisor_name (not in model, but needed for response)
-    response.client_name = client.name or client.email or client.nickname if client else None
+    client_name = client.name or client.email or client.nickname if client else None
+    response.client_name = client_name  # Keep for backward compatibility
+    response.client_names = [client_name] if client_name else []  # New array format
     response.advisor_name = primary_advisor.name or primary_advisor.email or primary_advisor.nickname if primary_advisor else None
     
     return response
@@ -262,7 +269,15 @@ async def list_engagements(
             )
         )
     elif current_user.role == UserRole.CLIENT:
-        query = query.filter(Engagement.client_id == current_user.id)
+        # Support multi-client engagements via `client_ids` array.
+        # `client_id` is kept for backward compatibility but is not reliable when multiple
+        # clients are associated to one engagement.
+        query = query.filter(
+            or_(
+                Engagement.client_id == current_user.id,
+                text("client_ids @> ARRAY[:user_id]::uuid[]").bindparams(user_id=current_user.id),
+            )
+        )
     else:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -329,20 +344,27 @@ async def list_engagements(
             db.commit()
             effective_status = "completed"
         
-        # Get client name
-        client = None
+        # Get client names from client_ids array (or fallback to client_id for backward compatibility)
+        client_ids_to_fetch = engagement.client_ids if engagement.client_ids else []
+        # Fallback to client_id if client_ids is empty (for backward compatibility)
+        if not client_ids_to_fetch and engagement.client_id:
+            client_ids_to_fetch = [engagement.client_id]
+        
         client_name = None
-        if engagement.client_id:
+        client_names = []
+        if client_ids_to_fetch:
             try:
-                client = db.query(User).filter(User.id == engagement.client_id).first()
-                if client:
-                    client_name = client.name or client.email or client.nickname
-                    if not client_name:
-                        logger.warning(f"Client {engagement.client_id} found but has no name, email, or nickname")
-                else:
-                    logger.warning(f"Client with id {engagement.client_id} not found in database")
+                clients = db.query(User).filter(User.id.in_(client_ids_to_fetch)).all()
+                client_names = [
+                    (client.name or client.email or client.nickname) 
+                    for client in clients 
+                    if client
+                ]
+                # Set client_name to first client for backward compatibility
+                if client_names:
+                    client_name = client_names[0]
             except Exception as e:
-                logger.error(f"Error fetching client {engagement.client_id}: {str(e)}")
+                logger.error(f"Error fetching clients {client_ids_to_fetch}: {str(e)}")
         
         # Get primary advisor name
         primary_advisor = None
@@ -357,7 +379,8 @@ async def list_engagements(
         
         engagement_dict = {
             **engagement.__dict__,
-            "client_name": client_name,
+            "client_name": client_name,  # Keep for backward compatibility
+            "client_names": client_names,  # New array format
             "advisor_name": advisor_name,
             "status": effective_status,  # Use computed status
             "diagnostics_count": diagnostics_count,
@@ -584,11 +607,29 @@ async def get_engagement(
             detail="You do not have access to this engagement."
         )
     
-    # Populate client_name and advisor_name for response
-    client = db.query(User).filter(User.id == engagement.client_id).first()
+    # Populate client_name, client_names, and advisor_name for response
+    client_ids_to_fetch = engagement.client_ids if engagement.client_ids else []
+    # Fallback to client_id if client_ids is empty (for backward compatibility)
+    if not client_ids_to_fetch and engagement.client_id:
+        client_ids_to_fetch = [engagement.client_id]
+    
+    client_name = None
+    client_names = []
+    if client_ids_to_fetch:
+        clients = db.query(User).filter(User.id.in_(client_ids_to_fetch)).all()
+        client_names = [
+            (client.name or client.email or client.nickname) 
+            for client in clients 
+            if client
+        ]
+        # Set client_name to first client for backward compatibility
+        if client_names:
+            client_name = client_names[0]
+    
     primary_advisor = db.query(User).filter(User.id == engagement.primary_advisor_id).first()
     engagement_dict = engagement.__dict__.copy()
-    engagement_dict["client_name"] = client.name or client.email or client.nickname if client else None
+    engagement_dict["client_name"] = client_name  # Keep for backward compatibility
+    engagement_dict["client_names"] = client_names  # New array format
     engagement_dict["advisor_name"] = primary_advisor.name or primary_advisor.email or primary_advisor.nickname if primary_advisor else None
     
     return EngagementDetail(**engagement_dict)
@@ -767,11 +808,302 @@ async def update_engagement(
     db.commit()
     db.refresh(engagement)
     
-    # Populate client_name and advisor_name for response
-    client = db.query(User).filter(User.id == engagement.client_id).first()
+    # Populate client_name, client_names, and advisor_name for response
+    client_ids_to_fetch = engagement.client_ids if engagement.client_ids else []
+    # Fallback to client_id if client_ids is empty (for backward compatibility)
+    if not client_ids_to_fetch and engagement.client_id:
+        client_ids_to_fetch = [engagement.client_id]
+    
+    client_name = None
+    client_names = []
+    if client_ids_to_fetch:
+        clients = db.query(User).filter(User.id.in_(client_ids_to_fetch)).all()
+        client_names = [
+            (client.name or client.email or client.nickname) 
+            for client in clients 
+            if client
+        ]
+        # Set client_name to first client for backward compatibility
+        if client_names:
+            client_name = client_names[0]
+    
     primary_advisor = db.query(User).filter(User.id == engagement.primary_advisor_id).first()
     engagement_dict = engagement.__dict__.copy()
-    engagement_dict["client_name"] = client.name or client.email or client.nickname if client else None
+    engagement_dict["client_name"] = client_name  # Keep for backward compatibility
+    engagement_dict["client_names"] = client_names  # New array format
+    engagement_dict["advisor_name"] = primary_advisor.name or primary_advisor.email or primary_advisor.nickname if primary_advisor else None
+    
+    return EngagementResponse(**engagement_dict)
+
+
+def get_eligible_clients_for_user(current_user: User, db: Session) -> List[UUID]:
+    """
+    Get list of eligible client IDs that the current user can add to engagements.
+    
+    Rules:
+    - admin: All clients without firm_id
+    - advisor: Only associated clients (via AdvisorClient)
+    - firm_admin: Only clients inside the firm (with matching firm_id)
+    - firm_advisor: Associated clients with matching firm_id
+    """
+    if current_user.role == UserRole.ADMIN:
+        # Admin can add existing clients (without firm_id)
+        clients = db.query(User).filter(
+            User.role == UserRole.CLIENT,
+            User.firm_id.is_(None),
+            User.is_active == True,
+            User.is_deleted == False
+        ).all()
+        return [client.id for client in clients]
+    
+    elif current_user.role == UserRole.ADVISOR:
+        # Advisor can add only associated clients
+        associations = db.query(AdvisorClient).filter(
+            AdvisorClient.advisor_id == current_user.id,
+            AdvisorClient.status == 'active'
+        ).all()
+        associated_client_ids = [assoc.client_id for assoc in associations]
+        
+        if associated_client_ids:
+            clients = db.query(User).filter(
+                User.id.in_(associated_client_ids),
+                User.role == UserRole.CLIENT,
+                User.is_active == True,
+                User.is_deleted == False
+            ).all()
+            return [client.id for client in clients]
+        return []
+    
+    elif current_user.role == UserRole.FIRM_ADMIN:
+        # Firm admin can add only clients inside the firm (with matching firm_id)
+        if not current_user.firm_id:
+            return []
+        
+        from ..models.firm import Firm
+        firm = db.query(Firm).filter(Firm.id == current_user.firm_id).first()
+        if not firm or not firm.clients:
+            return []
+        
+        clients = db.query(User).filter(
+            User.id.in_(firm.clients),
+            User.role == UserRole.CLIENT,
+            User.firm_id == current_user.firm_id,
+            User.is_active == True,
+            User.is_deleted == False
+        ).all()
+        return [client.id for client in clients]
+    
+    elif current_user.role == UserRole.FIRM_ADVISOR:
+        # Firm advisor can add associated clients (with matching firm_id)
+        if not current_user.firm_id:
+            return []
+        
+        associations = db.query(AdvisorClient).filter(
+            AdvisorClient.advisor_id == current_user.id,
+            AdvisorClient.status == 'active'
+        ).all()
+        associated_client_ids = [assoc.client_id for assoc in associations]
+        
+        if associated_client_ids:
+            clients = db.query(User).filter(
+                User.id.in_(associated_client_ids),
+                User.role == UserRole.CLIENT,
+                User.firm_id == current_user.firm_id,
+                User.is_active == True,
+                User.is_deleted == False
+            ).all()
+            return [client.id for client in clients]
+        return []
+    
+    return []
+
+
+@router.post("/{engagement_id}/clients", response_model=EngagementResponse)
+async def add_clients_to_engagement(
+    engagement_id: UUID,
+    client_data: EngagementClientAdd,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_from_token)
+):
+    """
+    Add clients to an engagement.
+    
+    Authorization rules:
+    - admin: Can add existing clients (without firm_id)
+    - advisor: Can add only associated clients (via AdvisorClient)
+    - firm_admin: Can add only clients inside the firm (with matching firm_id)
+    - firm_advisor: Can add associated clients (with matching firm_id)
+    """
+    # Check permissions
+    if current_user.role not in [UserRole.ADVISOR, UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN, UserRole.FIRM_ADVISOR]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only advisors and admins can add clients to engagements."
+        )
+    
+    # Get engagement
+    engagement = db.query(Engagement).filter(
+        Engagement.id == engagement_id,
+        Engagement.is_deleted == False
+    ).first()
+    
+    if not engagement:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Engagement not found."
+        )
+    
+    # Check access
+    if not check_engagement_access(engagement, current_user, require_advisor=True, db=db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this engagement."
+        )
+    
+    # Get eligible clients for this user
+    eligible_client_ids = get_eligible_clients_for_user(current_user, db)
+    
+    # Validate that all requested clients are eligible
+    invalid_client_ids = [cid for cid in client_data.client_ids if cid not in eligible_client_ids]
+    if invalid_client_ids:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"You do not have permission to add these clients: {invalid_client_ids}"
+        )
+    
+    # Get current client_ids (or fallback to client_id)
+    current_client_ids = engagement.client_ids if engagement.client_ids else []
+    if not current_client_ids and engagement.client_id:
+        current_client_ids = [engagement.client_id]
+    
+    # Add new clients (avoid duplicates)
+    new_client_ids = list(set(current_client_ids + client_data.client_ids))
+    
+    # Update engagement
+    engagement.client_ids = new_client_ids
+    # Also update client_id for backward compatibility (use first client)
+    if new_client_ids:
+        engagement.client_id = new_client_ids[0]
+    
+    db.commit()
+    db.refresh(engagement)
+    
+    # Populate response
+    client_ids_to_fetch = engagement.client_ids if engagement.client_ids else []
+    if not client_ids_to_fetch and engagement.client_id:
+        client_ids_to_fetch = [engagement.client_id]
+    
+    client_name = None
+    client_names = []
+    if client_ids_to_fetch:
+        clients = db.query(User).filter(User.id.in_(client_ids_to_fetch)).all()
+        client_names = [
+            (client.name or client.email or client.nickname) 
+            for client in clients 
+            if client
+        ]
+        if client_names:
+            client_name = client_names[0]
+    
+    primary_advisor = db.query(User).filter(User.id == engagement.primary_advisor_id).first()
+    engagement_dict = engagement.__dict__.copy()
+    engagement_dict["client_name"] = client_name
+    engagement_dict["client_names"] = client_names
+    engagement_dict["advisor_name"] = primary_advisor.name or primary_advisor.email or primary_advisor.nickname if primary_advisor else None
+    
+    return EngagementResponse(**engagement_dict)
+
+
+@router.delete("/{engagement_id}/clients/{client_id}", response_model=EngagementResponse)
+async def remove_client_from_engagement(
+    engagement_id: UUID,
+    client_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_from_token)
+):
+    """
+    Remove a client from an engagement.
+    
+    Authorization rules:
+    - Same as add_client rules (users who can add can also remove)
+    """
+    # Check permissions
+    if current_user.role not in [UserRole.ADVISOR, UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN, UserRole.FIRM_ADVISOR]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only advisors and admins can remove clients from engagements."
+        )
+    
+    # Get engagement
+    engagement = db.query(Engagement).filter(
+        Engagement.id == engagement_id,
+        Engagement.is_deleted == False
+    ).first()
+    
+    if not engagement:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Engagement not found."
+        )
+    
+    # Check access
+    if not check_engagement_access(engagement, current_user, require_advisor=True, db=db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this engagement."
+        )
+    
+    # Get current client_ids (or fallback to client_id)
+    current_client_ids = engagement.client_ids if engagement.client_ids else []
+    if not current_client_ids and engagement.client_id:
+        current_client_ids = [engagement.client_id]
+    
+    # Check if client is in the engagement
+    if client_id not in current_client_ids:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client is not associated with this engagement."
+        )
+    
+    # Remove client
+    new_client_ids = [cid for cid in current_client_ids if cid != client_id]
+    
+    # Don't allow removing the last client
+    if not new_client_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot remove the last client from an engagement."
+        )
+    
+    # Update engagement
+    engagement.client_ids = new_client_ids
+    # Also update client_id for backward compatibility (use first client)
+    engagement.client_id = new_client_ids[0]
+    
+    db.commit()
+    db.refresh(engagement)
+    
+    # Populate response
+    client_ids_to_fetch = engagement.client_ids if engagement.client_ids else []
+    if not client_ids_to_fetch and engagement.client_id:
+        client_ids_to_fetch = [engagement.client_id]
+    
+    client_name = None
+    client_names = []
+    if client_ids_to_fetch:
+        clients = db.query(User).filter(User.id.in_(client_ids_to_fetch)).all()
+        client_names = [
+            (client.name or client.email or client.nickname) 
+            for client in clients 
+            if client
+        ]
+        if client_names:
+            client_name = client_names[0]
+    
+    primary_advisor = db.query(User).filter(User.id == engagement.primary_advisor_id).first()
+    engagement_dict = engagement.__dict__.copy()
+    engagement_dict["client_name"] = client_name
+    engagement_dict["client_names"] = client_names
     engagement_dict["advisor_name"] = primary_advisor.name or primary_advisor.email or primary_advisor.nickname if primary_advisor else None
     
     return EngagementResponse(**engagement_dict)

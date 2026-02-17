@@ -156,9 +156,9 @@ const advisorClientSlice = createSlice({
         state.isCreating = true;
         state.error = null;
       })
-      .addCase(createAssociation.fulfilled, (state, action) => {
+      .addCase(createAssociation.fulfilled, (state) => {
         state.isCreating = false;
-        state.associations.push(action.payload);
+        // Don't optimistically update - let fetchAssociations handle it
       })
       .addCase(createAssociation.rejected, (state, action) => {
         state.isCreating = false;
@@ -169,9 +169,10 @@ const advisorClientSlice = createSlice({
         state.isDeleting = true;
         state.error = null;
       })
-      .addCase(deleteAssociation.fulfilled, (state, action) => {
+      .addCase(deleteAssociation.fulfilled, (state) => {
         state.isDeleting = false;
-        state.associations = state.associations.filter((assoc) => assoc.id !== action.payload);
+        // Don't optimistically update - let fetchAssociations handle it
+        // This ensures the UI always reflects the server state
       })
       .addCase(deleteAssociation.rejected, (state, action) => {
         state.isDeleting = false;

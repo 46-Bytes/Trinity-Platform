@@ -47,8 +47,10 @@ class EngagementResponse(EngagementBase):
     
     id: UUID
     firm_id: Optional[UUID] = None
-    client_id: UUID
-    client_name: Optional[str] = Field(None, description="Client's name (populated from user)")
+    client_id: Optional[UUID] = None  # Kept for backward compatibility
+    client_ids: Optional[List[UUID]] = Field(default=[], description="Array of client user IDs")
+    client_name: Optional[str] = Field(None, description="Client's name (populated from user) - kept for backward compatibility")
+    client_names: Optional[List[str]] = Field(default=[], description="Array of client names (populated from users)")
     primary_advisor_id: UUID
     advisor_name: Optional[str] = Field(None, description="Primary advisor's name (populated from user)")
     secondary_advisor_ids: Optional[List[UUID]] = []
@@ -120,3 +122,15 @@ class SecondaryAdvisorCandidate(BaseModel):
 class SecondaryAdvisorCandidatesResponse(BaseModel):
     """Schema for secondary advisor candidates list"""
     candidates: List[SecondaryAdvisorCandidate]
+
+
+# Schema for adding clients to engagement
+class EngagementClientAdd(BaseModel):
+    """Schema for adding clients to an engagement"""
+    client_ids: List[UUID] = Field(..., min_items=1, description="List of client IDs to add to the engagement")
+
+
+# Schema for removing client from engagement
+class EngagementClientRemove(BaseModel):
+    """Schema for removing a client from an engagement"""
+    client_id: UUID = Field(..., description="Client ID to remove from the engagement")

@@ -156,7 +156,12 @@ async def list_notes(
             )
         elif current_user.role == UserRole.CLIENT:
             # Clients see notes from their engagements
-            query = query.join(Engagement).filter(Engagement.client_id == current_user.id)
+            query = query.join(Engagement).filter(
+                or_(
+                    Engagement.client_id == current_user.id,
+                    text("client_ids @> ARRAY[:user_id]::uuid[]").bindparams(user_id=current_user.id),
+                )
+            )
         else:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

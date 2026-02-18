@@ -495,12 +495,21 @@ class BBAReportExporter:
             for _ in range(8):
                 doc.add_paragraph()
         
-        # Prepared by (moved to top with margins)
+        # Client label and name (left-aligned, bigger font)
         doc.add_paragraph()  # Top margin
-        prepared = doc.add_paragraph()
-        prepared.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        prepared_run = prepared.add_run("Prepared by Benchmark Business Advisory")
-        prepared_run.font.size = Pt(12)
+        client_label_para = doc.add_paragraph()
+        client_label_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+        # "Client" in bold
+        client_label_run = client_label_para.add_run("Client: ")
+        client_label_run.bold = True
+        client_label_run.font.size = Pt(24)
+        client_label_run.font.color.rgb = RGBColor(0x1a, 0x36, 0x5d)
+        
+        # Client name (not bold)
+        client_name_run = client_label_para.add_run(bba.client_name or "Client")
+        client_name_run.font.size = Pt(24)
+        
         doc.add_paragraph()  # Bottom margin
         doc.add_paragraph()  # Additional spacing before title
         

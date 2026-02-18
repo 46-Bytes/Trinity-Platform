@@ -9,6 +9,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -333,7 +340,7 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
                         placeholder="Finding summary"
                         rows={3}
                       />
-                      <div className="flex gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="flex-1">
                           <label className="text-sm font-medium">Priority Area</label>
                           <Input
@@ -342,28 +349,40 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
                           />
                         </div>
                         <div>
-                          <label className="text-sm font-medium">Impact</label>
-                          <select
+                          <label className="text-sm font-medium mb-1 block">Impact</label>
+                          <Select
                             value={editForm.impact}
-                            onChange={(e) => setEditForm({ ...editForm, impact: e.target.value as any })}
-                            className="w-full h-10 rounded-md border px-3"
+                            onValueChange={(value) =>
+                              setEditForm({ ...editForm, impact: value as Finding['impact'] })
+                            }
                           >
-                            <option value="high">High</option>
-                            <option value="medium">Medium</option>
-                            <option value="low">Low</option>
-                          </select>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Select impact" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="high">High impact</SelectItem>
+                              <SelectItem value="medium">Medium impact</SelectItem>
+                              <SelectItem value="low">Low impact</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div>
-                          <label className="text-sm font-medium">Urgency</label>
-                          <select
+                          <label className="text-sm font-medium mb-1 block">Urgency</label>
+                          <Select
                             value={editForm.urgency}
-                            onChange={(e) => setEditForm({ ...editForm, urgency: e.target.value as any })}
-                            className="w-full h-10 rounded-md border px-3"
+                            onValueChange={(value) =>
+                              setEditForm({ ...editForm, urgency: value as Finding['urgency'] })
+                            }
                           >
-                            <option value="immediate">Immediate</option>
-                            <option value="short-term">Short-term</option>
-                            <option value="medium-term">Medium-term</option>
-                          </select>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Select urgency" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="immediate">Immediate</SelectItem>
+                              <SelectItem value="short-term">Short-term</SelectItem>
+                              <SelectItem value="medium-term">Medium-term</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
                       <div className="flex justify-end gap-2">

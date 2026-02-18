@@ -526,10 +526,6 @@ class BBAReportExporter:
         doc.add_paragraph()
         
         # Client name
-        client = doc.add_paragraph()
-        client.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = client.add_run(bba.client_name or "Client")
-        run.font.size = Pt(18)
         
         # Date
         doc.add_paragraph()

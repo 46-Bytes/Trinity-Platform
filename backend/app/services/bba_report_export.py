@@ -495,6 +495,15 @@ class BBAReportExporter:
             for _ in range(8):
                 doc.add_paragraph()
         
+        # Prepared by (moved to top with margins)
+        doc.add_paragraph()  # Top margin
+        prepared = doc.add_paragraph()
+        prepared.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        prepared_run = prepared.add_run("Prepared by Benchmark Business Advisory")
+        prepared_run.font.size = Pt(12)
+        doc.add_paragraph()  # Bottom margin
+        doc.add_paragraph()  # Additional spacing before title
+        
         # Title
         title = doc.add_paragraph()
         title.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -503,16 +512,8 @@ class BBAReportExporter:
         run.font.size = Pt(24)
         run.font.color.rgb = RGBColor(0x1a, 0x36, 0x5d)
         
-        # Small spacing after title
+        # Spacing
         doc.add_paragraph()
-        
-        # Prepared by (placed near the top, directly under the title)
-        prepared = doc.add_paragraph()
-        prepared.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        prepared_run = prepared.add_run("Prepared by Benchmark Business Advisory")
-        prepared_run.font.size = Pt(12)
-        
-        # Spacing before client name
         doc.add_paragraph()
         
         # Client name
@@ -527,9 +528,6 @@ class BBAReportExporter:
         date_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
         date_str = datetime.utcnow().strftime("%B %Y")
         date_para.add_run(date_str)
-        
-        # Small spacing after date so the rest of the page isn't left blank
-        doc.add_paragraph()
     
     def _add_executive_summary(self, doc: Document, bba: BBA):
         """Add the executive summary section."""
@@ -899,8 +897,10 @@ class BBAReportExporter:
         tblPr.append(tblW)
         footer_table.alignment = WD_TABLE_ALIGNMENT.CENTER
         
-        # Set relative column widths: left 35%, middle 30%, right 35%.
-        width_ratios = [0.35, 0.30, 0.35]
+        # Set relative column widths: left 20%, middle 40%, right 40%
+        # (this visually centers the email while keeping enough room on the right
+        #  so "1300 366 521 | Page X of Y" stays on one line)
+        width_ratios = [0.20, 0.40, 0.40]
         row = footer_table.rows[0]
         for idx, cell in enumerate(row.cells):
             cell_twips = int(available_width_twips * width_ratios[idx])

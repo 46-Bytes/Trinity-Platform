@@ -65,8 +65,10 @@ class BBAReportExporter:
         self._setup_headers_footers(doc, bba)
         
         # Add content
+        # Title page is followed immediately by the Executive Summary; we no longer
+        # insert a manual page break here, otherwise Word can create an extra
+        # blank page between the title page and page 2.
         self._add_title_page(doc, bba)
-        self._add_page_break(doc)
         
         if bba.executive_summary:
             self._add_executive_summary(doc, bba)
@@ -493,6 +495,15 @@ class BBAReportExporter:
             for _ in range(8):
                 doc.add_paragraph()
         
+        # Prepared by (moved to top with margins)
+        doc.add_paragraph()  # Top margin
+        prepared = doc.add_paragraph()
+        prepared.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        prepared_run = prepared.add_run("Prepared by Benchmark Business Advisory")
+        prepared_run.font.size = Pt(12)
+        doc.add_paragraph()  # Bottom margin
+        doc.add_paragraph()  # Additional spacing before title
+        
         # Title
         title = doc.add_paragraph()
         title.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -517,15 +528,6 @@ class BBAReportExporter:
         date_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
         date_str = datetime.utcnow().strftime("%B %Y")
         date_para.add_run(date_str)
-        
-        # Spacing
-        for _ in range(10):
-            doc.add_paragraph()
-        
-        # Prepared by
-        prepared = doc.add_paragraph()
-        prepared.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        prepared.add_run("Prepared by Benchmark Business Advisory")
     
     def _add_executive_summary(self, doc: Document, bba: BBA):
         """Add the executive summary section."""
@@ -875,19 +877,60 @@ class BBAReportExporter:
         for para in footer.paragraphs:
             para.clear()
         
-        footer_para = footer.add_paragraph()
-        footer_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        # We use a 3‑column table so the page number can sit on the bottom‑right,
+        footer_table = footer.add_table(rows=1, cols=3, width=section_width)
+        footer_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        
+        # fits on a single physical line.
+        tbl = footer_table._tbl
+        tblPr = tbl.tblPr
+        if tblPr is None:
+            tblPr = parse_xml(f'<w:tblPr {nsdecls("w")}/>')
+            tbl.insert(0, tblPr)
+        
+        # Table width in twips
+        available_width_twips = int((section_width / 914400) * 1440)
+        tblW = parse_xml(f'<w:tblW {nsdecls("w")} w:w="{available_width_twips}" w:type="dxa"/>')
+        for elem in tblPr:
+            if elem.tag.endswith('tblW'):
+                tblPr.remove(elem)
+        tblPr.append(tblW)
+        footer_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        
+        # Set relative column widths: left 20%, middle 40%, right 40%
+        # (this visually centers the email while keeping enough room on the right
+        #  so "1300 366 521 | Page X of Y" stays on one line)
+        width_ratios = [0.20, 0.40, 0.40]
+        row = footer_table.rows[0]
+        for idx, cell in enumerate(row.cells):
+            cell_twips = int(available_width_twips * width_ratios[idx])
+            tc = cell._tc
+            tcPr = tc.get_or_add_tcPr()
+            for elem in tcPr:
+                if elem.tag.endswith('tcW'):
+                    tcPr.remove(elem)
+            tcW = parse_xml(f'<w:tcW {nsdecls("w")} w:w="{cell_twips}" w:type="dxa"/>')
+            tcPr.append(tcW)
+        
+        left_cell, middle_cell, right_cell = footer_table.rows[0].cells
+        left_para = left_cell.paragraphs[0]
+        middle_para = middle_cell.paragraphs[0]
+        right_para = right_cell.paragraphs[0]
+        
+        left_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        middle_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        right_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
         
         # Add footer text with hyperlink for email
         from docx.oxml.ns import nsdecls
         from docx.oxml import parse_xml
         
-        # Part 1: Before email
-        footer_run1 = footer_para.add_run("BenchmarkBusinessAdvisory.ccom.au | ")
-        footer_run1.font.size = Pt(9)
-        footer_run1.font.color.rgb = RGBColor(0, 0, 0)
+        # Left: website (slightly smaller to help everything fit on one line)
+        website_run = left_para.add_run("BenchmarkBusinessAdvisory.com.au")
+        website_run.font.size = Pt(8)
+        website_run.font.color.rgb = RGBColor(0, 0, 0)
         
-        # Part 2: Email as hyperlink
+        # Middle: email as hyperlink
         email_text = "chat@benchmarkbusinessadvisory.com.au"
         email_url = f"mailto:{email_text}"
         
@@ -895,66 +938,72 @@ class BBAReportExporter:
             # Get the document part to add relationship
             part = footer.part
             # Add hyperlink relationship
-            r_id = part.relate_to(email_url, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", is_external=True)
+            r_id = part.relate_to(
+                email_url,
+                "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink",
+                is_external=True,
+            )
             
-            # Create hyperlink element with run inside
+            # Create hyperlink element with run inside (explicit small font size)
             hyperlink_elem = parse_xml(
                 f'<w:hyperlink {nsdecls("w", "r")} r:id="{r_id}">'
-                f'<w:r><w:rPr><w:color w:val="00007A"/><w:u w:val="single"/></w:rPr>'
+                f'<w:r><w:rPr><w:color w:val="00007A"/><w:u w:val="single"/><w:sz w:val="16"/></w:rPr>'
                 f'<w:t>{email_text}</w:t></w:r></w:hyperlink>'
             )
             
             # Append hyperlink to paragraph
-            footer_para._p.append(hyperlink_elem)
+            middle_para._p.append(hyperlink_elem)
             
         except Exception as e:
             logger.warning(f"[BBA Export] Failed to create email hyperlink, using styled text: {str(e)}")
             # Fallback: add email as styled text (looks like a link but not clickable)
-            email_run = footer_para.add_run(email_text)
-            email_run.font.size = Pt(9)
+            email_run = middle_para.add_run(email_text)
+            email_run.font.size = Pt(8)
             email_run.font.color.rgb = RGBColor(0, 0, 122)  # Blue
             email_run.underline = True
         
-        # Part 3: After email
-        footer_run3 = footer_para.add_run(" | 1300 366 521 | Page | ")
-        footer_run3.font.size = Pt(9)
-        footer_run3.font.color.rgb = RGBColor(0, 0, 0)
+        # Right: phone + "Page X of Y" (true bottom‑right page count)
+        phone_run = right_para.add_run("1300 366 521 | Page ")
+        phone_run.font.size = Pt(8)
+        phone_run.font.color.rgb = RGBColor(0, 0, 0)
         
-        # Add page number field - use separate runs for better compatibility
-        # Create a run for the page number field
-        page_run = footer_para.add_run()
-        page_run.font.size = Pt(9)
-        page_run.font.color.rgb = RGBColor(0, 0, 0)
+        def _add_field_run(paragraph, instruction: str):
+            """Insert a Word field (e.g. PAGE, NUMPAGES) into a paragraph."""
+            field_run = paragraph.add_run()
+            field_run.font.size = Pt(8)
+            field_run.font.color.rgb = RGBColor(0, 0, 0)
+            
+            run_element = field_run._element
+            run_element.clear()
+            
+            rPr = parse_xml(
+                f'<w:rPr {nsdecls("w")}><w:color w:val="000000"/><w:sz w:val="16"/></w:rPr>'
+            )
+            run_element.append(rPr)
+            
+            fld_begin = parse_xml(f'<w:fldChar {nsdecls("w")} w:fldCharType="begin"/>')
+            instr_text = parse_xml(
+                f'<w:instrText {nsdecls("w")}>{instruction}</w:instrText>'
+            )
+            fld_separate = parse_xml(
+                f'<w:fldChar {nsdecls("w")} w:fldCharType="separate"/>'
+            )
+            text_elem = parse_xml(f'<w:t {nsdecls("w")}/>')
+            fld_end = parse_xml(f'<w:fldChar {nsdecls("w")} w:fldCharType="end"/>')
+            
+            for el in (fld_begin, instr_text, fld_separate, text_elem, fld_end):
+                run_element.append(el)
         
-        # Get the run element to modify
-        run_element = page_run._element
+        # Current page number
+        _add_field_run(right_para, "PAGE")
         
-        # Clear any existing content
-        run_element.clear()
+        # " of " total pages
+        of_run = right_para.add_run(" of ")
+        of_run.font.size = Pt(8)
+        of_run.font.color.rgb = RGBColor(0, 0, 0)
         
-        # Add run properties
-        rPr = parse_xml(f'<w:rPr {nsdecls("w")}><w:color w:val="000000"/><w:sz w:val="18"/></w:rPr>')
-        run_element.append(rPr)
-        
-        # Add field begin
-        fldChar_begin = parse_xml(f'<w:fldChar {nsdecls("w")} w:fldCharType="begin"/>')
-        run_element.append(fldChar_begin)
-        
-        # Add instruction text
-        instrText = parse_xml(f'<w:instrText {nsdecls("w")}>PAGE</w:instrText>')
-        run_element.append(instrText)
-        
-        # Add field separate (required for field to display result)
-        fldChar_separate = parse_xml(f'<w:fldChar {nsdecls("w")} w:fldCharType="separate"/>')
-        run_element.append(fldChar_separate)
-        
-        # Add empty text element (where the page number will appear)
-        text_elem = parse_xml(f'<w:t {nsdecls("w")}/>')
-        run_element.append(text_elem)
-        
-        # Add field end
-        fldChar_end = parse_xml(f'<w:fldChar {nsdecls("w")} w:fldCharType="end"/>')
-        run_element.append(fldChar_end)
+        # Total page count
+        _add_field_run(right_para, "NUMPAGES")
     
     def _add_footer(self, doc: Document, bba: BBA):
         """Add footer to document (legacy method - now handled by _setup_headers_footers)."""

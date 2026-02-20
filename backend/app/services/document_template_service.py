@@ -59,18 +59,30 @@ class DocumentTemplateService:
             logger.warning(f"Templates directory does not exist: {self.templates_dir}")
             return templates
         
-        # Scan for .docx files
-        for template_file in self.templates_dir.glob("*.docx"):
-            # Get display name by removing extension and replacing hyphens/underscores with spaces
-            display_name = template_file.stem.replace("_", " ").replace("-", " ")
-            # Capitalize first letter of each word
-            display_name = " ".join(word.capitalize() for word in display_name.split())
-            
-            templates.append({
-                "name": template_file.name,
-                "display_name": display_name
-            })
+        # Log directory path for debugging
+        logger.debug(f"Scanning for templates in: {self.templates_dir}")
         
+        # Scan for .docx files
+        template_files = list(self.templates_dir.glob("*.docx"))
+        logger.info(f"Found {len(template_files)} template file(s) in {self.templates_dir}")
+        
+        for template_file in template_files:
+            try:
+                # Get display name by removing extension and replacing hyphens/underscores with spaces
+                display_name = template_file.stem.replace("_", " ").replace("-", " ")
+                # Capitalize first letter of each word
+                display_name = " ".join(word.capitalize() for word in display_name.split())
+                
+                templates.append({
+                    "name": template_file.name,
+                    "display_name": display_name
+                })
+                logger.debug(f"Added template: {template_file.name} -> {display_name}")
+            except Exception as e:
+                logger.error(f"Error processing template file {template_file.name}: {str(e)}")
+                continue
+        
+        logger.info(f"Returning {len(templates)} available template(s)")
         return sorted(templates, key=lambda x: x["display_name"])
     
     def extract_placeholders(self, template_path: Path) -> List[str]:

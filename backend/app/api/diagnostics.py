@@ -1183,3 +1183,143 @@ async def generate_document_from_template(
             detail=f"Failed to generate document: {str(e)}"
         )
 
+
+@router.post("/templates/upload", status_code=status.HTTP_201_CREATED)
+async def upload_template(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Upload a document template file (admin only).
+    
+    Uploads a .docx template file to the templates directory for use in document generation.
+    
+    Args:
+        file: The template file (.docx)
+        
+    Returns:
+        Success message with template name
+    """
+    # Check if user is admin
+    if current_user.role not in [UserRole.ADMIN, UserRole.FIRM_ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can upload templates"
+        )
+    
+    # Validate file extension
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Filename is required"
+        )
+    
+    file_ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+    if file_ext != 'docx':
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only .docx files are allowed for templates"
+        )
+    
+    try:
+        # Get template service to access templates directory
+        template_service = get_document_template_service()
+        templates_dir = template_service.templates_dir
+        
+        # Ensure directory exists
+        templates_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Save file
+        file_path = templates_dir / file.filename
+        
+        # Check if file already exists
+        if file_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Template '{file.filename}' already exists. Please use a different name or delete the existing template first."
+            )
+        
+        # Write file
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        logger.info(f"Template uploaded: {file.filename} by user {current_user.id}")
+        
+        return {
+            "success": True,
+            "message": f"Template '{file.filename}' uploaded successfully",
+            "template_name": file.filename
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error uploading template: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload template: {str(e)}"
+        )
+
+
+@router.delete("/templates/{template_name}", status_code=status.HTTP_200_OK)
+async def delete_template(
+    template_name: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Delete a document template file (admin only).
+    
+    Args:
+        template_name: Name of the template file to delete
+        
+    Returns:
+        Success message
+    """
+    # Check if user is admin
+    if current_user.role not in [UserRole.ADMIN, UserRole.FIRM_ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can delete templates"
+        )
+    
+    try:
+        # Get template service to access templates directory
+        template_service = get_document_template_service()
+        templates_dir = template_service.templates_dir
+        
+        # Security: prevent directory traversal
+        if '..' in template_name or '/' in template_name or '\\' in template_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid template name"
+            )
+        
+        file_path = templates_dir / template_name
+        
+        if not file_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Template '{template_name}' not found"
+            )
+        
+        # Delete file
+        file_path.unlink()
+        
+        logger.info(f"Template deleted: {template_name} by user {current_user.id}")
+        
+        return {
+            "success": True,
+            "message": f"Template '{template_name}' deleted successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting template: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete template: {str(e)}"
+        )
+

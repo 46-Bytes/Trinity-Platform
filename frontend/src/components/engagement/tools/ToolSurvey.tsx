@@ -1,6 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -54,6 +61,12 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
   const [completedPages, setCompletedPages] = useState<number[]>([]);
   const [engagementStatusUpdated, setEngagementStatusUpdated] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  
+  // Document generation state
+  const [templates, setTemplates] = useState<Array<{ name: string; display_name: string }>>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
+  const [isGeneratingDocument, setIsGeneratingDocument] = useState(false);
   
   const pages = surveyData.pages;
   const totalPages = pages.length;
@@ -187,6 +200,113 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
       ...localResponses, // Local changes override saved responses
     };
   }, [diagnostic?.userResponses, localResponses]);
+  
+  // Check if diagnostic has any responses (for showing document generation)
+  const hasResponses = useMemo(() => {
+    const savedResponses = diagnostic?.userResponses || {};
+    const hasSavedResponses = Object.keys(savedResponses).length > 0;
+    const hasLocalResponses = Object.keys(localResponses).length > 0;
+    return hasSavedResponses || hasLocalResponses;
+  }, [diagnostic?.userResponses, localResponses]);
+  
+  // Fetch available templates
+  useEffect(() => {
+    if (!diagnostic?.id || !hasResponses) {
+      return;
+    }
+    
+    const fetchTemplates = async () => {
+      try {
+        setIsLoadingTemplates(true);
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+          return;
+        }
+        
+        const res = await fetch(
+          `${API_BASE_URL}/api/diagnostics/${diagnostic.id}/templates`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        
+        if (!res.ok) {
+          console.error('Failed to fetch templates');
+          return;
+        }
+        
+        const data = await res.json();
+        setTemplates(data);
+      } catch (error) {
+        console.error('Error fetching templates:', error);
+      } finally {
+        setIsLoadingTemplates(false);
+      }
+    };
+    
+    fetchTemplates();
+  }, [diagnostic?.id, hasResponses]);
+  
+  // Handle document generation
+  const handleGenerateDocument = async () => {
+    if (!diagnostic?.id || !selectedTemplate) {
+      toast.error('Please select a template');
+      return;
+    }
+    
+    try {
+      setIsGeneratingDocument(true);
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        toast.error('Not authenticated');
+        return;
+      }
+      
+      const res = await fetch(
+        `${API_BASE_URL}/api/diagnostics/${diagnostic.id}/generate-document`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            template_name: selectedTemplate,
+          }),
+        }
+      );
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        toast.error(`Failed to generate document: ${errorText || 'Unexpected error'}`);
+        return;
+      }
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      
+      const disposition = res.headers.get('Content-Disposition') || '';
+      const match = disposition.match(/filename="(.+)"/);
+      const filename = match?.[1] || `document-${Date.now()}.docx`;
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Document generated and downloaded successfully!');
+    } catch (error) {
+      console.error('Document generation error:', error);
+      toast.error('Failed to generate document');
+    } finally {
+      setIsGeneratingDocument(false);
+    }
+  };
 
   const handleSaveProgress = async () => {
     if (!diagnostic?.id) {
@@ -483,6 +603,60 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
             >
               Download Diagnostic Summary
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Document Generation Section */}
+      {hasResponses && diagnostic?.id && (
+        <div className="mb-6 sm:mb-8 rounded-lg border border-blue-200 bg-blue-50 p-3 sm:p-4" style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+          <p className="font-semibold text-blue-800 break-words" style={{ maxWidth: '100%' }}>
+            Generate Document from Template
+          </p>
+          <p className="mt-1 text-sm text-blue-900 break-words" style={{ maxWidth: '100%' }}>
+            Select a template to generate a document with your diagnostic data.
+          </p>
+          <div className="mt-3 sm:mt-4 space-y-3">
+            {isLoadingTemplates ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm text-blue-900">Loading templates...</span>
+              </div>
+            ) : templates.length > 0 ? (
+              <>
+                <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                  <SelectTrigger className="w-full max-w-md">
+                    <SelectValue placeholder="Select a template" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templates.map((template) => (
+                      <SelectItem key={template.name} value={template.name}>
+                        {template.display_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="default"
+                  onClick={handleGenerateDocument}
+                  disabled={!selectedTemplate || isGeneratingDocument}
+                  className="w-full sm:w-auto"
+                >
+                  {isGeneratingDocument ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    'Generate Document'
+                  )}
+                </Button>
+              </>
+            ) : (
+              <p className="text-sm text-blue-800">
+                No templates available. Please add templates to the server.
+              </p>
+            )}
           </div>
         </div>
       )}

@@ -23,11 +23,14 @@ from app.schemas.diagnostic import (
     DiagnosticResults,
     DiagnosticResponseUpdate,
     DiagnosticSubmit,
-    DiagnosticListItem
+    DiagnosticListItem,
+    DocumentTemplateResponse,
+    GenerateDocumentRequest
 )
 from app.services.diagnostic_service import get_diagnostic_service
 from app.services.file_service import get_file_service
 from app.services.report_service import ReportService
+from app.services.document_template_service import get_document_template_service
 from app.services.role_check import check_engagement_access
 from app.utils.file_loader import load_diagnostic_questions
 from app.utils.background_task_manager import background_task_manager
@@ -1065,5 +1068,118 @@ async def download_diagnostic_report(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate report: {str(e)}"
+        )
+
+
+@router.get("/{diagnostic_id}/templates", response_model=List[DocumentTemplateResponse])
+async def list_diagnostic_templates(
+    diagnostic_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    List available document templates for generating documents from diagnostic data.
+    
+    Args:
+        diagnostic_id: UUID of the diagnostic
+        
+    Returns:
+        List of available templates with name and display_name
+    """
+    service = get_diagnostic_service(db)
+    
+    diagnostic = service.get_diagnostic(diagnostic_id)
+    
+    if not diagnostic:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Diagnostic {diagnostic_id} not found"
+        )
+    
+    # Enforce engagement access
+    _require_diagnostic_access(db=db, diagnostic=diagnostic, current_user=current_user)
+    
+    # Get template service and list templates
+    template_service = get_document_template_service()
+    templates = template_service.list_available_templates()
+    
+    return [DocumentTemplateResponse(**template) for template in templates]
+
+
+@router.post("/{diagnostic_id}/generate-document")
+async def generate_document_from_template(
+    diagnostic_id: UUID,
+    request: GenerateDocumentRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Generate a document from a template using diagnostic data.
+    
+    Replaces placeholders in the template ({{field_name}}) with values from
+    the diagnostic's user_responses.
+    
+    Args:
+        diagnostic_id: UUID of the diagnostic
+        request: Request body with template_name
+        
+    Returns:
+        Generated Word document file for download
+    """
+    service = get_diagnostic_service(db)
+    
+    diagnostic = service.get_diagnostic(diagnostic_id)
+    
+    if not diagnostic:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Diagnostic {diagnostic_id} not found"
+        )
+    
+    # Enforce engagement access
+    _require_diagnostic_access(db=db, diagnostic=diagnostic, current_user=current_user)
+    
+    # Check if diagnostic has user_responses
+    if not diagnostic.user_responses:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Diagnostic has no user responses. Please fill out the diagnostic form first."
+        )
+    
+    try:
+        # Get template service
+        template_service = get_document_template_service()
+        
+        # Generate document
+        document_bytes = template_service.generate_document(
+            template_name=request.template_name,
+            user_responses=diagnostic.user_responses
+        )
+        
+        # Generate filename
+        template_display_name = request.template_name.replace(".docx", "").replace("_", " ").replace("-", " ")
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        filename = f"{timestamp}-{template_display_name}.docx"
+        
+        return Response(
+            content=document_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
+        )
+        
+    except FileNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Template not found: {request.template_name}"
+        )
+    except Exception as e:
+        logger.error(f"Error generating document from template: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate document: {str(e)}"
         )
 

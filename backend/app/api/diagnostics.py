@@ -1210,16 +1210,20 @@ async def upload_template(
     
     # Validate file extension
     if not file.filename:
+        logger.warning(f"Template upload failed: No filename provided by user {current_user.id}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Filename is required"
         )
     
+    logger.info(f"Template upload attempt: filename='{file.filename}', content_type='{file.content_type}'")
+    
     file_ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
     if file_ext != 'docx':
+        logger.warning(f"Template upload failed: Invalid file extension '{file_ext}' for file '{file.filename}'")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only .docx files are allowed for templates"
+            detail=f"Only .docx files are allowed for templates. Received file with extension: .{file_ext}"
         )
     
     try:
@@ -1235,14 +1239,18 @@ async def upload_template(
         
         # Check if file already exists
         if file_path.exists():
+            logger.warning(f"Template upload failed: File '{file.filename}' already exists")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Template '{file.filename}' already exists. Please use a different name or delete the existing template first."
             )
         
         # Write file
+        # Reset file pointer to beginning in case it was read before
+        await file.seek(0)
         with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+            content = await file.read()
+            buffer.write(content)
         
         logger.info(f"Template uploaded: {file.filename} by user {current_user.id}")
         

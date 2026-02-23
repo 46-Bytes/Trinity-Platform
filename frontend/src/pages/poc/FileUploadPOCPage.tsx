@@ -2,7 +2,7 @@
  * POC: File Upload Page
  * This is a standalone POC page, separate from the main application.
  */
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FileUploadPOC } from '@/components/poc/FileUploadPOC';
@@ -10,7 +10,12 @@ import { FileUploadPOC } from '@/components/poc/FileUploadPOC';
 export default function FileUploadPOCPage() {
   const { engagementId } = useParams<{ engagementId: string }>();
   const navigate = useNavigate();
-  
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const stateProjectId = (location.state as { bbaProjectId?: string } | null)?.bbaProjectId;
+  const queryProjectId = searchParams.get('project_id');
+  const initialProjectId = stateProjectId || queryProjectId || undefined;
+
   return (
     <div className="container mx-auto py-8 px-2">
       <div className="mb-6">
@@ -30,7 +35,7 @@ export default function FileUploadPOCPage() {
           Proof of Concept for file upload with OpenAI Files API integration
         </p>
       </div>
-      <FileUploadPOC engagementId={engagementId} />
+      <FileUploadPOC engagementId={engagementId} initialProjectId={initialProjectId} />
     </div>
   );
 }

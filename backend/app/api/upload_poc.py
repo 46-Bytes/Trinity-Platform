@@ -27,7 +27,7 @@ Phase 3 – PowerPoint Presentation Generator
 - Per-slide review & editing
 - PowerPoint (.pptx) branded export
 """
-from fastapi import APIRouter, UploadFile, File, HTTPException, status, Depends, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, HTTPException, status, Depends, BackgroundTasks, Query
 from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
@@ -38,6 +38,7 @@ import tempfile
 import os
 import logging
 import io
+import json
 from app.services.openai_service import OpenAIService
 from app.services.bba_service import get_bba_service, BBAService
 from app.services.bba_conversation_engine import get_bba_conversation_engine
@@ -47,7 +48,10 @@ from app.services.bba_presentation_service import get_bba_presentation_service
 from app.services.bba_pptx_export import BBAPptxExporter
 from app.utils.auth import get_current_user
 from app.models.user import User
+from app.models.diagnostic import Diagnostic
+from app.models.engagement import Engagement
 from app.database import get_db
+from app.services.role_check import check_engagement_access
 from app.config import settings
 from app.services.bba_report_export import BBAReportExporter
 from app.schemas.bba import (
@@ -106,6 +110,49 @@ async def create_bba_project(
         "success": True,
         "project_id": str(bba.id),
         "status": bba.status
+    }
+
+
+@router.post("/create-from-diagnostic", status_code=status.HTTP_201_CREATED)
+async def create_bba_from_diagnostic(
+    diagnostic_id: UUID = Query(..., description="Completed diagnostic ID to create BBA from"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Create a BBA project from a completed diagnostic. The diagnostic report
+    is stored as context for the BBA. Idempotent: if a BBA already exists
+    for this diagnostic, returns the existing project.
+    """
+    diagnostic = db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
+    if not diagnostic:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Diagnostic not found")
+    if diagnostic.status != "completed":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Diagnostic must be completed (current status: {diagnostic.status})",
+        )
+    engagement = db.query(Engagement).filter(
+        Engagement.id == diagnostic.engagement_id,
+        Engagement.is_deleted == False,
+    ).first()
+    if not engagement:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Engagement not found")
+    if not check_engagement_access(engagement, current_user, db=db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this engagement",
+        )
+    bba_service = get_bba_service(db)
+    try:
+        bba = bba_service.create_bba_from_diagnostic(diagnostic_id=diagnostic_id, user_id=current_user.id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    return {
+        "success": True,
+        "project_id": str(bba.id),
+        "engagement_id": str(bba.engagement_id) if bba.engagement_id else None,
+        "diagnostic_id": str(bba.diagnostic_id) if bba.diagnostic_id else None,
     }
 
 
@@ -368,6 +415,55 @@ async def submit_questionnaire(
     }
 
 
+@router.get("/{project_id}/extract-context-capture", status_code=status.HTTP_200_OK)
+async def extract_context_capture(
+    project_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Extract context-capture (questionnaire) fields from the BBA's diagnostic context using an LLM.
+    Use when the BBA was created from a diagnostic; pre-fills the questionnaire from the report.
+    Returns only extracted fields (camelCase); frontend should merge into empty form fields.
+    """
+    bba_service = get_bba_service(db)
+    bba = bba_service.get_bba(project_id)
+    if not bba:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="BBA project not found")
+    if bba.created_by_user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this project")
+
+    dc = getattr(bba, "diagnostic_context", None) or {}
+    if not dc or not isinstance(dc, dict):
+        return {"extracted": {}}
+
+    report_html = dc.get("report_html") if isinstance(dc.get("report_html"), str) else None
+    ai_analysis = dc.get("ai_analysis")
+    diagnostic_text = ""
+    if report_html:
+        diagnostic_text = report_html
+    elif ai_analysis and isinstance(ai_analysis, dict):
+        advisor_report = ai_analysis.get("advisorReport", "")
+        if isinstance(advisor_report, str) and advisor_report.strip():
+            diagnostic_text = advisor_report
+        else:
+            diagnostic_text = json.dumps(ai_analysis, indent=2)
+
+    if not diagnostic_text.strip():
+        return {"extracted": {}}
+
+    try:
+        engine = get_bba_conversation_engine()
+        extracted = await engine.extract_context_capture_from_diagnostic_text(diagnostic_text)
+        return {"extracted": extracted}
+    except Exception as e:
+        logger.exception("extract_context_capture failed: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to extract context from diagnostic",
+        )
+
+
 @router.get("/{project_id}", status_code=status.HTTP_200_OK)
 async def get_bba_project(
     project_id: UUID,
@@ -479,20 +575,13 @@ async def list_bba_projects(
     bba_service = get_bba_service(db)
     
     if engagement_id:
-        # Get BBA project for specific engagement
-        project = bba_service.get_bba_by_engagement(engagement_id, current_user.id)
-        if project:
-            return {
-                "success": True,
-                "project": project.to_dict(),
-                "count": 1
-            }
-        else:
-            return {
-                "success": True,
-                "project": None,
-                "count": 0
-            }
+        # Get all BBA projects for this engagement (multiple when created from different diagnostics)
+        projects = bba_service.get_bbas_by_engagement(engagement_id, current_user.id)
+        return {
+            "success": True,
+            "projects": [p.to_dict() for p in projects],
+            "count": len(projects)
+        }
     else:
         # Get all BBA projects for user
         projects = bba_service.get_user_bba_projects(current_user.id)

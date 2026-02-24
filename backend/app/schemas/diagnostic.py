@@ -91,3 +91,15 @@ class DiagnosticListItem(DiagnosticResponse):
     """Schema for diagnostic in list view"""
     engagement_name: Optional[str] = Field(None, description="Name of the engagement this belongs to")
 
+
+# Schema for document template response
+class DocumentTemplateResponse(BaseModel):
+    """Schema for available document template"""
+    name: str = Field(..., description="Template filename (e.g., 'business-plan-template.docx')")
+    display_name: str = Field(..., description="Human-readable template name")
+
+
+# Schema for generating document from template
+class GenerateDocumentRequest(BaseModel):
+    """Schema for document generation request"""
+    template_name: str = Field(..., description="Name of the template file to use")

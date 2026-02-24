@@ -1,5 +1,13 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,6 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Upload, X } from 'lucide-react';
 import { ToolQuestion } from './ToolQuestion';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
@@ -54,6 +63,18 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
   const [completedPages, setCompletedPages] = useState<number[]>([]);
   const [engagementStatusUpdated, setEngagementStatusUpdated] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  
+  // Document generation state
+  const [templates, setTemplates] = useState<Array<{ name: string; display_name: string }>>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
+  const [isGeneratingDocument, setIsGeneratingDocument] = useState(false);
+  
+  // Template upload state (admin only)
+  const [isUploadingTemplate, setIsUploadingTemplate] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const pages = surveyData.pages;
   const totalPages = pages.length;
@@ -187,6 +208,212 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
       ...localResponses, // Local changes override saved responses
     };
   }, [diagnostic?.userResponses, localResponses]);
+  
+  // Check if diagnostic has any responses (for showing document generation)
+  const hasResponses = useMemo(() => {
+    const savedResponses = diagnostic?.userResponses || {};
+    const hasSavedResponses = Object.keys(savedResponses).length > 0;
+    const hasLocalResponses = Object.keys(localResponses).length > 0;
+    return hasSavedResponses || hasLocalResponses;
+  }, [diagnostic?.userResponses, localResponses]);
+  
+  // Fetch available templates
+  useEffect(() => {
+    if (!diagnostic?.id || !hasResponses) {
+      return;
+    }
+    
+    const fetchTemplates = async () => {
+      try {
+        setIsLoadingTemplates(true);
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+          return;
+        }
+        
+        const res = await fetch(
+          `${API_BASE_URL}/api/diagnostics/${diagnostic.id}/templates`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        
+        if (!res.ok) {
+          console.error('Failed to fetch templates');
+          return;
+        }
+        
+        const data = await res.json();
+        setTemplates(data);
+      } catch (error) {
+        console.error('Error fetching templates:', error);
+      } finally {
+        setIsLoadingTemplates(false);
+      }
+    };
+    
+    fetchTemplates();
+  }, [diagnostic?.id, hasResponses]);
+  
+  // Handle document generation
+  const handleGenerateDocument = async () => {
+    if (!diagnostic?.id || !selectedTemplate) {
+      toast.error('Please select a template');
+      return;
+    }
+    
+    try {
+      setIsGeneratingDocument(true);
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        toast.error('Not authenticated');
+        return;
+      }
+      
+      const res = await fetch(
+        `${API_BASE_URL}/api/diagnostics/${diagnostic.id}/generate-document`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            template_name: selectedTemplate,
+          }),
+        }
+      );
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        toast.error(`Failed to generate document: ${errorText || 'Unexpected error'}`);
+        return;
+      }
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      
+      const disposition = res.headers.get('Content-Disposition') || '';
+      const match = disposition.match(/filename="(.+)"/);
+      const filename = match?.[1] || `document-${Date.now()}.docx`;
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Document generated and downloaded successfully!');
+    } catch (error) {
+      console.error('Document generation error:', error);
+      toast.error('Failed to generate document');
+    } finally {
+      setIsGeneratingDocument(false);
+    }
+  };
+  
+  // Handle template upload (admin only)
+  const handleTemplateUpload = async () => {
+    if (!selectedFile) {
+      toast.error('Please select a file');
+      return;
+    }
+    
+    // Validate file type
+    if (!selectedFile.name.endsWith('.docx')) {
+      toast.error('Only .docx files are allowed');
+      return;
+    }
+    
+    try {
+      setIsUploadingTemplate(true);
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        toast.error('Not authenticated');
+        return;
+      }
+      
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      
+      const res = await fetch(
+        `${API_BASE_URL}/api/diagnostics/templates/upload`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        }
+      );
+      
+      if (!res.ok) {
+        let errorMessage = 'Unexpected error';
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch {
+          const errorText = await res.text();
+          errorMessage = errorText || errorMessage;
+        }
+        toast.error(`Failed to upload template: ${errorMessage}`);
+        return;
+      }
+      
+      const result = await res.json();
+      toast.success(result.message || 'Template uploaded successfully!');
+      setUploadedFileName(selectedFile.name);
+      
+      // Clear file input and state
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      setSelectedFile(null);
+      
+      // Refresh templates list
+      if (diagnostic?.id) {
+        const templatesRes = await fetch(
+          `${API_BASE_URL}/api/diagnostics/${diagnostic.id}/templates`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        
+        if (templatesRes.ok) {
+          const templatesData = await templatesRes.json();
+          setTemplates(templatesData);
+        }
+      }
+    } catch (error) {
+      console.error('Template upload error:', error);
+      toast.error('Failed to upload template');
+    } finally {
+      setIsUploadingTemplate(false);
+    }
+  };
+  
+  // Handle file selection
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadedFileName(null);
+      if (!file.name.endsWith('.docx')) {
+        toast.error('Only .docx files are allowed');
+        e.target.value = '';
+        setSelectedFile(null);
+        return;
+      }
+      setSelectedFile(file);
+    } else {
+      setSelectedFile(null);
+    }
+  };
 
   const handleSaveProgress = async () => {
     if (!diagnostic?.id) {
@@ -483,6 +710,106 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
             >
               Download Diagnostic Summary
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Document Generation Section */}
+      {hasResponses && diagnostic?.id && (
+        <div className="mb-6 sm:mb-8 rounded-lg border border-blue-200 bg-blue-50 p-3 sm:p-4" style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+          <p className="font-semibold text-blue-800 break-words" style={{ maxWidth: '100%' }}>
+            Generate Document from Template
+          </p>
+          <p className="mt-1 text-sm text-blue-900 break-words" style={{ maxWidth: '100%' }}>
+            Select a template to generate a document with your diagnostic data.
+          </p>
+          
+          {/* Admin Template Upload Section */}
+          {isAdmin && (
+            <div className="mt-4 pt-4 border-t border-blue-300">
+              <p className="text-sm font-medium text-blue-900 mb-2">Upload Template (Admin Only)</p>
+              <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+                <Input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".docx"
+                  onChange={handleFileSelect}
+                  className="flex-1 max-w-md"
+                  disabled={isUploadingTemplate}
+                />
+                <Button
+                  variant="outline"
+                  onClick={handleTemplateUpload}
+                  disabled={isUploadingTemplate || !selectedFile}
+                  className="w-full sm:w-auto"
+                >
+                  {isUploadingTemplate ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Upload Template
+                    </>
+                  )}
+                </Button>
+              </div>
+              {uploadedFileName && (
+                <p className="mt-2 text-xs text-green-700">
+                  ✓ {uploadedFileName} uploaded successfully
+                </p>
+              )}
+              <p className="mt-2 text-xs text-blue-800">
+                Upload a .docx template file with placeholders like {'{{field_name}}'}
+              </p>
+            </div>
+          )}
+          
+          <div className="mt-3 sm:mt-4 space-y-3">
+            {isLoadingTemplates ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm text-blue-900">Loading templates...</span>
+              </div>
+            ) : templates.length > 0 ? (
+              <>
+                <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                  <SelectTrigger className="w-full max-w-md">
+                    <SelectValue placeholder="Select a template" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templates.map((template) => (
+                      <SelectItem key={template.name} value={template.name}>
+                        {template.display_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="default"
+                  onClick={handleGenerateDocument}
+                  disabled={!selectedTemplate || isGeneratingDocument}
+                  className="w-full sm:w-auto"
+                >
+                  {isGeneratingDocument ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    'Generate Document'
+                  )}
+                </Button>
+              </>
+            ) : (
+              <p className="text-sm text-blue-800">
+                {isAdmin 
+                  ? 'No templates available. Upload a template using the form above.'
+                  : 'No templates available. Please contact an administrator to add templates.'}
+              </p>
+            )}
           </div>
         </div>
       )}

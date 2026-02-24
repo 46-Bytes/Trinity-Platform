@@ -60,7 +60,7 @@ class BBAConversationEngine:
         Returns:
             Dictionary containing all relevant context
         """
-        return {
+        ctx = {
             "client_name": bba.client_name or "Unknown Client",
             "industry": bba.industry or "Unknown Industry",
             "company_size": bba.company_size or "Unknown",
@@ -73,6 +73,9 @@ class BBAConversationEngine:
             "file_ids": bba.file_ids or [],
             "file_mappings": bba.file_mappings or {},
         }
+        if getattr(bba, "diagnostic_context", None):
+            ctx["diagnostic_context"] = bba.diagnostic_context
+        return ctx
     
     def _separate_files_by_type(self, file_mappings: Dict[str, str]) -> Tuple[List[str], List[str]]:
         """
@@ -146,9 +149,25 @@ class BBAConversationEngine:
         # Build the full system message
         system_content = f"{system_prompt}\n\n{step_prompt}"
         
+        # Build optional prior diagnostic section when BBA was created from a diagnostic
+        diagnostic_section = ""
+        if context.get("diagnostic_context"):
+            dc = context["diagnostic_context"]
+            report_html = dc.get("report_html") if isinstance(dc, dict) else None
+            ai_analysis = dc.get("ai_analysis") if isinstance(dc, dict) else None
+            if report_html:
+                diagnostic_section = f"\n\n## Prior Diagnostic Report (use as context)\n{report_html}\n"
+            elif ai_analysis:
+                advisor_report = ai_analysis.get("advisorReport", "") if isinstance(ai_analysis, dict) else ""
+                if advisor_report:
+                    diagnostic_section = f"\n\n## Prior Diagnostic Report (use as context)\n{advisor_report}\n"
+                else:
+                    diagnostic_section = f"\n\n## Prior Diagnostic Analysis (use as context)\n{json.dumps(ai_analysis, indent=2)}\n"
+
         # Build user message with context
         user_content = f"""
 Analyse the uploaded files and generate draft findings for this client.
+{diagnostic_section}
 
 ## Client Context
 - Client Name: {context['client_name']}
@@ -659,6 +678,49 @@ Return your response as a JSON object with an "executive_summary" key containing
         except Exception as e:
             logger.error(f"[BBA Engine] Failed to generate executive summary: {e}", exc_info=True)
             raise
+
+    async def extract_context_capture_from_diagnostic_text(self, diagnostic_text: str) -> Dict[str, Any]:
+        """
+        Use LLM to extract context-capture (questionnaire) fields from diagnostic report text.
+        Returns a dict with camelCase keys; only keys for which a value was extracted are present.
+        """
+        if not diagnostic_text or not diagnostic_text.strip():
+            return {}
+        try:
+            prompt = load_bba_prompt("extract_context_capture")
+        except FileNotFoundError:
+            logger.warning("[BBA Engine] extract_context_capture prompt not found, using inline prompt")
+            prompt = (
+                "Extract context-capture form fields from the diagnostic report. "
+                "Return JSON only with camelCase keys. Include only keys you can fill: "
+                "clientName, industry, companySize, locations, exclusions, constraints, "
+                "preferredRanking, strategicPriorities, excludeSaleReadiness (boolean). "
+                "companySize must be one of: startup, small, medium, large, enterprise."
+            )
+        text_for_llm = diagnostic_text[:30000]  # cap length
+        messages = [
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": f"Diagnostic report:\n\n{text_for_llm}"},
+        ]
+        result = await self.openai_service.generate_json_completion(
+            messages=messages,
+            temperature=0.2,
+        )
+        parsed = result.get("parsed_content") or {}
+        if not isinstance(parsed, dict):
+            return {}
+        # Filter to known questionnaire keys; omit None and empty strings
+        known = {
+            "clientName", "industry", "companySize", "locations",
+            "exclusions", "constraints", "preferredRanking", "strategicPriorities", "excludeSaleReadiness"
+        }
+        def has_value(v: Any) -> bool:
+            if v is None:
+                return False
+            if isinstance(v, str) and not v.strip():
+                return False
+            return True
+        return {k: v for k, v in parsed.items() if k in known and has_value(v)}
 
 
 # Singleton instance

@@ -8,6 +8,7 @@ from uuid import UUID
 from datetime import datetime
 
 from app.models.bba import BBA
+from app.models.diagnostic import Diagnostic
 from app.schemas.bba import BBACreate, BBAUpdate, BBAFileUpload, BBAQuestionnaire
 import logging
 
@@ -41,7 +42,42 @@ class BBAService:
         self.db.refresh(bba)
         logger.info(f"Created BBA project {bba.id} for user {user_id}")
         return bba
-    
+
+    def create_bba_from_diagnostic(self, diagnostic_id: UUID, user_id: UUID) -> BBA:
+        """
+        Create a BBA project from a completed diagnostic. Idempotent: if a BBA
+        already exists for this diagnostic_id, returns that BBA.
+        """
+        existing = self.get_bba_by_diagnostic(diagnostic_id)
+        if existing:
+            logger.info(f"BBA project already exists for diagnostic {diagnostic_id}: {existing.id}")
+            return existing
+
+        diagnostic = self.db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
+        if not diagnostic:
+            raise ValueError(f"Diagnostic {diagnostic_id} not found")
+        if diagnostic.status != "completed":
+            raise ValueError(f"Diagnostic must be completed (current status: {diagnostic.status})")
+
+        diagnostic_context = {}
+        if diagnostic.report_html:
+            diagnostic_context["report_html"] = diagnostic.report_html
+        if diagnostic.ai_analysis:
+            diagnostic_context["ai_analysis"] = diagnostic.ai_analysis
+
+        bba = BBA(
+            created_by_user_id=user_id,
+            engagement_id=diagnostic.engagement_id,
+            diagnostic_id=diagnostic_id,
+            diagnostic_context=diagnostic_context or None,
+            status="uploaded",
+        )
+        self.db.add(bba)
+        self.db.commit()
+        self.db.refresh(bba)
+        logger.info(f"Created BBA project {bba.id} from diagnostic {diagnostic_id} for user {user_id}")
+        return bba
+
     def get_bba(self, bba_id: UUID) -> Optional[BBA]:
         """
         Get BBA by ID
@@ -68,21 +104,30 @@ class BBAService:
             BBA.created_by_user_id == user_id
         ).order_by(BBA.created_at.desc()).all()
     
-    def get_bba_by_engagement(self, engagement_id: UUID, user_id: UUID) -> Optional[BBA]:
+    def get_bba_by_diagnostic(self, diagnostic_id: UUID) -> Optional[BBA]:
         """
-        Get BBA project by engagement ID
-        
-        Args:
-            engagement_id: Engagement ID
-            user_id: User ID (for authorization check)
-            
-        Returns:
-            BBA object or None if not found
+        Get BBA project by diagnostic ID (when created from that diagnostic).
+        """
+        return self.db.query(BBA).filter(
+            BBA.diagnostic_id == diagnostic_id
+        ).order_by(BBA.created_at.desc()).first()
+
+    def get_bbas_by_engagement(self, engagement_id: UUID, user_id: UUID) -> List[BBA]:
+        """
+        Get all BBA projects for an engagement (for the given user).
         """
         return self.db.query(BBA).filter(
             BBA.engagement_id == engagement_id,
             BBA.created_by_user_id == user_id
-        ).order_by(BBA.created_at.desc()).first()
+        ).order_by(BBA.created_at.desc()).all()
+
+    def get_bba_by_engagement(self, engagement_id: UUID, user_id: UUID) -> Optional[BBA]:
+        """
+        Get first BBA project by engagement ID (for backward compatibility).
+        Prefer get_bbas_by_engagement when multiple BBAs per engagement are possible.
+        """
+        bbas = self.get_bbas_by_engagement(engagement_id, user_id)
+        return bbas[0] if bbas else None
     
     def update_files(
         self,

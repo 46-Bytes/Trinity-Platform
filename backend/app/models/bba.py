@@ -22,6 +22,10 @@ class BBA(Base):
     # Relationships
     engagement_id = Column(UUID(as_uuid=True), ForeignKey('engagements.id', ondelete='CASCADE'), nullable=True, index=True,
                           comment="Optional link to engagement")
+    diagnostic_id = Column(UUID(as_uuid=True), ForeignKey('diagnostics.id', ondelete='SET NULL'), nullable=True, index=True,
+                          comment="When created from a completed diagnostic, link to that diagnostic")
+    diagnostic_context = Column(JSONB, nullable=True,
+                                comment="Diagnostic report/summary used as context (e.g. report_html or ai_analysis subset)")
     created_by_user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
     # Status tracking
     status = Column(String(50), nullable=False, server_default='uploaded', index=True,
@@ -117,6 +121,7 @@ class BBA(Base):
     
     # Relationships
     engagement = relationship("Engagement", back_populates="bba_projects")
+    diagnostic = relationship("Diagnostic", backref="bba_projects", foreign_keys=[diagnostic_id])
     created_by_user = relationship("User", foreign_keys=[created_by_user_id])
     
     def __repr__(self):
@@ -127,6 +132,8 @@ class BBA(Base):
         return {
             "id": str(self.id),
             "engagement_id": str(self.engagement_id) if self.engagement_id else None,
+            "diagnostic_id": str(self.diagnostic_id) if self.diagnostic_id else None,
+            "diagnostic_context": self.diagnostic_context,
             "created_by_user_id": str(self.created_by_user_id),
             "status": self.status,
             "file_ids": self.file_ids,

@@ -27,6 +27,7 @@ import type { Engagement } from "@/store/slices/engagementReducer";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 
 // Base schema fields (common fields for all roles)
 const baseSchemaFields = {
@@ -40,7 +41,7 @@ const baseSchemaFields = {
     message: "Engagement name must be at least 3 characters.",
   }),
   description: z.string().optional(),
-  tool: z.enum(['diagnostic', 'kpi_builder', 'bba_builder'], {
+  tool: z.enum(['diagnostic', 'kpi_builder'], {
     message: "Please select a tool.",
   }),
 };
@@ -113,6 +114,7 @@ export function EngagementForm({
   const [associatedAdvisorId, setAssociatedAdvisorId] = useState<string | null>(null);
   const [isLoadingAssociation, setIsLoadingAssociation] = useState(false);
   const [associationError, setAssociationError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   console.log('User role detection:', { userRole, isAdmin, isFirmAdmin, isFirmAdvisor });
   
@@ -172,7 +174,7 @@ export function EngagementForm({
           description: engagement.description || "",
           clientId: engagement.clientId || "",
           advisorId: (engagement as any).primaryAdvisorId || "",
-          tool: (engagement.tool as 'diagnostic' | 'kpi_builder' | 'bba_builder') || "diagnostic",
+          tool: (engagement.tool === 'bba_builder' ? 'diagnostic' : (engagement.tool as 'diagnostic' | 'kpi_builder')) || "diagnostic",
         } as any);
       } else if (isFirmContext) {
         form.reset({
@@ -181,7 +183,7 @@ export function EngagementForm({
           engagementName: engagement.title || "",
           description: engagement.description || "",
           clientId: engagement.clientId || "",
-          tool: (engagement.tool as 'diagnostic' | 'kpi_builder' | 'bba_builder') || "diagnostic",
+          tool: (engagement.tool === 'bba_builder' ? 'diagnostic' : (engagement.tool as 'diagnostic' | 'kpi_builder')) || "diagnostic",
         });
       } else {
         form.reset({
@@ -190,7 +192,7 @@ export function EngagementForm({
           engagementName: engagement.title || "",
           description: engagement.description || "",
           clientOrAdvisorId: engagement.clientId || "",
-          tool: (engagement.tool as 'diagnostic' | 'kpi_builder' | 'bba_builder') || "diagnostic",
+          tool: (engagement.tool === 'bba_builder' ? 'diagnostic' : (engagement.tool as 'diagnostic' | 'kpi_builder')) || "diagnostic",
         });
       }
     }
@@ -310,6 +312,7 @@ export function EngagementForm({
       return;
     }
 
+    setIsSubmitting(true);
     try {
       console.log('=== PROCESSING FORM VALUES ===');
       let clientId: string;
@@ -515,15 +518,6 @@ export function EngagementForm({
           console.log('API Success Response:', JSON.stringify(responseData, null, 2));
           console.log('Engagement created successfully with ID:', responseData.id);
           
-          // If BBA Builder is selected, navigate to BBA tool page
-          if (values.tool === 'bba_builder') {
-            if (onSuccess) {
-              onSuccess();
-            }
-            navigate(`/dashboard/engagements/${responseData.id}/bba`);
-            return;
-          }
-          
           // Call onSuccess callback to close dialog and refresh list
           if (onSuccess) {
             console.log('Calling onSuccess callback for admin/firm_admin...');
@@ -598,16 +592,6 @@ export function EngagementForm({
           console.log('API Success Response:', JSON.stringify(responseData, null, 2));
           console.log('Engagement created successfully with ID:', responseData.id);
           
-          // If BBA Builder is selected, navigate to BBA tool page
-          if (values.tool === 'bba_builder') {
-            console.log('BBA Builder selected, navigating to BBA tool');
-            if (onSuccess) {
-              onSuccess();
-            }
-            navigate(`/dashboard/engagements/${responseData.id}/bba`);
-            return;
-          }
-          
           // Call onSuccess callback to close dialog and refresh list
           if (onSuccess) {
             console.log('Calling onSuccess callback (non-admin)...');
@@ -649,6 +633,8 @@ export function EngagementForm({
       
       // Re-throw to prevent form from closing on error
       throw error;
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -868,7 +854,7 @@ export function EngagementForm({
                   </FormControl>
                   <SelectContent>
                     <SelectItem value="diagnostic">Diagnostic</SelectItem>
-                    <SelectItem value="bba_builder">BBA Builder</SelectItem>
+                    <SelectItem value="kpi_builder">KPI Builder</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormDescription>
@@ -904,11 +890,14 @@ export function EngagementForm({
         <div className="flex justify-end gap-2 pt-4">
           <Button 
             type="submit" 
-            disabled={isLoading}
+            disabled={isLoading || isSubmitting}
             onClick={handleButtonClick}
           >
-            {isLoading ? (
-              isEditMode ? "Updating..." : "Creating..."
+            {(isLoading || isSubmitting) ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                {isEditMode ? "Updating..." : "Creating..."}
+              </>
             ) : (
               isEditMode ? "Update Engagement" : "Create Engagement"
             )}

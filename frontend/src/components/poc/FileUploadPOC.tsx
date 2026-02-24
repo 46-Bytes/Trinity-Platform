@@ -62,9 +62,11 @@ interface UploadedFile {
 interface FileUploadPOCProps {
   className?: string;
   engagementId?: string;
+  /** When opening from diagnostic "Run BBA Builder", the newly created project ID */
+  initialProjectId?: string;
 }
 
-export function FileUploadPOC({ className, engagementId }: FileUploadPOCProps) {
+export function FileUploadPOC({ className, engagementId, initialProjectId }: FileUploadPOCProps) {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -87,6 +89,7 @@ export function FileUploadPOC({ className, engagementId }: FileUploadPOCProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [stepLoadingStates, setStepLoadingStates] = useState<Record<number, boolean>>({
+    2: false,
     3: false, 
     4: false, 
     5: false, 
@@ -95,6 +98,7 @@ export function FileUploadPOC({ className, engagementId }: FileUploadPOCProps) {
     8: false, 
   });
   const [isRestoring, setIsRestoring] = useState(true);
+  const extractedContextCaptureRef = useRef(false);
 
   // Update loading state for a specific step
   const updateStepLoadingState = useCallback((step: number, isLoading: boolean) => {
@@ -104,18 +108,79 @@ export function FileUploadPOC({ className, engagementId }: FileUploadPOCProps) {
     }));
   }, []);
 
-  // Restore state from backend based on engagement ID
+  // Restore state from backend based on engagement ID (and optional initialProjectId from diagnostic flow)
   useEffect(() => {
     const restoreState = async () => {
       try {
+        if (!engagementId && !initialProjectId) {
+          setIsRestoring(false);
+          return;
+        }
+
+        const token = localStorage.getItem('auth_token');
+
+        // If we have a specific project ID (e.g. from "Run BBA Builder" after diagnostic), load it directly
+        if (initialProjectId) {
+          try {
+            const res = await fetch(`${API_BASE_URL}/api/poc/${initialProjectId}`, {
+              method: 'GET',
+              headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+              credentials: 'include',
+            });
+            if (res.ok) {
+              const result = await res.json();
+              const project = result.project;
+              if (project && project.id) {
+                setProjectId(project.id);
+                localStorage.setItem(STORAGE_KEYS.PROJECT_ID, project.id);
+                if (engagementId) localStorage.setItem(STORAGE_KEYS.ENGAGEMENT_ID, engagementId);
+                if (project.file_mappings && typeof project.file_mappings === 'object') {
+                  setFiles(
+                    Object.entries(project.file_mappings).map(([filename, fileId]) => ({
+                      id: `${Date.now()}-${Math.random()}`,
+                      file: new File([], filename, { type: 'application/octet-stream' }),
+                      status: 'success' as const,
+                      progress: 100,
+                      fileId: fileId as string,
+                    }))
+                  );
+                }
+                if (project.client_name || project.industry || project.company_size) {
+                  setQuestionnaireData({
+                    clientName: project.client_name || '',
+                    industry: project.industry || '',
+                    companySize: project.company_size || '',
+                    locations: project.locations || '',
+                    exclusions: project.exclusions || '',
+                    constraints: project.constraints || '',
+                    preferredRanking: project.preferred_ranking || '',
+                    strategicPriorities: project.strategic_priorities || '',
+                    excludeSaleReadiness: project.exclude_sale_readiness || false,
+                  });
+                }
+                const stepNum = project.current_step != null ? parseInt(String(project.current_step), 10) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 : 1;
+                if (stepNum >= 1 && stepNum <= 9) {
+                  setCurrentStep(stepNum);
+                  localStorage.setItem(STORAGE_KEYS.CURRENT_STEP, stepNum.toString());
+                }
+                const maxStepNum = project.max_step_reached != null ? parseInt(String(project.max_step_reached), 10) : 1;
+                if (maxStepNum >= 1 && maxStepNum <= 9) setMaxStepReached(maxStepNum);
+                setIsRestoring(false);
+                return;
+              }
+            }
+          } catch (e) {
+            console.error('Error fetching initial BBA project:', e);
+          }
+        }
+
         if (!engagementId) {
           setIsRestoring(false);
           return;
         }
 
-        // First, try to find existing BBA project for this engagement from backend
+        // List BBA projects for this engagement (API returns projects array)
         try {
-          const token = localStorage.getItem('auth_token');
           const response = await fetch(`${API_BASE_URL}/api/poc?engagement_id=${engagementId}`, {
             method: 'GET',
             headers: {
@@ -127,7 +192,10 @@ export function FileUploadPOC({ className, engagementId }: FileUploadPOCProps) {
 
           if (response.ok) {
             const result = await response.json();
-            const project = result.project;
+            const projects = result.projects;
+            const project = Array.isArray(projects) && projects.length > 0
+              ? projects.find((p: { id: string }) => p.id === initialProjectId) || projects[0]
+              : result.project;
 
             if (project && project.id) {
               // Found existing project for this engagement - restore everything from backend
@@ -334,7 +402,7 @@ export function FileUploadPOC({ className, engagementId }: FileUploadPOCProps) {
 
     restoreState();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [engagementId]); // Only run on mount or when engagementId changes
+  }, [engagementId, initialProjectId]); // Run when engagementId or initialProjectId (from diagnostic flow) changes
 
   // Persist project ID to localStorage
   useEffect(() => {
@@ -413,6 +481,56 @@ export function FileUploadPOC({ className, engagementId }: FileUploadPOCProps) {
       saveMaxStep();
     }
   }, [maxStepReached, projectId, isRestoring]);
+
+  // Reset extracted-context flag when project changes so we can extract again for a new project
+  useEffect(() => {
+    extractedContextCaptureRef.current = false;
+  }, [projectId]);
+
+  // When entering Context Capture (step 2), try to extract and pre-fill from diagnostic if present
+  useEffect(() => {
+    if (currentStep !== 2 || !projectId || extractedContextCaptureRef.current || isRestoring) return;
+
+    const runExtract = async () => {
+      extractedContextCaptureRef.current = true;
+      updateStepLoadingState(2, true);
+      try {
+        const token = localStorage.getItem('auth_token');
+        const res = await fetch(
+          `${API_BASE_URL}/api/poc/${projectId}/extract-context-capture`,
+          { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: 'include' }
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        const extracted = data?.extracted;
+        if (!extracted || typeof extracted !== 'object') return;
+
+        setQuestionnaireData((prev) => {
+          const next = { ...prev };
+          const keys: (keyof QuestionnaireData)[] = [
+            'clientName', 'industry', 'companySize', 'locations', 'exclusions',
+            'constraints', 'preferredRanking', 'strategicPriorities', 'excludeSaleReadiness',
+          ];
+          keys.forEach((k) => {
+            const v = extracted[k];
+            if (v === undefined || v === null) return;
+            const isEmpty = prev[k] === '' || prev[k] === undefined;
+            const isBool = k === 'excludeSaleReadiness';
+            if (isEmpty || (isBool && typeof v === 'boolean')) {
+              next[k] = (isBool ? !!v : String(v)) as QuestionnaireData[typeof k];
+            }
+          });
+          return next;
+        });
+      } catch (_) {
+        extractedContextCaptureRef.current = false;
+      } finally {
+        updateStepLoadingState(2, false);
+      }
+    };
+
+    runExtract();
+  }, [currentStep, projectId, isRestoring, updateStepLoadingState]);
 
   // Persist questionnaire data to localStorage
   useEffect(() => {
@@ -1058,15 +1176,23 @@ export function FileUploadPOC({ className, engagementId }: FileUploadPOCProps) {
 
         {/* Step 2: Questionnaire */}
         {currentStep === 2 && (
-          <ContextCaptureQuestionnaire
-            questionnaireData={questionnaireData}
-            onQuestionnaireChange={handleQuestionnaireChange}
-            onSubmit={handleQuestionnaireSubmit}
-            onBack={() => goToStep(1)}
-            files={files}
-            successCount={successCount}
-            isSubmitting={isQuestionnaireSubmitting}
-          />
+          <>
+            {stepLoadingStates[2] && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Extracting context from diagnostic…
+              </div>
+            )}
+            <ContextCaptureQuestionnaire
+              questionnaireData={questionnaireData}
+              onQuestionnaireChange={handleQuestionnaireChange}
+              onSubmit={handleQuestionnaireSubmit}
+              onBack={() => goToStep(1)}
+              files={files}
+              successCount={successCount}
+              isSubmitting={isQuestionnaireSubmitting}
+            />
+          </>
         )}
 
         {/* Step 3: Draft Findings */}

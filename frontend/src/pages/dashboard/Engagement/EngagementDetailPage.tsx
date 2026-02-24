@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from '@/components/ui/button';
 import { ToolSurvey } from '@/components/engagement/tools/ToolSurvey';
+import { FollowUpToolsTab } from '@/components/engagement/FollowUpToolsTab';
 import { EngagementChatbot } from '@/components/engagement/chatbot';
 import { GeneratedFilesList } from '@/components/engagement/overview';
 import type { GeneratedFileProps } from '@/components/engagement/overview';
@@ -695,10 +696,11 @@ export default function EngagementDetailPage() {
             <ArrowLeft className="h-4 w-4" />
             Back
           </Button>
-          <TabsList className="grid w-fit grid-cols-4">
+          <TabsList className="grid w-fit grid-cols-5">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
             <TabsTrigger value="diagnostic">Diagnostic</TabsTrigger>
+            <TabsTrigger value="tools">Tools</TabsTrigger>
             <TabsTrigger value="chatbot">Chat Bot</TabsTrigger>
           </TabsList>
         </div>
@@ -763,6 +765,18 @@ export default function EngagementDetailPage() {
         <TabsContent value="diagnostic" className="mt-4 sm:mt-6 w-full" style={{ width: '100%', maxWidth: '100%', overflowX: 'clip' }}>
           <div className="card-trinity px-0 sm:px-1 md:px-3 lg:px-6 py-2 sm:py-3 md:py-6 w-full" style={{ width: '100%', boxSizing: 'border-box', maxWidth: '100%', overflowX: 'clip', paddingLeft: 'clamp(0px, 1vw, 24px)', paddingRight: 'clamp(0px, 1vw, 24px)' }}>
             <ToolSurvey engagementId={engagementId} toolType="diagnostic" />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="tools" className="mt-6">
+          <div className="card-trinity p-6">
+            <FollowUpToolsTab
+              engagementId={engagementId!}
+              diagnostics={diagnostics}
+              diagnosticTags={diagnosticTags}
+              currentUserId={user?.id}
+              isAdmin={isAdmin}
+            />
           </div>
         </TabsContent>
 

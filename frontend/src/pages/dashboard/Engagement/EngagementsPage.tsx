@@ -252,13 +252,7 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
                 return (
                 <div 
                     key={engagement.id} 
-                    onClick={() => {
-                      if (engagement.tool === 'bba_builder') {
-                        navigate(`/dashboard/engagements/${engagement.id}/bba`);
-                      } else {
-                        navigate(`/dashboard/engagements/${engagement.id}`);
-                      }
-                    }}
+                    onClick={() => navigate(`/dashboard/engagements/${engagement.id}`)}
                     className="p-5 rounded-xl border border-border hover:border-accent/50 hover:shadow-trinity-md transition-all cursor-pointer group"
                   >
                     <div className="flex flex-col lg:flex-row lg:items-center gap-4">

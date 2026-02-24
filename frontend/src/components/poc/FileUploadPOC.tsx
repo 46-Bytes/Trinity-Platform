@@ -517,7 +517,7 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
             const isEmpty = prev[k] === '' || prev[k] === undefined;
             const isBool = k === 'excludeSaleReadiness';
             if (isEmpty || (isBool && typeof v === 'boolean')) {
-              next[k] = (isBool ? !!v : String(v)) as QuestionnaireData[typeof k];
+              (next as any)[k] = isBool ? !!v : String(v);
             }
           });
           return next;
@@ -1035,6 +1035,57 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
         {/* Step 1: File Upload */}
         {currentStep === 1 && (
           <>
+            {/* Upload guidelines */}
+            <div className="mb-6 rounded-lg border border-primary/15 bg-primary/5 px-4 py-3 md:px-5 md:py-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <FileText className="h-4 w-4" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold">
+                    Guidelines for what to upload
+                  </p>
+                  <p className="text-xs md:text-sm text-muted-foreground">
+                    Upload all client-specific materials you want included in the diagnostic report, such as:
+                  </p>
+                  <ul className="mt-2 grid gap-1.5 text-xs md:text-sm text-muted-foreground md:grid-cols-2">
+                    <li className="flex items-start gap-1.5">
+                      <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary/70" />
+                      <span>Completed diagnostic questionnaire(s) / scorecards</span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary/70" />
+                      <span>Workshop outputs (Miro boards, worksheets, notes)</span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary/70" />
+                      <span>Interview notes / leadership comments</span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary/70" />
+                      <span>Financial summaries (P&amp;L, balance sheet, cashflow notes)</span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary/70" />
+                      <span>Org chart, role descriptions (if any), meeting rhythms</span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary/70" />
+                      <span>Operational data (WIP, utilisation, pipeline, project performance, SOPs)</span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary/70" />
+                      <span>Systems stack notes (CRM/ERP/accounting/payroll)</span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary/70" />
+                      <span>Any prior reports or improvement plans</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
             {/* Drag and Drop Zone */}
             <div
               onDragEnter={handleDragEnter}

@@ -305,12 +305,8 @@ export function ReviewEditStep({ projectId, onBack, onContinueToPhase2, classNam
               </div>
             ) : (
               <div className="prose prose-sm max-w-none">
-                {project.executive_summary ? (
+                {project.executive_summary && (
                   <p className="whitespace-pre-wrap">{project.executive_summary}</p>
-                ) : (
-                  <p className="text-muted-foreground italic">
-                    No executive summary generated yet. Click "Generate Summary" to create one.
-                  </p>
                 )}
               </div>
             )}

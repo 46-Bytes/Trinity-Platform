@@ -578,7 +578,12 @@ class ReportService:
                     val_str = ReportService._escape_html(str(val))
                     cells_html += f"<td style=\"text-align: center; padding: 4px;\">{val_str}</td>"
                 rows_html += f"<tr>{cells_html}</tr>"
-        
+
+        # If there are no usable rows, avoid rendering an empty <table> as it can
+        # trigger ReportLab/xhtml2pdf layout errors (row heights become None).
+        if not rows_html:
+            return "<div style=\"text-align:center; color:#666; font-size:12px; padding:6px;\">No data available.</div>"
+
         return f"""
                     <table class="sub-table" style="width: 100%; border-collapse: collapse; table-layout: fixed; border: 1px solid #444; margin: 0 auto;">
                         <thead>
@@ -780,6 +785,8 @@ class ReportService:
             font-size: 15px;
             color: #000000;
             vertical-align: top;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
         
         table.data-table th {
@@ -828,6 +835,8 @@ class ReportService:
             padding: 4px;
             text-align: left;
             color: #000000;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
         
         .sub-table th {

@@ -10,6 +10,7 @@ import advisorClientReducer from './slices/advisorClientReducer';
 import firmReducer from './slices/firmReducer';
 import subscriptionReducer from './slices/subscriptionReducer';
 import clientReducer from './slices/clientReducer';
+import strategyWorkbookReducer from './slices/strategyWorkbookReducer';
 // Import other reducers as you create them
 // import appReducer from './slices/appSlice';
 
@@ -26,6 +27,7 @@ export const store = configureStore({
     firm: firmReducer,
     subscription: subscriptionReducer,
     client: clientReducer,
+    strategyWorkbook: strategyWorkbookReducer,
     // Add other reducers here
     // app: appReducer,
   },

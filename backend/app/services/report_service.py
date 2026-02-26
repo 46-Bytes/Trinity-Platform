@@ -607,54 +607,45 @@ class ReportService:
     
     @staticmethod
     def _format_matrix_table(matrix_data: List[Dict[str, Any]]) -> str:
-        """Format matrix data (list of dicts) as a minimal HTML table.
+        """Format matrix data (list of dicts) as structured text.
 
-        Uses bare-bones HTML attributes (border, cellpadding) instead of CSS
-        classes or table-layout:fixed — xhtml2pdf handles simple attribute-
-        styled tables much more reliably than CSS-heavy ones.
+        xhtml2pdf crashes with 'negative availWidth' when ANY <table> is
+        nested inside a <td> of a table-layout:fixed parent table.
+        We render each matrix row as a labelled list instead.
         """
         if not matrix_data or not isinstance(matrix_data[0], dict):
             return ""
 
         cols = list(matrix_data[0].keys())
+        row_blocks: List[str] = []
 
-        # Header row using HTML attributes only (no CSS classes)
-        header_cells = "".join(
-            f"<th style=\"padding:3px 5px; font-size:11px; text-align:left;\">"
-            f"{ReportService._escape_html(ReportService._humanize_label(col))}</th>"
-            for col in cols
-        )
-
-        # Data rows
-        rows_html = ""
-        for row in matrix_data:
+        for row_idx, row in enumerate(matrix_data, 1):
             if not isinstance(row, dict):
                 continue
             has_data = any(v is not None and v != "" for v in row.values())
             if not has_data:
                 continue
 
-            cells = ""
+            items: List[str] = []
             for col in cols:
                 val = row.get(col, "")
                 if isinstance(val, (dict, list)):
                     val = json.dumps(val)
-                cells += (
-                    f"<td style=\"padding:3px 5px; font-size:11px; text-align:left;\">"
-                    f"{ReportService._escape_html(str(val))}</td>"
+                label = ReportService._escape_html(ReportService._humanize_label(col))
+                val_str = ReportService._escape_html(str(val))
+                items.append(
+                    f"<li style=\"font-size:12px; margin:1px 0;\">"
+                    f"<strong>{label}:</strong> {val_str}</li>"
                 )
-            rows_html += f"<tr>{cells}</tr>"
 
-        if not rows_html:
-            return ""
+            if items:
+                row_blocks.append(
+                    f"<strong style=\"font-size:12px;\">Row {row_idx}</strong>"
+                    f"<ul style=\"margin:2px 0 6px 0; padding-left:18px; list-style:disc;\">"
+                    f"{''.join(items)}</ul>"
+                )
 
-        return (
-            '<table border="1" cellpadding="3" cellspacing="0"'
-            ' style="border-collapse:collapse; font-size:11px;">'
-            f"<tr>{header_cells}</tr>"
-            f"{rows_html}"
-            "</table>"
-        )
+        return "".join(row_blocks)
     
     @staticmethod
     def _format_answer(answer: Any) -> str:

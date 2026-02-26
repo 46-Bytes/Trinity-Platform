@@ -473,27 +473,15 @@ class ReportService:
             </tbody>
         </table>"""
     
-    # Inline cell style constants for the All Responses table.
-    # We use table-layout:auto (NOT data-table/fixed) so xhtml2pdf
-    # sizes columns from content — avoids the narrow-Response-column bug.
-    _AR_TH = (
-        'style="border:1px solid #444; padding:4px 6px; text-align:left;'
-        ' background-color:#f0f0f0; font-size:15px; font-weight:bold;"'
-    )
-    _AR_TD = 'style="border:1px solid #444; padding:4px 6px; font-size:15px;"'
-    _AR_TD_CENTER = (
-        'style="border:1px solid #444; padding:4px 6px; font-size:15px;'
-        ' text-align:center;"'
-    )
-
     @staticmethod
     def _build_all_responses_section(qa_data: List[Dict[str, str]]) -> str:
         """Build all responses section.
 
-        Uses table-layout:auto with inline borders so xhtml2pdf sizes
-        columns from content (avoids the fixed-layout column-width bug).
-        Matrix answers show "See table below" and their column tables
-        are rendered as standalone elements after the main table.
+        Uses class="data-table" (table-layout:fixed) — the same proven
+        approach used by Scored Responses, Roadmap, and Diagnostic Advice.
+        All cell content is plain text + <br/> only (no <ul>/<li>)
+        via _format_answer_plain(), which prevents xhtml2pdf from
+        miscalculating column widths.
         """
         logger.debug(
             "ReportService _build_all_responses_section: qa_data_len=%s", len(qa_data or [])
@@ -507,16 +495,13 @@ class ReportService:
             'relative_path', 'Relative Path', 'relativePath',
         ]
 
-        td = ReportService._AR_TD
-        td_c = ReportService._AR_TD_CENTER
-
         rows_html = ""
-        matrix_blocks: List[tuple] = []  # (idx, question, data)
 
         for idx, qa in enumerate(qa_data, 1):
             question = ReportService._escape_html(qa.get("question", ""))
             answer = qa.get("answer")
 
+            # File-upload detection (list-of-dicts with file indicator keys)
             is_matrix = (
                 isinstance(answer, list)
                 and len(answer) > 0
@@ -528,7 +513,6 @@ class ReportService:
                     isinstance(row, dict) and any(ind in row for ind in file_indicators)
                     for row in answer
                 )
-
                 if is_file_data:
                     file_names = []
                     for row in answer:
@@ -540,58 +524,39 @@ class ReportService:
                             )
                             if file_name:
                                 file_names.append(file_name)
-                    display = (
+                    answer_html = (
                         ', '.join(ReportService._escape_html(fn) for fn in file_names)
                         if file_names else "Files uploaded"
                     )
                 else:
-                    display = "See table below"
-                    matrix_blocks.append((idx, question, answer))
-
-                rows_html += f"""
-            <tr>
-                <td {td_c}>{idx}</td>
-                <td {td}>{question}</td>
-                <td {td}>{display}</td>
-            </tr>"""
+                    # Matrix data — render inline as plain text
+                    answer_html = ReportService._format_answer_plain(answer)
             else:
-                answer_html = ReportService._format_answer(answer)
-                rows_html += f"""
+                # All other answers — plain text only (no <ul>)
+                answer_html = ReportService._format_answer_plain(answer)
+
+            rows_html += f"""
             <tr>
-                <td {td_c}>{idx}</td>
-                <td {td}>{question}</td>
-                <td {td}>{answer_html}</td>
+                <td style="text-align: center;">{idx}</td>
+                <td>{question}</td>
+                <td>{answer_html}</td>
             </tr>"""
 
-        # Standalone matrix tables rendered after the main table
-        matrix_html = ""
-        for m_idx, m_question, m_data in matrix_blocks:
-            matrix_html += f'<h4 style="margin:14px 0 4px 0;">#{m_idx}: {m_question}</h4>'
-            matrix_html += ReportService._format_matrix_table(m_data)
-
-        th = ReportService._AR_TH
         return f"""
     <div class="page-break"></div>
     <div class="section">
         <h3>All Responses</h3>
-        <table border="1" cellpadding="6" cellspacing="0"
-               style="border-collapse:collapse; width:100%; table-layout:auto;">
-            <colgroup>
-                <col style="width:30px;" />
-                <col style="width:45%;" />
-                <col style="width:50%;" />
-            </colgroup>
+        <table class="data-table">
             <thead>
                 <tr>
-                    <th {th}>#</th>
-                    <th {th}>Question</th>
-                    <th {th}>Response</th>
+                    <th style="width:8%; text-align: center;">#</th>
+                    <th style="width:42%; text-align: left;">Question</th>
+                    <th style="width:50%; text-align: left;">Response</th>
                 </tr>
             </thead>
             <tbody>{rows_html}
             </tbody>
         </table>
-        {matrix_html}
     </div>"""
     
     @staticmethod
@@ -622,57 +587,6 @@ class ReportService:
     def _humanize_label(slug: str) -> str:
         """Convert field_name to Field Name."""
         return slug.replace('_', ' ').replace('-', ' ').title()
-
-    @staticmethod
-    def _format_matrix_table(matrix_data: List[Dict[str, Any]]) -> str:
-        """Render matrix data as a standalone top-level HTML table.
-
-        Uses table-layout:auto with inline borders on every cell.
-        Never nested inside a <td> — always placed after the main table.
-        """
-        if not matrix_data or not isinstance(matrix_data[0], dict):
-            return ""
-
-        cols = list(matrix_data[0].keys())
-
-        header_cells = "".join(
-            f'<th style="border:1px solid #444; padding:4px 6px; text-align:left;'
-            f' background-color:#f0f0f0; font-weight:bold; font-size:13px;">'
-            f'{ReportService._escape_html(ReportService._humanize_label(col))}</th>'
-            for col in cols
-        )
-
-        rows_html = ""
-        for row in matrix_data:
-            if not isinstance(row, dict):
-                continue
-            has_data = any(v is not None and v != "" for v in row.values())
-            if not has_data:
-                continue
-
-            cells = ""
-            for col in cols:
-                val = row.get(col, "")
-                if isinstance(val, (dict, list)):
-                    val = json.dumps(val)
-                cells += (
-                    f'<td style="border:1px solid #444; padding:4px 6px;'
-                    f' text-align:left; font-size:13px;">'
-                    f'{ReportService._escape_html(str(val))}</td>'
-                )
-            rows_html += f"<tr>{cells}</tr>"
-
-        if not rows_html:
-            return ""
-
-        return (
-            '<table border="1" cellpadding="4" cellspacing="0"'
-            ' style="border-collapse:collapse; width:100%; table-layout:auto;'
-            ' margin-bottom:10px;">'
-            f"<thead><tr>{header_cells}</tr></thead>"
-            f"<tbody>{rows_html}</tbody>"
-            "</table>"
-        )
 
     @staticmethod
     def _format_answer(answer: Any) -> str:
@@ -715,6 +629,63 @@ class ReportService:
         # Default: convert to string
         return ReportService._escape_html(str(answer))
     
+    @staticmethod
+    def _format_answer_plain(answer: Any) -> str:
+        """Format answer as flat text with <br/> separators only.
+
+        Unlike _format_answer() this never emits block-level HTML
+        (<ul>, <li>, <table>, etc.).  xhtml2pdf miscalculates column
+        widths when block-level flowables sit inside table cells, so
+        the All Responses table must use this method exclusively.
+        """
+        if answer is None:
+            return ""
+
+        # Matrix: list of dicts → one line per row
+        if (isinstance(answer, list) and len(answer) > 0
+                and isinstance(answer[0], dict)):
+            lines: list[str] = []
+            for i, row in enumerate(answer, 1):
+                if not isinstance(row, dict):
+                    continue
+                pairs = ", ".join(
+                    f"{ReportService._escape_html(ReportService._humanize_label(str(k)))}: "
+                    f"{ReportService._escape_html(str(v))}"
+                    for k, v in row.items()
+                    if v is not None and v != ""
+                )
+                if pairs:
+                    lines.append(f"Row {i}: {pairs}")
+            return "<br/>".join(lines) if lines else ""
+
+        # Dict → key: value per line
+        if isinstance(answer, dict):
+            lines = []
+            for k, v in answer.items():
+                key_label = ReportService._escape_html(
+                    ReportService._humanize_label(str(k))
+                )
+                val_str = ReportService._escape_html(str(v))
+                lines.append(f"{key_label}: {val_str}")
+            return "<br/>".join(lines)
+
+        # Simple list/tuple → one item per line
+        if isinstance(answer, (list, tuple)):
+            items = []
+            for item in answer:
+                if isinstance(item, (dict, list)):
+                    item_str = json.dumps(item)
+                else:
+                    item_str = str(item)
+                items.append(ReportService._escape_html(item_str))
+            return "<br/>".join(items)
+
+        # Scalar
+        if isinstance(answer, str):
+            return ReportService._escape_html(answer)
+
+        return ReportService._escape_html(str(answer))
+
     @staticmethod
     def _markdown_to_html(text: str) -> str:
         """Convert Markdown text (with tables, lists, headings) to HTML."""

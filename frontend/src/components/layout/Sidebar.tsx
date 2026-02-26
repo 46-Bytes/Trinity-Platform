@@ -19,7 +19,8 @@ import {
   BarChart3,
   Shield,
   MessageSquare,
-  CreditCard
+  CreditCard,
+  BookOpen
 } from 'lucide-react';
 import { UserRole } from '@/types/auth';
 
@@ -45,6 +46,7 @@ const navItems: NavItem[] = [
   { label: 'Clients', href: '/dashboard/clients', icon: UserCircle, roles: ['advisor', 'firm_admin', 'firm_advisor'] },
   { label: 'Advisors', href: '/dashboard/advisors', icon: Users, roles: ['firm_admin'] },
   { label: 'Engagements', href: '/dashboard/engagements', icon: FolderOpen, roles: ['super_admin','admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
+  { label: 'Strategy Workbook', href: '/dashboard/strategy-workbook', icon: BookOpen, roles: ['super_admin', 'admin', 'advisor', 'firm_admin', 'firm_advisor'] },
   { label: 'Tasks', href: '/dashboard/tasks', icon: CheckSquare, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
   // { label: 'Documents', href: '/dashboard/documents', icon: FileText, roles: ['super_admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
   // { label: 'AI Tools', href: '/dashboard/ai-tools', icon: Brain, roles: ['super_admin', 'admin', 'advisor', 'firm_admin', 'firm_advisor'] },

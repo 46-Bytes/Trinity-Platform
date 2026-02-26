@@ -235,7 +235,29 @@ class OpenAIService:
                 raise
             
             # Extract data
-            content = response.output_text
+            content = getattr(response, "output_text", None) or ""
+
+            # Fallback: sometimes `output_text` can be empty even when output contains content
+            if not content:
+                extracted_chunks: List[str] = []
+                try:
+                    output_items = getattr(response, "output", None) or []
+                    for item in output_items:
+                        # item/content can be SDK objects or plain dicts depending on SDK/version
+                        item_content = item.get("content") if isinstance(item, dict) else getattr(item, "content", None)
+                        for c in item_content or []:
+                            if isinstance(c, dict):
+                                t = c.get("text")
+                                if t:
+                                    extracted_chunks.append(str(t))
+                                continue
+                            t = getattr(c, "text", None)
+                            if t:
+                                extracted_chunks.append(str(t))
+                    content = "\n".join(extracted_chunks).strip()
+                except Exception:
+                    # Non-fatal; keep content as empty string
+                    content = content or ""
             
             # Extract token usage
             tokens_used = getattr(response.usage, 'total_tokens', 0) if hasattr(response, 'usage') else 0
@@ -245,7 +267,50 @@ class OpenAIService:
             
             logger.info(f"[OpenAI API] Token usage - Total: {tokens_used}, Prompt: {prompt_tokens}, Completion: {completion_tokens}")
             logger.info(f"[OpenAI API] Finish reason: {finish_reason}")
+
+            # Summarise output types for debugging (avoid logging raw content)
+            output_summary: List[Dict[str, Any]] = []
+            try:
+                output_items = getattr(response, "output", None) or []
+                for item in output_items:
+                    if isinstance(item, dict):
+                        item_type = item.get("type")
+                        role = item.get("role")
+                        c_list = item.get("content") or []
+                        c_types = [
+                            (x.get("type") if isinstance(x, dict) else getattr(x, "type", None))
+                            for x in c_list
+                        ]
+                    else:
+                        item_type = getattr(item, "type", None)
+                        role = getattr(item, "role", None)
+                        c_list = getattr(item, "content", None) or []
+                        c_types = [getattr(x, "type", None) for x in c_list]
+                    output_summary.append(
+                        {
+                            "type": item_type,
+                            "role": role,
+                            "content_types": [ct for ct in c_types if ct],
+                        }
+                    )
+            except Exception:
+                output_summary = []
             
+            if not content:
+                try:
+                    output_len = len(getattr(response, "output", None) or [])
+                except Exception:
+                    output_len = None
+                logger.warning(
+                    "[OpenAI API] Empty content returned (output_text empty and fallback extraction found nothing). "
+                    "finish_reason=%s tokens_used=%s output_items=%s response_id=%s output_summary=%s",
+                    finish_reason,
+                    tokens_used,
+                    output_len,
+                    getattr(response, "id", None),
+                    output_summary,
+                )
+
             # Return structured response
             return {
                 "content": content,
@@ -253,7 +318,9 @@ class OpenAIService:
                 "tokens_used": tokens_used,
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
-                "finish_reason": finish_reason
+                "finish_reason": finish_reason,
+                "response_id": getattr(response, "id", None),
+                "output_summary": output_summary,
             }
             
         except Exception as e:
@@ -290,6 +357,50 @@ class OpenAIService:
             
             raise Exception(f"OpenAI Responses API error: {error_msg}")
     
+    def _repair_json(self, content: str) -> str:
+        """
+        Attempt to repair common JSON syntax errors.
+        
+        Args:
+            content: Potentially malformed JSON string
+            
+        Returns:
+            Repaired JSON string
+        """
+        import re
+        
+        # Remove markdown code blocks if present
+        if "```json" in content:
+            content = content.split("```json")[1].split("```")[0].strip()
+        elif "```" in content:
+            content = content.split("```")[1].split("```")[0].strip()
+        
+        # Try to fix common issues:
+        # 1. Add missing commas before closing braces/brackets (but not at the end)
+        # 2. Remove trailing commas
+        # 3. Fix unescaped newlines in strings (replace \n with \\n inside strings)
+        
+        # First, try to escape unescaped newlines in string values
+        # This is tricky - we need to find string values and escape newlines
+        # For now, let's try a simpler approach: replace literal newlines with \\n in JSON strings
+        
+        # Remove trailing commas before } or ]
+        content = re.sub(r',(\s*[}\]])', r'\1', content)
+        
+        # Try to add missing commas between object/array items
+        # This is complex, so we'll do a simple pattern match
+        # Look for: } { or ] [ or } [ or ] { without comma
+        content = re.sub(r'}\s*{', '},{', content)
+        content = re.sub(r']\s*\[', '],[', content)
+        content = re.sub(r'}\s*\[', '},[', content)
+        content = re.sub(r']\s*{', '],{', content)
+        
+        # Try to fix missing commas after values before closing braces/brackets
+        # Pattern: value } or value ] where value is not already followed by comma
+        # This is very tricky, so we'll be conservative
+        
+        return content.strip()
+    
     async def generate_json_completion(
         self,
         messages: List[Dict[str, str]],
@@ -298,6 +409,7 @@ class OpenAIService:
         file_ids: Optional[List[str]] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
         model: Optional[str] = None,
+        max_output_tokens: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Generate JSON completion from OpenAI using Responses API.
@@ -320,22 +432,22 @@ class OpenAIService:
             file_ids=file_ids,
             tools=tools,
             model=model or settings.OPENAI_MODEL,
+            max_output_tokens=max_output_tokens,
         )
         
         # Parse JSON content
         logger.info("[OpenAI] Parsing JSON response...")
+        content = result["content"]
+        
+        # Try direct parse first
         try:
-            # Try to parse as JSON
-            parsed_content = json.loads(result["content"])
+            parsed_content = json.loads(content)
             result["parsed_content"] = parsed_content
             logger.info("[OpenAI]  JSON parsed successfully (direct parse)")
             logger.info(f"[OpenAI] Parsed content keys: {list(parsed_content.keys()) if isinstance(parsed_content, dict) else 'Not a dict'}")
         except json.JSONDecodeError as e:
             logger.warning(f"[OpenAI]   Direct JSON parse failed: {str(e)}")
             logger.info("[OpenAI] Attempting to extract JSON from markdown...")
-            
-            # If JSON parsing fails, try to extract JSON from markdown
-            content = result["content"]
             
             # Remove markdown code blocks if present
             if "```json" in content:
@@ -345,15 +457,45 @@ class OpenAIService:
                 logger.info("[OpenAI] Found ``` code block, extracting...")
                 content = content.split("```")[1].split("```")[0].strip()
             
+            # Try parsing after markdown extraction
             try:
                 parsed_content = json.loads(content)
                 result["parsed_content"] = parsed_content
                 logger.info("[OpenAI]  JSON parsed successfully (from markdown)")
                 logger.info(f"[OpenAI] Parsed content keys: {list(parsed_content.keys()) if isinstance(parsed_content, dict) else 'Not a dict'}")
             except json.JSONDecodeError as e2:
-                logger.error(f"[OpenAI]  JSON parsing failed after markdown extraction: {str(e2)}")
-                logger.error(f"[OpenAI] Content preview (first 500 chars): {content[:500]}")
-                raise Exception(f"Failed to parse JSON response: {str(e2)}\nContent preview: {content[:500]}...")
+                logger.warning(f"[OpenAI]  JSON parsing failed after markdown extraction: {str(e2)}")
+                logger.info("[OpenAI] Attempting to repair JSON...")
+                
+                # Try to repair JSON
+                try:
+                    repaired_content = self._repair_json(content)
+                    parsed_content = json.loads(repaired_content)
+                    result["parsed_content"] = parsed_content
+                    logger.info("[OpenAI]  JSON parsed successfully (after repair)")
+                    logger.info(f"[OpenAI] Parsed content keys: {list(parsed_content.keys()) if isinstance(parsed_content, dict) else 'Not a dict'}")
+                except (json.JSONDecodeError, Exception) as e3:
+                    # Log the error location for debugging
+                    error_line = None
+                    error_col = None
+                    if isinstance(e2, json.JSONDecodeError):
+                        error_line = getattr(e2, 'lineno', None)
+                        error_col = getattr(e2, 'colno', None)
+                    
+                    # Log content around the error
+                    if error_line:
+                        lines = content.split('\n')
+                        start = max(0, error_line - 3)
+                        end = min(len(lines), error_line + 3)
+                        context = '\n'.join(lines[start:end])
+                        logger.error(f"[OpenAI]  JSON repair failed: {str(e3)}")
+                        logger.error(f"[OpenAI]  Error at line {error_line}, col {error_col}")
+                        logger.error(f"[OpenAI]  Context around error:\n{context}")
+                    else:
+                        logger.error(f"[OpenAI]  JSON repair failed: {str(e3)}")
+                        logger.error(f"[OpenAI]  Content preview (first 1000 chars): {content[:1000]}")
+                    
+                    raise Exception(f"Failed to parse JSON response after repair attempts: {str(e2)}\nError location: line {error_line}, col {error_col if error_col else 'unknown'}")
         
         return result
     

@@ -534,17 +534,17 @@ class ReportService:
 
                 rows_html += f"""
             <tr>
-                <td style="text-align: center; border: 1px solid #444; font-size: 15px;">{idx}</td>
-                <td style="text-align: left; border: 1px solid #444; font-size: 15px;">{question}</td>
-                <td style="text-align: left; border: 1px solid #444; font-size: 15px;">{display}</td>
+                <td style="text-align: center;">{idx}</td>
+                <td>{question}</td>
+                <td>{display}</td>
             </tr>"""
             else:
                 answer_html = ReportService._format_answer(answer)
                 rows_html += f"""
             <tr>
-                <td style="text-align: center; border: 1px solid #444; font-size: 15px;">{idx}</td>
-                <td style="text-align: left; border: 1px solid #444; font-size: 15px;">{question}</td>
-                <td style="text-align: left; border: 1px solid #444; font-size: 15px;">{answer_html}</td>
+                <td style="text-align: center;">{idx}</td>
+                <td>{question}</td>
+                <td>{answer_html}</td>
             </tr>"""
 
         # Build matrix appendix (standalone tables after the main table)
@@ -557,12 +557,12 @@ class ReportService:
     <div class="page-break"></div>
     <div class="section">
         <h3>All Responses</h3>
-        <table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; width: 100%; table-layout: auto;">
+        <table class="data-table">
             <thead>
                 <tr>
-                    <th style="width:5%; text-align: center; border: 1px solid #444; background-color: #f0f0f0; font-size: 15px;">#</th>
-                    <th style="width:45%; text-align: left; border: 1px solid #444; background-color: #f0f0f0; font-size: 15px;">Question</th>
-                    <th style="width:50%; text-align: left; border: 1px solid #444; background-color: #f0f0f0; font-size: 15px;">Response</th>
+                    <th style="width:5%; text-align: center;">#</th>
+                    <th style="width:45%; text-align: left;">Question</th>
+                    <th style="width:50%; text-align: left;">Response</th>
                 </tr>
             </thead>
             <tbody>{rows_html}
@@ -615,8 +615,8 @@ class ReportService:
         cols = list(matrix_data[0].keys())
 
         header_cells = "".join(
-            f'<th style="padding:4px 6px; text-align:left; background-color:#f0f0f0;'
-            f' font-weight:bold; font-size:13px;">'
+            f'<th style="border:1px solid #444; padding:4px 6px; text-align:left;'
+            f' background-color:#f0f0f0; font-weight:bold; font-size:13px;">'
             f'{ReportService._escape_html(ReportService._humanize_label(col))}</th>'
             for col in cols
         )
@@ -635,7 +635,8 @@ class ReportService:
                 if isinstance(val, (dict, list)):
                     val = json.dumps(val)
                 cells += (
-                    f'<td style="padding:4px 6px; text-align:left; font-size:13px;">'
+                    f'<td style="border:1px solid #444; padding:4px 6px; text-align:left;'
+                    f' font-size:13px;">'
                     f'{ReportService._escape_html(str(val))}</td>'
                 )
             rows_html += f"<tr>{cells}</tr>"

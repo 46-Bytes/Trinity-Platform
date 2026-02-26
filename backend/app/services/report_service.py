@@ -863,7 +863,8 @@ class ReportService:
             # Fallback: strip all table tags to avoid layout issues and retry with plain content
             try:
                 import re
-                safe_html = re.sub(r"<table[\\s\\S]*?</table>", "", html_content, flags=re.IGNORECASE)
+                # Remove all table blocks (case-insensitive, dot-all)
+                safe_html = re.sub(r"(?is)<table.*?</table>", "", html_content)
                 result = BytesIO()
                 pdf = pisa.pisaDocument(BytesIO(safe_html.encode("utf-8")), result)
                 if pdf.err:

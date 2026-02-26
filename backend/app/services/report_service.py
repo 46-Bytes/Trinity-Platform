@@ -534,17 +534,17 @@ class ReportService:
 
                 rows_html += f"""
             <tr>
-                <td style="text-align: center;">{idx}</td>
-                <td style="text-align: left;">{question}</td>
-                <td style="text-align: left;">{display}</td>
+                <td style="text-align: center; border: 1px solid #444; font-size: 15px;">{idx}</td>
+                <td style="text-align: left; border: 1px solid #444; font-size: 15px;">{question}</td>
+                <td style="text-align: left; border: 1px solid #444; font-size: 15px;">{display}</td>
             </tr>"""
             else:
                 answer_html = ReportService._format_answer(answer)
                 rows_html += f"""
             <tr>
-                <td style="text-align: center;">{idx}</td>
-                <td style="text-align: left;">{question}</td>
-                <td style="text-align: left;">{answer_html}</td>
+                <td style="text-align: center; border: 1px solid #444; font-size: 15px;">{idx}</td>
+                <td style="text-align: left; border: 1px solid #444; font-size: 15px;">{question}</td>
+                <td style="text-align: left; border: 1px solid #444; font-size: 15px;">{answer_html}</td>
             </tr>"""
 
         # Build matrix appendix (standalone tables after the main table)
@@ -557,12 +557,12 @@ class ReportService:
     <div class="page-break"></div>
     <div class="section">
         <h3>All Responses</h3>
-        <table class="data-table" style="border-collapse: collapse; width: 100%; table-layout: fixed;">
+        <table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; width: 100%; table-layout: auto;">
             <thead>
                 <tr>
-                    <th style="width:5%; text-align: center;">#</th>
-                    <th style="width:45%; text-align: left;">Question</th>
-                    <th style="width:50%; text-align: left;">Response</th>
+                    <th style="width:5%; text-align: center; border: 1px solid #444; background-color: #f0f0f0; font-size: 15px;">#</th>
+                    <th style="width:45%; text-align: left; border: 1px solid #444; background-color: #f0f0f0; font-size: 15px;">Question</th>
+                    <th style="width:50%; text-align: left; border: 1px solid #444; background-color: #f0f0f0; font-size: 15px;">Response</th>
                 </tr>
             </thead>
             <tbody>{rows_html}

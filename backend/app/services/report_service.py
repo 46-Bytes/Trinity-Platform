@@ -310,7 +310,18 @@ class ReportService:
         rows_html = ""
         for row in scored_rows:
             question = ReportService._escape_html(str(row.get("question", "")))
-            response = ReportService._escape_html(str(row.get("response", "")))
+
+            # Matrix/complex responses would stringify to a massive string
+            # that overflows the fixed 20%-wide column → negative availWidth
+            # in xhtml2pdf.  Summarise them instead.
+            response_raw = row.get("response", "")
+            if isinstance(response_raw, list):
+                response = f"[{len(response_raw)} entries]"
+            elif isinstance(response_raw, dict):
+                response = "[Complex response]"
+            else:
+                response = ReportService._escape_html(str(response_raw))
+
             score = str(row.get("score", ""))
             module = str(row.get("module", ""))
             
@@ -645,8 +656,11 @@ class ReportService:
         if not rows_html:
             return ""
 
+        # Do NOT use class="data-table" — that inherits table-layout:fixed
+        # from CSS, which causes negative availWidth when column count is high.
         return (
-            '<table class="data-table" style="border-collapse:collapse; width:100%; font-size:13px;">'
+            '<table border="1" cellpadding="4" cellspacing="0"'
+            ' style="border-collapse:collapse; width:100%; table-layout:auto; font-size:13px;">'
             f"<thead><tr>{header_cells}</tr></thead>"
             f"<tbody>{rows_html}</tbody>"
             "</table>"

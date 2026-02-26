@@ -477,10 +477,9 @@ class ReportService:
     def _build_all_responses_section(qa_data: List[Dict[str, str]]) -> str:
         """Build all responses section.
 
-        The main Q&A table is ONE continuous table (no nesting, no
-        segment-breaking).  Matrix answers show "See table below" in
-        the Response cell and their actual column tables are rendered
-        as separate top-level elements AFTER the main table.
+        Matrix-dynamic rows (list-of-dicts that are NOT file uploads)
+        are skipped entirely to avoid xhtml2pdf formatting issues.
+        File-upload rows still render with their filenames.
         """
         logger.debug(
             "ReportService _build_all_responses_section: qa_data_len=%s", len(qa_data or [])
@@ -495,8 +494,6 @@ class ReportService:
         ]
 
         rows_html = ""
-        # Collect matrix questions to render after the main table
-        matrix_blocks: List[tuple] = []  # (idx, question, data)
 
         for idx, qa in enumerate(qa_data, 1):
             question = ReportService._escape_html(qa.get("question", ""))
@@ -509,6 +506,7 @@ class ReportService:
             )
 
             if is_matrix:
+                # Check if this is file-upload data (still render those)
                 is_file_data = any(
                     isinstance(row, dict) and any(ind in row for ind in file_indicators)
                     for row in answer
@@ -529,16 +527,15 @@ class ReportService:
                         ', '.join(ReportService._escape_html(fn) for fn in file_names)
                         if file_names else "Files uploaded"
                     )
-                else:
-                    display = "See table below"
-                    matrix_blocks.append((idx, question, answer))
-
-                rows_html += f"""
+                    rows_html += f"""
             <tr>
                 <td style="text-align: center;">{idx}</td>
                 <td>{question}</td>
                 <td>{display}</td>
             </tr>"""
+                else:
+                    # Matrix-dynamic row — skip entirely
+                    continue
             else:
                 answer_html = ReportService._format_answer(answer)
                 rows_html += f"""
@@ -547,12 +544,6 @@ class ReportService:
                 <td>{question}</td>
                 <td>{answer_html}</td>
             </tr>"""
-
-        # Build matrix appendix (standalone tables after the main table)
-        matrix_html = ""
-        for m_idx, m_question, m_data in matrix_blocks:
-            matrix_html += f'<h4 style="margin:14px 0 4px 0;">#{m_idx}: {m_question}</h4>'
-            matrix_html += ReportService._format_matrix_table(m_data)
 
         return f"""
     <div class="page-break"></div>
@@ -569,7 +560,6 @@ class ReportService:
             <tbody>{rows_html}
             </tbody>
         </table>
-        {matrix_html}
     </div>"""
     
     @staticmethod
@@ -600,59 +590,6 @@ class ReportService:
     def _humanize_label(slug: str) -> str:
         """Convert field_name to Field Name."""
         return slug.replace('_', ' ').replace('-', ' ').title()
-    
-    @staticmethod
-    def _format_matrix_table(matrix_data: List[Dict[str, Any]]) -> str:
-        """Render matrix data as a standalone top-level HTML table.
-
-        This is placed AFTER the main All Responses table (never nested
-        inside a <td>).  Uses table-layout:auto so columns auto-size,
-        and HTML border attributes instead of the data-table CSS class
-        (which forces table-layout:fixed).
-        """
-        if not matrix_data or not isinstance(matrix_data[0], dict):
-            return ""
-
-        cols = list(matrix_data[0].keys())
-
-        header_cells = "".join(
-            f'<th style="border:1px solid #444; padding:4px 6px; text-align:left;'
-            f' background-color:#f0f0f0; font-weight:bold; font-size:13px;">'
-            f'{ReportService._escape_html(ReportService._humanize_label(col))}</th>'
-            for col in cols
-        )
-
-        rows_html = ""
-        for row in matrix_data:
-            if not isinstance(row, dict):
-                continue
-            has_data = any(v is not None and v != "" for v in row.values())
-            if not has_data:
-                continue
-
-            cells = ""
-            for col in cols:
-                val = row.get(col, "")
-                if isinstance(val, (dict, list)):
-                    val = json.dumps(val)
-                cells += (
-                    f'<td style="border:1px solid #444; padding:4px 6px; text-align:left;'
-                    f' font-size:13px;">'
-                    f'{ReportService._escape_html(str(val))}</td>'
-                )
-            rows_html += f"<tr>{cells}</tr>"
-
-        if not rows_html:
-            return ""
-
-        return (
-            '<table border="1" cellpadding="4" cellspacing="0"'
-            ' style="border-collapse:collapse; width:100%; table-layout:auto;'
-            ' margin-bottom:10px;">'
-            f"<thead><tr>{header_cells}</tr></thead>"
-            f"<tbody>{rows_html}</tbody>"
-            "</table>"
-        )
     
     @staticmethod
     def _format_answer(answer: Any) -> str:

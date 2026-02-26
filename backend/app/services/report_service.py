@@ -32,15 +32,30 @@ class ReportService:
         Returns:
             PDF bytes
         """
+        try:
+            logger.info(
+                "Starting PDF report generation for diagnostic_id=%s user_id=%s",
+                getattr(diagnostic, "id", None),
+                getattr(user, "id", None),
+            )
+        except Exception:
+            logger.info("Starting PDF report generation (could not read diagnostic/user ids)")
+
         # Build HTML content
         html_content = ReportService._build_html_report(
             diagnostic=diagnostic,
             user=user,
             question_text_map=question_text_map
         )
+        logger.debug("HTML report built; length=%s characters", len(html_content or ""))
         
         # Generate PDF from HTML
         pdf_bytes = ReportService._html_to_pdf(html_content)
+        logger.info(
+            "Finished PDF generation for diagnostic_id=%s (size=%s bytes)",
+            getattr(diagnostic, "id", None),
+            len(pdf_bytes or b""),
+        )
         
         return pdf_bytes
     
@@ -70,6 +85,18 @@ class ReportService:
         # Get module_scores for fallback/merging
         module_scores = getattr(diagnostic, "module_scores", {}) or {}
         ranked_modules = module_scores.get("ranked", [])
+
+        logger.debug(
+            "ReportService _build_html_report: summary_len=%s advice_len=%s advisor_report_len=%s "
+            "client_summary_len=%s roadmap_len=%s scored_rows_len=%s ranked_modules_len=%s",
+            len(summary or ""),
+            len(advice or ""),
+            len(advisor_report or ""),
+            len(client_summary or ""),
+            len(roadmap or []),
+            len(scored_rows or []),
+            len(ranked_modules or []),
+        )
         
         # If roadmap is empty or incomplete, build/merge with ranked_modules
         if not roadmap and ranked_modules:
@@ -104,6 +131,12 @@ class ReportService:
                 }
                 merged_roadmap.append(merged_item)
             roadmap = merged_roadmap
+
+        logger.debug(
+            "ReportService _build_html_report: final roadmap_len=%s; example_item=%s",
+            len(roadmap or []),
+            (roadmap or [None])[0],
+        )
         
         # Format dates
         created_date = diagnostic.created_at.strftime("%B %d, %Y") if diagnostic.created_at else ""
@@ -127,6 +160,11 @@ class ReportService:
         
         # Build Q&A data (all responses with question text)
         qa_data = ReportService._build_qa_data(user_responses, question_text_map)
+        logger.debug(
+            "ReportService _build_html_report: qa_data_len=%s (user_responses_keys=%s)",
+            len(qa_data or []),
+            list(user_responses.keys()) if isinstance(user_responses, dict) else "n/a",
+        )
         
         # Generate HTML
         html = f"""<!DOCTYPE html>
@@ -227,6 +265,12 @@ class ReportService:
         - Scored Responses table
         - Client Summary (narrative + Roadmap table)
         """
+        logger.debug(
+            "ReportService _build_scoring_section: scored_rows_len=%s client_summary_len=%s roadmap_len=%s",
+            len(scored_rows or []),
+            len(client_summary or ""),
+            len(roadmap or []) if roadmap is not None else 0,
+        )
         sections: List[str] = []
         
         # Scored Responses Table
@@ -236,13 +280,13 @@ class ReportService:
         # Client Summary section (narrative + roadmap table)
         if client_summary or roadmap:
             client_summary_html = ""
-        if client_summary:
-            client_summary_html = ReportService._markdown_to_html(client_summary)
-            
+            if client_summary:
+                client_summary_html = ReportService._markdown_to_html(client_summary)
+
             roadmap_table_html = ""
             if roadmap:
                 roadmap_table_html = ReportService._build_roadmap_table(roadmap)
-            
+
             sections.append(f"""
     <div class="section">
         <h2>Client Summary</h2>
@@ -302,6 +346,7 @@ class ReportService:
         Same format as diagnostic advice table but different column order.
         """
         if not roadmap:
+            logger.debug("ReportService _build_roadmap_table: empty roadmap list")
             return ""
         
         rows_html = ""
@@ -332,6 +377,10 @@ class ReportService:
             </tr>"""
         
         if not rows_html:
+            logger.warning(
+                "ReportService _build_roadmap_table: no valid rows generated from roadmap=%s",
+                roadmap,
+            )
             return ""
         
         return f"""
@@ -415,6 +464,9 @@ class ReportService:
     @staticmethod
     def _build_all_responses_section(qa_data: List[Dict[str, str]]) -> str:
         """Build all responses section with proper formatting."""
+        logger.debug(
+            "ReportService _build_all_responses_section: qa_data_len=%s", len(qa_data or [])
+        )
         rows_html = ""
         for idx, qa in enumerate(qa_data, 1):
             question = ReportService._escape_html(qa.get("question", ""))
@@ -426,6 +478,12 @@ class ReportService:
                 and len(answer) > 0 
                 and isinstance(answer[0], dict)
             )
+            if is_matrix:
+                logger.debug(
+                    "ReportService _build_all_responses_section: Q#%s detected matrix answer; sample_row_keys=%s",
+                    idx,
+                    list(answer[0].keys()) if isinstance(answer[0], dict) else "n/a",
+                )
             
             if is_matrix:
                 # Check if this is file data (has file-related fields)
@@ -443,6 +501,11 @@ class ReportService:
                 )
                 
                 if is_file_data:
+                    logger.debug(
+                        "ReportService _build_all_responses_section: Q#%s treated as file_data; rows=%s",
+                        idx,
+                        len(answer or []),
+                    )
                     # For file data, show simplified version (just file names)
                     file_names = []
                     for row in answer:
@@ -477,17 +540,14 @@ class ReportService:
                 <td style="text-align: left;">Files uploaded</td>
             </tr>"""
                 else:
-                    # Regular matrix data: show "See table below" in main row, then nested table
+                    # Regular matrix data: render as a minimal table in the
+                    # Response cell (attribute-styled, no CSS classes/fixed layout).
+                    matrix_inline = ReportService._format_matrix_table(answer)
                     rows_html += f"""
             <tr>
                 <td style="text-align: center;">{idx}</td>
                 <td style="text-align: left;">{question}</td>
-                <td style="text-align: left;">See table below</td>
-            </tr>
-            <tr>
-                <td colspan="3" style="padding: 0; border: none; text-align: center;">
-                    {ReportService._format_matrix_table(answer)}
-                </td>
+                <td style="text-align: left;">{matrix_inline}</td>
             </tr>"""
             else:
                 # Regular answer formatting
@@ -547,51 +607,54 @@ class ReportService:
     
     @staticmethod
     def _format_matrix_table(matrix_data: List[Dict[str, Any]]) -> str:
-        """Format matrix data (list of dicts) as nested table."""
+        """Format matrix data (list of dicts) as a minimal HTML table.
+
+        Uses bare-bones HTML attributes (border, cellpadding) instead of CSS
+        classes or table-layout:fixed — xhtml2pdf handles simple attribute-
+        styled tables much more reliably than CSS-heavy ones.
+        """
         if not matrix_data or not isinstance(matrix_data[0], dict):
             return ""
-        
-        # Get column names from first row
+
         cols = list(matrix_data[0].keys())
-        
-        # Build table header - center aligned
-        header_html = "".join([
-            f"<th style=\"text-align: center; padding: 4px;\">{ReportService._escape_html(ReportService._humanize_label(col))}</th>"
+
+        # Header row using HTML attributes only (no CSS classes)
+        header_cells = "".join(
+            f"<th style=\"padding:3px 5px; font-size:11px; text-align:left;\">"
+            f"{ReportService._escape_html(ReportService._humanize_label(col))}</th>"
             for col in cols
-        ])
-        
-        # Build table rows - center aligned
+        )
+
+        # Data rows
         rows_html = ""
         for row in matrix_data:
-            # Check if row has any non-empty data
-            has_data = any(
-                v is not None and v != '' 
-                for v in row.values()
-            )
-            
-            if has_data:
-                cells_html = ""
-                for col in cols:
-                    val = row.get(col, '')
-                    if isinstance(val, (dict, list)):
-                        val = json.dumps(val)
-                    val_str = ReportService._escape_html(str(val))
-                    cells_html += f"<td style=\"text-align: center; padding: 4px;\">{val_str}</td>"
-                rows_html += f"<tr>{cells_html}</tr>"
+            if not isinstance(row, dict):
+                continue
+            has_data = any(v is not None and v != "" for v in row.values())
+            if not has_data:
+                continue
 
-        # If there are no usable rows, avoid rendering an empty <table> as it can
-        # trigger ReportLab/xhtml2pdf layout errors (row heights become None).
+            cells = ""
+            for col in cols:
+                val = row.get(col, "")
+                if isinstance(val, (dict, list)):
+                    val = json.dumps(val)
+                cells += (
+                    f"<td style=\"padding:3px 5px; font-size:11px; text-align:left;\">"
+                    f"{ReportService._escape_html(str(val))}</td>"
+                )
+            rows_html += f"<tr>{cells}</tr>"
+
         if not rows_html:
-            return "<div style=\"text-align:center; color:#666; font-size:12px; padding:6px;\">No data available.</div>"
+            return ""
 
-        return f"""
-                    <table class="sub-table" style="width: 100%; border-collapse: collapse; table-layout: fixed; border: 1px solid #444; margin: 0 auto;">
-                        <thead>
-                            <tr>{header_html}</tr>
-                        </thead>
-                        <tbody>{rows_html}
-                        </tbody>
-                    </table>"""
+        return (
+            '<table border="1" cellpadding="3" cellspacing="0"'
+            ' style="border-collapse:collapse; font-size:11px;">'
+            f"<tr>{header_cells}</tr>"
+            f"{rows_html}"
+            "</table>"
+        )
     
     @staticmethod
     def _format_answer(answer: Any) -> str:
@@ -785,8 +848,6 @@ class ReportService:
             font-size: 15px;
             color: #000000;
             vertical-align: top;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
         }
         
         table.data-table th {
@@ -835,8 +896,6 @@ class ReportService:
             padding: 4px;
             text-align: left;
             color: #000000;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
         }
         
         .sub-table th {
@@ -849,32 +908,27 @@ class ReportService:
     def _html_to_pdf(html_content: str) -> bytes:
         """Convert HTML to PDF bytes using xhtml2pdf."""
         try:
+            logger.debug(
+                "ReportService _html_to_pdf: starting PDF render; html_length=%s",
+                len(html_content or ""),
+            )
             result = BytesIO()
             pdf = pisa.pisaDocument(BytesIO(html_content.encode("utf-8")), result)
             
             if pdf.err:
                 error_msg = f"PDF generation error: {pdf.err}"
                 logger.error(error_msg)
+                # Log a small prefix of the HTML to help debugging formatting issues
+                logger.debug(
+                    "ReportService _html_to_pdf: HTML prefix (first 1000 chars): %s",
+                    (html_content or "")[:1000],
+                )
                 raise Exception(error_msg)
             
             return result.getvalue()
         except Exception as e:
-            logger.error(f"Error generating PDF on first pass: {str(e)}")
-            # Fallback: strip all table tags to avoid layout issues and retry with plain content
-            try:
-                import re
-                # Remove all table blocks (case-insensitive, dot-all)
-                safe_html = re.sub(r"(?is)<table.*?</table>", "", html_content)
-                result = BytesIO()
-                pdf = pisa.pisaDocument(BytesIO(safe_html.encode("utf-8")), result)
-                if pdf.err:
-                    error_msg = f"PDF generation error after fallback: {pdf.err}"
-                    logger.error(error_msg)
-                    raise Exception(error_msg)
-                return result.getvalue()
-            except Exception as e2:
-                logger.error(f"Error generating PDF after fallback: {str(e2)}")
-                raise Exception(f"Failed to generate PDF: {str(e2)}")
+            logger.error(f"Error generating PDF: {str(e)}")
+            raise Exception(f"Failed to generate PDF: {str(e)}")
     
     @staticmethod
     def get_download_filename(diagnostic: Any, user: Any) -> str:
@@ -911,4 +965,3 @@ class ReportService:
             filename = f"{file_date}-TrinityAI-diagnostic-{last_name}.pdf"
         
         return filename
-

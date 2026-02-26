@@ -149,6 +149,9 @@ Extract the following information and return as a JSON object:
       "action_item": "string",
       "notes": "string or null"
     }
+  ],
+  "clarification_questions": [
+    "string"
   ]
 }
 ```

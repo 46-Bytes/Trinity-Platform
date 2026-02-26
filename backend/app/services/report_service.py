@@ -336,7 +336,7 @@ class ReportService:
         
         return f"""
         <h3>Scored Responses</h3>
-        <table class="data-table">
+        <table class="data-table" style="border-collapse: collapse; width: 100%; table-layout: fixed;">
             <thead>
                 <tr>
                     <th style="width:50%;">Question</th>
@@ -535,18 +535,22 @@ class ReportService:
                 # All other answers — plain text only (no <ul>)
                 answer_html = ReportService._format_answer_plain(answer)
 
+            # Ensure no empty cells — xhtml2pdf miscalculates widths on empty <td>
+            if not answer_html:
+                answer_html = "&nbsp;"
+
             rows_html += f"""
             <tr>
-                <td style="text-align: center;">{idx}</td>
-                <td>{question}</td>
-                <td>{answer_html}</td>
+                <td style="text-align: center; width: 8%;">{idx}</td>
+                <td style="width: 42%; word-wrap: break-word; overflow: hidden;">{question}</td>
+                <td style="width: 50%; word-wrap: break-word; overflow: hidden;">{answer_html}</td>
             </tr>"""
 
         return f"""
     <div class="page-break"></div>
     <div class="section">
         <h3>All Responses</h3>
-        <table class="data-table">
+        <table class="data-table" style="border-collapse: collapse; width: 100%; table-layout: fixed;">
             <thead>
                 <tr>
                     <th style="width:8%; text-align: center;">#</th>

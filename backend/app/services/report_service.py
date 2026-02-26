@@ -845,6 +845,8 @@ class ReportService:
             font-size: 15px;
             color: #000000;
             vertical-align: top;
+            word-wrap: break-word;
+            overflow: hidden;
         }
         
         table.data-table th {

@@ -576,6 +576,11 @@ class ReportService:
         <h3>All Responses</h3>
         <table border="1" cellpadding="6" cellspacing="0"
                style="border-collapse:collapse; width:100%; table-layout:auto;">
+            <colgroup>
+                <col style="width:30px;" />
+                <col style="width:45%;" />
+                <col style="width:50%;" />
+            </colgroup>
             <thead>
                 <tr>
                     <th {th}>#</th>

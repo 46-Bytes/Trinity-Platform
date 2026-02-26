@@ -472,33 +472,17 @@ class ReportService:
             </tbody>
         </table>"""
     
-    # ── Shared helper: standard All-Responses table header ──────────────
-    _ALL_RESPONSES_TABLE_OPEN = (
-        '<table class="data-table" style="border-collapse:collapse; width:100%; table-layout:fixed;">'
-        "<thead><tr>"
-        '<th style="width:5%; text-align:center;">#</th>'
-        '<th style="width:45%; text-align:left;">Question</th>'
-        '<th style="width:50%; text-align:left;">Response</th>'
-        "</tr></thead><tbody>"
-    )
-    _ALL_RESPONSES_TABLE_CLOSE = "</tbody></table>"
-
     @staticmethod
     def _build_all_responses_section(qa_data: List[Dict[str, str]]) -> str:
-        """Build all responses section.
+        """Build all responses section as ONE continuous table.
 
-        Matrix answers are rendered as **standalone** top-level tables
-        (not nested inside a <td>) because xhtml2pdf crashes on nested
-        tables inside a table-layout:fixed parent.  The outer Q&A table
-        is closed before each matrix block and re-opened afterwards.
+        Matrix answers are rendered as compact inline text inside the
+        Response cell — NO nested tables and NO segment-breaking (both
+        cause xhtml2pdf rendering issues).
         """
         logger.debug(
             "ReportService _build_all_responses_section: qa_data_len=%s", len(qa_data or [])
         )
-
-        # Segments: ("rows", html_rows_str) | ("matrix", idx, question, data)
-        segments: List[tuple] = []
-        current_rows: List[str] = []
 
         file_indicators = [
             'media_id', 'Media Id', 'mediaId',
@@ -508,6 +492,7 @@ class ReportService:
             'relative_path', 'Relative Path', 'relativePath',
         ]
 
+        rows_html = ""
         for idx, qa in enumerate(qa_data, 1):
             question = ReportService._escape_html(qa.get("question", ""))
             answer = qa.get("answer")
@@ -525,7 +510,6 @@ class ReportService:
                 )
 
                 if is_file_data:
-                    # File data stays as a regular row (small text, no table needed)
                     file_names = []
                     for row in answer:
                         if isinstance(row, dict):
@@ -540,53 +524,40 @@ class ReportService:
                         ', '.join(ReportService._escape_html(fn) for fn in file_names)
                         if file_names else "Files uploaded"
                     )
-                    current_rows.append(f"""
-            <tr>
-                <td style="text-align:center;">{idx}</td>
-                <td style="text-align:left;">{question}</td>
-                <td style="text-align:left;">{display}</td>
-            </tr>""")
                 else:
-                    # Matrix data → flush current rows, emit standalone table
-                    if current_rows:
-                        segments.append(("rows", "".join(current_rows)))
-                        current_rows = []
-                    segments.append(("matrix", idx, question, answer))
-            else:
-                # Regular (scalar / list / dict) answer
-                answer_html = ReportService._format_answer(answer)
-                current_rows.append(f"""
+                    # Compact inline text — no nested table, no segment break
+                    display = ReportService._format_matrix_table(answer)
+
+                rows_html += f"""
             <tr>
-                <td style="text-align:center;">{idx}</td>
-                <td style="text-align:left;">{question}</td>
-                <td style="text-align:left;">{answer_html}</td>
-            </tr>""")
-
-        # Flush remaining rows
-        if current_rows:
-            segments.append(("rows", "".join(current_rows)))
-
-        # ── Assemble HTML from segments ──────────────────────────────────
-        html_parts: List[str] = []
-        for seg in segments:
-            if seg[0] == "rows":
-                html_parts.append(
-                    ReportService._ALL_RESPONSES_TABLE_OPEN
-                    + seg[1]
-                    + ReportService._ALL_RESPONSES_TABLE_CLOSE
-                )
-            else:  # "matrix"
-                _, m_idx, m_question, m_data = seg
-                html_parts.append(
-                    f'<p style="margin:10px 0 4px 0;"><strong>#{m_idx}:</strong> {m_question}</p>'
-                )
-                html_parts.append(ReportService._format_matrix_table(m_data))
+                <td style="text-align: center;">{idx}</td>
+                <td style="text-align: left;">{question}</td>
+                <td style="text-align: left;">{display}</td>
+            </tr>"""
+            else:
+                answer_html = ReportService._format_answer(answer)
+                rows_html += f"""
+            <tr>
+                <td style="text-align: center;">{idx}</td>
+                <td style="text-align: left;">{question}</td>
+                <td style="text-align: left;">{answer_html}</td>
+            </tr>"""
 
         return f"""
     <div class="page-break"></div>
     <div class="section">
         <h3>All Responses</h3>
-        {"".join(html_parts)}
+        <table class="data-table" style="border-collapse: collapse; width: 100%; table-layout: fixed;">
+            <thead>
+                <tr>
+                    <th style="width:5%; text-align: center;">#</th>
+                    <th style="width:45%; text-align: left;">Question</th>
+                    <th style="width:50%; text-align: left;">Response</th>
+                </tr>
+            </thead>
+            <tbody>{rows_html}
+            </tbody>
+        </table>
     </div>"""
     
     @staticmethod
@@ -620,24 +591,18 @@ class ReportService:
     
     @staticmethod
     def _format_matrix_table(matrix_data: List[Dict[str, Any]]) -> str:
-        """Render matrix data as a standalone top-level table.
+        """Render matrix data as compact inline text.
 
-        IMPORTANT: This table must NEVER be placed inside a <td> of another
-        table — xhtml2pdf crashes with 'negative availWidth'.  The caller
-        (_build_all_responses_section) closes the outer table first.
+        Returns HTML text (NOT a <table>) so it can safely sit inside a
+        <td> of the All Responses table.  Each matrix row is shown as a
+        single line with pipe-separated column values.
         """
         if not matrix_data or not isinstance(matrix_data[0], dict):
             return ""
 
         cols = list(matrix_data[0].keys())
+        row_lines: List[str] = []
 
-        header_cells = "".join(
-            f'<th style="text-align:left;">'
-            f"{ReportService._escape_html(ReportService._humanize_label(col))}</th>"
-            for col in cols
-        )
-
-        rows_html = ""
         for row in matrix_data:
             if not isinstance(row, dict):
                 continue
@@ -645,25 +610,25 @@ class ReportService:
             if not has_data:
                 continue
 
-            cells = ""
+            pairs: List[str] = []
             for col in cols:
                 val = row.get(col, "")
                 if isinstance(val, (dict, list)):
                     val = json.dumps(val)
-                cells += f'<td style="text-align:left;">{ReportService._escape_html(str(val))}</td>'
-            rows_html += f"<tr>{cells}</tr>"
+                label = ReportService._escape_html(ReportService._humanize_label(col))
+                val_str = ReportService._escape_html(str(val))
+                pairs.append(f"<strong>{label}:</strong> {val_str}")
+            if pairs:
+                row_lines.append(" | ".join(pairs))
 
-        if not rows_html:
+        if not row_lines:
             return ""
 
-        # Do NOT use class="data-table" — that inherits table-layout:fixed
-        # from CSS, which causes negative availWidth when column count is high.
-        return (
-            '<table border="1" cellpadding="4" cellspacing="0"'
-            ' style="border-collapse:collapse; width:100%; table-layout:auto; font-size:13px;">'
-            f"<thead><tr>{header_cells}</tr></thead>"
-            f"<tbody>{rows_html}</tbody>"
-            "</table>"
+        # Single row → no "Row N:" prefix; multiple rows → numbered
+        if len(row_lines) == 1:
+            return row_lines[0]
+        return "<br>".join(
+            f"<em>Row {i}:</em> {line}" for i, line in enumerate(row_lines, 1)
         )
     
     @staticmethod

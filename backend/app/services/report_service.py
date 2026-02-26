@@ -461,119 +461,121 @@ class ReportService:
             </tbody>
         </table>"""
     
+    # ── Shared helper: standard All-Responses table header ──────────────
+    _ALL_RESPONSES_TABLE_OPEN = (
+        '<table class="data-table" style="border-collapse:collapse; width:100%; table-layout:fixed;">'
+        "<thead><tr>"
+        '<th style="width:5%; text-align:center;">#</th>'
+        '<th style="width:45%; text-align:left;">Question</th>'
+        '<th style="width:50%; text-align:left;">Response</th>'
+        "</tr></thead><tbody>"
+    )
+    _ALL_RESPONSES_TABLE_CLOSE = "</tbody></table>"
+
     @staticmethod
     def _build_all_responses_section(qa_data: List[Dict[str, str]]) -> str:
-        """Build all responses section with proper formatting."""
+        """Build all responses section.
+
+        Matrix answers are rendered as **standalone** top-level tables
+        (not nested inside a <td>) because xhtml2pdf crashes on nested
+        tables inside a table-layout:fixed parent.  The outer Q&A table
+        is closed before each matrix block and re-opened afterwards.
+        """
         logger.debug(
             "ReportService _build_all_responses_section: qa_data_len=%s", len(qa_data or [])
         )
-        rows_html = ""
+
+        # Segments: ("rows", html_rows_str) | ("matrix", idx, question, data)
+        segments: List[tuple] = []
+        current_rows: List[str] = []
+
+        file_indicators = [
+            'media_id', 'Media Id', 'mediaId',
+            'file_name', 'File Name', 'fileName', 'filename',
+            'file_type', 'File Type', 'fileType',
+            'openai_file_id', 'Openai File Id', 'openaiFileId',
+            'relative_path', 'Relative Path', 'relativePath',
+        ]
+
         for idx, qa in enumerate(qa_data, 1):
             question = ReportService._escape_html(qa.get("question", ""))
             answer = qa.get("answer")
-            
-            # Check if answer is matrix data (list of dicts)
+
             is_matrix = (
-                isinstance(answer, list) 
-                and len(answer) > 0 
+                isinstance(answer, list)
+                and len(answer) > 0
                 and isinstance(answer[0], dict)
             )
+
             if is_matrix:
-                logger.debug(
-                    "ReportService _build_all_responses_section: Q#%s detected matrix answer; sample_row_keys=%s",
-                    idx,
-                    list(answer[0].keys()) if isinstance(answer[0], dict) else "n/a",
-                )
-            
-            if is_matrix:
-                # Check if this is file data (has file-related fields)
-                # Check both snake_case and humanized field names
-                file_indicators = [
-                    'media_id', 'Media Id', 'mediaId',
-                    'file_name', 'File Name', 'fileName', 'filename',
-                    'file_type', 'File Type', 'fileType',
-                    'openai_file_id', 'Openai File Id', 'openaiFileId',
-                    'relative_path', 'Relative Path', 'relativePath'
-                ]
                 is_file_data = any(
-                    isinstance(row, dict) and any(indicator in row for indicator in file_indicators)
+                    isinstance(row, dict) and any(ind in row for ind in file_indicators)
                     for row in answer
                 )
-                
+
                 if is_file_data:
-                    logger.debug(
-                        "ReportService _build_all_responses_section: Q#%s treated as file_data; rows=%s",
-                        idx,
-                        len(answer or []),
-                    )
-                    # For file data, show simplified version (just file names)
+                    # File data stays as a regular row (small text, no table needed)
                     file_names = []
                     for row in answer:
                         if isinstance(row, dict):
-                            # Try different possible field names (snake_case, humanized, camelCase)
                             file_name = (
-                                row.get('file_name') or 
-                                row.get('File Name') or 
-                                row.get('fileName') or
-                                row.get('filename') or 
-                                row.get('Filename') or
-                                ''
+                                row.get('file_name') or row.get('File Name') or
+                                row.get('fileName') or row.get('filename') or
+                                row.get('Filename') or ''
                             )
                             if file_name:
                                 file_names.append(file_name)
-                    
-                    if file_names:
-                        # Show file names as a simple list
-                        files_list = ', '.join([ReportService._escape_html(fn) for fn in file_names])
-                        rows_html += f"""
+                    display = (
+                        ', '.join(ReportService._escape_html(fn) for fn in file_names)
+                        if file_names else "Files uploaded"
+                    )
+                    current_rows.append(f"""
             <tr>
-                <td style="text-align: center;">{idx}</td>
-                <td style="text-align: left;">{question}</td>
-                <td style="text-align: left;">{files_list}</td>
-            </tr>"""
-                    else:
-                        # Fallback: show "Files uploaded" if no file names found
-                        rows_html += f"""
-            <tr>
-                <td style="text-align: center;">{idx}</td>
-                <td style="text-align: left;">{question}</td>
-                <td style="text-align: left;">Files uploaded</td>
-            </tr>"""
+                <td style="text-align:center;">{idx}</td>
+                <td style="text-align:left;">{question}</td>
+                <td style="text-align:left;">{display}</td>
+            </tr>""")
                 else:
-                    # Regular matrix data: render as a minimal table in the
-                    # Response cell (attribute-styled, no CSS classes/fixed layout).
-                    matrix_inline = ReportService._format_matrix_table(answer)
-                    rows_html += f"""
-            <tr>
-                <td style="text-align: center;">{idx}</td>
-                <td style="text-align: left;">{question}</td>
-                <td style="text-align: left;">{matrix_inline}</td>
-            </tr>"""
+                    # Matrix data → flush current rows, emit standalone table
+                    if current_rows:
+                        segments.append(("rows", "".join(current_rows)))
+                        current_rows = []
+                    segments.append(("matrix", idx, question, answer))
             else:
-                # Regular answer formatting
+                # Regular (scalar / list / dict) answer
                 answer_html = ReportService._format_answer(answer)
-                rows_html += f"""
+                current_rows.append(f"""
             <tr>
-                <td style="text-align: center;">{idx}</td>
-                <td style="text-align: left;">{question}</td>
-                <td style="text-align: left;">{answer_html}</td>
-            </tr>"""
-        
+                <td style="text-align:center;">{idx}</td>
+                <td style="text-align:left;">{question}</td>
+                <td style="text-align:left;">{answer_html}</td>
+            </tr>""")
+
+        # Flush remaining rows
+        if current_rows:
+            segments.append(("rows", "".join(current_rows)))
+
+        # ── Assemble HTML from segments ──────────────────────────────────
+        html_parts: List[str] = []
+        for seg in segments:
+            if seg[0] == "rows":
+                html_parts.append(
+                    ReportService._ALL_RESPONSES_TABLE_OPEN
+                    + seg[1]
+                    + ReportService._ALL_RESPONSES_TABLE_CLOSE
+                )
+            else:  # "matrix"
+                _, m_idx, m_question, m_data = seg
+                html_parts.append(
+                    f'<p style="margin:10px 0 4px 0;"><strong>#{m_idx}:</strong> {m_question}</p>'
+                )
+                html_parts.append(ReportService._format_matrix_table(m_data))
+
         return f"""
     <div class="page-break"></div>
     <div class="section">
         <h3>All Responses</h3>
-        <table class="data-table" style="border-collapse: collapse; width: 100%; table-layout: fixed;">
-            <thead>
-                <tr>
-                    <th style="width:5%; text-align: center;">#</th>
-                    <th style="width:45%; text-align: left;">Question</th>
-                    <th style="width:50%; text-align: left;">Response</th>
-                </tr>
-            </thead>
-            <tbody>{rows_html}
-            </tbody>
-        </table>
+        {"".join(html_parts)}
     </div>"""
     
     @staticmethod
@@ -607,45 +609,48 @@ class ReportService:
     
     @staticmethod
     def _format_matrix_table(matrix_data: List[Dict[str, Any]]) -> str:
-        """Format matrix data (list of dicts) as structured text.
+        """Render matrix data as a standalone top-level table.
 
-        xhtml2pdf crashes with 'negative availWidth' when ANY <table> is
-        nested inside a <td> of a table-layout:fixed parent table.
-        We render each matrix row as a labelled list instead.
+        IMPORTANT: This table must NEVER be placed inside a <td> of another
+        table — xhtml2pdf crashes with 'negative availWidth'.  The caller
+        (_build_all_responses_section) closes the outer table first.
         """
         if not matrix_data or not isinstance(matrix_data[0], dict):
             return ""
 
         cols = list(matrix_data[0].keys())
-        row_blocks: List[str] = []
 
-        for row_idx, row in enumerate(matrix_data, 1):
+        header_cells = "".join(
+            f'<th style="text-align:left;">'
+            f"{ReportService._escape_html(ReportService._humanize_label(col))}</th>"
+            for col in cols
+        )
+
+        rows_html = ""
+        for row in matrix_data:
             if not isinstance(row, dict):
                 continue
             has_data = any(v is not None and v != "" for v in row.values())
             if not has_data:
                 continue
 
-            items: List[str] = []
+            cells = ""
             for col in cols:
                 val = row.get(col, "")
                 if isinstance(val, (dict, list)):
                     val = json.dumps(val)
-                label = ReportService._escape_html(ReportService._humanize_label(col))
-                val_str = ReportService._escape_html(str(val))
-                items.append(
-                    f"<li style=\"font-size:12px; margin:1px 0;\">"
-                    f"<strong>{label}:</strong> {val_str}</li>"
-                )
+                cells += f'<td style="text-align:left;">{ReportService._escape_html(str(val))}</td>'
+            rows_html += f"<tr>{cells}</tr>"
 
-            if items:
-                row_blocks.append(
-                    f"<strong style=\"font-size:12px;\">Row {row_idx}</strong>"
-                    f"<ul style=\"margin:2px 0 6px 0; padding-left:18px; list-style:disc;\">"
-                    f"{''.join(items)}</ul>"
-                )
+        if not rows_html:
+            return ""
 
-        return "".join(row_blocks)
+        return (
+            '<table class="data-table" style="border-collapse:collapse; width:100%; font-size:13px;">'
+            f"<thead><tr>{header_cells}</tr></thead>"
+            f"<tbody>{rows_html}</tbody>"
+            "</table>"
+        )
     
     @staticmethod
     def _format_answer(answer: Any) -> str:

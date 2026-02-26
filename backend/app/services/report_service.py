@@ -474,11 +474,12 @@ class ReportService:
     
     @staticmethod
     def _build_all_responses_section(qa_data: List[Dict[str, str]]) -> str:
-        """Build all responses section as ONE continuous table.
+        """Build all responses section.
 
-        Matrix answers are rendered as compact inline text inside the
-        Response cell — NO nested tables and NO segment-breaking (both
-        cause xhtml2pdf rendering issues).
+        The main Q&A table is ONE continuous table (no nesting, no
+        segment-breaking).  Matrix answers show "See table below" in
+        the Response cell and their actual column tables are rendered
+        as separate top-level elements AFTER the main table.
         """
         logger.debug(
             "ReportService _build_all_responses_section: qa_data_len=%s", len(qa_data or [])
@@ -493,6 +494,9 @@ class ReportService:
         ]
 
         rows_html = ""
+        # Collect matrix questions to render after the main table
+        matrix_blocks: List[tuple] = []  # (idx, question, data)
+
         for idx, qa in enumerate(qa_data, 1):
             question = ReportService._escape_html(qa.get("question", ""))
             answer = qa.get("answer")
@@ -525,8 +529,8 @@ class ReportService:
                         if file_names else "Files uploaded"
                     )
                 else:
-                    # Compact inline text — no nested table, no segment break
-                    display = ReportService._format_matrix_table(answer)
+                    display = "See table below"
+                    matrix_blocks.append((idx, question, answer))
 
                 rows_html += f"""
             <tr>
@@ -543,6 +547,12 @@ class ReportService:
                 <td style="text-align: left;">{answer_html}</td>
             </tr>"""
 
+        # Build matrix appendix (standalone tables after the main table)
+        matrix_html = ""
+        for m_idx, m_question, m_data in matrix_blocks:
+            matrix_html += f'<h4 style="margin:14px 0 4px 0;">#{m_idx}: {m_question}</h4>'
+            matrix_html += ReportService._format_matrix_table(m_data)
+
         return f"""
     <div class="page-break"></div>
     <div class="section">
@@ -558,6 +568,7 @@ class ReportService:
             <tbody>{rows_html}
             </tbody>
         </table>
+        {matrix_html}
     </div>"""
     
     @staticmethod
@@ -591,18 +602,26 @@ class ReportService:
     
     @staticmethod
     def _format_matrix_table(matrix_data: List[Dict[str, Any]]) -> str:
-        """Render matrix data as compact inline text.
+        """Render matrix data as a standalone top-level HTML table.
 
-        Returns HTML text (NOT a <table>) so it can safely sit inside a
-        <td> of the All Responses table.  Each matrix row is shown as a
-        single line with pipe-separated column values.
+        This is placed AFTER the main All Responses table (never nested
+        inside a <td>).  Uses table-layout:auto so columns auto-size,
+        and HTML border attributes instead of the data-table CSS class
+        (which forces table-layout:fixed).
         """
         if not matrix_data or not isinstance(matrix_data[0], dict):
             return ""
 
         cols = list(matrix_data[0].keys())
-        row_lines: List[str] = []
 
+        header_cells = "".join(
+            f'<th style="padding:4px 6px; text-align:left; background-color:#f0f0f0;'
+            f' font-weight:bold; font-size:13px;">'
+            f'{ReportService._escape_html(ReportService._humanize_label(col))}</th>'
+            for col in cols
+        )
+
+        rows_html = ""
         for row in matrix_data:
             if not isinstance(row, dict):
                 continue
@@ -610,25 +629,27 @@ class ReportService:
             if not has_data:
                 continue
 
-            pairs: List[str] = []
+            cells = ""
             for col in cols:
                 val = row.get(col, "")
                 if isinstance(val, (dict, list)):
                     val = json.dumps(val)
-                label = ReportService._escape_html(ReportService._humanize_label(col))
-                val_str = ReportService._escape_html(str(val))
-                pairs.append(f"<strong>{label}:</strong> {val_str}")
-            if pairs:
-                row_lines.append(" | ".join(pairs))
+                cells += (
+                    f'<td style="padding:4px 6px; text-align:left; font-size:13px;">'
+                    f'{ReportService._escape_html(str(val))}</td>'
+                )
+            rows_html += f"<tr>{cells}</tr>"
 
-        if not row_lines:
+        if not rows_html:
             return ""
 
-        # Single row → no "Row N:" prefix; multiple rows → numbered
-        if len(row_lines) == 1:
-            return row_lines[0]
-        return "<br>".join(
-            f"<em>Row {i}:</em> {line}" for i, line in enumerate(row_lines, 1)
+        return (
+            '<table border="1" cellpadding="4" cellspacing="0"'
+            ' style="border-collapse:collapse; width:100%; table-layout:auto;'
+            ' margin-bottom:10px;">'
+            f"<thead><tr>{header_cells}</tr></thead>"
+            f"<tbody>{rows_html}</tbody>"
+            "</table>"
         )
     
     @staticmethod

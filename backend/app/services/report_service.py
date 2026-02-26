@@ -859,8 +859,21 @@ class ReportService:
             
             return result.getvalue()
         except Exception as e:
-            logger.error(f"Error generating PDF: {str(e)}")
-            raise Exception(f"Failed to generate PDF: {str(e)}")
+            logger.error(f"Error generating PDF on first pass: {str(e)}")
+            # Fallback: strip all table tags to avoid layout issues and retry with plain content
+            try:
+                import re
+                safe_html = re.sub(r"<table[\\s\\S]*?</table>", "", html_content, flags=re.IGNORECASE)
+                result = BytesIO()
+                pdf = pisa.pisaDocument(BytesIO(safe_html.encode("utf-8")), result)
+                if pdf.err:
+                    error_msg = f"PDF generation error after fallback: {pdf.err}"
+                    logger.error(error_msg)
+                    raise Exception(error_msg)
+                return result.getvalue()
+            except Exception as e2:
+                logger.error(f"Error generating PDF after fallback: {str(e2)}")
+                raise Exception(f"Failed to generate PDF: {str(e2)}")
     
     @staticmethod
     def get_download_filename(diagnostic: Any, user: Any) -> str:

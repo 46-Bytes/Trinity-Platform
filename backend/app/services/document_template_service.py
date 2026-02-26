@@ -192,7 +192,10 @@ class DocumentTemplateService:
             run = paragraph.add_run(run_text)
             if base_formatting:
                 run.font.name = base_formatting.font.name
-                run.font.size = base_formatting.font.size
+                try:
+                    run.font.size = base_formatting.font.size
+                except (ValueError, TypeError):
+                    pass  # Template has non-integer font size; skip to keep default
                 run.font.bold = base_formatting.font.bold
                 run.font.italic = base_formatting.font.italic
                 run.font.underline = base_formatting.font.underline
@@ -280,12 +283,15 @@ class DocumentTemplateService:
                             new_run = paragraph.add_run(text)
                             # Preserve basic formatting
                             new_run.font.name = first_run.font.name
-                            new_run.font.size = first_run.font.size
+                            try:
+                                new_run.font.size = first_run.font.size
+                            except (ValueError, TypeError):
+                                pass  # Template has non-integer font size; skip
                             new_run.font.bold = first_run.font.bold
                             new_run.font.italic = first_run.font.italic
                         else:
                             paragraph.text = text
-            
+
             # Replace placeholders in tables
             for table in doc.tables:
                 for row in table.rows:
@@ -304,7 +310,10 @@ class DocumentTemplateService:
                                         new_run = paragraph.add_run(text)
                                         # Preserve basic formatting
                                         new_run.font.name = first_run.font.name
-                                        new_run.font.size = first_run.font.size
+                                        try:
+                                            new_run.font.size = first_run.font.size
+                                        except (ValueError, TypeError):
+                                            pass  # Template has non-integer font size; skip
                                         new_run.font.bold = first_run.font.bold
                                         new_run.font.italic = first_run.font.italic
                                     else:

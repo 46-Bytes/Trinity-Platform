@@ -2,6 +2,7 @@
 PDF Report Generation Service for Diagnostics
 """
 import json
+import re
 import markdown
 from datetime import datetime
 from typing import Dict, Any, Optional, List
@@ -399,10 +400,10 @@ class ReportService:
         <table class="data-table" style="border-collapse: collapse; width: 100%; table-layout: fixed;">
             <thead>
                 <tr>
-                    <th style="width:24%; text-align: left;">Module</th>
+                    <th style="width:22%; text-align: left;">Module</th>
                     <th style="width:10%; text-align: center;">RAG</th>
                     <th style="width:10%; text-align: center;">Score</th>
-                    <th style="width:8%; text-align: center;">Rank</th>
+                    <th style="width:10%; text-align: center;">Rank</th>
                     <th style="width:24%; text-align: left;">Why Priority</th>
                     <th style="width:24%; text-align: left;">Quick Wins</th>
                 </tr>
@@ -460,8 +461,8 @@ class ReportService:
         <table class="data-table" style="border-collapse: collapse; width: 100%; table-layout: fixed;">
             <thead>
                 <tr>
-                    <th style="width:8%; text-align: center;">Rank</th>
-                    <th style="width:24%; text-align: left;">Sale-Ready Module</th>
+                    <th style="width:10%; text-align: center;">Rank</th>
+                    <th style="width:22%; text-align: left;">Sale-Ready Module</th>
                     <th style="width:10%; text-align: center;">RAG</th>
                     <th style="width:10%; text-align: center;">Score</th>
                     <th style="width:24%; text-align: left;">Why Priority</th>
@@ -560,8 +561,8 @@ class ReportService:
         <table class="data-table">
             <thead>
                 <tr>
-                    <th style="width:5%; text-align: center;">#</th>
-                    <th style="width:45%; text-align: left;">Question</th>
+                    <th style="width:8%; text-align: center;">#</th>
+                    <th style="width:42%; text-align: left;">Question</th>
                     <th style="width:50%; text-align: left;">Response</th>
                 </tr>
             </thead>
@@ -807,28 +808,36 @@ class ReportService:
             color: #000000;
         }
         
+        /* Safe default for ALL tables (including markdown-generated ones).
+           table-layout:auto lets xhtml2pdf size columns from content so
+           narrow columns never go negative.  Our data-table class overrides
+           this to fixed where we control the column widths. */
+        table {
+            table-layout: auto;
+            border-collapse: collapse;
+            width: 100%;
+        }
+
         /* Ensure tables in advisor report are styled but paragraphs are primary */
         .advisor-report table {
             margin: 10px 0;
-            width: 100%;
-            border-collapse: collapse;
         }
-        
+
         .advisor-report table th,
         .advisor-report table td {
             border: 1px solid #444;
-            padding: 8px;
+            padding: 4px;
             text-align: left;
             color: #000000;
         }
-        
+
         .advisor-report table th {
             background-color: #f0f0f0;
             font-weight: bold;
             color: #000000;
         }
-        
-        /* Tables */
+
+        /* Explicit data tables — we control column widths so fixed is safe */
         table.data-table {
             width: 100%;
             border-collapse: collapse;
@@ -836,11 +845,11 @@ class ReportService:
             margin-top: 8px;
             margin-bottom: 10px;
         }
-        
+
         table.data-table th,
         table.data-table td {
             border: 1px solid #444;
-            padding: 6px 8px;
+            padding: 4px 6px;
             text-align: left;
             font-size: 15px;
             color: #000000;
@@ -902,8 +911,39 @@ class ReportService:
         """
     
     @staticmethod
+    def _strip_markdown_tables(html: str) -> str:
+        """Replace markdown-generated <table> blocks (those without class=)
+        with a plain-text fallback so xhtml2pdf doesn't crash on them."""
+
+        def _table_to_text(match: re.Match) -> str:
+            """Convert an HTML table to a simple line-per-row representation."""
+            table_html = match.group(0)
+            rows = re.findall(r"<tr[^>]*>(.*?)</tr>", table_html, re.S)
+            lines: list[str] = []
+            for row_html in rows:
+                cells = re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", row_html, re.S)
+                # Strip any remaining HTML tags inside cells
+                clean = [re.sub(r"<[^>]+>", "", c).strip() for c in cells]
+                lines.append(" | ".join(clean))
+            text = "<br/>".join(lines)
+            return f"<p>{text}</p>"
+
+        # Only target tables that do NOT carry class= (i.e. markdown-generated)
+        return re.sub(
+            r"<table(?![^>]*\bclass=)[^>]*>.*?</table>",
+            _table_to_text,
+            html,
+            flags=re.S,
+        )
+
+    @staticmethod
     def _html_to_pdf(html_content: str) -> bytes:
-        """Convert HTML to PDF bytes using xhtml2pdf."""
+        """Convert HTML to PDF bytes using xhtml2pdf.
+
+        If the first render attempt crashes (typically the negative-
+        availWidth bug from a markdown-generated table with too many
+        narrow columns), we strip those tables to plain text and retry.
+        """
         try:
             logger.debug(
                 "ReportService _html_to_pdf: starting PDF render; html_length=%s",
@@ -911,21 +951,35 @@ class ReportService:
             )
             result = BytesIO()
             pdf = pisa.pisaDocument(BytesIO(html_content.encode("utf-8")), result)
-            
+
             if pdf.err:
                 error_msg = f"PDF generation error: {pdf.err}"
                 logger.error(error_msg)
-                # Log a small prefix of the HTML to help debugging formatting issues
-                logger.debug(
-                    "ReportService _html_to_pdf: HTML prefix (first 1000 chars): %s",
-                    (html_content or "")[:1000],
-                )
                 raise Exception(error_msg)
-            
+
             return result.getvalue()
-        except Exception as e:
-            logger.error(f"Error generating PDF: {str(e)}")
-            raise Exception(f"Failed to generate PDF: {str(e)}")
+
+        except Exception as first_err:
+            logger.warning(
+                "ReportService _html_to_pdf: first render failed (%s), "
+                "retrying with markdown tables stripped to plain text",
+                first_err,
+            )
+            try:
+                safe_html = ReportService._strip_markdown_tables(html_content)
+                result2 = BytesIO()
+                pdf2 = pisa.pisaDocument(
+                    BytesIO(safe_html.encode("utf-8")), result2
+                )
+                if pdf2.err:
+                    raise Exception(f"PDF generation error on retry: {pdf2.err}")
+                logger.info(
+                    "ReportService _html_to_pdf: retry succeeded after stripping tables"
+                )
+                return result2.getvalue()
+            except Exception as retry_err:
+                logger.error("Error generating PDF (retry also failed): %s", retry_err)
+                raise Exception(f"Failed to generate PDF: {first_err}")
     
     @staticmethod
     def get_download_filename(diagnostic: Any, user: Any) -> str:

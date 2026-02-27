@@ -9,6 +9,7 @@ import json
 import logging
 
 from app.models.strategy_workbook import StrategyWorkbook
+from app.models.diagnostic import Diagnostic
 from app.models.media import Media
 from app.services.openai_service import openai_service
 from app.services.file_service import get_file_service
@@ -30,22 +31,65 @@ class StrategyWorkbookService:
         self.formatting_prompt = load_prompt("strategy-workbook/formatting_prompt")
         self.precheck_prompt = load_prompt("strategy-workbook/precheck_prompt")
     
-    def create_workbook(self) -> StrategyWorkbook:
+    def create_workbook(self, user_id: Optional[UUID] = None, engagement_id: Optional[UUID] = None) -> StrategyWorkbook:
         """
         Create a new strategy workbook session.
-        
+
+        Args:
+            user_id: Optional creator user ID
+            engagement_id: Optional engagement ID to link to
+
         Returns:
             Created StrategyWorkbook model
         """
         workbook = StrategyWorkbook(
-            status="draft"
+            status="draft",
+            created_by_user_id=user_id,
+            engagement_id=engagement_id,
         )
-        
+
         self.db.add(workbook)
         self.db.commit()
         self.db.refresh(workbook)
-        
+
         logger.info(f"Created strategy workbook {workbook.id}")
+        return workbook
+
+    def create_from_diagnostic(self, diagnostic_id: UUID, user_id: UUID) -> StrategyWorkbook:
+        """
+        Create a strategy workbook from a completed diagnostic. Idempotent:
+        if a workbook already exists for this diagnostic_id, returns that workbook.
+        """
+        existing = self.db.query(StrategyWorkbook).filter(
+            StrategyWorkbook.diagnostic_id == diagnostic_id
+        ).first()
+        if existing:
+            logger.info(f"Strategy workbook already exists for diagnostic {diagnostic_id}: {existing.id}")
+            return existing
+
+        diagnostic = self.db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
+        if not diagnostic:
+            raise ValueError(f"Diagnostic {diagnostic_id} not found")
+        if diagnostic.status != "completed":
+            raise ValueError(f"Diagnostic must be completed (current status: {diagnostic.status})")
+
+        diagnostic_context = {}
+        if diagnostic.report_html:
+            diagnostic_context["report_html"] = diagnostic.report_html
+        if diagnostic.ai_analysis:
+            diagnostic_context["ai_analysis"] = diagnostic.ai_analysis
+
+        workbook = StrategyWorkbook(
+            engagement_id=diagnostic.engagement_id,
+            diagnostic_id=diagnostic_id,
+            created_by_user_id=user_id,
+            diagnostic_context=diagnostic_context or None,
+            status="draft",
+        )
+        self.db.add(workbook)
+        self.db.commit()
+        self.db.refresh(workbook)
+        logger.info(f"Created strategy workbook {workbook.id} from diagnostic {diagnostic_id} for user {user_id}")
         return workbook
     
     def attach_files(self, workbook_id: UUID, media_ids: List[UUID]) -> StrategyWorkbook:

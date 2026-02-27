@@ -10,9 +10,10 @@ import { cn } from '@/lib/utils';
 interface UploadStepProps {
   onComplete: () => void;
   isLoading: boolean;
+  workbookId?: string;
 }
 
-export function UploadStep({ onComplete, isLoading }: UploadStepProps) {
+export function UploadStep({ onComplete, isLoading, workbookId }: UploadStepProps) {
   const dispatch = useAppDispatch();
   const [files, setFiles] = useState<File[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -61,7 +62,7 @@ export function UploadStep({ onComplete, isLoading }: UploadStepProps) {
     }
 
     try {
-      await dispatch(uploadDocuments(files)).unwrap();
+      await dispatch(uploadDocuments({ files, workbookId })).unwrap();
       onComplete();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to upload files');

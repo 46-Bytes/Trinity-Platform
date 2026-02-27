@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, Loader2, Wrench } from 'lucide-react';
+import { BookOpen, FileText, Loader2, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -52,6 +52,7 @@ export function FollowUpToolsTab({
 }: FollowUpToolsTabProps) {
   const navigate = useNavigate();
   const [loadingDiagnosticId, setLoadingDiagnosticId] = useState<string | null>(null);
+  const [loadingSwDiagnosticId, setLoadingSwDiagnosticId] = useState<string | null>(null);
 
   const completedDiagnostics = diagnostics.filter(
     (d) => (d.status || (d as any).status) === 'completed'
@@ -100,6 +101,38 @@ export function FollowUpToolsTab({
     }
   };
 
+  const runStrategyWorkbook = async (diagnosticId: string) => {
+    setLoadingSwDiagnosticId(diagnosticId);
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        toast.error('Not authenticated');
+        return;
+      }
+      const res = await fetch(
+        `${API_BASE_URL}/api/strategy-workbook/create-from-diagnostic?diagnostic_id=${diagnosticId}`,
+        { method: 'POST', headers: { Authorization: `Bearer ${token}` }, credentials: 'include' }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Failed to create strategy workbook' }));
+        toast.error(err.detail || 'Failed to start Strategy Workbook');
+        return;
+      }
+      const data = await res.json();
+      const workbookId = data.workbook_id;
+      if (workbookId) {
+        navigate(`/dashboard/engagements/${engagementId}/strategy-workbook`, { state: { workbookId } });
+      } else {
+        toast.error('Invalid response from server');
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to start Strategy Workbook');
+    } finally {
+      setLoadingSwDiagnosticId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -125,7 +158,9 @@ export function FollowUpToolsTab({
           {visibleDiagnostics.map((diagnostic) => {
             const tag = diagnosticTags[diagnostic.id] ?? diagnostic.tag ?? (diagnostic as any).tag;
             const completedAt = diagnostic.completed_at ?? (diagnostic as any).completedAt;
-            const isLoading = loadingDiagnosticId === diagnostic.id;
+            const isBbaLoading = loadingDiagnosticId === diagnostic.id;
+            const isSwLoading = loadingSwDiagnosticId === diagnostic.id;
+            const anyLoading = !!loadingDiagnosticId || !!loadingSwDiagnosticId;
 
             return (
               <Card key={diagnostic.id} className="flex flex-col">
@@ -138,21 +173,36 @@ export function FollowUpToolsTab({
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="mt-auto pt-4">
-                  <Button
-                    variant="outline"
-                    className="w-full sm:w-auto"
-                    disabled={!!loadingDiagnosticId}
-                    onClick={() => runBbaBuilder(diagnostic.id)}
-                  >
-                    {isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <FileText className="h-4 w-4 mr-2" />
-                    )}
-                    BBA Builder
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      className="sm:w-auto"
+                      disabled={anyLoading}
+                      onClick={() => runBbaBuilder(diagnostic.id)}
+                    >
+                      {isBbaLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <FileText className="h-4 w-4 mr-2" />
+                      )}
+                      BBA Builder
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="sm:w-auto"
+                      disabled={anyLoading}
+                      onClick={() => runStrategyWorkbook(diagnostic.id)}
+                    >
+                      {isSwLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <BookOpen className="h-4 w-4 mr-2" />
+                      )}
+                      Strategy Workbook
+                    </Button>
+                  </div>
                   <p className="text-xs text-muted-foreground mt-2">
-                    Build on this diagnostic with the BBA report builder.
+                    Run follow-up tools using this completed diagnostic.
                   </p>
                 </CardContent>
               </Card>

@@ -23,8 +23,12 @@ class StrategyWorkbookCreate(BaseModel):
 class StrategyWorkbookResponse(BaseModel):
     """Schema for strategy workbook response"""
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: UUID
+    engagement_id: Optional[UUID] = None
+    diagnostic_id: Optional[UUID] = None
+    created_by_user_id: Optional[UUID] = None
+    diagnostic_context: Optional[Dict[str, Any]] = None
     status: str = Field(..., description="draft, extracting, ready, failed")
     uploaded_media_ids: Optional[List[UUID]] = Field(default=[], description="Array of uploaded Media IDs")
     template_path: Optional[str] = None

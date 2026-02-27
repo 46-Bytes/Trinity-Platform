@@ -1,10 +1,10 @@
 """
 Strategy Workbook API endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Form
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status, Form
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 from pathlib import Path
 import io
@@ -17,7 +17,10 @@ from app.database import get_db
 from app.utils.auth import get_current_user
 from app.models.user import User
 from app.models.strategy_workbook import StrategyWorkbook
+from app.models.diagnostic import Diagnostic
+from app.models.engagement import Engagement
 from app.models.media import Media
+from app.services.role_check import check_engagement_access
 from app.services.strategy_workbook_service import get_strategy_workbook_service
 from app.services.strategy_workbook_exporter import get_strategy_workbook_exporter
 from app.services.file_service import get_file_service
@@ -35,23 +38,68 @@ from app.schemas.strategy_workbook import (
 router = APIRouter(prefix="/strategy-workbook", tags=["strategy-workbook"])
 
 
+@router.post("/create-from-diagnostic", status_code=status.HTTP_201_CREATED)
+async def create_from_diagnostic(
+    diagnostic_id: UUID = Query(..., description="Completed diagnostic ID to create strategy workbook from"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Create a strategy workbook from a completed diagnostic. The diagnostic
+    report is stored as context for the workbook. Idempotent: if a workbook
+    already exists for this diagnostic, returns the existing workbook.
+    """
+    diagnostic = db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
+    if not diagnostic:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Diagnostic not found")
+    if diagnostic.status != "completed":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Diagnostic must be completed (current status: {diagnostic.status})",
+        )
+    engagement = db.query(Engagement).filter(
+        Engagement.id == diagnostic.engagement_id,
+        Engagement.is_deleted == False,
+    ).first()
+    if not engagement:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Engagement not found")
+    if not check_engagement_access(engagement, current_user, db=db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this engagement",
+        )
+    service = get_strategy_workbook_service(db)
+    try:
+        workbook = service.create_from_diagnostic(diagnostic_id=diagnostic_id, user_id=current_user.id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    return {
+        "success": True,
+        "workbook_id": str(workbook.id),
+        "engagement_id": str(workbook.engagement_id) if workbook.engagement_id else None,
+        "diagnostic_id": str(workbook.diagnostic_id) if workbook.diagnostic_id else None,
+    }
+
+
 @router.post("/upload", status_code=status.HTTP_201_CREATED, response_model=StrategyWorkbookUploadResponse)
 async def upload_documents(
     files: List[UploadFile] = File(...),
+    workbook_id: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
     Upload documents for strategy workbook analysis.
-    
+
     Files are:
     1. Stored locally
     2. Uploaded to OpenAI for AI analysis
-    3. Attached to a new strategy workbook session
-    
+    3. Attached to an existing or new strategy workbook session
+
     Args:
         files: List of files to upload (PDF, DOCX, XLSX, images, etc.)
-        
+        workbook_id: Optional existing workbook ID to upload files to
+
     Returns:
         Workbook ID and uploaded file metadata
     """
@@ -60,16 +108,27 @@ async def upload_documents(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="At least one file must be uploaded"
         )
-    
+
     try:
         logger.info(f"Starting strategy workbook upload for user {current_user.id} with {len(files)} files")
-        
-        # Create workbook session
+
         service = get_strategy_workbook_service(db)
-        logger.info("Service created, creating workbook...")
-        workbook = service.create_workbook()
-        logger.info(f"Workbook created: {workbook.id}")
-        
+
+        # Use existing workbook if provided, otherwise create a new one
+        if workbook_id:
+            from uuid import UUID as PyUUID
+            workbook = service.get_workbook(PyUUID(workbook_id))
+            if not workbook:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Workbook not found"
+                )
+            logger.info(f"Using existing workbook: {workbook.id}")
+        else:
+            logger.info("Service created, creating workbook...")
+            workbook = service.create_workbook(user_id=current_user.id)
+            logger.info(f"Workbook created: {workbook.id}")
+
         # Upload files
         file_service = get_file_service(db)
         logger.info("Uploading files...")
@@ -79,20 +138,20 @@ async def upload_documents(
             upload_to_openai=True
         )
         logger.info(f"Files uploaded: {len(uploaded_media)} files")
-        
+
         # Attach files to workbook
         media_ids = [media.id for media in uploaded_media]
         logger.info(f"Attaching {len(media_ids)} files to workbook...")
         workbook = service.attach_files(workbook_id=workbook.id, media_ids=media_ids)
         logger.info("Files attached successfully")
-        
+
         return StrategyWorkbookUploadResponse(
             workbook_id=workbook.id,
             status=workbook.status,
             uploaded_files=[media.to_dict() for media in uploaded_media],
             message=f"Successfully uploaded {len(uploaded_media)} file(s)"
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:

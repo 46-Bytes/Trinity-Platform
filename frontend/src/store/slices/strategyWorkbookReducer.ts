@@ -3,6 +3,10 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 // Types
 export interface StrategyWorkbook {
   id: string;
+  engagement_id?: string | null;
+  diagnostic_id?: string | null;
+  created_by_user_id?: string | null;
+  diagnostic_context?: Record<string, any> | null;
   status: 'draft' | 'extracting' | 'ready' | 'failed';
   uploaded_media_ids?: string[];
   template_path?: string;
@@ -34,6 +38,7 @@ interface StrategyWorkbookState {
   error: string | null;
   uploadedFiles: UploadedFile[];
   clarificationNotes: string;
+  clarificationAnswers: Record<number, string>;
   clarificationQuestions: string[];
   isPrechecking: boolean;
 }
@@ -52,7 +57,7 @@ const getAuthHeaders = () => {
 // Async thunks
 export const uploadDocuments = createAsyncThunk(
   'strategyWorkbook/uploadDocuments',
-  async (files: File[], { rejectWithValue }) => {
+  async ({ files, workbookId }: { files: File[]; workbookId?: string }, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem('auth_token');
       if (!token) {
@@ -63,6 +68,9 @@ export const uploadDocuments = createAsyncThunk(
       files.forEach((file) => {
         formData.append('files', file);
       });
+      if (workbookId) {
+        formData.append('workbook_id', workbookId);
+      }
 
       const response = await fetch(`${API_BASE_URL}/api/strategy-workbook/upload`, {
         method: 'POST',
@@ -125,10 +133,23 @@ export const extractData = createAsyncThunk(
         throw new Error('No authentication token found');
       }
 
-      // Include any advisor clarification notes stored in state
+      // Build clarification notes from per-question answers + free-text notes
       const state: any = getState();
+      const answers: Record<number, string> = state?.strategyWorkbook?.clarificationAnswers || {};
+      const questions: string[] = state?.strategyWorkbook?.clarificationQuestions || [];
+      const freeTextNotes: string = state?.strategyWorkbook?.clarificationNotes || '';
+
+      // Format per-question answers into a single string
+      const formattedAnswers = questions
+        .map((q: string, i: number) => {
+          const answer = (answers[i] || '').trim();
+          return answer ? `Q: ${q}\nA: ${answer}` : null;
+        })
+        .filter(Boolean)
+        .join('\n\n');
+
       const clarificationNotes: string | undefined =
-        state?.strategyWorkbook?.clarificationNotes || undefined;
+        [formattedAnswers, freeTextNotes.trim()].filter(Boolean).join('\n\n') || undefined;
 
       const response = await fetch(`${API_BASE_URL}/api/strategy-workbook/extract`, {
         method: 'POST',
@@ -230,6 +251,7 @@ const initialState: StrategyWorkbookState = {
   error: null,
   uploadedFiles: [],
   clarificationNotes: '',
+  clarificationAnswers: {},
   clarificationQuestions: [],
   isPrechecking: false,
 };
@@ -247,6 +269,7 @@ const strategyWorkbookSlice = createSlice({
       state.uploadedFiles = [];
       state.error = null;
       state.clarificationNotes = '';
+      state.clarificationAnswers = {};
       state.clarificationQuestions = [];
       state.isPrechecking = false;
     },
@@ -257,6 +280,9 @@ const strategyWorkbookSlice = createSlice({
     },
     setClarificationNotes: (state, action: PayloadAction<string>) => {
       state.clarificationNotes = action.payload;
+    },
+    setClarificationAnswer: (state, action: PayloadAction<{ index: number; value: string }>) => {
+      state.clarificationAnswers[action.payload.index] = action.payload.value;
     },
   },
   extraReducers: (builder) => {
@@ -350,7 +376,7 @@ const strategyWorkbookSlice = createSlice({
   },
 });
 
-export const { clearError, clearWorkbook, setReviewNotes, setClarificationNotes } =
+export const { clearError, clearWorkbook, setReviewNotes, setClarificationNotes, setClarificationAnswer } =
   strategyWorkbookSlice.actions;
 export default strategyWorkbookSlice.reducer;
 

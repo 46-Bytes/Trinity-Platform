@@ -76,6 +76,7 @@ function AppRoutes() {
         <Route path="engagements" element={<EngagementsPage />} />
         <Route path="engagements/:engagementId" element={<EngagementDetailPage />} />
         <Route path="engagements/:engagementId/bba" element={<FileUploadPOCPage />} />
+        <Route path="engagements/:engagementId/strategy-workbook" element={<StrategyWorkbookPage />} />
         <Route path="strategy-workbook" element={<StrategyWorkbookPage />} />
         <Route path="tasks" element={<TasksPage />} />
         <Route path="documents" element={<DocumentsPage />} />

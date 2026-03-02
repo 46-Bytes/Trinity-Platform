@@ -528,18 +528,33 @@ class ReportService:
                         ', '.join(ReportService._escape_html(fn) for fn in file_names)
                         if file_names else "Files uploaded"
                     )
+                    # File uploads: normal 3-column row
+                    rows_html += f"""
+            <tr>
+                <td style="text-align: center; width: 8%;">{idx}</td>
+                <td style="width: 42%; word-wrap: break-word; overflow: hidden;">{question}</td>
+                <td style="width: 50%; word-wrap: break-word; overflow: hidden;">{answer_html}</td>
+            </tr>"""
                 else:
-                    # Matrix data — render inline as plain text
-                    answer_html = ReportService._format_answer_plain(answer)
+                    # Matrix data — question header row + full-width sub-table row
+                    matrix_html = ReportService._format_matrix_as_table(answer)
+                    rows_html += f"""
+            <tr>
+                <td style="text-align: center; width: 8%;">{idx}</td>
+                <td colspan="2" style="width: 92%; font-weight: bold; word-wrap: break-word; overflow: hidden;">{question}</td>
+            </tr>
+            <tr>
+                <td colspan="3" style="padding: 2px 4px;">{matrix_html}</td>
+            </tr>"""
             else:
                 # All other answers — plain text only (no <ul>)
                 answer_html = ReportService._format_answer_plain(answer)
 
-            # Ensure no empty cells — xhtml2pdf miscalculates widths on empty <td>
-            if not answer_html:
-                answer_html = "&nbsp;"
+                # Ensure no empty cells — xhtml2pdf miscalculates widths on empty <td>
+                if not answer_html:
+                    answer_html = "&nbsp;"
 
-            rows_html += f"""
+                rows_html += f"""
             <tr>
                 <td style="text-align: center; width: 8%;">{idx}</td>
                 <td style="width: 42%; word-wrap: break-word; overflow: hidden;">{question}</td>
@@ -689,6 +704,59 @@ class ReportService:
             return ReportService._escape_html(answer)
 
         return ReportService._escape_html(str(answer))
+
+    @staticmethod
+    def _format_matrix_as_table(answer: List[Dict[str, Any]]) -> str:
+        """Render a matrix response (list of dicts) as an HTML sub-table.
+
+        Each dict key becomes a column header; each list item becomes a row.
+        Uses the .sub-table CSS class with table-layout:auto so xhtml2pdf
+        can size columns naturally within the parent cell.
+        """
+        if not answer:
+            return ""
+
+        # Collect all unique keys across rows to use as column headers,
+        # preserving insertion order from the first row that has each key.
+        seen_keys: dict[str, None] = {}
+        for row in answer:
+            if isinstance(row, dict):
+                for k in row:
+                    if k not in seen_keys:
+                        seen_keys[k] = None
+        columns = list(seen_keys.keys())
+
+        if not columns:
+            return ""
+
+        # Build header row
+        header_cells = "".join(
+            f"<th>{ReportService._escape_html(ReportService._humanize_label(str(c)))}</th>"
+            for c in columns
+        )
+
+        # Build data rows
+        body_rows = ""
+        for row in answer:
+            if not isinstance(row, dict):
+                continue
+            cells = ""
+            for c in columns:
+                val = row.get(c, "")
+                if val is None or val == "":
+                    cells += "<td>&nbsp;</td>"
+                elif isinstance(val, (dict, list)):
+                    cells += f"<td>{ReportService._escape_html(json.dumps(val))}</td>"
+                else:
+                    cells += f"<td>{ReportService._escape_html(str(val))}</td>"
+            body_rows += f"<tr>{cells}</tr>"
+
+        return (
+            f'<table class="sub-table" style="table-layout: auto; width: 100%;">'
+            f"<thead><tr>{header_cells}</tr></thead>"
+            f"<tbody>{body_rows}</tbody>"
+            f"</table>"
+        )
 
     @staticmethod
     def _markdown_to_html(text: str) -> str:

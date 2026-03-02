@@ -730,8 +730,8 @@ class ReportService:
             return ""
 
         # Calculate max chars per cell based on column count
-        # A4 usable width ~170mm, ~2mm per char at 10px font → ~85 total chars
-        col_max = max(85 // len(columns), 12)
+        # A4 usable width ~170mm, minus cell padding/borders → ~70 usable chars at 10px font
+        col_max = max(70 // len(columns), 8)
 
         # Build header row
         header_cells = "".join(

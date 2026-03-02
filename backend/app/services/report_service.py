@@ -310,7 +310,7 @@ class ReportService:
         """Build scored responses table."""
         rows_html = ""
         for row in scored_rows:
-            question = ReportService._escape_html(str(row.get("question", "")))
+            question = ReportService._wrap_cell_text(ReportService._escape_html(str(row.get("question", ""))), 40)
 
             # Matrix/complex responses would stringify to a massive string
             # that overflows the fixed 20%-wide column → negative availWidth
@@ -321,7 +321,7 @@ class ReportService:
             elif isinstance(response_raw, dict):
                 response = "[Complex response]"
             else:
-                response = ReportService._escape_html(str(response_raw))
+                response = ReportService._wrap_cell_text(ReportService._escape_html(str(response_raw)), 15)
 
             score = str(row.get("score", ""))
             module = str(row.get("module", ""))
@@ -371,13 +371,13 @@ class ReportService:
             if not module_name:
                 continue
             
-            module_name = ReportService._escape_html(str(module_name))
+            module_name = ReportService._wrap_cell_text(ReportService._escape_html(str(module_name)), 18)
             rag = ReportService._escape_html(str(item.get("rag", "")))
             score = str(item.get("score", ""))
             rank = str(item.get("rank", ""))
-            why_priority = ReportService._escape_html(str(item.get("whyPriority", "")))
-            quick_wins = ReportService._escape_html(str(item.get("quickWins", "")))
-            
+            why_priority = ReportService._wrap_cell_text(ReportService._escape_html(str(item.get("whyPriority", ""))), 18)
+            quick_wins = ReportService._wrap_cell_text(ReportService._escape_html(str(item.get("quickWins", ""))), 18)
+
             rows_html += f"""
             <tr>
                 <td style="text-align: left;">{module_name}</td>
@@ -438,12 +438,12 @@ class ReportService:
             module_name = item.get("name") or item.get("module", "")
             if not module_name:
                 continue  # Skip items without module info
-            module_name = ReportService._escape_html(str(module_name))
+            module_name = ReportService._wrap_cell_text(ReportService._escape_html(str(module_name)), 18)
             rag = ReportService._escape_html(str(item.get("rag", "")))
             score = str(item.get("score", ""))
-            why_priority = ReportService._escape_html(str(item.get("whyPriority", "")))
-            quick_wins = ReportService._escape_html(str(item.get("quickWins", "")))
-            
+            why_priority = ReportService._wrap_cell_text(ReportService._escape_html(str(item.get("whyPriority", ""))), 18)
+            quick_wins = ReportService._wrap_cell_text(ReportService._escape_html(str(item.get("quickWins", ""))), 18)
+
             rows_html += f"""
             <tr>
                 <td style="text-align: center;">{rank}</td>
@@ -525,7 +525,7 @@ class ReportService:
                             if file_name:
                                 file_names.append(file_name)
                     answer_html = (
-                        ', '.join(ReportService._escape_html(fn) for fn in file_names)
+                        ', '.join(ReportService._wrap_cell_text(ReportService._escape_html(fn)) for fn in file_names)
                         if file_names else "Files uploaded"
                     )
                     # File uploads: normal 3-column row
@@ -544,7 +544,7 @@ class ReportService:
                 <td colspan="2" style="width: 92%; font-weight: bold; word-wrap: break-word; overflow: hidden;">{question}</td>
             </tr>
             <tr>
-                <td colspan="3" style="padding: 2px 4px;">{matrix_html}</td>
+                <td colspan="3" style="padding: 2px 4px; overflow: hidden;">{matrix_html}</td>
             </tr>"""
             else:
                 # All other answers — plain text only (no <ul>)
@@ -668,8 +668,8 @@ class ReportService:
                 if not isinstance(row, dict):
                     continue
                 pairs = ", ".join(
-                    f"{ReportService._escape_html(ReportService._humanize_label(str(k)))}: "
-                    f"{ReportService._escape_html(str(v))}"
+                    f"{ReportService._wrap_cell_text(ReportService._escape_html(ReportService._humanize_label(str(k))))}: "
+                    f"{ReportService._wrap_cell_text(ReportService._escape_html(str(v)))}"
                     for k, v in row.items()
                     if v is not None and v != ""
                 )
@@ -681,10 +681,10 @@ class ReportService:
         if isinstance(answer, dict):
             lines = []
             for k, v in answer.items():
-                key_label = ReportService._escape_html(
+                key_label = ReportService._wrap_cell_text(ReportService._escape_html(
                     ReportService._humanize_label(str(k))
-                )
-                val_str = ReportService._escape_html(str(v))
+                ))
+                val_str = ReportService._wrap_cell_text(ReportService._escape_html(str(v)))
                 lines.append(f"{key_label}: {val_str}")
             return "<br/>".join(lines)
 
@@ -696,14 +696,14 @@ class ReportService:
                     item_str = json.dumps(item)
                 else:
                     item_str = str(item)
-                items.append(ReportService._escape_html(item_str))
+                items.append(ReportService._wrap_cell_text(ReportService._escape_html(item_str)))
             return "<br/>".join(items)
 
         # Scalar
         if isinstance(answer, str):
-            return ReportService._escape_html(answer)
+            return ReportService._wrap_cell_text(ReportService._escape_html(answer))
 
-        return ReportService._escape_html(str(answer))
+        return ReportService._wrap_cell_text(ReportService._escape_html(str(answer)))
 
     @staticmethod
     def _format_matrix_as_table(answer: List[Dict[str, Any]]) -> str:
@@ -729,9 +729,13 @@ class ReportService:
         if not columns:
             return ""
 
+        # Calculate max chars per cell based on column count
+        # A4 usable width ~170mm, ~2mm per char at 10px font → ~85 total chars
+        col_max = max(85 // len(columns), 12)
+
         # Build header row
         header_cells = "".join(
-            f"<th>{ReportService._escape_html(ReportService._humanize_label(str(c)))}</th>"
+            f"<th>{ReportService._wrap_cell_text(ReportService._escape_html(ReportService._humanize_label(str(c))), col_max)}</th>"
             for c in columns
         )
 
@@ -746,13 +750,13 @@ class ReportService:
                 if val is None or val == "":
                     cells += "<td>&nbsp;</td>"
                 elif isinstance(val, (dict, list)):
-                    cells += f"<td>{ReportService._escape_html(json.dumps(val))}</td>"
+                    cells += f"<td>{ReportService._wrap_cell_text(ReportService._escape_html(json.dumps(val)), col_max)}</td>"
                 else:
-                    cells += f"<td>{ReportService._escape_html(str(val))}</td>"
+                    cells += f"<td>{ReportService._wrap_cell_text(ReportService._escape_html(str(val)), col_max)}</td>"
             body_rows += f"<tr>{cells}</tr>"
 
         return (
-            f'<table class="sub-table" style="table-layout: auto; width: 100%;">'
+            f'<table class="sub-table" style="table-layout: fixed; width: 100%;">'
             f"<thead><tr>{header_cells}</tr></thead>"
             f"<tbody>{body_rows}</tbody>"
             f"</table>"
@@ -787,6 +791,42 @@ class ReportService:
                 .replace('"', "&quot;")
                 .replace("'", "&#x27;"))
     
+    @staticmethod
+    def _wrap_cell_text(text: str, max_line_len: int = 35) -> str:
+        """Hard-wrap text for xhtml2pdf table cells.
+
+        xhtml2pdf does not reliably honour word-wrap, overflow, or soft
+        hyphens on table cells.  This method pre-wraps text in Python
+        using <br/> tags so content never overflows the cell boundary.
+
+        - Wraps at spaces when possible
+        - Breaks long words with '-' and <br/>
+        - Must be called AFTER _escape_html
+        """
+        if not text or len(text) <= max_line_len:
+            return text
+        words = text.split(' ')
+        lines: list[str] = []
+        current_line = ''
+        for word in words:
+            # If word fits on current line
+            needed = len(current_line) + (1 if current_line else 0) + len(word)
+            if needed <= max_line_len:
+                current_line = (current_line + ' ' + word) if current_line else word
+            else:
+                # Flush current line
+                if current_line:
+                    lines.append(current_line)
+                    current_line = ''
+                # Break long words that exceed max_line_len
+                while len(word) > max_line_len:
+                    lines.append(word[:max_line_len - 1] + '-')
+                    word = word[max_line_len - 1:]
+                current_line = word
+        if current_line:
+            lines.append(current_line)
+        return '<br/>'.join(lines)
+
     @staticmethod
     def _get_css_styles() -> str:
         """Get CSS styles for PDF."""
@@ -967,6 +1007,9 @@ class ReportService:
             padding: 4px;
             text-align: left;
             color: #000000;
+            word-wrap: break-word;
+            overflow: hidden;
+            vertical-align: top;
         }
         
         .sub-table th {

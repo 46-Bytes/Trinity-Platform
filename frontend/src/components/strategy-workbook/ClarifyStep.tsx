@@ -71,7 +71,7 @@ export function ClarifyStep({ onComplete }: ClarifyStepProps) {
               ambiguities.
             </div>
 
-            <Button className="w-full" size="lg" onClick={handleContinue} disabled={!allAnswered}>
+            <Button className="w-full bg-success text-white hover:bg-success/90" size="lg" onClick={handleContinue} disabled={!allAnswered}>
               Continue to Extraction
             </Button>
           </>
@@ -80,7 +80,7 @@ export function ClarifyStep({ onComplete }: ClarifyStepProps) {
             <p className="text-sm text-muted-foreground">
               You can proceed directly to extraction.
             </p>
-            <Button className="w-full" size="lg" onClick={handleContinue}>
+            <Button className="w-full bg-success text-white hover:bg-success/90" size="lg" onClick={handleContinue}>
               Continue to Extraction
             </Button>
           </>

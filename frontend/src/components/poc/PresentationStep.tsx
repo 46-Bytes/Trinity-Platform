@@ -388,7 +388,7 @@ export default function PresentationStep({
               ) : slides.length > 0 ? (
                 <>
                   <Sparkles className="h-4 w-4 mr-2" />
-                  Regenerate Slides
+                  Generate Slides
                 </>
               ) : (
                 <>

@@ -5,7 +5,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Upload, X, CheckCircle2, AlertCircle, Loader2, FileText, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { ContextCaptureQuestionnaire, QuestionnaireData } from './ContextCaptureQuestionnaire';
 import { DraftFindingsStep, type Finding } from './DraftFindingsStep';
@@ -895,7 +895,7 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
   return (
     <Card className={cn('w-full max-w-8xl mx-auto', className)}>
       <CardHeader>
-        <CardTitle>BBA Report Builder</CardTitle>
+        <p className="text-sm text-muted-foreground leading-relaxed">This tool helps Benchmark Business Advisory advisors build complete client diagnostic reports from start to finish. Upload your diagnostic materials, notes, and worksheets, and it will guide you through capturing client context, ranking key findings, drafting recommendations, and assembling a structured 12-month implementation plan — all in BBA's house style and tone. Once the report is finalised, it can also generate a month-by-month Excel task list to plan the engagement, and a PowerPoint presentation for client delivery. Every output is produced as a downloadable, client-ready file with professional formatting and BBA branding.</p>
 
       </CardHeader>
       <CardContent className="space-y-4">

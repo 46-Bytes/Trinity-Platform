@@ -30,9 +30,9 @@ export default function FileUploadPOCPage() {
             Back
           </Button>
         </div>
-        <h1 className="text-3xl font-bold mb-2">BBA Diagnostic Report Tool</h1>
+        <h1 className="text-3xl font-bold mb-2">Business Diagnostic Report Builder Tool</h1>
         <p className="text-muted-foreground">
-          Proof of Concept for file upload with OpenAI Files API integration
+          Use this tool to generate client diagnostic reports’
         </p>
       </div>
       <FileUploadPOC engagementId={engagementId} initialProjectId={initialProjectId} />

@@ -317,7 +317,7 @@ export function ExtractStep({ workbookId, onComplete, isExtracting }: ExtractSte
 
             <Button
               onClick={onComplete}
-              className="w-full"
+              className="w-full bg-success text-white hover:bg-success/90"
               size="lg"
             >
               Continue to Generation

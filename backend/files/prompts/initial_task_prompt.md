@@ -59,3 +59,14 @@ The description should be detailed with any necessary step-by-step instructions.
 - Tasks about topics that were not covered in the diagnostic responses
 - Duplicate tasks that address the same underlying issue
 - Overly broad tasks that could apply to any business regardless of diagnostic data
+
+## CRITICAL: Text Formatting Requirements
+
+**IMPORTANT: Use only standard ASCII characters and basic punctuation in all text content.**
+- Use standard hyphens (-) not en-dashes (–) or em-dashes (—)
+- Use standard quotation marks (") not curly quotes (" " ' ')
+- Use standard apostrophes (') not curly apostrophes (' ')
+- Use three periods (...) not ellipsis character (…)
+- Use standard spaces only, no non-breaking spaces or zero-width characters
+- Do NOT use any special Unicode symbols, emojis, or formatting characters
+- Use only printable ASCII characters (letters, numbers, standard punctuation, spaces, newlines)

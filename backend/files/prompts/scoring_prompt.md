@@ -114,6 +114,28 @@ The application will insert the top-level `<h1>` ("Sale-Ready Assessment Report 
 If a mandatory field is missing, return the following error:
 {"error": "Missing required field: <fieldName>"}
 
+## CRITICAL: Text Formatting Requirements
+
+**IMPORTANT: Use only standard ASCII characters and basic punctuation in all text content.**
+- Use standard hyphens (-) not en-dashes (–) or em-dashes (—)
+- Use standard quotation marks (") not curly quotes (" " ‘ ‘)
+- Use standard apostrophes (‘) not curly apostrophes (‘ ‘)
+- Use three periods (...) not ellipsis character (…)
+- Use standard spaces only, no non-breaking spaces or zero-width characters
+- Do NOT use any special Unicode symbols, emojis, or formatting characters
+- Do NOT use any invisible or zero-width characters
+- Use only printable ASCII characters (letters, numbers, standard punctuation, spaces, newlines)
+- All text must be clean and free of any special character artifacts
+
+**Example of CORRECT formatting:**
+- "12-month sales decline" (standard hyphen only)
+- "add-backs" (standard hyphen, not en-dash or special dash)
+- "one-to-one" (standard hyphens only)
+
+**Example of INCORRECT formatting:**
+- Any text with hidden special characters or non-standard dashes
+- Unicode symbols that may not render correctly in PDFs
+
 ## SCORE & RANK
 
 1. Parse Scoring Map.

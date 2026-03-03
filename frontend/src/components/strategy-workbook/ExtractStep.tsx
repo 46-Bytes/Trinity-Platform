@@ -12,6 +12,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { WORKBOOK_SECTION_ORDER } from './sectionConfig';
 
 interface ExtractStepProps {
   workbookId: string;
@@ -81,6 +82,11 @@ const renderDataAsList = (value: any, parentKey?: string): React.ReactNode => {
 
     return (
       <div className="space-y-1">
+        {parentKey && (
+          <div className="py-1 text-sm font-medium text-foreground">
+            {formatSectionTitle(parentKey)}:
+          </div>
+        )}
         {value.map((item, index) => {
           if (typeof item === 'object' && item !== null) {
             // For objects in arrays, show each property on its own line
@@ -152,9 +158,11 @@ export function ExtractStep({ workbookId, onComplete, isExtracting }: ExtractSte
   // When extracted data becomes available, default to first section
   useEffect(() => {
     if (extractionStatus === 'ready' && extractedData && !openSection) {
-      const keys = Object.keys(extractedData);
-      if (keys.length > 0) {
-        setOpenSection(keys[0]);
+      const firstSection = WORKBOOK_SECTION_ORDER.find(
+        ({ key }) => extractedData[key] != null
+      );
+      if (firstSection) {
+        setOpenSection(firstSection.key);
       }
     }
   }, [extractionStatus, extractedData, openSection]);
@@ -279,7 +287,7 @@ export function ExtractStep({ workbookId, onComplete, isExtracting }: ExtractSte
             <div className="flex items-center justify-between">
               <h4 className="text-lg font-semibold">Extracted Strategic Data</h4>
               <span className="text-sm text-muted-foreground">
-                {Object.keys(extractedData).length} sections
+                {WORKBOOK_SECTION_ORDER.filter(s => extractedData[s.key] != null).length} sections
               </span>
             </div>
 
@@ -292,27 +300,29 @@ export function ExtractStep({ workbookId, onComplete, isExtracting }: ExtractSte
                 setOpenSection(val || undefined);
               }}
             >
-              {Object.entries(extractedData).map(([key, value]) => (
-                <AccordionItem 
-                  key={key} 
-                  value={key} 
-                  className="border rounded-md px-4 bg-card"
-                >
-                  <AccordionTrigger 
-                    className="hover:no-underline font-medium py-3 cursor-pointer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                    }}
+              {WORKBOOK_SECTION_ORDER
+                .filter(({ key }) => extractedData[key] != null)
+                .map(({ key, label }) => (
+                  <AccordionItem
+                    key={key}
+                    value={key}
+                    className="border rounded-md px-4 bg-card"
                   >
-                    {formatSectionTitle(key)}
-                  </AccordionTrigger>
-                  <AccordionContent className="pt-2 pb-4">
-                    <div className="space-y-1">
-                      {renderDataAsList(value)}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
+                    <AccordionTrigger
+                      className="hover:no-underline font-medium py-3 cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                    >
+                      {label}
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-2 pb-4">
+                      <div className="space-y-1">
+                        {renderDataAsList(extractedData[key])}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
             </Accordion>
 
             <Button

@@ -148,28 +148,27 @@ export default function AdvisorsPage() {
       // Refresh advisors list
       dispatch(fetchFirmAdvisors(firm.id));
     } catch (error: any) {
-      // Extract error message from various possible formats
       let errorMessage = 'Failed to add advisor';
       if (typeof error === 'string') {
         errorMessage = error;
       } else if (error instanceof Error) {
         errorMessage = error.message;
-      } else if (error?.message) {
+      } else if (typeof error?.message === 'string') {
         errorMessage = error.message;
-      } else if (error?.detail) {
+      } else if (typeof error?.detail === 'string') {
         errorMessage = error.detail;
       } else if (error?.payload) {
-        errorMessage = typeof error.payload === 'string' ? error.payload : error.payload?.detail || errorMessage;
+        errorMessage = typeof error.payload === 'string'
+          ? error.payload
+          : typeof error.payload?.detail === 'string'
+            ? error.payload.detail
+            : errorMessage;
       }
 
       toast({
-        title: 'Error',
         description: errorMessage,
         variant: 'destructive',
       });
-
-      setFormData({ email: '', given_name: '', family_name: '' });
-      setIsAddDialogOpen(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -410,7 +409,10 @@ export default function AdvisorsPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setIsAddDialogOpen(false)}
+                  onClick={() => {
+                    setIsAddDialogOpen(false);
+                    setFormData({ email: '', given_name: '', family_name: '' });
+                  }}
                 >
                   Cancel
                 </Button>

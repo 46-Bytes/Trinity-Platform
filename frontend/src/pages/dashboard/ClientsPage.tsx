@@ -328,16 +328,16 @@ export default function ClientsPage() {
           dispatch(fetchFirmClients());
         }
       } else {
-        throw new Error(result.payload as string || 'Failed to add client');
+        const payload = result.payload;
+        const message = typeof payload === 'string' ? payload : (payload as any)?.detail || (payload as any)?.message || 'Failed to add client';
+        throw new Error(message);
       }
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : typeof error === 'string' ? error : 'Failed to add client';
       toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to add client',
+        description: errorMsg,
         variant: 'destructive',
       });
-      setIsAddDialogOpen(false);
-      setFormData({ email: '', first_name: '', last_name: '', primary_advisor_id: '' });
     } finally {
       setIsSubmitting(false);
     }
@@ -379,12 +379,14 @@ export default function ClientsPage() {
           dispatch(fetchFirmClients());
         }
       } else {
-        throw new Error(result.payload as string || 'Failed to remove client');
+        const payload = result.payload;
+        const message = typeof payload === 'string' ? payload : (payload as any)?.detail || (payload as any)?.message || 'Failed to remove client';
+        throw new Error(message);
       }
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : typeof error === 'string' ? error : 'Failed to remove client';
       toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to remove client',
+        description: errorMsg,
         variant: 'destructive',
       });
     } finally {
@@ -477,7 +479,10 @@ export default function ClientsPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setIsAddDialogOpen(false)}
+                    onClick={() => {
+                      setIsAddDialogOpen(false);
+                      setFormData({ email: '', first_name: '', last_name: '', primary_advisor_id: '' });
+                    }}
                   >
                     Cancel
                   </Button>

@@ -29,11 +29,8 @@ export default function FirmDetailsLayout() {
     }
   }, [dispatch, firmId, isSuperAdmin, navigate]);
 
-  useEffect(() => {
-    if (error) {
-      toast.error(error);
-    }
-  }, [error]);
+  // Note: Individual child pages (ClientsPage, AdvisorsPage, etc.) handle their own
+  // error toasts. We only use the error state here for rendering the error UI below.
 
   if (!isSuperAdmin) {
     return null;

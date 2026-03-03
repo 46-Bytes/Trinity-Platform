@@ -14,6 +14,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { WORKBOOK_SECTION_ORDER } from './sectionConfig';
 
 interface GenerateStepProps {
   workbookId: string;
@@ -112,6 +113,11 @@ export function GenerateStep({
 
       return (
         <div className="space-y-0.5">
+          {parentKey && (
+            <div className="py-0.5 text-xs font-medium text-foreground">
+              {formatSectionTitle(parentKey)}:
+            </div>
+          )}
           {value.map((item, index) => {
             if (typeof item === 'object' && item !== null) {
               return (
@@ -196,38 +202,35 @@ export function GenerateStep({
               <h4 className="text-sm font-medium mb-3">Extracted Data Summary</h4>
               {/* One full-width row per section, each collapsible to show detailed data */}
               <Accordion type="single" collapsible className="w-full space-y-2 text-xs">
-                {Object.entries(extractedData).map(([key, value]) => {
-                  const count = Array.isArray(value)
-                    ? value.length
-                    : typeof value === 'object' && value !== null
-                      ? Object.keys(value).length
-                      : 0;
-
-                  return (
-                    <AccordionItem
-                      key={key}
-                      value={key}
-                      className="border rounded bg-background"
-                    >
-                      <AccordionTrigger className="px-3 py-2 flex items-center justify-between hover:no-underline">
-                        <span className="capitalize font-medium truncate pr-3">
-                          {formatSectionTitle(key)}
-                        </span>
-                      </AccordionTrigger>
-                      <AccordionContent className="px-3 pb-3 pt-0">
-                        <div className="mt-2 space-y-0.5">
-                          {hasMeaningfulContent(value) ? (
-                            renderDataAsList(value)
-                          ) : (
-                            <div className="py-0.5 text-xs text-muted-foreground italic">
-                              No data extracted for this section.
-                            </div>
-                          )}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  );
-                })}
+                {WORKBOOK_SECTION_ORDER
+                  .filter(({ key }) => extractedData[key] != null)
+                  .map(({ key, label }) => {
+                    const value = extractedData[key];
+                    return (
+                      <AccordionItem
+                        key={key}
+                        value={key}
+                        className="border rounded bg-background"
+                      >
+                        <AccordionTrigger className="px-3 py-2 flex items-center justify-between hover:no-underline">
+                          <span className="font-medium truncate pr-3">
+                            {label}
+                          </span>
+                        </AccordionTrigger>
+                        <AccordionContent className="px-3 pb-3 pt-0">
+                          <div className="mt-2 space-y-0.5">
+                            {hasMeaningfulContent(value) ? (
+                              renderDataAsList(value)
+                            ) : (
+                              <div className="py-0.5 text-xs text-muted-foreground italic">
+                                No data extracted for this section.
+                              </div>
+                            )}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  })}
               </Accordion>
             </div>
           </div>

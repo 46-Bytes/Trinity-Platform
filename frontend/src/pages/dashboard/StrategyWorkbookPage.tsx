@@ -147,16 +147,20 @@ export default function StrategyWorkbookPage() {
 
   const activeStep = getCurrentStep();
 
-  // Derive completion state from actual workbook data, not the current step
-  const uploadDone = !!currentWorkbook;
-  const extractDone = !!currentWorkbook?.extracted_data;
+  // Map the active step to the visible stepper phase (clarify is part of the extract phase)
+  const visibleStep = activeStep === 'clarify' ? 'extract' : activeStep;
+  const stepOrder = ['upload', 'extract', 'generate'] as const;
+  const currentStepIndex = stepOrder.indexOf(visibleStep as typeof stepOrder[number]);
+
+  // A step is complete only when the user has moved past it
+  const uploadDone = currentStepIndex > 0;
+  const extractDone = currentStepIndex > 1;
   const generateDone = !!currentWorkbook?.generated_workbook_path;
 
-  // Determine which step is actively in-progress (not yet completed)
-  const visibleStep = activeStep === 'clarify' ? 'extract' : activeStep;
-  const uploadActive = visibleStep === 'upload' && !uploadDone;
-  const extractActive = (visibleStep === 'extract' || visibleStep === 'upload') && uploadDone && !extractDone;
-  const generateActive = visibleStep === 'generate' && extractDone && !generateDone;
+  // The current step is active (loading indicator), future steps are grey
+  const uploadActive = currentStepIndex === 0;
+  const extractActive = currentStepIndex === 1;
+  const generateActive = currentStepIndex === 2 && !generateDone;
 
   return (
     <div className="container mx-auto p-6 space-y-6">

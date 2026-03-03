@@ -441,19 +441,102 @@ export function ReviewEditStep({ projectId, onBack, onContinueToPhase2, classNam
               {project.expanded_findings?.expanded_findings && (
                 <div className="mb-8">
                   <h2 className="text-lg font-bold border-b pb-2 mb-4">Key Findings - Ranked by Importance</h2>
-                  <p className="text-sm text-muted-foreground">
-                    {project.expanded_findings.expanded_findings.length} findings detailed
-                  </p>
+                  <div className="space-y-6">
+                    {project.expanded_findings.expanded_findings.map((finding: any, index: number) => (
+                      <div key={index}>
+                        <h3 className="font-semibold mb-2">
+                          <span className="text-primary mr-2">{finding.rank}.</span>
+                          {finding.title}
+                        </h3>
+                        {finding.paragraphs?.map((para: string, pIndex: number) => (
+                          <p key={pIndex} className="mb-2">{para}</p>
+                        ))}
+                        {finding.key_points && finding.key_points.length > 0 && (
+                          <div className="mt-2">
+                            <strong className="text-sm">Key Points:</strong>
+                            <ul className="list-disc pl-5 mt-1">
+                              {finding.key_points.map((point: string, kIndex: number) => (
+                                <li key={kIndex}>{point}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
+
+              {/* Snapshot Table Preview */}
+              {(() => {
+                const snapshotData = project.snapshot_table?.snapshot_table || project.snapshot_table;
+                const rows = snapshotData?.rows || [];
+                if (rows.length > 0) {
+                  return (
+                    <div className="mb-8">
+                      <h2 className="text-lg font-bold border-b pb-2 mb-4">Key Findings & Recommendations Snapshot</h2>
+                      <div className="border rounded-lg overflow-hidden">
+                        <table className="w-full">
+                          <thead className="bg-muted">
+                            <tr>
+                              <th className="p-3 text-left font-semibold">#</th>
+                              <th className="p-3 text-left font-semibold">Priority Area</th>
+                              <th className="p-3 text-left font-semibold">Key Finding</th>
+                              <th className="p-3 text-left font-semibold">Recommendation</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map((row: any, index: number) => (
+                              <tr key={index} className="border-t">
+                                <td className="p-3 font-bold">{row.rank}</td>
+                                <td className="p-3">{row.priority_area}</td>
+                                <td className="p-3">{row.key_finding}</td>
+                                <td className="p-3">{row.recommendation}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
 
               {/* 12-Month Plan Preview */}
               {project.twelve_month_plan?.recommendations && (
                 <div className="mb-8">
                   <h2 className="text-lg font-bold border-b pb-2 mb-4">12-Month Recommendations Plan</h2>
-                  <p className="text-sm text-muted-foreground">
-                    {project.twelve_month_plan.recommendations.length} recommendations outlined
-                  </p>
+                  {project.twelve_month_plan.plan_notes && (
+                    <p className="text-sm text-muted-foreground italic mb-4">{project.twelve_month_plan.plan_notes}</p>
+                  )}
+                  <div className="space-y-6">
+                    {project.twelve_month_plan.recommendations.map((rec: any, index: number) => (
+                      <div key={index}>
+                        <h3 className="font-semibold mb-1">
+                          <span className="text-primary mr-2">{rec.number}.</span>
+                          {rec.title}
+                          <span className="text-sm font-normal text-muted-foreground ml-2">({rec.timing})</span>
+                        </h3>
+                        <div className="space-y-2 text-sm">
+                          <div>
+                            <strong>Purpose:</strong>
+                            <p className="text-muted-foreground">{rec.purpose}</p>
+                          </div>
+                          {rec.key_objectives && rec.key_objectives.length > 0 && (
+                            <div>
+                              <strong>Key Objectives:</strong>
+                              <ul className="list-disc pl-5 text-muted-foreground">
+                                {rec.key_objectives.map((obj: string, i: number) => (
+                                  <li key={i}>{obj}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -471,7 +554,7 @@ export function ReviewEditStep({ projectId, onBack, onContinueToPhase2, classNam
           </Button>
           <div className="flex gap-2">
             {onContinueToPhase2 && (
-              <Button onClick={onContinueToPhase2} className="gap-2">
+              <Button onClick={onContinueToPhase2} className="gap-2 bg-success text-success-foreground hover:bg-success/90">
                 Phase 2: Task Planner
                 <ArrowRight className="w-4 h-4" />
               </Button>

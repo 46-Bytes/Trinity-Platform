@@ -3,7 +3,7 @@
  * Displays expanded findings with full paragraphs for each finding
  */
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, CheckCircle2, AlertCircle, Pencil, Save, X, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, Pencil, Save, X, RefreshCw, ChevronDown, ChevronUp, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -170,6 +170,30 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
     }
   };
 
+  // Delete finding
+  const deleteFinding = (index: number) => {
+    const updated = expandedFindings.filter((_, i) => i !== index);
+    updated.forEach((f, i) => (f.rank = i + 1));
+    setExpandedFindings(updated);
+    setOpenItems((prev) => prev.filter((i) => i !== index).map((i) => (i > index ? i - 1 : i)));
+  };
+
+  // Add a new blank expanded finding
+  const addFinding = () => {
+    const newFinding: ExpandedFinding = {
+      rank: expandedFindings.length + 1,
+      title: '',
+      priority_area: '',
+      paragraphs: [''],
+      key_points: [],
+    };
+    const newIndex = expandedFindings.length;
+    setExpandedFindings([...expandedFindings, newFinding]);
+    setOpenItems((prev) => [...prev, newIndex]);
+    setEditingIndex(newIndex);
+    setEditForm({ ...newFinding });
+  };
+
   return (
     <Card className={cn('w-full', className)}>
       <CardHeader>
@@ -235,16 +259,29 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
                         </div>
                         <div className="flex items-center gap-2">
                           {editingIndex !== index && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                startEdit(index);
-                              }}
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </Button>
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  startEdit(index);
+                                }}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteFinding(index);
+                                }}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </>
                           )}
                           {openItems.includes(index) ? (
                             <ChevronUp className="w-5 h-5" />
@@ -321,6 +358,17 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
               ))}
             </div>
 
+            {/* Add Finding Button */}
+            <Button
+              variant="outline"
+              onClick={addFinding}
+              disabled={isLoading || isGenerating}
+              className="w-full border-dashed"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Finding
+            </Button>
+
             {/* Action Buttons */}
             <div className="flex justify-between pt-4 border-t">
               <div className="flex gap-2">
@@ -332,7 +380,7 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
                   Regenerate
                 </Button>
               </div>
-              <Button onClick={handleConfirm} disabled={isLoading || expandedFindings.length === 0}>
+              <Button onClick={handleConfirm} disabled={isLoading || expandedFindings.length === 0} className="bg-success text-success-foreground hover:bg-success/90">
                 {isLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />

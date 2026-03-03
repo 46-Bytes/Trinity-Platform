@@ -440,28 +440,36 @@ export function TaskPlannerStep({ projectId, onBack, onContinueToPhase3, classNa
                   min={1}
                   max={20}
                   value={settings.advisor_count}
-                  onChange={(e) =>
-                    setSettings((s) => ({ ...s, advisor_count: parseInt(e.target.value) || 1 }))
-                  }
+                  onChange={(e) => {
+                    const parsed = parseInt(e.target.value);
+                    setSettings((s) => ({ ...s, advisor_count: isNaN(parsed) ? ('' as unknown as number) : parsed }));
+                  }}
+                  onBlur={() => {
+                    setSettings((s) => ({ ...s, advisor_count: s.advisor_count || 1 }));
+                  }}
                 />
                 <p className="text-xs text-muted-foreground">
                   Total advisors working on this engagement
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="max_hours">Max Hours per Month *</Label>
+                <Label htmlFor="max_hours">Max Hours per Advisor Per Month</Label>
                 <Input
                   id="max_hours"
                   type="number"
                   min={1}
                   max={200}
                   value={settings.max_hours_per_month}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const parsed = parseInt(e.target.value);
                     setSettings((s) => ({
                       ...s,
-                      max_hours_per_month: parseInt(e.target.value) || 20,
-                    }))
-                  }
+                      max_hours_per_month: isNaN(parsed) ? ('' as unknown as number) : parsed,
+                    }));
+                  }}
+                  onBlur={() => {
+                    setSettings((s) => ({ ...s, max_hours_per_month: s.max_hours_per_month || 20 }));
+                  }}
                 />
                 <p className="text-xs text-muted-foreground">
                   Combined capacity: {settings.advisor_count * settings.max_hours_per_month} hrs/month
@@ -894,7 +902,7 @@ export function TaskPlannerStep({ projectId, onBack, onContinueToPhase3, classNa
             </Button>
           )}
           {onContinueToPhase3 && (
-            <Button onClick={onContinueToPhase3} variant="default" size="lg">
+            <Button onClick={onContinueToPhase3} variant="default" size="lg" className="bg-success text-success-foreground hover:bg-success/90">
               Phase 3: Presentation
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>

@@ -3,7 +3,7 @@
  * Displays AI-generated findings for advisor review and editing
  */
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, CheckCircle2, AlertCircle, GripVertical, Pencil, Save, X, RefreshCw } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, GripVertical, Pencil, Save, X, RefreshCw, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -224,6 +224,21 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
     const updated = findings.filter((_, i) => i !== index);
     updated.forEach((f, i) => (f.rank = i + 1));
     setFindings(updated);
+  };
+
+  // Add a new blank finding
+  const addFinding = () => {
+    const newFinding: Finding = {
+      rank: findings.length + 1,
+      title: '',
+      summary: '',
+      priority_area: '',
+      impact: 'medium',
+      urgency: 'short-term',
+    };
+    setFindings([...findings, newFinding]);
+    setEditingIndex(findings.length);
+    setEditForm({ ...newFinding });
   };
 
   const getImpactColor = (impact: string) => {
@@ -459,18 +474,29 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
               ))}
             </div>
 
+            {/* Add Finding Button */}
+            <Button
+              variant="outline"
+              onClick={addFinding}
+              disabled={isLoading || isGenerating}
+              className="w-full border-dashed"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Finding
+            </Button>
+
             {/* Action Buttons */}
             <div className="flex justify-between pt-4 border-t">
               <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={onBack}
                   disabled={isLoading || isGenerating}
                 >
                   Back
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => handleGenerate()}
                   disabled={isLoading || isGenerating}
                 >
@@ -478,9 +504,10 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
                   Regenerate
                 </Button>
               </div>
-              <Button 
-                onClick={handleConfirm} 
+              <Button
+                onClick={handleConfirm}
                 disabled={isLoading || isGenerating || findings.length === 0}
+                className="bg-success text-success-foreground hover:bg-success/90"
               >
                 {isLoading ? (
                   <>

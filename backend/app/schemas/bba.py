@@ -310,6 +310,24 @@ class BBAPresentationSlideEdit(BaseModel):
     approved: Optional[bool] = None
 
 
+class BBAPresentationSlideAdd(BaseModel):
+    """Request schema for adding a new slide."""
+    type: str = Field("recommendation", description="Slide type")
+    title: str = Field("", description="Slide title / heading")
+    subtitle: Optional[str] = None
+    bullets: Optional[List[str]] = None
+    finding: Optional[List[str]] = None
+    recommendation_bullets: Optional[List[str]] = None
+    outcome: Optional[List[str]] = None
+    rows: Optional[List[Dict[str, Any]]] = None
+
+
+class BBAPresentationSlideMove(BaseModel):
+    """Request schema for moving a slide to a new position."""
+    from_index: int = Field(..., description="Current slide index")
+    to_index: int = Field(..., description="Target slide index")
+
+
 # Step 7: Edit schemas (still part of Phase 1 report workflow)
 class BBAEditRequest(BaseModel):
     """Request schema for applying edits"""

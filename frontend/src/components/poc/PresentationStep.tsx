@@ -19,6 +19,9 @@ import {
   ArrowLeft,
   Sparkles,
   Trash2,
+  Plus,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -321,6 +324,93 @@ export default function PresentationStep({
     }
   };
 
+  // ── Move slide ──
+  const moveSlide = async (fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= slides.length) return;
+    setError(null);
+
+    // Optimistic reorder
+    const reordered = [...slides];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+    reordered.forEach((s, i) => (s.index = i));
+    setSlides(reordered);
+
+    // Update expanded/editing indices to follow the moved slide
+    if (expandedSlide === fromIndex) setExpandedSlide(toIndex);
+    else if (expandedSlide !== null) {
+      if (fromIndex < expandedSlide && toIndex >= expandedSlide) setExpandedSlide(expandedSlide - 1);
+      else if (fromIndex > expandedSlide && toIndex <= expandedSlide) setExpandedSlide(expandedSlide + 1);
+    }
+
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/poc/${projectId}/presentation/slides/move`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders(),
+          },
+          credentials: 'include',
+          body: JSON.stringify({ from_index: fromIndex, to_index: toIndex }),
+        }
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail || 'Failed to move slide');
+      }
+      const data = await res.json();
+      setSlides(data.slides || []);
+    } catch (err: any) {
+      setError(err.message);
+      // Revert on error
+      loadExistingSlides();
+    }
+  };
+
+  // ── Add slide ──
+  const addSlide = async () => {
+    setError(null);
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/poc/${projectId}/presentation/slides/add`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders(),
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            type: 'recommendation',
+            title: '',
+            bullets: [],
+            finding: [],
+            recommendation_bullets: [],
+            outcome: [],
+          }),
+        }
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail || 'Failed to add slide');
+      }
+      const data = await res.json();
+      const newSlides = data.slides || [];
+      setSlides(newSlides);
+      // Open the new slide in edit mode directly from response data
+      // (can't use startEditing because setSlides hasn't flushed yet)
+      const newIndex = newSlides.length - 1;
+      const newSlide = newSlides[newIndex];
+      setExpandedSlide(newIndex);
+      setEditingSlide(newIndex);
+      setEditDraft({ ...newSlide });
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
   // ── Render ──
   return (
     <div className={cn('space-y-6', className)}>
@@ -517,6 +607,34 @@ export default function PresentationStep({
                           <Edit3 className="h-3.5 w-3.5" />
                         )}
                       </Button>
+                      <div className="flex flex-col">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-5 w-5 p-0"
+                          disabled={idx === 0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            moveSlide(idx, idx - 1);
+                          }}
+                          title="Move up"
+                        >
+                          <ArrowUp className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-5 w-5 p-0"
+                          disabled={idx === slides.length - 1}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            moveSlide(idx, idx + 1);
+                          }}
+                          title="Move down"
+                        >
+                          <ArrowDown className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                       {isExpanded ? (
                         <ChevronUp className="h-4 w-4 text-gray-400" />
                       ) : (
@@ -545,6 +663,17 @@ export default function PresentationStep({
               </Card>
             );
           })}
+
+          {/* Add Slide Button */}
+          <Button
+            variant="outline"
+            onClick={addSlide}
+            disabled={generating || exporting}
+            className="w-full border-dashed"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Slide
+          </Button>
         </div>
       )}
 

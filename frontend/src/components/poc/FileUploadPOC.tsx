@@ -1250,8 +1250,6 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
           <DraftFindingsStep
             projectId={projectId}
             onComplete={() => {
-              // Reset maxStepReached because downstream data (steps 4-7) was
-              setMaxStepReached(3);
               goToStep(4);
             }}
             onBack={() => goToStep(2)}

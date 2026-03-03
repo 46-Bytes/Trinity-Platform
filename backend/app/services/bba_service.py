@@ -3,6 +3,7 @@ BBA (Business Benchmark Analysis) Service
 Handles business logic for BBA projects
 """
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
@@ -241,21 +242,111 @@ class BBAService:
             return None
         
         if edited_findings:
+            # Build old-rank-to-new-rank mapping before overwriting
+            old_findings = (bba.draft_findings or {}).get('findings', [])
+            new_findings = edited_findings.get('findings', [])
+            self._reorder_downstream_data(bba, old_findings, new_findings)
+
             bba.draft_findings = edited_findings
             bba.draft_findings_edited = True
-            # Invalidate all downstream data so steps 4-7 regenerate from the updated findings
-            bba.expanded_findings = None
-            bba.snapshot_table = None
-            bba.twelve_month_plan = None
-            bba.max_step_reached = 3
 
         bba.updated_at = datetime.utcnow()
-        
+
         self.db.commit()
         self.db.refresh(bba)
         logger.info(f"Confirmed draft findings for BBA {bba_id}")
         return bba
     
+    def _reorder_downstream_data(self, bba, old_findings: list, new_findings: list):
+        """
+        Reorder expanded_findings, snapshot_table, and twelve_month_plan
+        to match the new draft findings order. Matches items by title.
+        """
+        # Build mapping: title -> new_rank
+        title_to_new_rank = {}
+        for f in new_findings:
+            title_to_new_rank[f.get('title', '')] = f.get('rank')
+
+        logger.info(
+            "Reordering downstream data for BBA %s – title_to_new_rank: %s",
+            bba.id, title_to_new_rank,
+        )
+
+        # Reorder expanded_findings
+        if bba.expanded_findings:
+            ef_data = dict(bba.expanded_findings)
+            ef_list = list(ef_data.get('expanded_findings', []))
+            if ef_list:
+                for item in ef_list:
+                    new_rank = title_to_new_rank.get(item.get('title'))
+                    if new_rank is not None:
+                        item['rank'] = new_rank
+                ef_list.sort(key=lambda x: x.get('rank', 999))
+                ef_data['expanded_findings'] = ef_list
+                bba.expanded_findings = ef_data
+                flag_modified(bba, "expanded_findings")
+                logger.info("Reordered %d expanded findings", len(ef_list))
+
+        # Reorder snapshot_table
+        if bba.snapshot_table:
+            st = dict(bba.snapshot_table)
+            inner = st.get('snapshot_table')
+            if isinstance(inner, dict):
+                rows = list(inner.get('rows', []))
+            else:
+                rows = list(st.get('rows', []))
+
+            if rows:
+                # Snapshot rows don't have title — map via old_rank -> title -> new_rank
+                old_rank_to_title = {f.get('rank'): f.get('title', '') for f in old_findings}
+                for row in rows:
+                    old_title = old_rank_to_title.get(row.get('rank'), '')
+                    new_rank = title_to_new_rank.get(old_title)
+                    if new_rank is not None:
+                        row['rank'] = new_rank
+                rows.sort(key=lambda x: x.get('rank', 999))
+
+                if isinstance(inner, dict):
+                    inner['rows'] = rows
+                    st['snapshot_table'] = inner
+                else:
+                    st['rows'] = rows
+                bba.snapshot_table = st
+                flag_modified(bba, "snapshot_table")
+                logger.info("Reordered %d snapshot rows", len(rows))
+
+        # Reorder twelve_month_plan
+        if bba.twelve_month_plan:
+            plan = dict(bba.twelve_month_plan)
+            recs = list(plan.get('recommendations', []))
+            if recs:
+                for rec in recs:
+                    new_rank = title_to_new_rank.get(rec.get('title'))
+                    if new_rank is not None:
+                        rec['number'] = new_rank
+                recs.sort(key=lambda x: x.get('number', 999))
+                plan['recommendations'] = recs
+
+                # Also reorder timeline_summary rows
+                ts = plan.get('timeline_summary', {})
+                if ts:
+                    ts = dict(ts)
+                    ts_rows = list(ts.get('rows', []))
+                    if ts_rows:
+                        # Match timeline rows by recommendation title
+                        new_num_by_title = {r.get('title', ''): r.get('number') for r in recs}
+                        for row in ts_rows:
+                            new_num = new_num_by_title.get(row.get('recommendation'))
+                            if new_num is not None:
+                                row['rec_number'] = new_num
+                        ts_rows.sort(key=lambda x: x.get('rec_number', 999))
+                        ts['rows'] = ts_rows
+                    plan['timeline_summary'] = ts
+
+                bba.twelve_month_plan = plan
+                flag_modified(bba, "twelve_month_plan")
+                logger.info("Reordered %d recommendations", len(recs))
+
     def update_expanded_findings(
         self, 
         bba_id: UUID, 

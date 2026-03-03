@@ -3,7 +3,7 @@
  * Displays AI-generated findings for advisor review and editing
  */
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, CheckCircle2, AlertCircle, GripVertical, Pencil, Save, X, RefreshCw, Plus } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, ArrowUp, ArrowDown, Pencil, Save, X, RefreshCw, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -198,6 +198,7 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
       setFindings(updated);
       setEditingIndex(null);
       setEditForm(null);
+      persistFindings(updated);
     }
   };
 
@@ -205,6 +206,21 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
   const cancelEdit = () => {
     setEditingIndex(null);
     setEditForm(null);
+  };
+
+  // Auto-save findings to backend (non-blocking) so changes persist
+  // even when navigating away via stepper instead of the Confirm button
+  const persistFindings = (updatedFindings: Finding[]) => {
+    const token = localStorage.getItem('auth_token');
+    fetch(`${API_BASE_URL}/api/poc/${projectId}/step3/confirm`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      credentials: 'include',
+      body: JSON.stringify({ findings: updatedFindings }),
+    }).catch((err) => console.error('Failed to auto-save findings:', err));
   };
 
   // Move finding up/down
@@ -217,6 +233,7 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
     // Update ranks
     updated.forEach((f, i) => (f.rank = i + 1));
     setFindings(updated);
+    persistFindings(updated);
   };
 
   // Delete finding
@@ -224,6 +241,7 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
     const updated = findings.filter((_, i) => i !== index);
     updated.forEach((f, i) => (f.rank = i + 1));
     setFindings(updated);
+    persistFindings(updated);
   };
 
   // Add a new blank finding
@@ -414,15 +432,16 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
                   ) : (
                     // View Mode
                     <div className="flex gap-4">
-                      {/* Drag Handle & Rank */}
+                      {/* Rank & Reorder Arrows */}
                       <div className="flex flex-col items-center gap-1">
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => moveFinding(index, 'up')}
                           disabled={index === 0}
+                          title="Move up"
                         >
-                          <GripVertical className="w-4 h-4 rotate-90" />
+                          <ArrowUp className="w-4 h-4" />
                         </Button>
                         <span className="font-bold text-2xl text-primary">{finding.rank}</span>
                         <Button
@@ -430,8 +449,9 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
                           size="sm"
                           onClick={() => moveFinding(index, 'down')}
                           disabled={index === findings.length - 1}
+                          title="Move down"
                         >
-                          <GripVertical className="w-4 h-4 rotate-90" />
+                          <ArrowDown className="w-4 h-4" />
                         </Button>
                       </div>
 

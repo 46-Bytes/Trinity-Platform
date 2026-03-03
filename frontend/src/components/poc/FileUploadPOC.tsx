@@ -911,7 +911,7 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
                 const isCurrentStepBusy = stepLoadingStates[currentStep] || false;
                 // Block navigation if current step is busy
                 const isMovingForward = step > currentStep;
-                const isEnabled = step <= maxStepReached && !isCurrentStepBusy && (!isAnyStepBusy || !isMovingForward);
+                const isEnabled = !isCurrentStepBusy && (!isAnyStepBusy || !isMovingForward);
 
                 return (
                   <React.Fragment key={step}>
@@ -957,9 +957,7 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
                 const isCurrentStepBusy = stepLoadingStates[currentStep] || false;
                 // Block navigation if current step is busy
                 const isMovingForward = step > currentStep;
-                // Phase 2 is reachable once user has reached step 7 (Review & Export) or beyond
-                const canReachPhase2 = maxStepReached >= 7;
-                const isEnabled = (step <= maxStepReached || (step === 8 && canReachPhase2)) && !isCurrentStepBusy && (!isAnyStepBusy || !isMovingForward);
+                const isEnabled = !isCurrentStepBusy && (!isAnyStepBusy || !isMovingForward);
 
                 return (
                   <button
@@ -999,7 +997,7 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
                 const isCurrentStepBusy = stepLoadingStates[currentStep] || false;
                 // Block navigation if current step is busy
                 const isMovingForward = step > currentStep;
-                const isEnabled = step <= maxStepReached && !isCurrentStepBusy && (!isAnyStepBusy || !isMovingForward);
+                const isEnabled = !isCurrentStepBusy && (!isAnyStepBusy || !isMovingForward);
 
                 return (
                   <React.Fragment key={step}>
@@ -1216,6 +1214,7 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
                 <Button
                   onClick={() => goToStep(2)}
                   disabled={successCount === 0}
+                  className="bg-success text-success-foreground hover:bg-success/90"
                 >
                   Continue to Step 2
                   <ArrowRight className="w-4 h-4 ml-2" />
@@ -1250,7 +1249,11 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
         {currentStep === 3 && projectId && (
           <DraftFindingsStep
             projectId={projectId}
-            onComplete={() => goToStep(4)}
+            onComplete={() => {
+              // Reset maxStepReached because downstream data (steps 4-7) was
+              setMaxStepReached(3);
+              goToStep(4);
+            }}
             onBack={() => goToStep(2)}
             onLoadingStateChange={(isLoading) => updateStepLoadingState(3, isLoading)}
           />

@@ -243,7 +243,12 @@ class BBAService:
         if edited_findings:
             bba.draft_findings = edited_findings
             bba.draft_findings_edited = True
-        
+            # Invalidate all downstream data so steps 4-7 regenerate from the updated findings
+            bba.expanded_findings = None
+            bba.snapshot_table = None
+            bba.twelve_month_plan = None
+            bba.max_step_reached = 3
+
         bba.updated_at = datetime.utcnow()
         
         self.db.commit()

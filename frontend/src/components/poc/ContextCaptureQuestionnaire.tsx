@@ -219,6 +219,7 @@ export function ContextCaptureQuestionnaire({
         <Button
           onClick={onSubmit}
           disabled={!isFormValid || isSubmitting}
+          className="bg-success text-success-foreground hover:bg-success/90"
         >
           {isSubmitting ? (
             <>

@@ -63,6 +63,8 @@ from app.schemas.bba import (
     BBATaskPlannerSettings,
     BBATaskRow,
     BBAPresentationSlideEdit,
+    BBAPresentationSlideAdd,
+    BBAPresentationSlideMove,
     BBAStepProgressUpdate,
 )
 
@@ -1733,6 +1735,127 @@ async def delete_presentation_slide(
         "slides": updated_bba.presentation_slides.get("slides", []),
         "project": updated_bba.to_dict(),
     }
+
+@router.post(
+    "/{project_id}/presentation/slides/add",
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_presentation_slide(
+    project_id: UUID,
+    slide_data: BBAPresentationSlideAdd,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Add a new blank slide to the presentation.
+    """
+    bba_service = get_bba_service(db)
+    bba = bba_service.get_bba(project_id)
+
+    if not bba:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="BBA project not found",
+        )
+
+    if bba.created_by_user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this project",
+        )
+
+    presentation_service = get_bba_presentation_service(db)
+
+    try:
+        updated_bba = presentation_service.add_slide(
+            bba_id=project_id,
+            slide_data=slide_data.model_dump(),
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error(
+            "Failed to add presentation slide for BBA %s: %s",
+            project_id,
+            str(e),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to add slide: {str(e)}",
+        )
+
+    return {
+        "success": True,
+        "message": "Slide added successfully",
+        "slides": updated_bba.presentation_slides.get("slides", []),
+        "project": updated_bba.to_dict(),
+    }
+
+
+@router.post(
+    "/{project_id}/presentation/slides/move",
+    status_code=status.HTTP_200_OK,
+)
+async def move_presentation_slide(
+    project_id: UUID,
+    move_data: BBAPresentationSlideMove,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Move a slide from one position to another.
+    """
+    bba_service = get_bba_service(db)
+    bba = bba_service.get_bba(project_id)
+
+    if not bba:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="BBA project not found",
+        )
+
+    if bba.created_by_user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this project",
+        )
+
+    presentation_service = get_bba_presentation_service(db)
+
+    try:
+        updated_bba = presentation_service.move_slide(
+            bba_id=project_id,
+            from_index=move_data.from_index,
+            to_index=move_data.to_index,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error(
+            "Failed to move presentation slide for BBA %s: %s",
+            project_id,
+            str(e),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to move slide: {str(e)}",
+        )
+
+    return {
+        "success": True,
+        "message": f"Slide moved from {move_data.from_index} to {move_data.to_index}",
+        "slides": updated_bba.presentation_slides.get("slides", []),
+        "project": updated_bba.to_dict(),
+    }
+
 
 @router.post("/{project_id}/presentation/export/pptx")
 async def export_presentation_pptx(

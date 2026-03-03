@@ -376,7 +376,7 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
                   Regenerate
                 </Button>
               </div>
-              <Button onClick={handleConfirm} disabled={isLoading || !snapshotTable}>
+              <Button onClick={handleConfirm} disabled={isLoading || !snapshotTable} className="bg-success text-success-foreground hover:bg-success/90">
                 {isLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />

@@ -175,6 +175,100 @@ class BBAPresentationService:
         )
         return bba
 
+    def add_slide(
+        self,
+        bba_id: UUID,
+        slide_data: Dict[str, Any],
+    ) -> BBA:
+        """
+        Add a new slide to the presentation_slides JSONB array.
+
+        The slide is appended at the end and assigned the next index.
+        """
+        bba = self._get_bba(bba_id)
+
+        if not bba.presentation_slides or not bba.presentation_slides.get("slides"):
+            raise ValueError("No presentation slides exist yet. Generate slides first.")
+
+        slides = list(bba.presentation_slides["slides"])
+        new_index = len(slides)
+
+        # Build the new slide with defaults
+        new_slide = {
+            "index": new_index,
+            "type": slide_data.get("type", "recommendation"),
+            "title": slide_data.get("title", ""),
+            "subtitle": slide_data.get("subtitle"),
+            "bullets": slide_data.get("bullets"),
+            "finding": slide_data.get("finding"),
+            "recommendation_bullets": slide_data.get("recommendation_bullets"),
+            "outcome": slide_data.get("outcome"),
+            "rows": slide_data.get("rows"),
+            "approved": False,
+        }
+
+        slides.append(new_slide)
+        bba.presentation_slides = {**bba.presentation_slides, "slides": slides}
+        flag_modified(bba, "presentation_slides")
+        bba.updated_at = datetime.utcnow()
+
+        self.db.commit()
+        self.db.refresh(bba)
+
+        logger.info(
+            "[BBA Presentation] Added slide %d for BBA %s (title=%s)",
+            new_index,
+            bba_id,
+            new_slide.get("title"),
+        )
+        return bba
+
+    def move_slide(
+        self,
+        bba_id: UUID,
+        from_index: int,
+        to_index: int,
+    ) -> BBA:
+        """
+        Move a slide from one position to another and reindex all slides.
+        """
+        bba = self._get_bba(bba_id)
+
+        if not bba.presentation_slides or not bba.presentation_slides.get("slides"):
+            raise ValueError("No presentation slides exist yet. Generate slides first.")
+
+        slides = list(bba.presentation_slides["slides"])
+
+        if from_index < 0 or from_index >= len(slides):
+            raise ValueError(f"Source index {from_index} is out of range (0–{len(slides) - 1}).")
+        if to_index < 0 or to_index >= len(slides):
+            raise ValueError(f"Target index {to_index} is out of range (0–{len(slides) - 1}).")
+
+        # Remove from old position and insert at new position
+        slide = slides.pop(from_index)
+        slides.insert(to_index, slide)
+
+        # Reindex
+        for i, s in enumerate(slides):
+            s = dict(s)
+            s["index"] = i
+            slides[i] = s
+
+        bba.presentation_slides = {**bba.presentation_slides, "slides": slides}
+        flag_modified(bba, "presentation_slides")
+        bba.updated_at = datetime.utcnow()
+
+        self.db.commit()
+        self.db.refresh(bba)
+
+        logger.info(
+            "[BBA Presentation] Moved slide %d → %d for BBA %s",
+            from_index,
+            to_index,
+            bba_id,
+        )
+        return bba
+
     def delete_slide(
         self,
         bba_id: UUID,

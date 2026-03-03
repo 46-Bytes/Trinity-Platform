@@ -219,7 +219,13 @@ export const addAdvisorToFirm = createAsyncThunk(
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: 'Failed to add advisor' }));
-        throw new Error(errorData.detail || 'Failed to add advisor');
+        const detail = errorData.detail;
+        const message = typeof detail === 'string'
+          ? detail
+          : Array.isArray(detail)
+            ? detail.map((d: any) => d.msg || d.message || JSON.stringify(d)).join(', ')
+            : 'Failed to add advisor';
+        throw new Error(message);
       }
 
       const data = await response.json();
@@ -513,7 +519,13 @@ export const addClientToFirm = createAsyncThunk(
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: 'Failed to add client' }));
-        throw new Error(errorData.detail || 'Failed to add client');
+        const detail = errorData.detail;
+        const message = typeof detail === 'string'
+          ? detail
+          : Array.isArray(detail)
+            ? detail.map((d: any) => d.msg || d.message || JSON.stringify(d)).join(', ')
+            : 'Failed to add client';
+        throw new Error(message);
       }
 
       const client = await response.json() as Client;

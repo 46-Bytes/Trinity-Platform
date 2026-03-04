@@ -1,8 +1,8 @@
-# Extract Context Capture Fields from Diagnostic Report
+# Extract Context Capture Fields from Diagnostic Report and Uploaded Documents
 
 ## Your Task
 
-You are given the text of a diagnostic report (business health assessment). Extract any information that maps to the following context-capture form fields. Return a JSON object with **only** the keys for which you found a clear value. Omit any key you cannot fill from the document.
+You are given the text of a diagnostic report (business health assessment) and/or uploaded documents. Extract any information that maps to the following context-capture form fields from all available sources. Return a JSON object with **only** the keys for which you found a clear value. Omit any key you cannot fill from the provided materials.
 
 ## Output Rules
 

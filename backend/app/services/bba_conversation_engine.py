@@ -679,31 +679,65 @@ Return your response as a JSON object with an "executive_summary" key containing
             logger.error(f"[BBA Engine] Failed to generate executive summary: {e}", exc_info=True)
             raise
 
-    async def extract_context_capture_from_diagnostic_text(self, diagnostic_text: str) -> Dict[str, Any]:
+    async def extract_context_capture_from_diagnostic_text(
+        self,
+        diagnostic_text: str,
+        file_mappings: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
         """
-        Use LLM to extract context-capture (questionnaire) fields from diagnostic report text.
+        Use LLM to extract context-capture (questionnaire) fields from diagnostic report text
+        and/or uploaded files.
         Returns a dict with camelCase keys; only keys for which a value was extracted are present.
         """
-        if not diagnostic_text or not diagnostic_text.strip():
+        has_text = diagnostic_text and diagnostic_text.strip()
+        has_files = bool(file_mappings)
+        if not has_text and not has_files:
             return {}
         try:
             prompt = load_bba_prompt("extract_context_capture")
         except FileNotFoundError:
             logger.warning("[BBA Engine] extract_context_capture prompt not found, using inline prompt")
             prompt = (
-                "Extract context-capture form fields from the diagnostic report. "
+                "Extract context-capture form fields from the diagnostic report and/or uploaded documents. "
                 "Return JSON only with camelCase keys. Include only keys you can fill: "
                 "clientName, industry, companySize, locations, exclusions, constraints, "
                 "preferredRanking, strategicPriorities, excludeSaleReadiness (boolean). "
                 "companySize must be one of: startup, small, medium, large, enterprise."
             )
-        text_for_llm = diagnostic_text[:30000]  # cap length
+
+        # Build user message content
+        user_parts = []
+        if has_text:
+            user_parts.append(f"Diagnostic report:\n\n{diagnostic_text[:30000]}")
+        if has_files:
+            user_parts.append("Uploaded documents are also attached. Extract any relevant context-capture fields from them as well.")
+        user_content = "\n\n".join(user_parts)
+
         messages = [
             {"role": "system", "content": prompt},
-            {"role": "user", "content": f"Diagnostic report:\n\n{text_for_llm}"},
+            {"role": "user", "content": user_content},
         ]
+
+        # Separate uploaded files by type (reuse existing pattern from draft findings)
+        pdf_file_ids = None
+        tools = None
+        if file_mappings:
+            pdf_ids, ci_ids = self._separate_files_by_type(file_mappings)
+            pdf_file_ids = pdf_ids if pdf_ids else None
+            if ci_ids:
+                tools = [{
+                    "type": "code_interpreter",
+                    "container": {
+                        "type": "auto",
+                        "file_ids": ci_ids
+                    }
+                }]
+            logger.info(f"[BBA Engine] Context capture file categorization: {len(pdf_ids)} PDF(s), {len(ci_ids)} CI file(s)")
+
         result = await self.openai_service.generate_json_completion(
             messages=messages,
+            file_ids=pdf_file_ids,
+            tools=tools,
             temperature=0.2,
         )
         parsed = result.get("parsed_content") or {}

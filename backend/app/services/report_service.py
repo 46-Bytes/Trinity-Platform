@@ -604,8 +604,12 @@ class ReportService:
     
     @staticmethod
     def _humanize_label(slug: str) -> str:
-        """Convert field_name to Field Name."""
-        return slug.replace('_', ' ').replace('-', ' ').title()
+        """Convert field_name or camelCase to Field Name."""
+        # Split camelCase boundaries: "grossWeekly" → "gross Weekly"
+        spaced = re.sub(r'([a-z])([A-Z])', r'\1 \2', slug)
+        # Handle consecutive uppercase: "HTMLParser" → "HTML Parser"
+        spaced = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1 \2', spaced)
+        return spaced.replace('_', ' ').replace('-', ' ').title()
 
     @staticmethod
     def _format_answer(answer: Any) -> str:
@@ -731,15 +735,34 @@ class ReportService:
 
         # Calculate max chars per cell based on column count
         # A4 usable width ~170mm, minus cell padding/borders → ~70 usable chars at 10px font
-        col_max = max(70 // len(columns), 8)
+        # Adjust wrap budget based on column count and reduced font sizes
+        if len(columns) >= 8:
+            col_max = max(110 // len(columns), 14)
+        elif len(columns) >= 6:
+            col_max = max(100 // len(columns), 16)
+        elif len(columns) >= 4:
+            col_max = max(90 // len(columns), 18)
+        else:
+            col_max = max(70 // len(columns), 20)
 
-        # Build header row
+        # Determine font size early so we can inline it on every cell
+        # (xhtml2pdf ignores CSS inheritance, so table font-size doesn't reach td/th)
+        if len(columns) >= 8:
+            cell_font = "11px"
+        elif len(columns) >= 6:
+            cell_font = "12px"
+        elif len(columns) >= 4:
+            cell_font = "13px"
+        else:
+            cell_font = "14px"
+
+        # Build header row with inline font-size
         header_cells = "".join(
-            f"<th>{ReportService._wrap_cell_text(ReportService._escape_html(ReportService._humanize_label(str(c))), col_max)}</th>"
+            f'<th style="font-size: {cell_font};">{ReportService._wrap_cell_text(ReportService._escape_html(ReportService._humanize_label(str(c))), col_max)}</th>'
             for c in columns
         )
 
-        # Build data rows
+        # Build data rows with inline font-size
         body_rows = ""
         for row in answer:
             if not isinstance(row, dict):
@@ -748,11 +771,11 @@ class ReportService:
             for c in columns:
                 val = row.get(c, "")
                 if val is None or val == "":
-                    cells += "<td>&nbsp;</td>"
+                    cells += f'<td style="font-size: {cell_font};">&nbsp;</td>'
                 elif isinstance(val, (dict, list)):
-                    cells += f"<td>{ReportService._wrap_cell_text(ReportService._escape_html(json.dumps(val)), col_max)}</td>"
+                    cells += f'<td style="font-size: {cell_font};">{ReportService._wrap_cell_text(ReportService._escape_html(json.dumps(val)), col_max)}</td>'
                 else:
-                    cells += f"<td>{ReportService._wrap_cell_text(ReportService._escape_html(str(val)), col_max)}</td>"
+                    cells += f'<td style="font-size: {cell_font};">{ReportService._wrap_cell_text(ReportService._escape_html(str(val)), col_max)}</td>'
             body_rows += f"<tr>{cells}</tr>"
 
         return (
@@ -1007,6 +1030,7 @@ class ReportService:
             padding: 4px;
             text-align: left;
             color: #000000;
+            font-size: inherit;
             word-wrap: break-word;
             overflow: hidden;
             vertical-align: top;

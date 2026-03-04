@@ -255,7 +255,7 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
         )}
 
         {/* Snapshot Table */}
-        {!isInitialLoading && snapshotTable && (
+        {!isInitialLoading && !isGenerating && snapshotTable && (
           <>
             {/* Table Title */}
             <h3 className="text-lg font-semibold">{snapshotTable.title}</h3>

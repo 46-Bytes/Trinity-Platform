@@ -73,15 +73,16 @@ export function GenerateStep({
 
     if (typeof value === 'string') {
       if (!value.trim()) return null;
+      const displayValue = value.replace(/\\n/g, '\n');
       return (
-        <div className="py-0.5 text-xs">
+        <div className="py-1 text-sm">
           {parentKey ? (
             <>
-              <span className="font-medium text-foreground">{formatSectionTitle(parentKey)}: </span>
-              <span className="text-muted-foreground whitespace-pre-line">{value}</span>
+              <span className="font-bold text-foreground">{formatSectionTitle(parentKey)}: </span>
+              <span className="text-foreground whitespace-pre-line">{displayValue}</span>
             </>
           ) : (
-            <span className="text-muted-foreground whitespace-pre-line">{value}</span>
+            <span className="text-foreground whitespace-pre-line">{displayValue}</span>
           )}
         </div>
       );
@@ -89,14 +90,14 @@ export function GenerateStep({
 
     if (typeof value === 'number' || typeof value === 'boolean') {
       return (
-        <div className="py-0.5 text-xs">
+        <div className="py-1 text-sm">
           {parentKey ? (
             <>
-              <span className="font-medium text-foreground">{formatSectionTitle(parentKey)}: </span>
-              <span className="text-muted-foreground">{String(value)}</span>
+              <span className="font-bold text-foreground">{formatSectionTitle(parentKey)}: </span>
+              <span className="text-foreground">{String(value)}</span>
             </>
           ) : (
-            <span className="text-muted-foreground">{String(value)}</span>
+            <span className="text-foreground">{String(value)}</span>
           )}
         </div>
       );
@@ -104,17 +105,13 @@ export function GenerateStep({
 
     if (Array.isArray(value)) {
       if (value.length === 0) {
-        return (
-          <div className="py-0.5 text-xs text-muted-foreground italic">
-            {parentKey ? `${formatSectionTitle(parentKey)}: No items` : 'No items'}
-          </div>
-        );
+        return null;
       }
 
       return (
-        <div className="space-y-0.5">
+        <div className="space-y-1">
           {parentKey && (
-            <div className="py-0.5 text-xs font-medium text-foreground">
+            <div className="py-1 text-sm font-bold text-foreground">
               {formatSectionTitle(parentKey)}:
             </div>
           )}
@@ -123,7 +120,7 @@ export function GenerateStep({
               return (
                 <div
                   key={index}
-                  className="pl-3 border-l border-muted space-y-0.5 py-1"
+                  className="pl-4 border-l-2 border-muted space-y-1 py-1.5"
                 >
                   {Object.entries(item).map(([k, v]) => (
                     <div key={k}>{renderDataAsList(v, k)}</div>
@@ -133,8 +130,8 @@ export function GenerateStep({
             }
 
             return (
-              <div key={index} className="py-0.5 text-xs pl-3">
-                <span className="text-muted-foreground">• {String(item)}</span>
+              <div key={index} className="py-0.5 text-sm pl-4">
+                <span className="text-foreground">• {String(item)}</span>
               </div>
             );
           })}
@@ -144,7 +141,7 @@ export function GenerateStep({
 
     if (typeof value === 'object') {
       return (
-        <div className="space-y-0.5">
+        <div className="space-y-1">
           {Object.entries(value).map(([k, v]) => (
             <div key={k}>{renderDataAsList(v, k)}</div>
           ))}
@@ -153,7 +150,7 @@ export function GenerateStep({
     }
 
     return (
-      <div className="py-0.5 text-xs text-muted-foreground">
+      <div className="py-1 text-sm text-foreground">
         {parentKey ? `${formatSectionTitle(parentKey)}: ${String(value)}` : String(value)}
       </div>
     );
@@ -198,31 +195,31 @@ export function GenerateStep({
               </p>
             </div>
 
-            <div className="p-4 bg-muted rounded-lg">
-              <h4 className="text-sm font-medium mb-3">Extracted Data Summary</h4>
+            <div className="p-5 bg-muted rounded-lg">
+              <h4 className="text-base font-semibold mb-4">Extracted Data Summary</h4>
               {/* One full-width row per section, each collapsible to show detailed data */}
-              <Accordion type="single" collapsible className="w-full space-y-2 text-xs">
+              <Accordion type="single" collapsible className="w-full space-y-3">
                 {WORKBOOK_SECTION_ORDER
-                  .filter(({ key }) => extractedData[key] != null)
+                  .filter(({ key }) => extractedData[key] != null && hasMeaningfulContent(extractedData[key]))
                   .map(({ key, label }) => {
                     const value = extractedData[key];
                     return (
                       <AccordionItem
                         key={key}
                         value={key}
-                        className="border rounded bg-background"
+                        className="border rounded-md bg-background"
                       >
-                        <AccordionTrigger className="px-3 py-2 flex items-center justify-between hover:no-underline">
-                          <span className="font-medium truncate pr-3">
+                        <AccordionTrigger className="px-4 py-3 flex items-center justify-between hover:no-underline">
+                          <span className="font-semibold text-base text-foreground truncate pr-3">
                             {label}
                           </span>
                         </AccordionTrigger>
-                        <AccordionContent className="px-3 pb-3 pt-0">
-                          <div className="mt-2 space-y-0.5">
+                        <AccordionContent className="px-4 pb-4 pt-0">
+                          <div className="mt-2 space-y-1">
                             {hasMeaningfulContent(value) ? (
                               renderDataAsList(value)
                             ) : (
-                              <div className="py-0.5 text-xs text-muted-foreground italic">
+                              <div className="py-1 text-sm text-muted-foreground italic">
                                 No data extracted for this section.
                               </div>
                             )}

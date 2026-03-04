@@ -31,26 +31,23 @@ const formatSectionTitle = (key: string): string => {
 // Helper function to render data as simple list - one item per line
 const renderDataAsList = (value: any, parentKey?: string): React.ReactNode => {
   if (value === null || value === undefined) {
-    return (
-      <div className="py-1 text-sm text-muted-foreground italic">
-        {parentKey ? `${formatSectionTitle(parentKey)}: Not specified` : 'Not specified'}
-      </div>
-    );
+    return null;
   }
 
   if (typeof value === 'string') {
     if (!value.trim()) {
       return null;
     }
+    const displayValue = value.replace(/\\n/g, '\n');
     return (
       <div className="py-1 text-sm">
         {parentKey ? (
           <>
-            <span className="font-medium text-foreground">{formatSectionTitle(parentKey)}: </span>
-            <span className="text-foreground">{value}</span>
+            <span className="font-bold text-foreground">{formatSectionTitle(parentKey)}: </span>
+            <span className="text-foreground whitespace-pre-line">{displayValue}</span>
           </>
         ) : (
-          <span className="text-foreground">{value}</span>
+          <span className="text-foreground whitespace-pre-line">{displayValue}</span>
         )}
       </div>
     );
@@ -58,10 +55,10 @@ const renderDataAsList = (value: any, parentKey?: string): React.ReactNode => {
 
   if (typeof value === 'number' || typeof value === 'boolean') {
     return (
-      <div className="py-1 text-base">
+      <div className="py-1 text-sm">
         {parentKey ? (
           <>
-            <span className="font-medium text-foreground">{formatSectionTitle(parentKey)}: </span>
+            <span className="font-bold text-foreground">{formatSectionTitle(parentKey)}: </span>
             <span className="text-foreground">{String(value)}</span>
           </>
         ) : (
@@ -73,17 +70,13 @@ const renderDataAsList = (value: any, parentKey?: string): React.ReactNode => {
 
   if (Array.isArray(value)) {
     if (value.length === 0) {
-      return (
-        <div className="py-1 text-sm text-muted-foreground italic">
-          {parentKey ? `${formatSectionTitle(parentKey)}: No items` : 'No items'}
-        </div>
-      );
+      return null;
     }
 
     return (
       <div className="space-y-1">
         {parentKey && (
-          <div className="py-1 text-sm font-medium text-foreground">
+          <div className="py-1 text-sm font-bold text-foreground">
             {formatSectionTitle(parentKey)}:
           </div>
         )}
@@ -102,7 +95,7 @@ const renderDataAsList = (value: any, parentKey?: string): React.ReactNode => {
           } else {
             // Simple array items - show as bullet points
             return (
-              <div key={index} className="py-1 text-base pl-4">
+              <div key={index} className="py-0.5 text-sm pl-4">
                 <span className="text-foreground">• {String(item)}</span>
               </div>
             );
@@ -126,10 +119,20 @@ const renderDataAsList = (value: any, parentKey?: string): React.ReactNode => {
   }
 
   return (
-    <div className="py-1 text-base text-foreground">
+    <div className="py-1 text-sm text-foreground">
       {parentKey ? `${formatSectionTitle(parentKey)}: ${String(value)}` : String(value)}
     </div>
   );
+};
+
+// Helper: detect if a value actually contains any meaningful content
+const hasMeaningfulContent = (value: any): boolean => {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (typeof value === 'number' || typeof value === 'boolean') return true;
+  if (Array.isArray(value)) return value.some((item) => hasMeaningfulContent(item));
+  if (typeof value === 'object') return Object.values(value).some((v) => hasMeaningfulContent(v));
+  return false;
 };
 
 export function ExtractStep({ workbookId, onComplete, isExtracting }: ExtractStepProps) {
@@ -159,7 +162,7 @@ export function ExtractStep({ workbookId, onComplete, isExtracting }: ExtractSte
   useEffect(() => {
     if (extractionStatus === 'ready' && extractedData && !openSection) {
       const firstSection = WORKBOOK_SECTION_ORDER.find(
-        ({ key }) => extractedData[key] != null
+        ({ key }) => extractedData[key] != null && hasMeaningfulContent(extractedData[key])
       );
       if (firstSection) {
         setOpenSection(firstSection.key);
@@ -287,21 +290,21 @@ export function ExtractStep({ workbookId, onComplete, isExtracting }: ExtractSte
             <div className="flex items-center justify-between">
               <h4 className="text-lg font-semibold">Extracted Strategic Data</h4>
               <span className="text-sm text-muted-foreground">
-                {WORKBOOK_SECTION_ORDER.filter(s => extractedData[s.key] != null).length} sections
+                {WORKBOOK_SECTION_ORDER.filter(s => extractedData[s.key] != null && hasMeaningfulContent(extractedData[s.key])).length} sections
               </span>
             </div>
 
             <Accordion
               type="single"
               collapsible
-              className="w-full space-y-2"
+              className="w-full space-y-3"
               value={openSection}
               onValueChange={(val) => {
                 setOpenSection(val || undefined);
               }}
             >
               {WORKBOOK_SECTION_ORDER
-                .filter(({ key }) => extractedData[key] != null)
+                .filter(({ key }) => extractedData[key] != null && hasMeaningfulContent(extractedData[key]))
                 .map(({ key, label }) => (
                   <AccordionItem
                     key={key}
@@ -309,7 +312,7 @@ export function ExtractStep({ workbookId, onComplete, isExtracting }: ExtractSte
                     className="border rounded-md px-4 bg-card"
                   >
                     <AccordionTrigger
-                      className="hover:no-underline font-medium py-3 cursor-pointer"
+                      className="hover:no-underline font-semibold text-base text-foreground py-3 cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation();
                       }}

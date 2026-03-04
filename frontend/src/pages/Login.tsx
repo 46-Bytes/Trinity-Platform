@@ -146,10 +146,10 @@ export default function Login() {
             </p> */}
           </div>
 
-          <p className="mt-8 text-center text-sm text-muted-foreground">
+          {/* <p className="mt-8 text-center text-sm text-muted-foreground">
             Don't have an account?{' '}
             <a href="#" className="text-accent font-medium hover:underline">Contact your administrator</a>
-          </p>
+          </p> */}
         </div>
       </div>
     </div>

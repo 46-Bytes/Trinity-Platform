@@ -286,7 +286,7 @@ export function TwelveMonthPlanStep({ projectId, onComplete, onBack, className, 
         )}
 
         {/* Plan Content */}
-        {!isInitialLoading && plan && (
+        {!isInitialLoading && !isGenerating && plan && (
           <>
             {saveError && (
               <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-lg">

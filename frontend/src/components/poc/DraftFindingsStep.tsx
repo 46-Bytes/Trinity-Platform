@@ -336,7 +336,7 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
         )}
 
         {/* Findings List */}
-        {!isInitialLoading && findings.length > 0 && (
+        {!isInitialLoading && !isGenerating && findings.length > 0 && (
           <>
             {/* Analysis Notes */}
             {analysisNotes && (

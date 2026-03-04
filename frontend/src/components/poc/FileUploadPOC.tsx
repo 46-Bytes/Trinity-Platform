@@ -562,6 +562,13 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
       console.log('Cannot navigate forward: a step is currently processing');
       return;
     }
+
+    // Block navigation to steps beyond the next unlockable step
+    // Allow currentStep + 1 (natural progression from onComplete callbacks)
+    if (step > maxStepReached && step > currentStep + 1) {
+      console.log('Cannot navigate: step not yet unlocked');
+      return;
+    }
     
     const newStep = step as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
     const newMaxStep = Math.max(maxStepReached, step);
@@ -911,7 +918,8 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
                 const isCurrentStepBusy = stepLoadingStates[currentStep] || false;
                 // Block navigation if current step is busy
                 const isMovingForward = step > currentStep;
-                const isEnabled = !isCurrentStepBusy && (!isAnyStepBusy || !isMovingForward);
+                // Lock steps beyond maxStepReached
+                const isEnabled = step <= maxStepReached && !isCurrentStepBusy && (!isAnyStepBusy || !isMovingForward);
 
                 return (
                   <React.Fragment key={step}>
@@ -957,7 +965,8 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
                 const isCurrentStepBusy = stepLoadingStates[currentStep] || false;
                 // Block navigation if current step is busy
                 const isMovingForward = step > currentStep;
-                const isEnabled = !isCurrentStepBusy && (!isAnyStepBusy || !isMovingForward);
+                // Lock steps beyond maxStepReached
+                const isEnabled = step <= maxStepReached && !isCurrentStepBusy && (!isAnyStepBusy || !isMovingForward);
 
                 return (
                   <button
@@ -997,7 +1006,8 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
                 const isCurrentStepBusy = stepLoadingStates[currentStep] || false;
                 // Block navigation if current step is busy
                 const isMovingForward = step > currentStep;
-                const isEnabled = !isCurrentStepBusy && (!isAnyStepBusy || !isMovingForward);
+                // Lock steps beyond maxStepReached
+                const isEnabled = step <= maxStepReached && !isCurrentStepBusy && (!isAnyStepBusy || !isMovingForward);
 
                 return (
                   <React.Fragment key={step}>

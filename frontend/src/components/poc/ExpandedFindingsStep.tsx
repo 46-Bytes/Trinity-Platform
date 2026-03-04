@@ -237,7 +237,7 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
         )}
 
         {/* Expanded Findings List */}
-        {!isInitialLoading && expandedFindings.length > 0 && (
+        {!isInitialLoading && !isGenerating && expandedFindings.length > 0 && (
           <>
             {/* Findings */}
             <div className="space-y-4">

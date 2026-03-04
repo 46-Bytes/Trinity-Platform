@@ -141,7 +141,7 @@ export function NoteForm({ engagementId, taskId, onSubmit, onCancel }: NoteFormP
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button type="submit">Create Note</Button>
+          <Button type="submit" className="bg-success text-success-foreground hover:bg-success/90">Create Note</Button>
         </div>
       </form>
     </Form>

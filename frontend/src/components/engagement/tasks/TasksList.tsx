@@ -210,7 +210,7 @@ export function TasksList({ engagementId }: TasksListProps) {
 
                     <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
                       <DialogTrigger asChild>
-                        <Button>
+                        <Button className="bg-success text-success-foreground hover:bg-success/90">
                           <Plus className="h-4 w-4 mr-2" />
                           New Task
                         </Button>

@@ -404,7 +404,7 @@ export default function ClientsPage() {
         {shouldUseFirmClients && (
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="btn-primary">
+              <Button className="bg-success text-success-foreground hover:bg-success/90">
                 <Plus className="w-4 h-4 mr-2" />
                 Add Client
               </Button>
@@ -486,7 +486,7 @@ export default function ClientsPage() {
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isSubmitting}>
+                  <Button type="submit" disabled={isSubmitting} className="bg-success text-success-foreground hover:bg-success/90">
                     {isSubmitting ? 'Adding...' : 'Add Client'}
                   </Button>
                 </div>

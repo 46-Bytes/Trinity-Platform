@@ -99,7 +99,7 @@ export default function FirmsPage() {
           <h1 className="font-heading text-2xl font-bold text-foreground">Firm Management</h1>
           <p className="text-muted-foreground mt-1">View and manage all firms on the platform</p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)} className="flex items-center gap-2">
+        <Button onClick={() => setIsCreateDialogOpen(true)} className="flex items-center gap-2 bg-success text-success-foreground hover:bg-success/90">
           <Plus className="w-4 h-4" />
           Create Firm
         </Button>

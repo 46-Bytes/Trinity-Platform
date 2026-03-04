@@ -361,7 +361,7 @@ export default function AdvisorsPage() {
           }}
         >
           <DialogTrigger asChild>
-            <Button className="btn-primary">
+            <Button className="bg-success text-success-foreground hover:bg-success/90">
               <Plus className="w-4 h-4 mr-2" />
               Add Advisor
             </Button>
@@ -416,7 +416,7 @@ export default function AdvisorsPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
+                <Button type="submit" disabled={isSubmitting} className="bg-success text-success-foreground hover:bg-success/90">
                   {isSubmitting ? 'Adding...' : 'Add Advisor'}
                 </Button>
               </div>

@@ -424,8 +424,8 @@ async def extract_context_capture(
     current_user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """
-    Extract context-capture (questionnaire) fields from the BBA's diagnostic context using an LLM.
-    Use when the BBA was created from a diagnostic; pre-fills the questionnaire from the report.
+    Extract context-capture (questionnaire) fields from the BBA's diagnostic context
+    and/or uploaded files using an LLM.
     Returns only extracted fields (camelCase); frontend should merge into empty form fields.
     """
     bba_service = get_bba_service(db)
@@ -435,28 +435,34 @@ async def extract_context_capture(
     if bba.created_by_user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this project")
 
+    # Extract diagnostic text if available
     dc = getattr(bba, "diagnostic_context", None) or {}
-    if not dc or not isinstance(dc, dict):
-        return {"extracted": {}}
-
-    report_html = dc.get("report_html") if isinstance(dc.get("report_html"), str) else None
-    ai_analysis = dc.get("ai_analysis")
     diagnostic_text = ""
-    if report_html:
-        diagnostic_text = report_html
-    elif ai_analysis and isinstance(ai_analysis, dict):
-        advisor_report = ai_analysis.get("advisorReport", "")
-        if isinstance(advisor_report, str) and advisor_report.strip():
-            diagnostic_text = advisor_report
-        else:
-            diagnostic_text = json.dumps(ai_analysis, indent=2)
+    if isinstance(dc, dict):
+        report_html = dc.get("report_html") if isinstance(dc.get("report_html"), str) else None
+        ai_analysis = dc.get("ai_analysis")
+        if report_html:
+            diagnostic_text = report_html
+        elif ai_analysis and isinstance(ai_analysis, dict):
+            advisor_report = ai_analysis.get("advisorReport", "")
+            if isinstance(advisor_report, str) and advisor_report.strip():
+                diagnostic_text = advisor_report
+            else:
+                diagnostic_text = json.dumps(ai_analysis, indent=2)
 
-    if not diagnostic_text.strip():
+    # Get uploaded file mappings if available
+    file_mappings = bba.file_mappings or {}
+
+    # Return empty if neither diagnostic text nor uploaded files exist
+    if not diagnostic_text.strip() and not file_mappings:
         return {"extracted": {}}
 
     try:
         engine = get_bba_conversation_engine()
-        extracted = await engine.extract_context_capture_from_diagnostic_text(diagnostic_text)
+        extracted = await engine.extract_context_capture_from_diagnostic_text(
+            diagnostic_text,
+            file_mappings=file_mappings if file_mappings else None,
+        )
         return {"extracted": extracted}
     except Exception as e:
         logger.exception("extract_context_capture failed: %s", e)

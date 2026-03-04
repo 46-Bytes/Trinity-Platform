@@ -385,7 +385,7 @@ export function TaskForm({ task, engagementId, onSubmit, onCancel }: TaskFormPro
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button type="submit">{isEditMode ? 'Update Task' : 'Create Task'}</Button>
+          <Button type="submit" className="bg-success text-success-foreground hover:bg-success/90">{isEditMode ? 'Update Task' : 'Create Task'}</Button>
         </div>
       </form>
     </Form>

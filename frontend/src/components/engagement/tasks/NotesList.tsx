@@ -113,7 +113,7 @@ export function NotesList({ engagementId, taskId, onAddNote }: NotesListProps) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Notes ({sortedNotes.length})</h3>
-        <Button onClick={onAddNote} size="sm">
+        <Button onClick={onAddNote} size="sm" className="bg-success text-success-foreground hover:bg-success/90">
           Add Note
         </Button>
       </div>

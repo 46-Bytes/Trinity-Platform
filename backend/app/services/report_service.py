@@ -778,18 +778,8 @@ class ReportService:
                     cells += f'<td style="font-size: {cell_font};">{ReportService._wrap_cell_text(ReportService._escape_html(str(val)), col_max)}</td>'
             body_rows += f"<tr>{cells}</tr>"
 
-        # Dynamically reduce font size for wide tables so columns fit
-        if len(columns) >= 8:
-            font_size = "25px"
-        elif len(columns) >= 6:
-            font_size = "30px"
-        elif len(columns) >= 4:
-            font_size = "35px"
-        else:
-            font_size = "40px"
-
         return (
-            f'<table class="sub-table" style="table-layout: fixed; width: 100%; font-size: {font_size};">'
+            f'<table class="sub-table" style="table-layout: fixed; width: 100%;">'
             f"<thead><tr>{header_cells}</tr></thead>"
             f"<tbody>{body_rows}</tbody>"
             f"</table>"

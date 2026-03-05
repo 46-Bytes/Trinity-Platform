@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Upload, X } from 'lucide-react';
+import { Upload, X, Trash2 } from 'lucide-react';
 import { ToolQuestion } from './ToolQuestion';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
@@ -398,6 +398,48 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
     }
   };
   
+  // Handle template deletion (admin only)
+  const handleDeleteTemplate = async (templateName: string) => {
+    if (!confirm(`Delete template "${templateName}"?`)) return;
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        toast.error('Not authenticated');
+        return;
+      }
+
+      const res = await fetch(
+        `${API_BASE_URL}/api/diagnostics/templates/${encodeURIComponent(templateName)}`,
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (!res.ok) {
+        let errorMessage = 'Unexpected error';
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.detail || errorMessage;
+        } catch {
+          errorMessage = await res.text() || errorMessage;
+        }
+        toast.error(`Failed to delete template: ${errorMessage}`);
+        return;
+      }
+
+      toast.success('Template deleted successfully');
+      setTemplates((prev) => prev.filter((t) => t.name !== templateName));
+      if (selectedTemplate === templateName) {
+        setSelectedTemplate('');
+      }
+    } catch (error) {
+      console.error('Template delete error:', error);
+      toast.error('Failed to delete template');
+    }
+  };
+
   // Handle file selection
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -787,6 +829,22 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
                     ))}
                   </SelectContent>
                 </Select>
+                {isAdmin && (
+                  <div className="space-y-1">
+                    {templates.map((template) => (
+                      <div key={template.name} className="flex items-center justify-between max-w-md px-2 py-1.5 rounded hover:bg-blue-100/50">
+                        <span className="text-sm text-blue-900 truncate">{template.display_name}</span>
+                        <button
+                          onClick={() => handleDeleteTemplate(template.name)}
+                          className="p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors flex-shrink-0 ml-2"
+                          title={`Delete ${template.display_name}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <Button
                   variant="default"
                   onClick={handleGenerateDocument}

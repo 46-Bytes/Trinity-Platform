@@ -93,30 +93,26 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     )}>
       {/* Logo */}
       <div className="h-16 flex-shrink-0 flex items-center justify-between px-4 border-b border-sidebar-border">
-        {!collapsed && (
+        {!collapsed ? (
           <div className="flex items-center gap-3">
-            <img 
-              src="/logo.png" 
-              alt="Trinity Logo" 
+            <img
+              src="/logo.png"
+              alt="Trinity Logo"
               className="w-30 h-24 object-contain"
             />
           </div>
-        )}
-        {collapsed && (
-          <img 
-            src="/logo.png" 
-            alt="Trinity Logo" 
-            className="w-30 h-24 object-contain mx-auto"
+        ) : (
+          <img
+            src="/logo_collapsed.png"
+            alt="Trinity Logo"
+            className="w-8 h-8 object-contain"
           />
         )}
         <button
           onClick={onToggle}
-          className={cn(
-            "p-1.5 rounded-lg text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors",
-            collapsed && "hidden"
-          )}
+          className="p-1.5 rounded-lg text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
         >
-          <ChevronLeft className="w-4 h-4" />
+          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </button>
       </div>
 
@@ -212,18 +208,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           );
         })}
       </nav>
-
-      {/* Expand button when collapsed */}
-      {collapsed && (
-        <div className="flex-shrink-0 p-3 border-t border-sidebar-border">
-          <button
-            onClick={onToggle}
-            className="w-full p-2 rounded-lg text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors flex items-center justify-center"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-      )}
 
       {/* User info */}
       {!collapsed && user && (

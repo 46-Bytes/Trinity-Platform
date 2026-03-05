@@ -16,7 +16,7 @@ from ..services.auth_service import AuthService
 from ..services.login_check import check_user_login_eligibility
 from ..services.audit_service import AuditService
 from ..config import settings
-from ..utils.auth import get_current_user, get_token_expiry_time, get_original_user
+from ..utils.auth import get_current_user, get_token_expiry_time, get_original_user, decode_auth0_token
 from ..utils.password import hash_password, verify_password
 from ..models.user import User
 from ..models.firm import Firm
@@ -240,22 +240,17 @@ async def get_current_user_endpoint(
         
         # Try to decode with SECRET_KEY first (for email/password and impersonation tokens)
         try:
-            payload = jwt.decode(token, settings.SECRET_KEY or 'your-secret-key-change-in-production', algorithms=["HS256"])
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
             user_id = payload.get('sub')  # For email/password and impersonation tokens, sub is user ID
             is_impersonation = payload.get('is_impersonation', False)
             if is_impersonation:
                 original_user_id = payload.get('original_user_id')
                 impersonation_session_id = payload.get('impersonation_session_id')
         except JWTError:
-            # If verification fails, try unverified (Auth0 tokens)
-            payload = jwt.get_unverified_claims(token)
-            auth0_id = payload.get('sub')  # For Auth0 tokens, sub is auth0_id
-            # Check for impersonation flag (shouldn't happen with Auth0 tokens, but check anyway)
-            is_impersonation = payload.get('is_impersonation', False)
-            if is_impersonation:
-                original_user_id = payload.get('original_user_id')
-                impersonation_session_id = payload.get('impersonation_session_id')
-        
+            # If HS256 fails, verify as Auth0 RS256 token
+            payload = decode_auth0_token(token)
+            auth0_id = payload.get('sub')
+
         if not auth0_id and not user_id:
             logger.error(f"  No 'sub' claim in token")
             raise HTTPException(status_code=401, detail="Invalid token")
@@ -393,7 +388,7 @@ async def login_email_password(
     db.commit()
     
     # Create a simple JWT token for the frontend
-    token_secret = settings.SECRET_KEY or 'your-secret-key-change-in-production'
+    token_secret = settings.SECRET_KEY
     token_expiry = datetime.utcnow() + timedelta(days=7)
     
     token_payload = {
@@ -440,15 +435,18 @@ async def stop_impersonation(
     try:
         # Decode token to check for impersonation flag
         try:
-            payload = jwt.decode(token, settings.SECRET_KEY or 'your-secret-key-change-in-production', algorithms=["HS256"])
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
         except JWTError:
-            # Try unverified for Auth0 tokens (though impersonation should use SECRET_KEY)
-            payload = jwt.get_unverified_claims(token)
-        
+            # Impersonation tokens are always HS256 — if decode fails, reject
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid impersonation token"
+            )
+
         is_impersonation = payload.get('is_impersonation', False)
         original_user_id = payload.get('original_user_id')
         impersonation_session_id = payload.get('impersonation_session_id')
-        
+
         if not is_impersonation:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -481,7 +479,7 @@ async def stop_impersonation(
             db.commit()
         
         # Generate new normal token for original superadmin
-        token_secret = settings.SECRET_KEY or 'your-secret-key-change-in-production'
+        token_secret = settings.SECRET_KEY
         token_expiry = datetime.utcnow() + timedelta(days=7)
         
         token_payload = {
@@ -540,15 +538,15 @@ async def get_impersonation_status(
     try:
         # Decode token to check for impersonation flag
         try:
-            payload = jwt.decode(token, settings.SECRET_KEY or 'your-secret-key-change-in-production', algorithms=["HS256"])
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
         except JWTError:
-            # Try unverified for Auth0 tokens
-            payload = jwt.get_unverified_claims(token)
-        
+            # Auth0 tokens won't have impersonation flags — safe to return false
+            return {"is_impersonating": False}
+
         is_impersonation = payload.get('is_impersonation', False)
         original_user_id = payload.get('original_user_id')
         impersonation_session_id = payload.get('impersonation_session_id')
-        
+
         if not is_impersonation:
             return {
                 "is_impersonating": False

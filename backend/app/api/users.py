@@ -561,7 +561,7 @@ async def impersonate_user(
     db.refresh(impersonation_session)
     
     # Generate special JWT token for impersonation
-    token_secret = settings.SECRET_KEY or 'your-secret-key-change-in-production'
+    token_secret = settings.SECRET_KEY
     token_expiry = datetime.utcnow() + timedelta(hours=24)  # 24 hour expiry
     
     token_payload = {

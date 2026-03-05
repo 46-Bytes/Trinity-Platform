@@ -58,7 +58,7 @@ app.add_middleware(
     session_cookie="trinity_session",
     max_age=3600 * 24 * 7,  # 7 days
     same_site="lax",  # "lax" works for backend-to-backend (login -> callback on same origin)
-    https_only=False,  # Set to True in production with HTTPS
+    https_only=settings.APP_ENV != "development",
 )
 
 # Configure CORS

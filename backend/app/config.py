@@ -52,9 +52,9 @@ class Settings(BaseSettings):
     # Email (Gmail SMTP)
     SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
     SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
-    SMTP_USERNAME: str = os.getenv("SMTP_USERNAME", "zohaibaamer2001@gmail.com")
-    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "aoxo nuhu kllw noqj")
-    SMTP_FROM_EMAIL: str = os.getenv("SMTP_FROM_EMAIL", "zohaibaamer2001@gmail.com")
+    SMTP_USERNAME: str = os.getenv("SMTP_USERNAME", "")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
+    SMTP_FROM_EMAIL: str = os.getenv("SMTP_FROM_EMAIL", "")
     
     class Config:
         env_file = ".env"
@@ -63,6 +63,9 @@ class Settings(BaseSettings):
 
 # Global settings instance
 settings = Settings()
+
+if not settings.SECRET_KEY:
+    raise RuntimeError("SECRET_KEY environment variable is not set. Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\"")
 
 
 

@@ -1,6 +1,8 @@
 """
 Authentication and authorization utilities.
 """
+import logging
+import requests as http_requests
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from jose import jwt, JWTError
@@ -10,6 +12,67 @@ from ..models.user import User, UserRole
 from ..models.impersonation import ImpersonationSession
 from ..config import settings
 from typing import Optional, List
+
+logger = logging.getLogger(__name__)
+
+# Cached JWKS data for Auth0 token verification
+_jwks_cache: Optional[dict] = None
+
+
+def _get_auth0_jwks() -> dict:
+    """Fetch and cache Auth0 JWKS (JSON Web Key Set) for RS256 verification."""
+    global _jwks_cache
+    if _jwks_cache is not None:
+        return _jwks_cache
+    jwks_url = f"https://{settings.AUTH0_DOMAIN}/.well-known/jwks.json"
+    response = http_requests.get(jwks_url, timeout=10)
+    response.raise_for_status()
+    _jwks_cache = response.json()
+    return _jwks_cache
+
+
+def _get_auth0_signing_key(token: str) -> dict:
+    """Get the correct signing key from Auth0 JWKS for the given token."""
+    jwks = _get_auth0_jwks()
+    unverified_header = jwt.get_unverified_header(token)
+    kid = unverified_header.get("kid")
+    if not kid:
+        raise JWTError("Token header missing 'kid'")
+    for key in jwks.get("keys", []):
+        if key["kid"] == kid:
+            return key
+    # Key not found — JWKS may have rotated, clear cache and retry once
+    global _jwks_cache
+    _jwks_cache = None
+    jwks = _get_auth0_jwks()
+    for key in jwks.get("keys", []):
+        if key["kid"] == kid:
+            return key
+    raise JWTError(f"Unable to find signing key with kid: {kid}")
+
+
+def decode_auth0_token(token: str) -> dict:
+    """
+    Verify and decode an Auth0 RS256 JWT against the Auth0 JWKS endpoint.
+    Raises JWTError if verification fails.
+    """
+    signing_key = _get_auth0_signing_key(token)
+    payload = jwt.decode(
+        token,
+        signing_key,
+        algorithms=[settings.AUTH0_ALGORITHMS],
+        options={"verify_aud": False},
+        issuer=f"https://{settings.AUTH0_DOMAIN}/",
+    )
+    # Manually validate audience (python-jose only accepts a single string)
+    token_aud = payload.get("aud")
+    valid_audiences = {settings.AUTH0_AUDIENCE, settings.AUTH0_CLIENT_ID}
+    if isinstance(token_aud, list):
+        if not valid_audiences.intersection(token_aud):
+            raise JWTError("Invalid audience")
+    elif token_aud not in valid_audiences:
+        raise JWTError("Invalid audience")
+    return payload
 
 
 def get_current_user(
@@ -49,7 +112,7 @@ def get_current_user(
             # Decode the token to get user info
             # Try to verify with SECRET_KEY first (email/password tokens)
             try:
-                payload = jwt.decode(token, settings.SECRET_KEY or 'your-secret-key-change-in-production', algorithms=["HS256"])
+                payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
                 user_id = payload.get('sub')  # For email/password, sub is user ID
                 # Check for impersonation flag
                 is_impersonation = payload.get('is_impersonation', False)
@@ -58,15 +121,14 @@ def get_current_user(
                     impersonation_session_id = payload.get('impersonation_session_id')
                 print(f"✅ Email/password token decoded, user_id: {user_id}, impersonation: {is_impersonation}")
             except JWTError:
-                # If verification fails, try unverified (Auth0 tokens)
-                payload = jwt.get_unverified_claims(token)
-                auth0_id = payload.get('sub')  # For Auth0, sub is auth0_id
-                # Check for impersonation flag (shouldn't happen with Auth0 tokens, but check anyway)
-                is_impersonation = payload.get('is_impersonation', False)
-                if is_impersonation:
-                    original_user_id = payload.get('original_user_id')
-                    impersonation_session_id = payload.get('impersonation_session_id')
-                print(f"✅ Auth0 token decoded, auth0_id: {auth0_id}, impersonation: {is_impersonation}")
+                # If HS256 fails, verify as Auth0 RS256 token
+                try:
+                    payload = decode_auth0_token(token)
+                    auth0_id = payload.get('sub')
+                    print(f"✅ Auth0 token verified, auth0_id: {auth0_id}")
+                except Exception as e:
+                    logger.error(f"Auth0 token verification failed: {e}")
+                    raise JWTError(f"Token verification failed: {e}")
             
             if not auth0_id and not user_id:
                 raise HTTPException(

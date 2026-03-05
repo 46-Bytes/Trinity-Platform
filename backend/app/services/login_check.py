@@ -30,6 +30,10 @@ def check_user_login_eligibility(
             - (True, None) if user can login
             - (False, error_message) if user cannot login
     """
+    # Check if user has been soft deleted
+    if user.is_deleted:
+        return False, "Your account has been deleted. Please contact your administrator."
+
     # Check if user account is suspended (for firm_advisor and firm_admin)
     if user.role in [UserRole.FIRM_ADVISOR, UserRole.FIRM_ADMIN]:
         if not user.is_active:

@@ -22,6 +22,7 @@ interface UserState {
   isLoading: boolean;
   isCreating: boolean;
   isUpdating: boolean;
+  isDeleting: boolean;
   error: string | null;
 }
 
@@ -140,6 +141,35 @@ export const updateUser = createAsyncThunk(
   }
 );
 
+export const deleteUser = createAsyncThunk(
+  'user/deleteUser',
+  async (userId: string, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to delete user' }));
+        throw new Error(errorData.detail || `HTTP ${response.status}: Failed to delete user`);
+      }
+
+      return userId;
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to delete user');
+    }
+  }
+);
+
 // Initial state
 const initialState: UserState = {
   users: [],
@@ -147,6 +177,7 @@ const initialState: UserState = {
   isLoading: false,
   isCreating: false,
   isUpdating: false,
+  isDeleting: false,
   error: null,
 };
 
@@ -209,6 +240,20 @@ const userSlice = createSlice({
       })
       .addCase(updateUser.rejected, (state, action) => {
         state.isUpdating = false;
+        state.error = action.payload as string;
+      })
+      // Delete user
+      .addCase(deleteUser.pending, (state) => {
+        state.isDeleting = true;
+        state.error = null;
+      })
+      .addCase(deleteUser.fulfilled, (state, action) => {
+        state.isDeleting = false;
+        state.users = state.users.filter(u => u.id !== action.payload);
+        state.totalUsers = Math.max(0, state.totalUsers - 1);
+      })
+      .addCase(deleteUser.rejected, (state, action) => {
+        state.isDeleting = false;
         state.error = action.payload as string;
       });
   },

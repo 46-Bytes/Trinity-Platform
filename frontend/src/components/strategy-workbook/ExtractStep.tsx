@@ -199,12 +199,29 @@ export function ExtractStep({ workbookId, onComplete, isExtracting }: ExtractSte
         )}
 
         {extractionStatus === 'failed' && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Extraction failed. Please try again or check your documents.
-            </AlertDescription>
-          </Alert>
+          <div className="space-y-4">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {error || 'Extraction failed. Please try again or check your documents.'}
+              </AlertDescription>
+            </Alert>
+            <Button
+              onClick={handleExtract}
+              disabled={isExtracting}
+              className="w-full"
+              size="lg"
+            >
+              {isExtracting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Retrying...
+                </>
+              ) : (
+                'Retry Extraction'
+              )}
+            </Button>
+          </div>
         )}
 
         {extractionStatus === 'draft' && (

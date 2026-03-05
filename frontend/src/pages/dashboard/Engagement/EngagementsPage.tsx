@@ -393,7 +393,7 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
               Fill in the details to create a new client engagement.
             </DialogDescription>
           </DialogHeader>
-          <div className="overflow-y-auto flex-1 pr-2">
+          <div className="overflow-y-auto flex-1 px-2">
             {isDialogOpen && (
               <EngagementForm 
                 onSuccess={handleFormSuccess} 

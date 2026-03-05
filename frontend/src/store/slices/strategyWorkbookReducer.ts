@@ -325,6 +325,9 @@ const strategyWorkbookSlice = createSlice({
       .addCase(extractData.pending, (state) => {
         state.isExtracting = true;
         state.error = null;
+        if (state.currentWorkbook) {
+          state.currentWorkbook.status = 'extracting';
+        }
       })
       .addCase(extractData.fulfilled, (state, action) => {
         state.isExtracting = false;

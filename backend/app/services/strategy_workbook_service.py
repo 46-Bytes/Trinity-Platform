@@ -195,7 +195,10 @@ class StrategyWorkbookService:
                 "Analyse all uploaded documents and extract every piece of strategic information "
                 "relevant to the Strategy Workbook. Follow the extraction structure provided in the "
                 "system prompt. Focus on capturing all facts and details. Do not worry about perfect "
-                "JSON formatting in this step; focus on completeness and clarity of content."
+                "JSON formatting in this step; focus on completeness and clarity of content.\n\n"
+                "IMPORTANT: You MUST produce your final extracted content as a text response message. "
+                "If you use code interpreter to read files, always write your final findings as text output, "
+                "not just as code interpreter print statements."
             )
 
             step1_messages = [
@@ -236,7 +239,7 @@ class StrategyWorkbookService:
                 tools=step1_tools,
                 reasoning_effort="medium",
                 model=settings.OPENAI_MODEL,
-                max_output_tokens=8000,
+                max_output_tokens=32000,
             )
 
             raw_content = step1_response.get("content", "")

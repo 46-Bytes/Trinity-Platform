@@ -56,6 +56,23 @@ class StrategyWorkbookExporter:
                 f"Please place 'Strategy Workbook Template.xlsx' in the templates directory."
             )
     
+    @staticmethod
+    def _safe_set_value(ws, row: int, column: int, value):
+        """
+        Safely set a cell value, handling merged cells.
+        If the target cell is part of a merged range, writes to the
+        top-left (primary) cell of that range instead.
+        """
+        cell = ws.cell(row=row, column=column)
+        try:
+            cell.value = value
+        except AttributeError:
+            # Cell is a MergedCell (read-only). Find the merge range and write to its top-left cell.
+            for merge_range in ws.merged_cells.ranges:
+                if merge_range.min_row <= row <= merge_range.max_row and merge_range.min_col <= column <= merge_range.max_col:
+                    ws.cell(row=merge_range.min_row, column=merge_range.min_col).value = value
+                    return
+
     def generate_workbook(
         self,
         extracted_data: Dict[str, Any],
@@ -296,8 +313,7 @@ class StrategyWorkbookExporter:
                 for row_idx in range(section_row, section_row + 20):
                     cell_a = ws.cell(row=row_idx, column=1)
                     if cell_a.value and label_text.lower() in str(cell_a.value).lower():
-                        cell_b = ws.cell(row=row_idx, column=2)
-                        cell_b.value = str(value)
+                        self._safe_set_value(ws, row_idx, 2, str(value))
                         break
     
     def _map_business_model(self, ws, business_model_data: Dict[str, Any]):
@@ -327,8 +343,7 @@ class StrategyWorkbookExporter:
                     cell = ws.cell(row=row_idx, column=1)
                     if cell.value and category.replace("_", " ").lower() in str(cell.value).lower():
                         # Write items to Column C, using line breaks for multiple
-                        cell_c = ws.cell(row=row_idx, column=3)
-                        cell_c.value = "\n".join(str(item) for item in items if item)
+                        self._safe_set_value(ws, row_idx, 3, "\n".join(str(item) for item in items if item))
                         break
     
     def _map_market_segmentation(self, ws, segments: List[Dict[str, Any]]):
@@ -358,13 +373,13 @@ class StrategyWorkbookExporter:
                 # Need to insert before next section
                 self._insert_row_with_formatting(ws, insert_row, insert_row - 1)
             
-            ws.cell(row=insert_row, column=1).value = segment.get("market_product_group")
-            ws.cell(row=insert_row, column=2).value = segment.get("customer_needs")
-            ws.cell(row=insert_row, column=3).value = segment.get("solution_sought")
-            ws.cell(row=insert_row, column=4).value = segment.get("share_of_revenue_percent")
-            ws.cell(row=insert_row, column=5).value = segment.get("growth_rating")
-            ws.cell(row=insert_row, column=6).value = segment.get("profitability_rating")
-            ws.cell(row=insert_row, column=7).value = segment.get("market_position")
+            self._safe_set_value(ws, insert_row, 1, segment.get("market_product_group"))
+            self._safe_set_value(ws, insert_row, 2, segment.get("customer_needs"))
+            self._safe_set_value(ws, insert_row, 3, segment.get("solution_sought"))
+            self._safe_set_value(ws, insert_row, 4, segment.get("share_of_revenue_percent"))
+            self._safe_set_value(ws, insert_row, 5, segment.get("growth_rating"))
+            self._safe_set_value(ws, insert_row, 6, segment.get("profitability_rating"))
+            self._safe_set_value(ws, insert_row, 7, segment.get("market_position"))
             
             insert_row += 1
     
@@ -390,10 +405,10 @@ class StrategyWorkbookExporter:
             if insert_row > last_row:
                 self._insert_row_with_formatting(ws, insert_row, insert_row - 1)
             
-            ws.cell(row=insert_row, column=1).value = force.get("force")
-            ws.cell(row=insert_row, column=2).value = force.get("observation")
-            ws.cell(row=insert_row, column=3).value = force.get("impact")
-            ws.cell(row=insert_row, column=4).value = force.get("implications")
+            self._safe_set_value(ws, insert_row, 1, force.get("force"))
+            self._safe_set_value(ws, insert_row, 2, force.get("observation"))
+            self._safe_set_value(ws, insert_row, 3, force.get("impact"))
+            self._safe_set_value(ws, insert_row, 4, force.get("implications"))
             
             insert_row += 1
     
@@ -419,10 +434,10 @@ class StrategyWorkbookExporter:
             if insert_row > last_row:
                 self._insert_row_with_formatting(ws, insert_row, insert_row - 1)
             
-            ws.cell(row=insert_row, column=1).value = item.get("factor")
-            ws.cell(row=insert_row, column=2).value = item.get("observation")
-            ws.cell(row=insert_row, column=3).value = item.get("impact")
-            ws.cell(row=insert_row, column=4).value = item.get("implications")
+            self._safe_set_value(ws, insert_row, 1, item.get("factor"))
+            self._safe_set_value(ws, insert_row, 2, item.get("observation"))
+            self._safe_set_value(ws, insert_row, 3, item.get("impact"))
+            self._safe_set_value(ws, insert_row, 4, item.get("implications"))
             
             insert_row += 1
     
@@ -479,7 +494,7 @@ class StrategyWorkbookExporter:
                 if insert_row >= last_row:
                     self._insert_row_with_formatting(ws, insert_row, insert_row - 1)
                 
-                ws.cell(row=insert_row, column=2).value = str(item)
+                self._safe_set_value(ws, insert_row, 2, str(item))
                 insert_row += 1
     
     def _map_customer_analysis(self, ws, customers: List[Dict[str, Any]]):
@@ -504,12 +519,12 @@ class StrategyWorkbookExporter:
             if insert_row > last_row:
                 self._insert_row_with_formatting(ws, insert_row, insert_row - 1)
             
-            ws.cell(row=insert_row, column=1).value = customer.get("customer_name")
-            ws.cell(row=insert_row, column=2).value = customer.get("y1_revenue")
-            ws.cell(row=insert_row, column=3).value = customer.get("y2_revenue")
-            ws.cell(row=insert_row, column=4).value = customer.get("y3_revenue")
-            ws.cell(row=insert_row, column=5).value = customer.get("trend_notes")
-            ws.cell(row=insert_row, column=6).value = customer.get("action")
+            self._safe_set_value(ws, insert_row, 1, customer.get("customer_name"))
+            self._safe_set_value(ws, insert_row, 2, customer.get("y1_revenue"))
+            self._safe_set_value(ws, insert_row, 3, customer.get("y2_revenue"))
+            self._safe_set_value(ws, insert_row, 4, customer.get("y3_revenue"))
+            self._safe_set_value(ws, insert_row, 5, customer.get("trend_notes"))
+            self._safe_set_value(ws, insert_row, 6, customer.get("action"))
             
             insert_row += 1
     
@@ -535,10 +550,10 @@ class StrategyWorkbookExporter:
             if insert_row > last_row:
                 self._insert_row_with_formatting(ws, insert_row, insert_row - 1)
             
-            ws.cell(row=insert_row, column=1).value = product.get("product")
-            ws.cell(row=insert_row, column=2).value = product.get("lifecycle_stage")
-            ws.cell(row=insert_row, column=3).value = product.get("delivery_limitations")
-            ws.cell(row=insert_row, column=4).value = product.get("opportunities")
+            self._safe_set_value(ws, insert_row, 1, product.get("product"))
+            self._safe_set_value(ws, insert_row, 2, product.get("lifecycle_stage"))
+            self._safe_set_value(ws, insert_row, 3, product.get("delivery_limitations"))
+            self._safe_set_value(ws, insert_row, 4, product.get("opportunities"))
             
             insert_row += 1
     
@@ -564,13 +579,13 @@ class StrategyWorkbookExporter:
             if insert_row > last_row:
                 self._insert_row_with_formatting(ws, insert_row, insert_row - 1)
             
-            ws.cell(row=insert_row, column=1).value = competitor.get("market_segment")
-            ws.cell(row=insert_row, column=2).value = competitor.get("competitor")
-            ws.cell(row=insert_row, column=3).value = competitor.get("strengths")
-            ws.cell(row=insert_row, column=4).value = competitor.get("weaknesses")
-            ws.cell(row=insert_row, column=5).value = competitor.get("relative_size")
-            ws.cell(row=insert_row, column=6).value = competitor.get("how_we_compete")
-            ws.cell(row=insert_row, column=7).value = competitor.get("likely_moves")
+            self._safe_set_value(ws, insert_row, 1, competitor.get("market_segment"))
+            self._safe_set_value(ws, insert_row, 2, competitor.get("competitor"))
+            self._safe_set_value(ws, insert_row, 3, competitor.get("strengths"))
+            self._safe_set_value(ws, insert_row, 4, competitor.get("weaknesses"))
+            self._safe_set_value(ws, insert_row, 5, competitor.get("relative_size"))
+            self._safe_set_value(ws, insert_row, 6, competitor.get("how_we_compete"))
+            self._safe_set_value(ws, insert_row, 7, competitor.get("likely_moves"))
             
             insert_row += 1
     
@@ -596,12 +611,12 @@ class StrategyWorkbookExporter:
             if insert_row > last_row:
                 self._insert_row_with_formatting(ws, insert_row, insert_row - 1)
             
-            ws.cell(row=insert_row, column=1).value = opp.get("category")
-            ws.cell(row=insert_row, column=2).value = opp.get("segment")
-            ws.cell(row=insert_row, column=3).value = opp.get("action")
-            ws.cell(row=insert_row, column=4).value = opp.get("time_horizon")
-            ws.cell(row=insert_row, column=5).value = opp.get("success_chance")
-            ws.cell(row=insert_row, column=6).value = opp.get("notes")
+            self._safe_set_value(ws, insert_row, 1, opp.get("category"))
+            self._safe_set_value(ws, insert_row, 2, opp.get("segment"))
+            self._safe_set_value(ws, insert_row, 3, opp.get("action"))
+            self._safe_set_value(ws, insert_row, 4, opp.get("time_horizon"))
+            self._safe_set_value(ws, insert_row, 5, opp.get("success_chance"))
+            self._safe_set_value(ws, insert_row, 6, opp.get("notes"))
             
             insert_row += 1
     
@@ -624,18 +639,18 @@ class StrategyWorkbookExporter:
                 if "CURRENT" in text and "FY" in text:
                     # Map revenue, GP, NP to columns
                     if current_fy.get("revenue"):
-                        ws.cell(row=row_idx, column=2).value = current_fy.get("revenue")
+                        self._safe_set_value(ws, row_idx, 2, current_fy.get("revenue"))
                     if current_fy.get("gross_profit"):
-                        ws.cell(row=row_idx, column=3).value = current_fy.get("gross_profit")
+                        self._safe_set_value(ws, row_idx, 3, current_fy.get("gross_profit"))
                     if current_fy.get("net_profit"):
-                        ws.cell(row=row_idx, column=4).value = current_fy.get("net_profit")
+                        self._safe_set_value(ws, row_idx, 4, current_fy.get("net_profit"))
                 elif "NEXT" in text and "FY" in text:
                     if next_fy.get("revenue"):
-                        ws.cell(row=row_idx, column=2).value = next_fy.get("revenue")
+                        self._safe_set_value(ws, row_idx, 2, next_fy.get("revenue"))
                     if next_fy.get("gross_profit"):
-                        ws.cell(row=row_idx, column=3).value = next_fy.get("gross_profit")
+                        self._safe_set_value(ws, row_idx, 3, next_fy.get("gross_profit"))
                     if next_fy.get("net_profit"):
-                        ws.cell(row=row_idx, column=4).value = next_fy.get("net_profit")
+                        self._safe_set_value(ws, row_idx, 4, next_fy.get("net_profit"))
     
     def _map_risks(self, ws, risks_data: Dict[str, Any]):
         """Map risks to category rows in Column B."""
@@ -657,13 +672,10 @@ class StrategyWorkbookExporter:
                 cell = ws.cell(row=row_idx, column=1)
                 if cell.value and category.upper() in str(cell.value).upper():
                     # Write risks to Column B, using line breaks
-                    cell_b = ws.cell(row=row_idx, column=2)
-                    existing = cell_b.value or ""
+                    existing = ws.cell(row=row_idx, column=2).value or ""
                     new_risks = "\n".join(str(r) for r in risk_items if r)
-                    if existing:
-                        cell_b.value = existing + "\n" + new_risks
-                    else:
-                        cell_b.value = new_risks
+                    combined = existing + "\n" + new_risks if existing else new_risks
+                    self._safe_set_value(ws, row_idx, 2, combined)
                     break
     
     def _map_strategic_priorities(self, ws, priorities: List[Dict[str, Any]]):
@@ -688,12 +700,12 @@ class StrategyWorkbookExporter:
             if insert_row > last_row:
                 self._insert_row_with_formatting(ws, insert_row, insert_row - 1)
             
-            ws.cell(row=insert_row, column=1).value = priority.get("priority_theme")
-            ws.cell(row=insert_row, column=2).value = priority.get("objective")
-            ws.cell(row=insert_row, column=3).value = priority.get("initiative")
-            ws.cell(row=insert_row, column=4).value = priority.get("owner")
-            ws.cell(row=insert_row, column=5).value = priority.get("timeframe")
-            ws.cell(row=insert_row, column=6).value = priority.get("kpi")
+            self._safe_set_value(ws, insert_row, 1, priority.get("priority_theme"))
+            self._safe_set_value(ws, insert_row, 2, priority.get("objective"))
+            self._safe_set_value(ws, insert_row, 3, priority.get("initiative"))
+            self._safe_set_value(ws, insert_row, 4, priority.get("owner"))
+            self._safe_set_value(ws, insert_row, 5, priority.get("timeframe"))
+            self._safe_set_value(ws, insert_row, 6, priority.get("kpi"))
             
             insert_row += 1
     
@@ -719,8 +731,8 @@ class StrategyWorkbookExporter:
             if insert_row > last_row:
                 self._insert_row_with_formatting(ws, insert_row, insert_row - 1)
             
-            ws.cell(row=insert_row, column=1).value = action.get("action_item")
-            ws.cell(row=insert_row, column=2).value = action.get("notes")
+            self._safe_set_value(ws, insert_row, 1, action.get("action_item"))
+            self._safe_set_value(ws, insert_row, 2, action.get("notes"))
             
             insert_row += 1
 

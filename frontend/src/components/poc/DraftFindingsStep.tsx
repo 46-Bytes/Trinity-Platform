@@ -110,6 +110,12 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
     setIsGenerating(true);
     setError(null);
 
+    // Scroll all possible scrollable containers to top immediately
+    document.querySelector('main')?.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    window.scrollTo(0, 0);
+
     try {
       const token = localStorage.getItem('auth_token');
       const response = await fetch(`${API_BASE_URL}/api/poc/${projectId}/step3/generate`, {

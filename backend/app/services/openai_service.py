@@ -258,6 +258,29 @@ class OpenAIService:
                 except Exception:
                     # Non-fatal; keep content as empty string
                     content = content or ""
+
+            # Fallback 2: extract text from code_interpreter results (logs/output)
+            # code_interpreter_call items have `results` with logs, not `content` with text
+            if not content:
+                ci_chunks: List[str] = []
+                try:
+                    output_items = getattr(response, "output", None) or []
+                    for item in output_items:
+                        item_type = item.get("type") if isinstance(item, dict) else getattr(item, "type", None)
+                        if item_type != "code_interpreter_call":
+                            continue
+                        results = item.get("results") if isinstance(item, dict) else getattr(item, "results", None)
+                        for r in results or []:
+                            r_type = r.get("type") if isinstance(r, dict) else getattr(r, "type", None)
+                            if r_type == "logs":
+                                logs = r.get("logs") if isinstance(r, dict) else getattr(r, "logs", None)
+                                if logs and str(logs).strip():
+                                    ci_chunks.append(str(logs))
+                    if ci_chunks:
+                        content = "\n".join(ci_chunks).strip()
+                        logger.info(f"[OpenAI API] Recovered content from code_interpreter logs ({len(ci_chunks)} chunks)")
+                except Exception:
+                    pass
             
             # Extract token usage
             tokens_used = getattr(response.usage, 'total_tokens', 0) if hasattr(response, 'usage') else 0
@@ -286,13 +309,27 @@ class OpenAIService:
                         role = getattr(item, "role", None)
                         c_list = getattr(item, "content", None) or []
                         c_types = [getattr(x, "type", None) for x in c_list]
-                    output_summary.append(
-                        {
-                            "type": item_type,
-                            "role": role,
-                            "content_types": [ct for ct in c_types if ct],
-                        }
-                    )
+
+                    summary_entry: Dict[str, Any] = {
+                        "type": item_type,
+                        "role": role,
+                        "content_types": [ct for ct in c_types if ct],
+                    }
+
+                    # For code_interpreter_call items, include result info
+                    if item_type == "code_interpreter_call":
+                        results = item.get("results") if isinstance(item, dict) else getattr(item, "results", None)
+                        if results:
+                            result_types = []
+                            for r in results:
+                                rt = r.get("type") if isinstance(r, dict) else getattr(r, "type", None)
+                                result_types.append(rt)
+                            summary_entry["result_types"] = result_types
+                            summary_entry["result_count"] = len(results)
+                        else:
+                            summary_entry["result_count"] = 0
+
+                    output_summary.append(summary_entry)
             except Exception:
                 output_summary = []
             

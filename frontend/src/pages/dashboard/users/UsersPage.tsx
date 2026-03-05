@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { roleLabels, roleColors, UserRole } from '@/types/auth';
-import { Search, Plus, MoreHorizontal, Loader2, Edit, UserPlus, Eye, UserCog } from 'lucide-react';
+import { Search, Plus, MoreHorizontal, Loader2, Edit, UserPlus, Eye, UserCog, Trash2 } from 'lucide-react';
 import {
   Pagination,
   PaginationContent,
@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/pagination';
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { fetchUsers, createUser, updateUser } from '@/store/slices/userReducer';
+import { fetchUsers, createUser, updateUser, deleteUser } from '@/store/slices/userReducer';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,7 +50,7 @@ export default function UsersPage() {
   const { user, startImpersonation, isImpersonating } = useAuth();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { users, totalUsers, isLoading, isCreating, isUpdating, error } = useAppSelector((state) => state.user);
+  const { users, totalUsers, isLoading, isCreating, isUpdating, isDeleting, error } = useAppSelector((state) => state.user);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
@@ -61,6 +61,8 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
   // Form state
   const [newUserEmail, setNewUserEmail] = useState('');
@@ -167,6 +169,23 @@ export default function UsersPage() {
       setNewUserEmail('');
       setNewUserName('');
       setNewUserRole('client');
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+
+    try {
+      await dispatch(deleteUser(userToDelete.id)).unwrap();
+      toast.success('User deleted successfully');
+      setIsDeleteDialogOpen(false);
+      setUserToDelete(null);
+      // Refresh users list
+      const role = roleFilter === 'all' ? undefined : roleFilter;
+      const skip = (currentPage - 1) * USERS_PER_PAGE;
+      dispatch(fetchUsers({ skip, limit: USERS_PER_PAGE, role, q: searchQuery }));
+    } catch (error) {
+      // Error is handled by the reducer and shown via the error toast effect
     }
   };
 
@@ -377,6 +396,19 @@ export default function UsersPage() {
                                 Associate Client
                               </DropdownMenuItem>
                             )}
+                            {(user?.role === 'admin' || user?.role === 'super_admin') && u.id !== user?.id && (
+                              <DropdownMenuItem
+                                className="cursor-pointer text-destructive focus:text-destructive"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setUserToDelete(u);
+                                  setIsDeleteDialogOpen(true);
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>
@@ -582,6 +614,56 @@ export default function UsersPage() {
         onOpenChange={setIsDetailDialogOpen}
         user={selectedUser}
       />
+
+      {/* Delete User Confirmation Dialog */}
+      <Dialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!isDeleting) {
+            setIsDeleteDialogOpen(open);
+            if (!open) setUserToDelete(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete User</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete{' '}
+              <span className="font-semibold">
+                {userToDelete?.name || userToDelete?.email || 'this user'}
+              </span>
+              ? They will no longer be able to log in.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDeleteDialogOpen(false);
+                setUserToDelete(null);
+              }}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteUser}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Advisor-Client Association Dialog */}
       {selectedAdvisor && (

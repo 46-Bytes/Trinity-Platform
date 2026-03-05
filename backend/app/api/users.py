@@ -511,6 +511,43 @@ async def update_user(
     )
 
 
+@router.delete("/{user_id}", status_code=status.HTTP_200_OK)
+async def delete_user(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Soft delete a user (admin/super_admin only).
+
+    Sets is_deleted=True and is_active=False so the user can no longer log in.
+    """
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can delete users"
+        )
+
+    if user_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You cannot delete your own account"
+        )
+
+    user = db.query(User).filter(User.id == user_id, User.is_deleted == False).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User {user_id} not found"
+        )
+
+    user.is_deleted = True
+    user.is_active = False
+    db.commit()
+
+    return {"message": "User deleted successfully"}
+
+
 @router.post("/{user_id}/impersonate")
 async def impersonate_user(
     user_id: UUID,

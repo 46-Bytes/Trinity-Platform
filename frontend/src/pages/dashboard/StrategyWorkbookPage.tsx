@@ -31,17 +31,16 @@ export default function StrategyWorkbookPage() {
 
   const [currentStep, setCurrentStep] = useState<'upload' | 'clarify' | 'extract' | 'generate'>('upload');
   const [reviewNotes, setReviewNotes] = useState('');
-  const initialLoadDone = useRef(false);
+  const lastLoadedId = useRef<string | null>(null);
 
   // Load workbook from navigation state (when coming from FollowUpToolsTab)
   useEffect(() => {
-    if (initialLoadDone.current) return;
     const stateWorkbookId = (location.state as { workbookId?: string } | null)?.workbookId;
-    if (stateWorkbookId && (!currentWorkbook || currentWorkbook.id !== stateWorkbookId)) {
-      initialLoadDone.current = true;
+    if (stateWorkbookId && lastLoadedId.current !== stateWorkbookId) {
+      lastLoadedId.current = stateWorkbookId;
       dispatch(getWorkbook(stateWorkbookId));
     }
-  }, [location.state, currentWorkbook, dispatch]);
+  }, [location.state, dispatch]);
 
   const handleUploadComplete = async () => {
     if (currentWorkbook) {

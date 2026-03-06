@@ -7,7 +7,7 @@ export interface StrategyWorkbook {
   diagnostic_id?: string | null;
   created_by_user_id?: string | null;
   diagnostic_context?: Record<string, any> | null;
-  status: 'draft' | 'extracting' | 'ready' | 'failed';
+  status: 'draft' | 'extracting' | 'ready' | 'failed' | 'completed';
   uploaded_media_ids?: string[];
   template_path?: string;
   generated_workbook_path?: string;

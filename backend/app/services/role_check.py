@@ -10,6 +10,7 @@ from ..models.user import User, UserRole
 from ..models.impersonation import ImpersonationSession
 from ..models.adv_client import AdvisorClient
 from ..config import settings
+from ..utils.auth import decode_auth0_token
 
 
 def get_current_user_from_token(
@@ -49,21 +50,16 @@ def get_current_user_from_token(
         
         # Try to decode with SECRET_KEY first (for email/password and impersonation tokens)
         try:
-            payload = jwt.decode(token, settings.SECRET_KEY or 'your-secret-key-change-in-production', algorithms=["HS256"])
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
             user_id = payload.get("sub")  # For email/password and impersonation tokens, sub is user ID
             is_impersonation = payload.get('is_impersonation', False)
             if is_impersonation:
                 original_user_id = payload.get('original_user_id')
                 impersonation_session_id = payload.get('impersonation_session_id')
         except JWTError:
-            # If verification fails, try unverified (Auth0 tokens)
-            payload = jwt.get_unverified_claims(token)
-            auth0_id = payload.get("sub")  # For Auth0 tokens, sub is auth0_id
-            # Check for impersonation flag (shouldn't happen with Auth0 tokens, but check anyway)
-            is_impersonation = payload.get('is_impersonation', False)
-            if is_impersonation:
-                original_user_id = payload.get('original_user_id')
-                impersonation_session_id = payload.get('impersonation_session_id')
+            # If HS256 fails, verify as Auth0 RS256 token
+            payload = decode_auth0_token(token)
+            auth0_id = payload.get("sub")
         
         if not auth0_id and not user_id:
             raise HTTPException(

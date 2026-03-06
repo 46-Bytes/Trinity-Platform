@@ -94,14 +94,14 @@ async def callback(
             access_token = token.get('access_token')
             if access_token:
                 try:
-                    # Fetch user info from Auth0 using requests (synchronous, but works)
-                    import requests
-                    response = requests.get(
-                        f'https://{settings.AUTH0_DOMAIN}/userinfo',
-                        headers={'Authorization': f'Bearer {access_token}'}
-                    )
-                    if response.status_code == 200:
-                        user_info = response.json()
+                    import httpx
+                    async with httpx.AsyncClient() as client:
+                        response = await client.get(
+                            f'https://{settings.AUTH0_DOMAIN}/userinfo',
+                            headers={'Authorization': f'Bearer {access_token}'}
+                        )
+                        if response.status_code == 200:
+                            user_info = response.json()
                 except Exception as e:
                     print(f"Error fetching userinfo: {str(e)}")
         

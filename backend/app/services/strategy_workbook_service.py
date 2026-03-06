@@ -60,13 +60,6 @@ class StrategyWorkbookService:
         Create a strategy workbook from a completed diagnostic. Idempotent:
         if a workbook already exists for this diagnostic_id, returns that workbook.
         """
-        existing = self.db.query(StrategyWorkbook).filter(
-            StrategyWorkbook.diagnostic_id == diagnostic_id
-        ).first()
-        if existing:
-            logger.info(f"Strategy workbook already exists for diagnostic {diagnostic_id}: {existing.id}")
-            return existing
-
         diagnostic = self.db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
         if not diagnostic:
             raise ValueError(f"Diagnostic {diagnostic_id} not found")
@@ -78,6 +71,33 @@ class StrategyWorkbookService:
             diagnostic_context["report_html"] = diagnostic.report_html
         if diagnostic.ai_analysis:
             diagnostic_context["ai_analysis"] = diagnostic.ai_analysis
+
+        existing = self.db.query(StrategyWorkbook).filter(
+            StrategyWorkbook.diagnostic_id == diagnostic_id
+        ).first()
+        if existing:
+            logger.info(f"Resetting existing strategy workbook {existing.id} for diagnostic {diagnostic_id}")
+            # Delete old generated file from disk if it exists
+            if existing.generated_workbook_path:
+                old_path = Path(existing.generated_workbook_path)
+                if old_path.exists():
+                    try:
+                        old_path.unlink()
+                    except OSError:
+                        logger.warning(f"Failed to delete old workbook file: {old_path}")
+            # Reset to draft state
+            existing.status = "draft"
+            existing.extracted_data = None
+            existing.uploaded_media_ids = None
+            existing.generated_workbook_path = None
+            existing.completed_at = None
+            existing.notes = None
+            existing.template_path = None
+            existing.diagnostic_context = diagnostic_context or None
+            existing.created_by_user_id = user_id
+            self.db.commit()
+            self.db.refresh(existing)
+            return existing
 
         workbook = StrategyWorkbook(
             engagement_id=diagnostic.engagement_id,

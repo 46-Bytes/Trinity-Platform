@@ -4,6 +4,8 @@
  */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAppDispatch } from '@/store/hooks';
+import { clearWorkbook } from '@/store/slices/strategyWorkbookReducer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BookOpen, FileText, Loader2, Wrench } from 'lucide-react';
@@ -51,6 +53,7 @@ export function FollowUpToolsTab({
   isAdmin = false,
 }: FollowUpToolsTabProps) {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const [loadingDiagnosticId, setLoadingDiagnosticId] = useState<string | null>(null);
   const [loadingSwDiagnosticId, setLoadingSwDiagnosticId] = useState<string | null>(null);
 
@@ -121,6 +124,7 @@ export function FollowUpToolsTab({
       const data = await res.json();
       const workbookId = data.workbook_id;
       if (workbookId) {
+        dispatch(clearWorkbook());
         navigate(`/dashboard/engagements/${engagementId}/strategy-workbook`, { state: { workbookId } });
       } else {
         toast.error('Invalid response from server');

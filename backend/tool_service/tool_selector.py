@@ -40,7 +40,7 @@ async def create_tool_for_engagement(
         raise ValueError(f"Engagement {engagement_id} not found")
     
     # Create tool based on type
-    if tool_type == 'diagnostic':
+    if tool_type in ('diagnostic', 'value_builder', 'sale_ready'):
         service = get_diagnostic_service(db)
         return await service.create_diagnostic(
             engagement_id=engagement_id,

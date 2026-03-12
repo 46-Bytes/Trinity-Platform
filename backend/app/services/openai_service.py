@@ -607,22 +607,26 @@ class OpenAIService:
                 question_text_map[element["name"]] = element.get("title", element["name"])
         
 
+        # Replace {MODULE_TASK_LIBRARY} placeholder if present in prompt
+        prompt_text = scoring_prompt.replace(
+            "{MODULE_TASK_LIBRARY}",
+            json.dumps(task_library, indent=2)
+        )
+
         # Build system message
         system_content = (
-            f"{scoring_prompt}\n\n"
+            f"{prompt_text}\n\n"
             f"Scoring Map: {json.dumps(scoring_map)}\n\n"
-            f"Process User Responses using Scoring Map and store as scored_rows.\n"
-            f"Join scored_rows array with roadmap array in the same json structure.\n\n"
             f"Task Library: {json.dumps(task_library)}\n\n"
             f"IMPORTANT: Respond with valid JSON only. No markdown, no explanations."
             f"{file_context_msg}"
         )
-        
+
         # Build user message
         user_content = (
             f"Question Text Map: {json.dumps(question_text_map)}\n\n"
             f"User Responses: {json.dumps(user_responses)}\n\n"
-            f"Generate a complete JSON response with scored_rows, roadmap, and advisorReport."
+            f"Generate the complete JSON response as specified in the prompt instructions."
         )
         
         messages = [

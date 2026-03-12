@@ -28,7 +28,8 @@ from ..schemas.engagement import (
     SecondaryAdvisorCandidate,
     EngagementClientAdd,
 )
-from ..services.role_check import get_current_user_from_token, check_engagement_access
+from ..utils.auth import get_current_user
+from ..services.role_check import check_engagement_access
 from ..models.adv_client import AdvisorClient
 
 # Configure logger for this module
@@ -41,7 +42,7 @@ router = APIRouter(prefix="/api/engagements", tags=["engagements"])
 async def create_engagement(
     engagement_data: EngagementCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Create a new engagement.
@@ -215,7 +216,7 @@ async def create_engagement(
 @router.get("", response_model=List[EngagementListItem])
 async def list_engagements(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token),
+    current_user: User = Depends(get_current_user),
     firm_id: Optional[UUID] = Query(None, description="Filter by firm ID (for superadmin viewing firm engagements)"),
     status_filter: Optional[str] = Query(None, description="Filter by status (active, paused, completed, archived)"),
     search: Optional[str] = Query(None, description="Search by engagement name or business name"),
@@ -339,8 +340,8 @@ async def list_engagements(
         if completed_diagnostic and engagement.status != "completed":
             engagement.status = "completed"
             if not engagement.completed_at:
-                from datetime import datetime
-                engagement.completed_at = datetime.utcnow()
+                from datetime import datetime, timezone
+                engagement.completed_at = datetime.now(timezone.utc)
             db.commit()
             effective_status = "completed"
         
@@ -397,7 +398,7 @@ async def list_engagements(
 @router.get("/user-role-data")
 async def get_user_role_data(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get user role and associated clients/advisors.
@@ -585,7 +586,7 @@ async def get_user_role_data(
 async def get_engagement(
     engagement_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get a specific engagement by ID.
@@ -639,7 +640,7 @@ async def get_engagement(
 async def get_secondary_advisor_candidates(
     engagement_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get eligible secondary advisor candidates for an engagement.
@@ -713,7 +714,7 @@ async def update_engagement(
     engagement_id: UUID,
     engagement_data: EngagementUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Update an engagement.
@@ -923,7 +924,7 @@ async def add_clients_to_engagement(
     engagement_id: UUID,
     client_data: EngagementClientAdd,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Add clients to an engagement.
@@ -1019,7 +1020,7 @@ async def remove_client_from_engagement(
     engagement_id: UUID,
     client_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Remove a client from an engagement.
@@ -1113,7 +1114,7 @@ async def remove_client_from_engagement(
 async def delete_engagement(
     engagement_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Soft delete an engagement by marking it as is_deleted=True.

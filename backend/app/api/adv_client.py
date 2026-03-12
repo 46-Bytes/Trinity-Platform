@@ -15,7 +15,7 @@ from ..schemas.adv_client import (
     AdvisorClientResponse,
     AdvisorClientWithUsers,
 )
-from ..services.role_check import get_current_user_from_token
+from ..utils.auth import get_current_user
 
 router = APIRouter(prefix="/api/advisor-client", tags=["advisor-client"])
 
@@ -24,7 +24,7 @@ router = APIRouter(prefix="/api/advisor-client", tags=["advisor-client"])
 async def create_association(
     association_data: AdvisorClientCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Create a new advisor-client association.
@@ -104,7 +104,7 @@ async def create_association(
 @router.get("", response_model=List[AdvisorClientWithUsers])
 async def list_associations(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token),
+    current_user: User = Depends(get_current_user),
     advisor_id: Optional[UUID] = Query(None, description="Filter by advisor ID"),
     client_id: Optional[UUID] = Query(None, description="Filter by client ID"),
     status_filter: Optional[str] = Query(None, description="Filter by status"),
@@ -172,7 +172,7 @@ async def list_associations(
 async def get_association(
     association_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Get a specific advisor-client association by ID.
@@ -241,7 +241,7 @@ async def update_association(
     association_id: UUID,
     association_data: AdvisorClientUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Update an advisor-client association.
@@ -284,7 +284,7 @@ async def update_association(
 async def delete_association(
     association_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Delete an advisor-client association.

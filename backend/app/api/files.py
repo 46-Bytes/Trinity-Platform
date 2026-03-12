@@ -15,8 +15,13 @@ from app.models.diagnostic import Diagnostic
 from app.models.engagement import Engagement
 from app.models.user import User, UserRole
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/files", tags=["files"])
+
+MAX_UPLOAD_FILES = 20
 
 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
@@ -41,12 +46,18 @@ async def upload_files(
         diagnostic_id: Optional UUID of diagnostic to attach files to
         question_field_name: Which diagnostic question these files answer
         description: Optional description
-        
+
     Returns:
         List of uploaded file metadata
     """
+    if len(files) > MAX_UPLOAD_FILES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Too many files. Maximum {MAX_UPLOAD_FILES} files per upload."
+        )
+
     file_service = get_file_service(db)
-    
+
     try:
         # Parse diagnostic_id if provided
         diagnostic_uuid = None
@@ -90,9 +101,10 @@ async def upload_files(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"File upload failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"File upload failed: {str(e)}"
+            detail="File upload failed. Please try again or contact support."
         )
 
 
@@ -124,9 +136,10 @@ async def get_diagnostic_files(
         }
         
     except Exception as e:
+        logger.error(f"Failed to retrieve diagnostic files: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve files: {str(e)}"
+            detail="Failed to retrieve files. Please try again or contact support."
         )
 
 
@@ -180,9 +193,10 @@ async def delete_file(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Failed to delete file: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete file: {str(e)}"
+            detail="Failed to delete file. Please try again or contact support."
         )
 
 
@@ -209,9 +223,10 @@ async def get_user_files(
         }
         
     except Exception as e:
+        logger.error(f"Failed to retrieve user files: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve files: {str(e)}"
+            detail="Failed to retrieve files. Please try again or contact support."
         )
 
 

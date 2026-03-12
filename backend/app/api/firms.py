@@ -10,7 +10,7 @@ from ..database import get_db
 from ..models.user import User, UserRole
 from ..models.firm import Firm
 from ..models.subscription import Subscription
-from ..services.role_check import get_current_user_from_token
+from ..utils.auth import get_current_user
 from ..services.firm_service import get_firm_service, FirmService
 from ..services.firm_permissions import (
     can_manage_firm_users,
@@ -45,6 +45,9 @@ from ..models.bba import BBA
 from ..models.media import Media
 from ..models.conversation import Conversation
 from ..models.adv_client import AdvisorClient
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/firms", tags=["firms"])
 
@@ -55,7 +58,7 @@ router = APIRouter(prefix="/api/firms", tags=["firms"])
 async def create_firm(
     firm_data: FirmCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Create a new firm account.
@@ -94,16 +97,17 @@ async def create_firm(
         
         return FirmResponse.model_validate(firm)
     except ValueError as e:
+        logger.warning(f"Failed to create firm: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            detail="Invalid request data"
         )
 
 
 @router.get("", response_model=List[FirmResponse])
 async def list_firms(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token),
+    current_user: User = Depends(get_current_user),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
 ):
@@ -180,7 +184,7 @@ async def list_firms(
 async def get_firm(
     firm_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """Get firm details."""
     firm = db.query(Firm).filter(Firm.id == firm_id).first()
@@ -207,7 +211,7 @@ async def update_firm(
     firm_id: UUID,
     firm_data: FirmUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """Update firm details."""
     firm = db.query(Firm).filter(Firm.id == firm_id).first()
@@ -251,7 +255,7 @@ async def add_advisor(
     firm_id: UUID,
     advisor_data: FirmAdvisorAdd,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """Add an advisor to a firm."""
     try:
@@ -265,9 +269,10 @@ async def add_advisor(
         
         return FirmAdvisorResponse.model_validate(advisor)
     except ValueError as e:
+        logger.warning(f"Failed to add advisor to firm: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            detail="Invalid request data"
         )
 
 
@@ -276,7 +281,7 @@ async def remove_advisor(
     firm_id: UUID,
     advisor_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """Remove an advisor from a firm."""
     try:
@@ -289,9 +294,10 @@ async def remove_advisor(
         
         return None
     except ValueError as e:
+        logger.warning(f"Failed to remove advisor from firm: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            detail="Invalid request data"
         )
 
 
@@ -299,7 +305,7 @@ async def remove_advisor(
 async def list_advisors(
     firm_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """List all advisors in a firm."""
     try:
@@ -328,9 +334,10 @@ async def list_advisors(
             seats_available=seats_available
         )
     except ValueError as e:
+        logger.warning(f"Failed to list firm advisors: {e}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=str(e)
+            detail="Invalid request data"
         )
 
 
@@ -339,7 +346,7 @@ async def get_advisor_engagements(
     firm_id: UUID,
     advisor_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """Get all engagements where an advisor is involved (for suspension warning)."""
     try:
@@ -382,9 +389,10 @@ async def get_advisor_engagements(
         
         return result
     except ValueError as e:
+        logger.warning(f"Failed to get advisor engagements: {e}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=str(e)
+            detail="Invalid request data"
         )
 
 
@@ -394,7 +402,7 @@ async def suspend_advisor(
     advisor_id: UUID,
     suspend_data: AdvisorSuspendRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Suspend an advisor.
@@ -421,9 +429,10 @@ async def suspend_advisor(
         
         return FirmAdvisorResponse.model_validate(advisor)
     except ValueError as e:
+        logger.warning(f"Failed to suspend advisor: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            detail="Invalid request data"
         )
 
 
@@ -432,7 +441,7 @@ async def reactivate_advisor(
     firm_id: UUID,
     advisor_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """Reactivate a suspended advisor."""
     try:
@@ -445,9 +454,10 @@ async def reactivate_advisor(
         
         return FirmAdvisorResponse.model_validate(advisor)
     except ValueError as e:
+        logger.warning(f"Failed to reactivate advisor: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            detail="Invalid request data"
         )
 
 
@@ -458,7 +468,7 @@ async def add_client(
     firm_id: UUID,
     client_data: FirmClientAdd,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """Add a client to a firm."""
     try:
@@ -474,9 +484,10 @@ async def add_client(
         
         return FirmClientResponse.model_validate(client)
     except ValueError as e:
+        logger.warning(f"Failed to add client to firm: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            detail="Invalid request data"
         )
 
 
@@ -485,7 +496,7 @@ async def remove_client(
     firm_id: UUID,
     client_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """Soft delete a client from a firm (sets is_deleted=True)."""
     # Check permissions - only firm_admin or super_admin can remove clients
@@ -554,7 +565,7 @@ async def remove_client(
 async def list_firm_engagements(
     firm_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token),
+    current_user: User = Depends(get_current_user),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
 ):
@@ -586,9 +597,10 @@ async def list_firm_engagements(
         
         return result
     except ValueError as e:
+        logger.warning(f"Failed to list firm engagements: {e}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=str(e)
+            detail="Invalid request data"
         )
 
 
@@ -598,7 +610,7 @@ async def reassign_engagement(
     engagement_id: UUID,
     reassign_data: EngagementReassignRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """Reassign an engagement to a different advisor within the firm."""
     try:
@@ -624,9 +636,10 @@ async def reassign_engagement(
         
         return FirmEngagementResponse(**engagement_dict)
     except ValueError as e:
+        logger.warning(f"Failed to reassign engagement: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            detail="Invalid request data"
         )
 
 
@@ -636,7 +649,7 @@ async def reassign_engagement(
 async def get_subscription(
     firm_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """Get firm subscription details."""
     firm = db.query(Firm).filter(Firm.id == firm_id).first()
@@ -675,7 +688,7 @@ async def update_seats(
     firm_id: UUID,
     seat_data: SeatUpdateRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """Update firm seat count (triggers billing update)."""
     try:
@@ -688,9 +701,10 @@ async def update_seats(
         
         return FirmResponse.model_validate(firm)
     except ValueError as e:
+        logger.warning(f"Failed to update seat count: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            detail="Invalid request data"
         )
 
 
@@ -700,7 +714,7 @@ async def update_seats(
 async def get_firm_stats(
     firm_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """Get firm statistics."""
     firm = db.query(Firm).filter(Firm.id == firm_id).first()

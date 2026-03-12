@@ -7,7 +7,7 @@ from typing import Union
 
 from ..database import get_db
 from ..models.user import User, UserRole
-from ..services.role_check import get_current_user_from_token
+from ..utils.auth import get_current_user
 from ..schemas.dashboard import (
     DashboardStatsResponse,
     ClientDashboardStatsResponse,
@@ -27,7 +27,7 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 @router.get("/stats", response_model=Union[DashboardStatsResponse, ClientDashboardStatsResponse, FirmAdvisorDashboardStatsResponse])
 async def get_dashboard_stats(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Get dashboard statistics based on user role.
@@ -74,7 +74,7 @@ async def get_dashboard_stats(
 async def get_activity_data(
     days: int = Query(7, ge=1, le=90, description="Number of days to fetch activity for"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Get platform activity data over time for super admin.

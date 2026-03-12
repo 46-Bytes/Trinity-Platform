@@ -10,12 +10,16 @@ from datetime import datetime, timedelta
 from ..database import get_db
 from ..models.user import User, UserRole
 from ..models.subscription import Subscription
-from ..services.role_check import get_current_user_from_token
+from ..utils.auth import get_current_user
 from ..schemas.subscription import (
     SubscriptionCreate,
     SubscriptionUpdate,
     SubscriptionResponse,
 )
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/subscriptions", tags=["subscriptions"])
 
@@ -26,7 +30,7 @@ router = APIRouter(prefix="/api/subscriptions", tags=["subscriptions"])
 async def create_subscription(
     subscription_data: SubscriptionCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Create a new subscription.
@@ -60,16 +64,17 @@ async def create_subscription(
         return SubscriptionResponse.model_validate(subscription)
     except Exception as e:
         db.rollback()
+        logger.error(f"Failed to create subscription: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to create subscription: {str(e)}"
+            detail="Failed to create subscription. Please try again or contact support."
         )
 
 
 @router.get("", response_model=List[SubscriptionResponse])
 async def list_subscriptions(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token),
+    current_user: User = Depends(get_current_user),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     firm_id: Optional[UUID] = Query(None, description="Filter by firm ID"),
@@ -104,7 +109,7 @@ async def list_subscriptions(
 async def get_subscription(
     subscription_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """Get subscription details by ID."""
     subscription = db.query(Subscription).filter(Subscription.id == subscription_id).first()
@@ -130,7 +135,7 @@ async def update_subscription(
     subscription_id: UUID,
     subscription_data: SubscriptionUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """Update subscription details."""
     subscription = db.query(Subscription).filter(Subscription.id == subscription_id).first()
@@ -163,7 +168,7 @@ async def update_subscription(
 async def delete_subscription(
     subscription_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """Delete a subscription."""
     subscription = db.query(Subscription).filter(Subscription.id == subscription_id).first()

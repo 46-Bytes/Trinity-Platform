@@ -2,7 +2,7 @@
 Audit logging service for tracking impersonation events.
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from typing import Optional
 from uuid import UUID
@@ -33,7 +33,7 @@ class AuditService:
             logger.info(
                 f"IMPERSONATION START: Session {session_id} - "
                 f"Superadmin {original_user_id} started impersonating user {impersonated_user_id} "
-                f"at {datetime.utcnow().isoformat()}"
+                f"at {datetime.now(timezone.utc).isoformat()}"
             )
             # In the future, this could write to a dedicated audit_log table
             # For now, we use application logs which can be aggregated
@@ -58,7 +58,7 @@ class AuditService:
             logger.info(
                 f"IMPERSONATION END: Session {session_id} - "
                 f"Superadmin {original_user_id} ended impersonation "
-                f"at {datetime.utcnow().isoformat()}"
+                f"at {datetime.now(timezone.utc).isoformat()}"
             )
             # In the future, this could write to a dedicated audit_log table
             # For now, we use application logs which can be aggregated
@@ -86,7 +86,7 @@ class AuditService:
             logger.info(
                 f"IMPERSONATION ACTION: Session {session_id} - "
                 f"Superadmin {original_user_id} performed action: {action}"
-                f"{details_str} at {datetime.utcnow().isoformat()}"
+                f"{details_str} at {datetime.now(timezone.utc).isoformat()}"
             )
         except Exception as e:
             logger.error(f"Failed to log impersonation action: {str(e)}")

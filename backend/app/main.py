@@ -23,9 +23,8 @@ from .api.subscriptions import router as subscriptions_router
 from .api.dashboard import router as dashboard_router
 from .api.strategy_workbook import router as strategy_workbook_router
 
-from .database import engine, Base
 from .services.openai_service import OpenAIService
-from . import models
+from . import models  # noqa: F401 — registers models with Base metadata for Alembic
 
 # Configure logging
 logging.basicConfig(
@@ -37,9 +36,6 @@ logging.basicConfig(
 logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
 logging.getLogger('sqlalchemy.pool').setLevel(logging.WARNING)
 logging.getLogger('sqlalchemy.dialects').setLevel(logging.WARNING)
-
-# Create database tables
-Base.metadata.create_all(bind=engine)
 
 # Initialize FastAPI app
 app = FastAPI(

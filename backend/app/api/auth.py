@@ -9,14 +9,14 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from urllib.parse import urlencode, quote_plus
 from pydantic import BaseModel, EmailStr
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from jose import jwt, JWTError
 from ..database import get_db
 from ..services.auth_service import AuthService
 from ..services.login_check import check_user_login_eligibility
 from ..services.audit_service import AuditService
 from ..config import settings
-from ..utils.auth import get_current_user, get_token_expiry_time, get_original_user, decode_auth0_token
+from ..utils.auth import get_current_user, get_token_expiry_time, get_original_user, decode_auth0_token, decode_and_resolve_user
 from ..utils.password import hash_password, verify_password
 from ..models.user import User
 from ..models.firm import Firm
@@ -178,9 +178,7 @@ async def callback(
         return response
         
     except Exception as e:
-        logger.error(f"Callback error: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        logger.exception("Callback error")
         # Redirect to frontend with error
         return RedirectResponse(
             url=f"{settings.FRONTEND_URL}/login?error=authentication_failed",
@@ -224,74 +222,15 @@ async def get_current_user_endpoint(
     """
     # Get token from Authorization header
     auth_header = request.headers.get('Authorization')
-    
-    if not auth_header or not auth_header.startswith('Bearer '):
-        logger.error(f"  No Authorization header or invalid format")
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    
-    token = auth_header.split(' ')[1]
-    
-    try:
-        user_id = None
-        auth0_id = None
-        is_impersonation = False
-        original_user_id = None
-        impersonation_session_id = None
-        
-        # Try to decode with SECRET_KEY first (for email/password and impersonation tokens)
-        try:
-            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
-            user_id = payload.get('sub')  # For email/password and impersonation tokens, sub is user ID
-            is_impersonation = payload.get('is_impersonation', False)
-            if is_impersonation:
-                original_user_id = payload.get('original_user_id')
-                impersonation_session_id = payload.get('impersonation_session_id')
-        except JWTError:
-            # If HS256 fails, verify as Auth0 RS256 token
-            payload = decode_auth0_token(token)
-            auth0_id = payload.get('sub')
 
-        if not auth0_id and not user_id:
-            logger.error(f"  No 'sub' claim in token")
-            raise HTTPException(status_code=401, detail="Invalid token")
-        
-        # Handle impersonation
-        if is_impersonation and user_id:
-            # Verify impersonation session is still active
-            if impersonation_session_id:
-                try:
-                    session_uuid = UUID(impersonation_session_id) if isinstance(impersonation_session_id, str) else impersonation_session_id
-                    impersonation_session = db.query(ImpersonationSession).filter(
-                        ImpersonationSession.id == session_uuid,
-                        ImpersonationSession.status == 'active'
-                    ).first()
-                    
-                    if not impersonation_session:
-                        raise HTTPException(
-                            status_code=401,
-                            detail="Impersonation session has ended"
-                        )
-                except (ValueError, TypeError):
-                    raise HTTPException(
-                        status_code=401,
-                        detail="Invalid impersonation session"
-                    )
-            
-            # Use impersonated user ID from token
-            user = db.query(User).filter(User.id == user_id).first()
-        else:
-            # Normal authentication - find user by auth0_id or user_id
-            if user_id:
-                user = db.query(User).filter(User.id == user_id).first()
-            else:
-                user = db.query(User).filter(User.auth0_id == auth0_id).first()
-        
-        if not user:
-            identifier = user_id if user_id else auth0_id
-            logger.error(f"  User not found in database for identifier: {identifier}")
-            raise HTTPException(status_code=401, detail="User not found")
-        
-        user_dict = user.to_dict()
+    if not auth_header or not auth_header.startswith('Bearer '):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    token = auth_header.split(' ')[1]
+
+    try:
+        result = decode_and_resolve_user(token, db)
+        user_dict = result.user.to_dict()
         return {
             "authenticated": True,
             "user": user_dict
@@ -299,9 +238,7 @@ async def get_current_user_endpoint(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"  Token validation error: {type(e).__name__}: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Token validation error: {type(e).__name__}: {e}")
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
@@ -314,12 +251,8 @@ async def check_auth(request: Request):
         dict: {"authenticated": bool}
     """
     user_session = request.session.get('user')
-    print(f"Check endpoint - Session keys: {list(request.session.keys())}")
-    print(f"Check endpoint - User session: {user_session is not None}")
     return {
         "authenticated": user_session is not None,
-        "session_keys": list(request.session.keys()),
-        "has_user": 'user' in request.session
     }
 
 
@@ -384,12 +317,12 @@ async def login_email_password(
             )
     
     # Update last login
-    user.last_login = datetime.utcnow()
+    user.last_login = datetime.now(timezone.utc)
     db.commit()
     
     # Create a simple JWT token for the frontend
     token_secret = settings.SECRET_KEY
-    token_expiry = datetime.utcnow() + timedelta(days=7)
+    token_expiry = datetime.now(timezone.utc) + timedelta(days=7)
     
     token_payload = {
         "sub": str(user.id),  # Use user ID instead of auth0_id
@@ -475,12 +408,12 @@ async def stop_impersonation(
         
         if impersonation_session:
             impersonation_session.status = 'ended'
-            impersonation_session.ended_at = datetime.utcnow()
+            impersonation_session.ended_at = datetime.now(timezone.utc)
             db.commit()
         
         # Generate new normal token for original superadmin
         token_secret = settings.SECRET_KEY
-        token_expiry = datetime.utcnow() + timedelta(days=7)
+        token_expiry = datetime.now(timezone.utc) + timedelta(days=7)
         
         token_payload = {
             "sub": str(original_user.id),

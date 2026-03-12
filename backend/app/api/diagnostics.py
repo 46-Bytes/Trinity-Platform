@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from uuid import UUID
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import shutil
 import logging
@@ -117,14 +117,16 @@ async def create_diagnostic(
         return diagnostic
         
     except ValueError as e:
+        logger.warning(f"Invalid request data when creating diagnostic: {e}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
+            detail="Invalid request data"
         )
     except Exception as e:
+        logger.error(f"Failed to create diagnostic: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create diagnostic: {str(e)}"
+            detail="Failed to create diagnostic. Please try again or contact support."
         )
 
 
@@ -171,14 +173,16 @@ async def update_diagnostic_responses(
         return diagnostic
         
     except ValueError as e:
+        logger.warning(f"Invalid request data when updating diagnostic responses: {e}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
+            detail="Invalid request data"
         )
     except Exception as e:
+        logger.error(f"Failed to update diagnostic responses: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update responses: {str(e)}"
+            detail="Failed to update responses. Please try again or contact support."
         )
 
 
@@ -368,7 +372,7 @@ async def delete_diagnostic_file(
                 media_obj = db.query(Media).filter(Media.id == media_id).first()
                 if media_obj:
                     if not media_obj.deleted_at:
-                        media_obj.deleted_at = datetime.utcnow()
+                        media_obj.deleted_at = datetime.now(timezone.utc)
                     if diagnostic and media_obj in diagnostic.media:
                         diagnostic.media.remove(media_obj)
 
@@ -414,7 +418,7 @@ async def delete_diagnostic_file(
         logger.error(f"Error in delete_diagnostic_file: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete file: {str(e)}"
+            detail="Failed to delete file. Please try again or contact support."
         )
 
 
@@ -590,7 +594,7 @@ async def submit_diagnostic(
             
             # Update status to completed
             diagnostic_obj.status = "completed"
-            diagnostic_obj.completed_at = datetime.utcnow()
+            diagnostic_obj.completed_at = datetime.now(timezone.utc)
             
             # Update engagement status
             engagement = background_db.query(Engagement).filter(
@@ -599,7 +603,7 @@ async def submit_diagnostic(
             if engagement and engagement.status != "completed":
                 engagement.status = "completed"
                 if not engagement.completed_at:
-                    engagement.completed_at = datetime.utcnow()
+                    engagement.completed_at = datetime.now(timezone.utc)
                 logger.info(f"  Updated engagement {engagement.id} status to 'completed'")
             
             background_db.commit()
@@ -912,14 +916,16 @@ async def regenerate_diagnostic_report(
         return diagnostic
         
     except ValueError as e:
+        logger.warning(f"Invalid request data when regenerating report: {e}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
+            detail="Invalid request data"
         )
     except Exception as e:
+        logger.error(f"Failed to regenerate report: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to regenerate report: {str(e)}"
+            detail="Failed to regenerate report. Please try again or contact support."
         )
 
 
@@ -1062,12 +1068,10 @@ async def download_diagnostic_report(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error generating PDF report: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        logger.exception("Error generating PDF report")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate report: {str(e)}"
+            detail="Failed to generate report. Please try again or contact support."
         )
 
 
@@ -1175,12 +1179,10 @@ async def generate_document_from_template(
             detail=f"Template not found: {request.template_name}"
         )
     except Exception as e:
-        logger.error(f"Error generating document from template: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        logger.exception("Error generating document from template")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate document: {str(e)}"
+            detail="Failed to generate document. Please try again or contact support."
         )
 
 
@@ -1266,7 +1268,7 @@ async def upload_template(
         logger.error(f"Error uploading template: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to upload template: {str(e)}"
+            detail="Failed to upload template. Please try again or contact support."
         )
 
 
@@ -1328,6 +1330,6 @@ async def delete_template(
         logger.error(f"Error deleting template: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete template: {str(e)}"
+            detail="Failed to delete template. Please try again or contact support."
         )
 

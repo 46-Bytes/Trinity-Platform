@@ -10,6 +10,10 @@ import os
 import shutil
 from pathlib import Path
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 from app.models.media import Media
 from app.models.user import User
 from app.services.openai_service import openai_service
@@ -114,7 +118,8 @@ class FileService:
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+            logger.error(f"Failed to save file: {e}")
+            raise HTTPException(status_code=500, detail="Failed to save file. Please try again or contact support.")
         
         # Get file size
         file_size = os.path.getsize(file_path)
@@ -147,8 +152,8 @@ class FileService:
                 if openai_file:
                     media.openai_file_id = openai_file.get('id')
                     media.openai_purpose = openai_file.get('purpose') or "user_data"
-                    from datetime import datetime
-                    media.openai_uploaded_at = datetime.utcnow()
+                    from datetime import datetime, timezone
+                    media.openai_uploaded_at = datetime.now(timezone.utc)
                     print(f"  File uploaded to OpenAI: {media.openai_file_id}")
             except Exception as e:
                 print(f"  Failed to upload file to OpenAI: {str(e)}")
@@ -267,9 +272,9 @@ class FileService:
             self.db.delete(media)
         else:
             # Soft delete
-            from datetime import datetime
+            from datetime import datetime, timezone
             media.is_active = False
-            media.deleted_at = datetime.utcnow()
+            media.deleted_at = datetime.now(timezone.utc)
         
         self.db.commit()
         return True

@@ -14,7 +14,7 @@ pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 def hash_password(password: str) -> str:
     """
-    Hash a password using bcrypt.
+    Hash a password using pbkdf2_sha256.
     
     Args:
         password: Plain text password
@@ -23,7 +23,7 @@ def hash_password(password: str) -> str:
         Hashed password string
     """
     if password is None:
-        password = ""
+        raise ValueError("Password cannot be None")
 
     # pbkdf2_sha256 does not have the 72-byte limit, so we can hash directly.
     return pwd_context.hash(password)

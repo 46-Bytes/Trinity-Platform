@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Dict, Any, List, Optional, Tuple
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import logging
 import re
@@ -62,7 +62,7 @@ class BBATaskPlannerService:
 
         settings_dict = settings.model_dump()
         bba.task_planner_settings = settings_dict
-        bba.updated_at = datetime.utcnow()
+        bba.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(bba)
@@ -257,7 +257,7 @@ Return ONLY a JSON object with a "tasks" key containing the array of task rows.
         bba = self._get_bba(bba_id)
         bba.task_planner_tasks = tasks
         bba.task_planner_summary = None  # Phase 2 no longer produces capacity summary
-        bba.updated_at = datetime.utcnow()
+        bba.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(bba)

@@ -41,8 +41,8 @@ const baseSchemaFields = {
     message: "Engagement name must be at least 3 characters.",
   }),
   description: z.string().optional(),
-  tool: z.enum(['diagnostic', 'kpi_builder'], {
-    message: "Please select a tool.",
+  tool: z.enum(['value_builder', 'sale_ready'], {
+    message: "Please select an engagement type.",
   }),
 };
 
@@ -131,7 +131,7 @@ export function EngagementForm({
           description: "",
           clientId: "",
           advisorId: "",
-          tool: "diagnostic" as const,
+          tool: "value_builder" as const,
         }
       : isFirmContext
       ? {
@@ -140,7 +140,7 @@ export function EngagementForm({
           engagementName: "",
           description: "",
           clientId: "",
-          tool: "diagnostic" as const,
+          tool: "value_builder" as const,
         }
       : {
           businessName: "",
@@ -148,7 +148,7 @@ export function EngagementForm({
           engagementName: "",
           description: "",
           clientOrAdvisorId: "",
-          tool: "diagnostic" as const,
+          tool: "value_builder" as const,
         }) as any,
   });
 
@@ -174,7 +174,7 @@ export function EngagementForm({
           description: engagement.description || "",
           clientId: engagement.clientId || "",
           advisorId: (engagement as any).primaryAdvisorId || "",
-          tool: (engagement.tool === 'bba_builder' ? 'diagnostic' : (engagement.tool as 'diagnostic' | 'kpi_builder')) || "diagnostic",
+          tool: (['value_builder', 'sale_ready'].includes(engagement.tool || '') ? engagement.tool as 'value_builder' | 'sale_ready' : 'value_builder') || "value_builder",
         } as any);
       } else if (isFirmContext) {
         form.reset({
@@ -183,7 +183,7 @@ export function EngagementForm({
           engagementName: engagement.title || "",
           description: engagement.description || "",
           clientId: engagement.clientId || "",
-          tool: (engagement.tool === 'bba_builder' ? 'diagnostic' : (engagement.tool as 'diagnostic' | 'kpi_builder')) || "diagnostic",
+          tool: (['value_builder', 'sale_ready'].includes(engagement.tool || '') ? engagement.tool as 'value_builder' | 'sale_ready' : 'value_builder') || "value_builder",
         });
       } else {
         form.reset({
@@ -192,7 +192,7 @@ export function EngagementForm({
           engagementName: engagement.title || "",
           description: engagement.description || "",
           clientOrAdvisorId: engagement.clientId || "",
-          tool: (engagement.tool === 'bba_builder' ? 'diagnostic' : (engagement.tool as 'diagnostic' | 'kpi_builder')) || "diagnostic",
+          tool: (['value_builder', 'sale_ready'].includes(engagement.tool || '') ? engagement.tool as 'value_builder' | 'sale_ready' : 'value_builder') || "value_builder",
         });
       }
     }
@@ -845,20 +845,20 @@ export function EngagementForm({
             name="tool"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Tool</FormLabel>
+                <FormLabel>Engagement Type</FormLabel>
                 <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a tool" />
+                      <SelectValue placeholder="Select an engagement type" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="diagnostic">Diagnostic</SelectItem>
-                    <SelectItem value="kpi_builder">KPI Builder</SelectItem>
+                    <SelectItem value="value_builder">Value Builder</SelectItem>
+                    <SelectItem value="sale_ready">Sale Ready</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormDescription>
-                  Select the tool for this engagement.
+                  Select the engagement type.
                 </FormDescription>
                 <FormMessage />
               </FormItem>

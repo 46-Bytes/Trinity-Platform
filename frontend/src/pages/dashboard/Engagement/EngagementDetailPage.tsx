@@ -35,7 +35,7 @@ export default function EngagementDetailPage() {
   const [diagnostics, setDiagnostics] = useState<any[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
-  const [engagement, setEngagement] = useState<{ client_name?: string } | null>(null);
+  const [engagement, setEngagement] = useState<{ client_name?: string; tool?: string } | null>(null);
   const [isLoadingEngagement, setIsLoadingEngagement] = useState(false);
   const fetchInFlightRef = useRef(false);
   
@@ -764,7 +764,7 @@ export default function EngagementDetailPage() {
 
         <TabsContent value="diagnostic" className="mt-4 sm:mt-6 w-full" style={{ width: '100%', maxWidth: '100%', overflowX: 'clip' }}>
           <div className="card-trinity px-0 sm:px-1 md:px-3 lg:px-6 py-2 sm:py-3 md:py-6 w-full" style={{ width: '100%', boxSizing: 'border-box', maxWidth: '100%', overflowX: 'clip', paddingLeft: 'clamp(0px, 1vw, 24px)', paddingRight: 'clamp(0px, 1vw, 24px)' }}>
-            <ToolSurvey engagementId={engagementId} toolType="diagnostic" />
+            <ToolSurvey engagementId={engagementId} toolType="diagnostic" engagementType={engagement?.tool} />
           </div>
         </TabsContent>
 

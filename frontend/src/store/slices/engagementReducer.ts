@@ -12,7 +12,7 @@ export interface Engagement {
   title: string;
   description: string;
   industryName: string;
-  tool?: 'diagnostic' | 'kpi_builder' | 'bba_builder';
+  tool?: 'value_builder' | 'sale_ready' | 'diagnostic' | 'kpi_builder' | 'bba_builder';
   status: 'draft' | 'active' | 'on-hold' | 'completed' | 'cancelled';
   startDate: string;
   endDate?: string;

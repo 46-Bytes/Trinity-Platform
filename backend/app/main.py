@@ -24,7 +24,8 @@ from .api.dashboard import router as dashboard_router
 from .api.strategy_workbook import router as strategy_workbook_router
 
 from .database import engine, Base
-from .services.openai_service import OpenAIService
+# from .services.openai_service import OpenAIService  # OpenAI (commented out)
+from .services.anthropic_service import AnthropicService  # Anthropic (active)
 from . import models
 
 # Configure logging
@@ -114,9 +115,10 @@ async def startup_event():
     logger = logging.getLogger(__name__)
     logger.info("🚀 Application startup - initializing services...")
     
-    # Initialize OpenAI client once at startup
-    OpenAIService.initialize_client()
-    logger.info("✅ OpenAI client initialized")
+    # Initialize Anthropic client once at startup
+    # OpenAIService.initialize_client()  # OpenAI (commented out)
+    AnthropicService.initialize_client()  # Anthropic (active)
+    logger.info("✅ Anthropic client initialized")
     
     logger.info("✅ Application startup complete")
 

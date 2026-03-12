@@ -38,12 +38,22 @@ class Settings(BaseSettings):
     
     # Security
     SECRET_KEY: str = os.getenv("SECRET_KEY")
+
+    # LLM Provider Selection ("anthropic" or "openai")
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "anthropic")
     
-    # OpenAI
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY")
-    OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o")
-    OPENAI_TEMPERATURE: float = float(os.getenv("OPENAI_TEMPERATURE", "1.0"))
-    OPENAI_TIMEOUT: Optional[float] = None  # None = no timeout, or specify seconds (e.g., 60.0)
+    # Anthropic Claude (active)
+    ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY")
+    ANTHROPIC_MODEL: str = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
+    ANTHROPIC_TEMPERATURE: float = float(os.getenv("ANTHROPIC_TEMPERATURE", "1.0"))
+    ANTHROPIC_TIMEOUT: Optional[float] = None  # None = no timeout, or specify seconds (e.g., 60.0)
+    ANTHROPIC_MAX_TOKENS: int = int(os.getenv("ANTHROPIC_MAX_TOKENS", "8192"))
+
+    # OpenAI (commented out — uncomment to switch back)
+    # OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY")
+    # OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o")
+    # OPENAI_TEMPERATURE: float = float(os.getenv("OPENAI_TEMPERATURE", "1.0"))
+    # OPENAI_TIMEOUT: Optional[float] = None
     # OPENAI_MAX_TOKENS: int = int(os.getenv("OPENAI_MAX_TOKENS", "16000"))
     
     # File Uploads

@@ -491,7 +491,9 @@ class ReportService:
             'media_id', 'Media Id', 'mediaId',
             'file_name', 'File Name', 'fileName', 'filename',
             'file_type', 'File Type', 'fileType',
+            'llm_file_id', 'Llm File Id', 'llmFileId',
             'openai_file_id', 'Openai File Id', 'openaiFileId',
+            'anthropic_file_id', 'Anthropic File Id', 'anthropicFileId',
             'relative_path', 'Relative Path', 'relativePath',
         ]
 

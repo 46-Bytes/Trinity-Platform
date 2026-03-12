@@ -11,7 +11,8 @@ import logging
 from app.models.strategy_workbook import StrategyWorkbook
 from app.models.diagnostic import Diagnostic
 from app.models.media import Media
-from app.services.openai_service import openai_service
+# from app.services.openai_service import openai_service  # OpenAI (commented out)
+from app.services.anthropic_service import anthropic_service
 from app.services.file_service import get_file_service
 from app.config import settings
 from app.utils.file_loader import load_prompt
@@ -24,7 +25,7 @@ class StrategyWorkbookService:
     
     def __init__(self, db: Session):
         self.db = db
-        self.openai_service = openai_service
+        self.anthropic_service = anthropic_service
         self.file_service = get_file_service(db)
         # Prompts
         self.extraction_prompt = load_prompt("strategy-workbook/extraction_prompt")
@@ -184,15 +185,15 @@ class StrategyWorkbookService:
             filtered_files: List[str] = []
 
             for media in media_records:
-                if not media.openai_file_id:
-                    logger.warning(f"Media {media.id} does not have OpenAI file ID (file_name={media.file_name})")
+                if not media.llm_file_id:
+                    logger.warning(f"Media {media.id} does not have LLM file ID (file_name={media.file_name})")
                     continue
 
                 ext = (media.file_extension or "").lower()
                 if ext in pdf_ext:
-                    pdf_file_ids.append(media.openai_file_id)
+                    pdf_file_ids.append(media.llm_file_id)
                 elif ext in ci_ext:
-                    ci_file_ids.append(media.openai_file_id)
+                    ci_file_ids.append(media.llm_file_id)
                 elif ext in image_or_archive_ext:
                     filtered_files.append(f"{media.file_name} ({ext or 'no ext'})")
                 else:
@@ -200,7 +201,7 @@ class StrategyWorkbookService:
                     logger.warning(
                         f"Unknown file extension '{ext}' for {media.file_name}; treating as Code Interpreter file"
                     )
-                    ci_file_ids.append(media.openai_file_id)
+                    ci_file_ids.append(media.llm_file_id)
 
             if filtered_files:
                 logger.info(
@@ -208,7 +209,7 @@ class StrategyWorkbookService:
                 )
 
             if not pdf_file_ids and not ci_file_ids:
-                raise ValueError(f"No usable OpenAI file IDs found for workbook {workbook_id}")
+                raise ValueError(f"No usable LLM file IDs found for workbook {workbook_id}")
             
             # ===== STEP 1: Raw extraction from documents =====
             step1_user_message = (
@@ -253,19 +254,19 @@ class StrategyWorkbookService:
                 else None
             )
 
-            step1_response = await self.openai_service.generate_completion(
+            step1_response = await self.anthropic_service.generate_completion(
                 messages=step1_messages,
                 file_ids=pdf_file_ids if pdf_file_ids else None,
                 tools=step1_tools,
                 reasoning_effort="medium",
-                model=settings.OPENAI_MODEL,
+                model=settings.ANTHROPIC_MODEL,
                 max_output_tokens=32000,
             )
 
             raw_content = step1_response.get("content", "")
             if not raw_content:
                 raise ValueError(
-                    "No content returned from OpenAI in extraction step "
+                    "No content returned from Anthropic in extraction step "
                     f"(finish_reason={step1_response.get('finish_reason')}, "
                     f"tokens_used={step1_response.get('tokens_used')}, "
                     f"response_id={step1_response.get('response_id')}, "
@@ -290,17 +291,17 @@ class StrategyWorkbookService:
                 },
             ]
 
-            step2_response = await self.openai_service.generate_json_completion(
+            step2_response = await self.anthropic_service.generate_json_completion(
                 messages=step2_messages,
                 reasoning_effort="medium",
-                model=settings.OPENAI_MODEL,
+                model=settings.ANTHROPIC_MODEL,
                 max_output_tokens=8000,
             )
 
             extracted_data = step2_response.get("parsed_content")
             if not extracted_data:
                 raise ValueError(
-                    "No content returned from OpenAI in formatting step "
+                    "No content returned from Anthropic in formatting step "
                     f"(finish_reason={step2_response.get('finish_reason')}, "
                     f"tokens_used={step2_response.get('tokens_used')}, "
                     f"response_id={step2_response.get('response_id')}, "
@@ -358,22 +359,22 @@ class StrategyWorkbookService:
         filtered_files: List[str] = []
 
         for media in media_records:
-            if not media.openai_file_id:
-                logger.warning(f"[Precheck] Media {media.id} does not have OpenAI file ID (file_name={media.file_name})")
+            if not media.llm_file_id:
+                logger.warning(f"[Precheck] Media {media.id} does not have LLM file ID (file_name={media.file_name})")
                 continue
 
             ext = (media.file_extension or "").lower()
             if ext in pdf_ext:
-                pdf_file_ids.append(media.openai_file_id)
+                pdf_file_ids.append(media.llm_file_id)
             elif ext in ci_ext:
-                ci_file_ids.append(media.openai_file_id)
+                ci_file_ids.append(media.llm_file_id)
             elif ext in image_or_archive_ext:
                 filtered_files.append(f"{media.file_name} ({ext or 'no ext'})")
             else:
                 logger.warning(
                     f"[Precheck] Unknown file extension '{ext}' for {media.file_name}; treating as Code Interpreter file"
                 )
-                ci_file_ids.append(media.openai_file_id)
+                ci_file_ids.append(media.llm_file_id)
 
         if filtered_files:
             logger.info(
@@ -381,7 +382,7 @@ class StrategyWorkbookService:
             )
 
         if not pdf_file_ids and not ci_file_ids:
-            raise ValueError(f"No usable OpenAI file IDs found for workbook {workbook_id}")
+            raise ValueError(f"No usable LLM file IDs found for workbook {workbook_id}")
 
         logger.info(
             f"[StrategyWorkbook] PRECHECK: Checking suitability for workbook {workbook_id}: "
@@ -408,19 +409,19 @@ class StrategyWorkbookService:
             else None
         )
 
-        response = await self.openai_service.generate_json_completion(
+        response = await self.anthropic_service.generate_json_completion(
             messages=messages,
             file_ids=pdf_file_ids if pdf_file_ids else None,
             tools=tools,
             reasoning_effort="low",
-            model=settings.OPENAI_MODEL,
+            model=settings.ANTHROPIC_MODEL,
             max_output_tokens=2000,
         )
 
         parsed = response.get("parsed_content")
         if not parsed:
             raise ValueError(
-                "No content returned from OpenAI in precheck step "
+                "No content returned from Anthropic in precheck step "
                 f"(finish_reason={response.get('finish_reason')}, "
                 f"tokens_used={response.get('tokens_used')}, "
                 f"response_id={response.get('response_id')}, "

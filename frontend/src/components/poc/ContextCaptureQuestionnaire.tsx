@@ -30,7 +30,7 @@ interface UploadedFile {
   progress: number;
   fileId?: string;
   error?: string;
-  openaiInfo?: {
+  llmInfo?: {
     bytes?: number;
     purpose?: string;
     created_at?: number;

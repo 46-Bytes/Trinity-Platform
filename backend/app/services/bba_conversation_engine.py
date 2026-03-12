@@ -8,7 +8,8 @@ import json
 import logging
 from pathlib import Path
 
-from app.services.openai_service import OpenAIService
+# from app.services.openai_service import OpenAIService  # OpenAI (commented out)
+from app.services.anthropic_service import AnthropicService
 from app.models.bba import BBA
 
 logger = logging.getLogger(__name__)
@@ -47,8 +48,8 @@ class BBAConversationEngine:
     """
     
     def __init__(self):
-        """Initialize the conversation engine with OpenAI service."""
-        self.openai_service = OpenAIService()
+        """Initialize the conversation engine with Anthropic service."""
+        self.anthropic_service = AnthropicService()
     
     def _build_context_from_bba(self, bba: BBA) -> Dict[str, Any]:
         """
@@ -79,10 +80,10 @@ class BBAConversationEngine:
     
     def _separate_files_by_type(self, file_mappings: Dict[str, str]) -> Tuple[List[str], List[str]]:
         """
-        Separate file IDs by type for proper OpenAI API routing.
-        
-        PDFs can be attached as input_file in messages.
-        CSV/TXT/XLSX/etc. must go through Code Interpreter container.
+        Separate file IDs by type for proper API routing.
+
+        PDFs are attached as document content blocks.
+        CSV/TXT/XLSX/etc. go through Code Execution tool via container_upload.
         
         Args:
             file_mappings: Dictionary mapping filename to file_id
@@ -212,7 +213,7 @@ Return your response as a JSON object.
             }]
         
         try:
-            result = await self.openai_service.generate_json_completion(
+            result = await self.anthropic_service.generate_json_completion(
                 messages=messages,
                 file_ids=pdf_file_ids if pdf_file_ids else None,  # Only PDFs as input_file
                 tools=tools,  # CSV/TXT/XLSX go to Code Interpreter
@@ -309,7 +310,7 @@ Return your response as a JSON object.
             }]
         
         try:
-            result = await self.openai_service.generate_json_completion(
+            result = await self.anthropic_service.generate_json_completion(
                 messages=messages,
                 file_ids=pdf_file_ids if pdf_file_ids else None,  # Only PDFs as input_file
                 tools=tools,  # CSV/TXT/XLSX go to Code Interpreter
@@ -384,7 +385,7 @@ Return your response as a JSON object.
         ]
         
         try:
-            result = await self.openai_service.generate_json_completion(
+            result = await self.anthropic_service.generate_json_completion(
                 messages=messages,
                 reasoning_effort="low"
             )
@@ -490,7 +491,7 @@ Return your response as a JSON object.
             }]
         
         try:
-            result = await self.openai_service.generate_json_completion(
+            result = await self.anthropic_service.generate_json_completion(
                 messages=messages,
                 file_ids=pdf_file_ids if pdf_file_ids else None,  # Only PDFs as input_file
                 tools=tools,  # CSV/TXT/XLSX go to Code Interpreter
@@ -581,7 +582,7 @@ Return the updated sections as a JSON object.
         ]
         
         try:
-            result = await self.openai_service.generate_json_completion(
+            result = await self.anthropic_service.generate_json_completion(
                 messages=messages,
                 reasoning_effort="medium"
             )
@@ -662,7 +663,7 @@ Return your response as a JSON object with an "executive_summary" key containing
         ]
         
         try:
-            result = await self.openai_service.generate_json_completion(
+            result = await self.anthropic_service.generate_json_completion(
                 messages=messages,
                 reasoning_effort="medium"
             )
@@ -734,7 +735,7 @@ Return your response as a JSON object with an "executive_summary" key containing
                 }]
             logger.info(f"[BBA Engine] Context capture file categorization: {len(pdf_ids)} PDF(s), {len(ci_ids)} CI file(s)")
 
-        result = await self.openai_service.generate_json_completion(
+        result = await self.anthropic_service.generate_json_completion(
             messages=messages,
             file_ids=pdf_file_ids,
             tools=tools,

@@ -12,7 +12,8 @@ from pathlib import Path
 
 from app.models.media import Media
 from app.models.user import User
-from app.services.openai_service import openai_service
+# from app.services.openai_service import openai_service  # OpenAI (commented out)
+from app.services.anthropic_service import anthropic_service
 from app.config import settings
 
 
@@ -36,8 +37,8 @@ class FileService:
     
     def __init__(self, db: Session):
         self.db = db
-        # Use the singleton openai_service instance
-        self.openai_service = openai_service
+        # Use the singleton anthropic_service instance
+        self.anthropic_service = anthropic_service
         # Use files/uploads as the base upload directory
         # Path(__file__) = backend/app/services/file_service.py
         # .parents[2] = backend/
@@ -73,7 +74,7 @@ class FileService:
         user_id: UUID,
         question_field_name: Optional[str] = None,
         description: Optional[str] = None,
-        upload_to_openai: bool = True,
+        upload_to_llm: bool = True,
         diagnostic_id: Optional[UUID] = None
     ) -> Media:
         """
@@ -84,7 +85,7 @@ class FileService:
             user_id: ID of the user uploading the file
             question_field_name: Which diagnostic question this file answers
             description: Optional description
-            upload_to_openai: Whether to upload to OpenAI for analysis
+            upload_to_llm: Whether to upload to OpenAI for analysis
             diagnostic_id: Optional diagnostic ID. If provided, files are stored in 
                           files/uploads/diagnostic/{diagnostic_id}/, otherwise files/uploads/users/{user_id}/
             
@@ -134,25 +135,25 @@ class FileService:
         self.db.add(media)
         self.db.flush()  # Get the media ID
         
-        # Upload to OpenAI if requested
-        if upload_to_openai:
+        # Upload to LLM provider if requested
+        if upload_to_llm:
             try:
                 file_path_str = str(file_path)
-                print(f"📤 Uploading file to OpenAI from path: {file_path_str}")
-                openai_file = await self.openai_service.upload_file(
+                print(f"Uploading file to Anthropic from path: {file_path_str}")
+                llm_file = await self.anthropic_service.upload_file(
                     file_path=file_path_str,
-                    purpose="user_data"  # For Responses API + tools (e.g., code_interpreter)
+                    purpose="user_data"
                 )
-                
-                if openai_file:
-                    media.openai_file_id = openai_file.get('id')
-                    media.openai_purpose = openai_file.get('purpose') or "user_data"
+
+                if llm_file:
+                    media.llm_file_id = llm_file.get('id')
+                    media.llm_purpose = llm_file.get('purpose') or "user_data"
                     from datetime import datetime
-                    media.openai_uploaded_at = datetime.utcnow()
-                    print(f"  File uploaded to OpenAI: {media.openai_file_id}")
+                    media.llm_uploaded_at = datetime.utcnow()
+                    print(f"  File uploaded to Anthropic: {media.llm_file_id}")
             except Exception as e:
-                print(f"  Failed to upload file to OpenAI: {str(e)}")
-                # Continue even if OpenAI upload fails
+                print(f"  Failed to upload file to Anthropic: {str(e)}")
+                # Continue even if LLM upload fails
         
         self.db.commit()
         self.db.refresh(media)
@@ -164,7 +165,7 @@ class FileService:
         files: List[UploadFile],
         user_id: UUID,
         question_field_name: Optional[str] = None,
-        upload_to_openai: bool = True,
+        upload_to_llm: bool = True,
         diagnostic_id: Optional[UUID] = None
     ) -> List[Media]:
         """
@@ -174,7 +175,7 @@ class FileService:
             files: List of uploaded files
             user_id: ID of the user uploading the files
             question_field_name: Which diagnostic question these files answer
-            upload_to_openai: Whether to upload to OpenAI
+            upload_to_llm: Whether to upload to OpenAI
             diagnostic_id: Optional diagnostic ID. If provided, files are stored in 
                           files/uploads/diagnostic/{diagnostic_id}/, otherwise files/uploads/users/{user_id}/
             
@@ -189,7 +190,7 @@ class FileService:
                     file=file,
                     user_id=user_id,
                     question_field_name=question_field_name,
-                    upload_to_openai=upload_to_openai,
+                    upload_to_llm=upload_to_llm,
                     diagnostic_id=diagnostic_id
                 )
                 media_list.append(media)

@@ -2,7 +2,7 @@
 Phase 3 – BBA PowerPoint Presentation Generator service.
 
 This service:
-- Generates structured slide content via OpenAI from the BBA diagnostic report data
+- Generates structured slide content via Anthropic Claude from the BBA diagnostic report data
 - Persists the full slide deck to bba.presentation_slides
 - Supports per-slide editing
 """
@@ -19,7 +19,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.models.bba import BBA
-from app.services.openai_service import OpenAIService
+# from app.services.openai_service import OpenAIService  # OpenAI (commented out)
+from app.services.anthropic_service import AnthropicService
 from app.services.bba_conversation_engine import load_bba_prompt
 
 logger = logging.getLogger(__name__)
@@ -29,13 +30,13 @@ class BBAPresentationService:
     """
     Service for Phase 3 – PowerPoint Presentation built on top of the BBA tool.
 
-    Uses OpenAI to generate concise, spoken-delivery slide content from the
+    Uses Anthropic Claude to generate concise, spoken-delivery slide content from the
     diagnostic report, then persists and allows per-slide editing.
     """
 
-    def __init__(self, db: Session, openai_service: OpenAIService | None = None):
+    def __init__(self, db: Session, anthropic_service: AnthropicService | None = None):
         self.db = db
-        self.openai_service = openai_service or OpenAIService()
+        self.anthropic_service = anthropic_service or AnthropicService()
 
     # -------------------------------------------------------------------------
     # Slide generation (AI-driven)
@@ -43,7 +44,7 @@ class BBAPresentationService:
 
     async def generate_slides(self, bba: BBA) -> List[Dict[str, Any]]:
         """
-        Generate all presentation slides via OpenAI.
+        Generate all presentation slides via Anthropic Claude.
 
         Uses the BBA diagnostic data (executive summary, expanded findings,
         snapshot table, 12-month plan) to produce structured slide content.
@@ -73,8 +74,8 @@ class BBAPresentationService:
         ]
 
         try:
-            logger.info("[BBA Presentation] Calling OpenAI for slide generation...")
-            result = await self.openai_service.generate_json_completion(
+            logger.info("[BBA Presentation] Calling Anthropic for slide generation...")
+            result = await self.anthropic_service.generate_json_completion(
                 messages=messages,
                 reasoning_effort="medium",
             )
@@ -394,7 +395,7 @@ class BBAPresentationService:
 
 def get_bba_presentation_service(
     db: Session,
-    openai_service: OpenAIService | None = None,
+    anthropic_service: AnthropicService | None = None,
 ) -> BBAPresentationService:
     """FastAPI dependency factory for the BBA presentation service."""
-    return BBAPresentationService(db, openai_service)
+    return BBAPresentationService(db, anthropic_service)

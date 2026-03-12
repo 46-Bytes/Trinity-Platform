@@ -3,7 +3,7 @@ Phase 2 – BBA Excel Task Planner (Engagement Planner) service.
 
 This service:
 - Stores advisor/timing context (lead/support advisors, capacity, start month/year)
-- Generates structured task rows via OpenAI from the BBA 12-month plan
+- Generates structured task rows via Anthropic Claude from the BBA 12-month plan
 
 The generated task rows map 1:1 to the Excel columns:
 Rec #, Recommendation, Owner, Task, Advisor Hrs, Advisor, Status, Notes, Timing.
@@ -25,7 +25,8 @@ from app.models.bba import BBA
 from app.schemas.bba import (
     BBATaskPlannerSettings,
 )
-from app.services.openai_service import OpenAIService
+# from app.services.openai_service import OpenAIService  # OpenAI (commented out)
+from app.services.anthropic_service import AnthropicService
 from app.services.bba_conversation_engine import load_bba_prompt
 
 logger = logging.getLogger(__name__)
@@ -35,14 +36,14 @@ class BBATaskPlannerService:
     """
     Service for Phase 2 – Excel Task Planner built on top of the BBA tool.
 
-    Uses OpenAI to generate focused, practical task rows from the 12-month plan,
+    Uses Anthropic Claude to generate focused, practical task rows from the 12-month plan,
     then applies deterministic post-processing for hour summaries and capacity
     warnings.
     """
 
-    def __init__(self, db: Session, openai_service: OpenAIService | None = None):
+    def __init__(self, db: Session, anthropic_service: AnthropicService | None = None):
         self.db = db
-        self.openai_service = openai_service or OpenAIService()
+        self.anthropic_service = anthropic_service or AnthropicService()
 
     # -------------------------------------------------------------------------
     # Settings persistence
@@ -100,7 +101,7 @@ class BBATaskPlannerService:
         Flow:
         1. Build timing metadata for each recommendation
         2. Construct AI prompt with full context
-        3. Call OpenAI to generate focused task rows
+        3. Call Anthropic to generate focused task rows
         """
         if not bba.twelve_month_plan:
             raise ValueError(
@@ -161,7 +162,7 @@ class BBATaskPlannerService:
         rec_context: List[Dict[str, Any]],
     ) -> List[Dict[str, Any]]:
         """
-        Call OpenAI to generate focused task rows from the 12-month plan.
+        Call Anthropic to generate focused task rows from the 12-month plan.
         """
         # Load prompts
         try:
@@ -209,8 +210,8 @@ Return ONLY a JSON object with a "tasks" key containing the array of task rows.
         ]
 
         try:
-            logger.info("[BBA Task Planner] Calling OpenAI for task generation...")
-            result = await self.openai_service.generate_json_completion(
+            logger.info("[BBA Task Planner] Calling Anthropic for task generation...")
+            result = await self.anthropic_service.generate_json_completion(
                 messages=messages,
                 reasoning_effort="medium",
             )
@@ -388,7 +389,7 @@ Return ONLY a JSON object with a "tasks" key containing the array of task rows.
 
 def get_bba_task_planner_service(
     db: Session,
-    openai_service: OpenAIService | None = None,
+    anthropic_service: AnthropicService | None = None,
 ) -> BBATaskPlannerService:
     """FastAPI dependency factory for the BBA task planner service."""
-    return BBATaskPlannerService(db, openai_service)
+    return BBATaskPlannerService(db, anthropic_service)

@@ -50,9 +50,9 @@ interface UploadedFile {
   file: File;
   status: 'pending' | 'uploading' | 'success' | 'error';
   progress: number;
-  fileId?: string; // OpenAI file_id
+  fileId?: string; // LLM file_id
   error?: string;
-  openaiInfo?: {
+  llmInfo?: {
     bytes?: number;
     purpose?: string;
     created_at?: number;
@@ -761,7 +761,7 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
               progress: 100,
               fileId: uploadResult.file_id || undefined,
               error: uploadResult.error || undefined,
-              openaiInfo: uploadResult.openai_info || undefined,
+              llmInfo: uploadResult.llm_info || uploadResult.openai_info || undefined,
             };
           }
         });

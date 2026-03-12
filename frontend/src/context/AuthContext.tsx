@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { User, UserRole, AuthState } from '@/types/auth';
+import { isTokenExpired } from '@/utils/tokenUtils';
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
@@ -74,8 +75,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     console.log('🔍 loadCurrentUser called, token exists:', !!token);
     
-    if (!token) {
-      console.log('❌ No token in localStorage');
+    if (!token || isTokenExpired(token)) {
+      console.log('❌ No token or token expired');
+      localStorage.removeItem('auth_token');
       setAuthState({
         user: null,
         isAuthenticated: false,
@@ -85,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setOriginalUser(null);
       return;
     }
-    
+
     try {
       // First check impersonation status
       const statusResponse = await fetch(`${API_BASE_URL}/api/auth/impersonation-status`, {
@@ -285,9 +287,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const timer = setTimeout(() => {
       loadCurrentUser();
     }, 100);
-    
+
     return () => clearTimeout(timer);
   }, [loadCurrentUser]);
+
+  // Periodically check if the token has expired while the user is active
+  useEffect(() => {
+    if (!authState.isAuthenticated) return;
+
+    const checkTokenExpiry = () => {
+      const token = localStorage.getItem('auth_token');
+      if (!token || isTokenExpired(token)) {
+        console.log('⏰ Token expired, redirecting to login');
+        logout();
+      }
+    };
+
+    const interval = setInterval(checkTokenExpiry, 60_000); // check every 60s
+    return () => clearInterval(interval);
+  }, [authState.isAuthenticated, logout]);
 
   return (
     <AuthContext.Provider value={{ 

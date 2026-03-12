@@ -39,7 +39,8 @@ import os
 import logging
 import io
 import json
-from app.services.openai_service import OpenAIService
+# from app.services.openai_service import OpenAIService  # OpenAI (commented out)
+from app.services.anthropic_service import AnthropicService
 from app.services.bba_service import get_bba_service, BBAService
 from app.services.bba_conversation_engine import get_bba_conversation_engine
 from app.services.bba_task_planner_service import get_bba_task_planner_service
@@ -166,20 +167,20 @@ async def upload_files_poc(
     current_user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """
-    Upload multiple files to OpenAI Files API and store in BBA project.
-    
+    Upload multiple files to Anthropic Files API and store in BBA project.
+
     This endpoint:
     1. Accepts multiple file uploads
-    2. Uploads each file to OpenAI Files API
+    2. Uploads each file to Anthropic Files API
     3. Gets file_id for each file
     4. Stores file_ids in BBA project in database
-    
+
     Args:
         project_id: BBA project ID
         files: List of files to upload
-        
+
     Returns:
-        Dictionary with uploaded files and their OpenAI file_ids
+        Dictionary with uploaded files and their LLM file_ids
     """
     if not files:
         raise HTTPException(
@@ -202,9 +203,9 @@ async def upload_files_poc(
             detail="You don't have access to this project"
         )
     
-    # Initialize OpenAI service
-    openai_service = OpenAIService()
-    
+    # Initialize Anthropic service
+    anthropic_service = AnthropicService()
+
     # Results storage
     results = []
     file_mapping = {}
@@ -218,23 +219,23 @@ async def upload_files_poc(
             # Read file content
             file_content = await file.read()
             file_size = len(file_content)
-            
+
             logger.info(f"Processing file: {file.filename} (size: {file_size} bytes)")
-            
-            # Create temporary file for OpenAI upload
+
+            # Create temporary file for LLM upload
             with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
                 temp_file.write(file_content)
                 temp_file_path = temp_file.name
-            
+
             try:
-                # Upload to OpenAI Files API
-                openai_result = await openai_service.upload_file(
+                # Upload to Anthropic Files API
+                llm_result = await anthropic_service.upload_file(
                     file_path=temp_file_path,
-                    purpose="assistants"  # Standard purpose for file uploads
+                    purpose="user_data"
                 )
-                
-                if openai_result and openai_result.get("id"):
-                    file_id = openai_result["id"]
+
+                if llm_result and llm_result.get("id"):
+                    file_id = llm_result["id"]
                     filename = file.filename
                     safe_name = _sanitize_filename(filename)
 
@@ -260,30 +261,30 @@ async def upload_files_poc(
                         "file_id": file_id,
                         "status": "success",
                         "size": file_size,
-                        "openai_info": {
-                            "bytes": openai_result.get("bytes"),
-                            "purpose": openai_result.get("purpose"),
-                            "created_at": openai_result.get("created_at")
+                        "llm_info": {
+                            "bytes": llm_result.get("bytes"),
+                            "purpose": llm_result.get("purpose"),
+                            "created_at": llm_result.get("created_at")
                         }
                     })
 
-                    logger.info(f"Successfully uploaded {filename} to OpenAI. File ID: {file_id}")
+                    logger.info(f"Successfully uploaded {filename} to Anthropic. File ID: {file_id}")
                 else:
                     results.append({
                         "filename": file.filename,
                         "file_id": None,
                         "status": "error",
-                        "error": "OpenAI upload returned no file_id"
+                        "error": "Anthropic upload returned no file_id"
                     })
-                    logger.error(f"OpenAI upload failed for {file.filename}: No file_id returned")
+                    logger.error(f"Anthropic upload failed for {file.filename}: No file_id returned")
                     
-            except Exception as openai_error:
-                logger.error(f"OpenAI upload error for {file.filename}: {str(openai_error)}", exc_info=True)
+            except Exception as upload_error:
+                logger.error(f"Anthropic upload error for {file.filename}: {str(upload_error)}", exc_info=True)
                 results.append({
                     "filename": file.filename,
                     "file_id": None,
                     "status": "error",
-                    "error": str(openai_error)
+                    "error": str(upload_error)
                 })
             finally:
                 # Clean up temporary file
@@ -1336,8 +1337,8 @@ async def preview_task_planner(
             ),
         )
 
-    openai_service = OpenAIService()
-    task_planner_service = get_bba_task_planner_service(db, openai_service)
+    anthropic_service = AnthropicService()
+    task_planner_service = get_bba_task_planner_service(db, anthropic_service)
 
     # Determine effective settings: use provided payload if present,
     # otherwise fall back to stored settings.
@@ -1468,8 +1469,8 @@ async def export_task_planner_excel(
             ),
         )
 
-    openai_service = OpenAIService()
-    task_planner_service = get_bba_task_planner_service(db, openai_service)
+    anthropic_service = AnthropicService()
+    task_planner_service = get_bba_task_planner_service(db, anthropic_service)
 
     try:
         settings = task_planner_service.load_settings(bba)
@@ -1583,8 +1584,8 @@ async def generate_presentation_slides(
             ),
         )
 
-    openai_service = OpenAIService()
-    presentation_service = get_bba_presentation_service(db, openai_service)
+    anthropic_service = AnthropicService()
+    presentation_service = get_bba_presentation_service(db, anthropic_service)
 
     try:
         slides = await presentation_service.generate_slides(bba)

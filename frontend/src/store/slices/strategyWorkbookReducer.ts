@@ -23,7 +23,7 @@ export interface UploadedFile {
   file_name: string;
   file_size?: number;
   file_type?: string;
-  openai_file_id?: string;
+  llm_file_id?: string;
   description?: string;
   question_field_name?: string;
   tag?: string;

@@ -31,8 +31,11 @@ python-dateutil
 bcrypt
 passlib[bcrypt]
 
-# OpenAI for AI processing
-openai
+# Anthropic Claude for AI processing (active)
+anthropic
+
+# OpenAI for AI processing (commented out — uncomment to switch back)
+# openai
 
 # PDF generation
 xhtml2pdf

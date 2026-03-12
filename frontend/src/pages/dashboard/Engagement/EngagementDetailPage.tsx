@@ -23,7 +23,7 @@ interface FileMetadata {
   file_size?: number;
   relative_path?: string;
   media_id?: string;
-  openai_file_id?: string;
+  llm_file_id?: string;
   question_field_name?: string;
 }
 

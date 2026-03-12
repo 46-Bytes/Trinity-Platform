@@ -12,7 +12,8 @@ from app.models.conversation import Conversation
 from app.models.message import Message
 from app.models.diagnostic import Diagnostic
 from app.models.user import User
-from app.services.openai_service import openai_service
+# from app.services.openai_service import openai_service  # OpenAI (commented out)
+from app.services.anthropic_service import anthropic_service as openai_service  # backward-compat alias
 from app.utils.file_loader import load_prompt
 
 logger = logging.getLogger(__name__)
@@ -177,7 +178,7 @@ class ChatService:
         message_text: str,
         limit: int = 50,
         engagement_id: Optional[UUID] = None,
-        model: str = "gpt-5-nano"
+        model: str = "claude-haiku-4-5"
     ) -> Message:
         """
         Send a message in a conversation and get AI response.
@@ -230,7 +231,6 @@ class ChatService:
                 messages=messages,
                 temperature=0.7,
                 model=model,
-                reasoning_effort="minimal",
                 max_output_tokens=1000,
             )
             
@@ -243,7 +243,7 @@ class ChatService:
             }
             
         except Exception as e:
-            logger.error(f"  Error calling OpenAI: {str(e)}", exc_info=True)
+            logger.error(f"  Error calling Anthropic: {str(e)}", exc_info=True)
             response_text = "I apologize, but I'm having trouble processing your request right now. Please try again later."
             response_data = {"error": str(e)}
         
@@ -252,7 +252,7 @@ class ChatService:
             role="assistant",
             message=response_text,
             response_data=response_data,
-            message_metadata={"model": gpt_response.get("model", "gpt-4o-mini") if 'gpt_response' in locals() else "gpt-4o-mini"}
+            message_metadata={"model": gpt_response.get("model", "claude-haiku-4-5") if 'gpt_response' in locals() else "claude-haiku-4-5"}
         )
         self.db.add(assistant_message)
         conversation.updated_at = datetime.utcnow()
@@ -311,7 +311,7 @@ class ChatService:
             engagement_id: Optional engagement ID to find diagnostic
             
         Returns:
-            List of message dicts for OpenAI API
+            List of message dicts for Anthropic API
         """
         messages = []
         

@@ -3,7 +3,7 @@ BBA Report Export Service
 Generates Word documents from BBA report data using python-docx
 """
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import io
 import logging
 from pathlib import Path
@@ -531,7 +531,7 @@ class BBAReportExporter:
         doc.add_paragraph()
         date_para = doc.add_paragraph()
         date_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        date_str = datetime.utcnow().strftime("%B %Y")
+        date_str = datetime.now(timezone.utc).strftime("%B %Y")
         date_para.add_run(date_str)
     
     def _add_executive_summary(self, doc: Document, bba: BBA):
@@ -850,7 +850,7 @@ class BBAReportExporter:
         right_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
         
         # Get date with ordinal suffix (e.g., "20th Oct 2025")
-        date_obj = datetime.utcnow()
+        date_obj = datetime.now(timezone.utc)
         day = date_obj.day
         # Add ordinal suffix (st, nd, rd, th)
         if 4 <= day <= 20 or 24 <= day <= 30:

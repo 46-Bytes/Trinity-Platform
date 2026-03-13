@@ -16,7 +16,11 @@ from ..schemas.chat import (
     ConversationListResponse
 )
 from ..services.chat_service import get_chat_service
-from ..services.role_check import get_current_user_from_token
+from ..utils.auth import get_current_user
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -24,7 +28,7 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 @router.get("/conversations", response_model=ConversationListResponse)
 async def list_conversations(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Get all conversations for the current user.
@@ -55,7 +59,7 @@ async def list_conversations(
 async def create_conversation(
     conversation_data: ConversationCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Create a new conversation.
@@ -98,7 +102,7 @@ async def create_conversation(
 async def get_conversation(
     conversation_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Get a specific conversation by ID.
@@ -134,7 +138,7 @@ async def get_messages(
     conversation_id: UUID,
     limit: Optional[int] = Query(None, ge=1, le=200),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Get messages for a conversation.
@@ -175,7 +179,7 @@ async def send_message(
     message_data: MessageCreate,
     engagement_id: Optional[UUID] = Query(None, description="Optional engagement ID to find diagnostic context"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Send a message in a conversation and get AI response.
@@ -222,16 +226,16 @@ async def send_message(
         }
         
     except ValueError as e:
-        logger.error(f"ValueError sending message: {str(e)}")
+        logger.error(f"ValueError sending message: {e}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
+            detail="Invalid request data"
         )
     except Exception as e:
-        logger.error(f"Exception sending message: {str(e)}", exc_info=True)
+        logger.error(f"Failed to send message: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to send message: {str(e)}"
+            detail="Failed to send message. Please try again or contact support."
         )
 
 
@@ -240,7 +244,7 @@ async def create_task_from_message(
     message_id: UUID,
     engagement_id: UUID = Query(..., description="Engagement ID to create task in"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Create a task from an assistant message.
@@ -268,14 +272,16 @@ async def create_task_from_message(
         }
         
     except ValueError as e:
+        logger.warning(f"ValueError creating task from message: {e}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
+            detail="Invalid request data"
         )
     except Exception as e:
+        logger.error(f"Failed to create task from message: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create task: {str(e)}"
+            detail="Failed to create task. Please try again or contact support."
         )
 
 
@@ -284,7 +290,7 @@ async def create_note_from_message(
     message_id: UUID,
     engagement_id: UUID = Query(..., description="Engagement ID to create note in"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Create a note from an assistant message.
@@ -312,13 +318,15 @@ async def create_note_from_message(
         }
         
     except ValueError as e:
+        logger.warning(f"ValueError creating note from message: {e}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
+            detail="Invalid request data"
         )
     except Exception as e:
+        logger.error(f"Failed to create note from message: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create note: {str(e)}"
+            detail="Failed to create note. Please try again or contact support."
         )
 

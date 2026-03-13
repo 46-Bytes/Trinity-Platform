@@ -8,7 +8,7 @@ Usage:
 import sys
 from pathlib import Path
 from uuid import UUID
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # Add the backend directory to the path so we can import modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -59,8 +59,8 @@ def seed_subscription(firm_id: UUID = None):
                 seat_count=firm.seat_count,
                 monthly_price=299.00,  # Base price per month
                 status="active",
-                current_period_start=datetime.utcnow(),
-                current_period_end=datetime.utcnow() + timedelta(days=30)
+                current_period_start=datetime.now(timezone.utc),
+                current_period_end=datetime.now(timezone.utc) + timedelta(days=30)
             )
             db.add(subscription)
             db.flush()  # Get subscription.id

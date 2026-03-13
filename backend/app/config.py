@@ -1,61 +1,65 @@
 """
 Application configuration management using Pydantic Settings.
 """
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 from typing import Optional
-from dotenv import load_dotenv
-import os
 
-load_dotenv()
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
-    
+
     # Application
     APP_NAME: str = "Trinity Platform"
     APP_ENV: str = "development"
     DEBUG: bool = True
     PORT: int = 8000
-    
+
     # Database
-    DATABASE_URL: str = os.getenv("DATABASE_URL")
-    
+    DATABASE_URL: str
+
     # Auth0
-    AUTH0_DOMAIN: str = os.getenv("AUTH0_DOMAIN")
-    AUTH0_CLIENT_ID: str = os.getenv("AUTH0_CLIENT_ID")
-    AUTH0_CLIENT_SECRET: str = os.getenv("AUTH0_CLIENT_SECRET")
-    AUTH0_AUDIENCE: str = os.getenv("AUTH0_AUDIENCE")
+    AUTH0_DOMAIN: str
+    AUTH0_CLIENT_ID: str
+    AUTH0_CLIENT_SECRET: str
+    AUTH0_AUDIENCE: str
     AUTH0_ALGORITHMS: str = "RS256"
-    AUTH0_USERNAME_NAMESPACE: str = os.getenv("AUTH0_USERNAME_NAMESPACE", "https://your-app.com/username")
-    
+    AUTH0_USERNAME_NAMESPACE: str = "https://your-app.com/username"
+
     # Auth0 Management API
-    AUTH0_MANAGEMENT_API_AUDIENCE: str = os.getenv("AUTH0_MANAGEMENT_API_AUDIENCE")
-    AUTH0_MANAGEMENT_CLIENT_ID: str = os.getenv("AUTH0_MANAGEMENT_CLIENT_ID")
-    AUTH0_MANAGEMENT_CLIENT_SECRET: str = os.getenv("AUTH0_MANAGEMENT_CLIENT_SECRET")
+    AUTH0_MANAGEMENT_API_AUDIENCE: str
+    AUTH0_MANAGEMENT_CLIENT_ID: str
+    AUTH0_MANAGEMENT_CLIENT_SECRET: str
 
     # Frontend
-    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:8080")
-    
+    FRONTEND_URL: str = "http://localhost:8080"
+
     # Security
-    SECRET_KEY: str = os.getenv("SECRET_KEY")
-    
+    SECRET_KEY: str
+
     # OpenAI
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY")
-    OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o")
-    OPENAI_TEMPERATURE: float = float(os.getenv("OPENAI_TEMPERATURE", "1.0"))
+    OPENAI_API_KEY: str
+    OPENAI_MODEL: str = "gpt-4o"
+    OPENAI_TEMPERATURE: float = 1.0
     OPENAI_TIMEOUT: Optional[float] = None  # None = no timeout, or specify seconds (e.g., 60.0)
-    # OPENAI_MAX_TOKENS: int = int(os.getenv("OPENAI_MAX_TOKENS", "16000"))
-    
+
     # File Uploads
-    UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "uploads")
-    
+    UPLOAD_DIR: str = "uploads"
+
     # Email (Gmail SMTP)
-    SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
-    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
-    SMTP_USERNAME: str = os.getenv("SMTP_USERNAME", "")
-    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
-    SMTP_FROM_EMAIL: str = os.getenv("SMTP_FROM_EMAIL", "")
-    
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""
+
+    @field_validator("OPENAI_TEMPERATURE")
+    @classmethod
+    def validate_temperature(cls, v: float) -> float:
+        if not 0.0 <= v <= 2.0:
+            raise ValueError("OPENAI_TEMPERATURE must be between 0.0 and 2.0")
+        return v
+
     class Config:
         env_file = ".env"
         case_sensitive = True
@@ -63,9 +67,3 @@ class Settings(BaseSettings):
 
 # Global settings instance
 settings = Settings()
-
-if not settings.SECRET_KEY:
-    raise RuntimeError("SECRET_KEY environment variable is not set. Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\"")
-
-
-

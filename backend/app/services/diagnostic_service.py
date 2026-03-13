@@ -4,7 +4,7 @@ Diagnostic service - Main orchestrator for AI diagnostic workflow
 from typing import Dict, Any, Optional, List
 from uuid import UUID
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import re
 import asyncio
@@ -199,7 +199,7 @@ class DiagnosticService:
             
             # Set started_at if moving to in_progress
             if status == "in_progress" and not diagnostic.started_at:
-                diagnostic.started_at = datetime.utcnow()
+                diagnostic.started_at = datetime.now(timezone.utc)
         
         self.db.commit()
         self.db.refresh(diagnostic)
@@ -252,7 +252,7 @@ class DiagnosticService:
             
             # Update status to completed
             diagnostic.status = "completed"
-            diagnostic.completed_at = datetime.utcnow()
+            diagnostic.completed_at = datetime.now(timezone.utc)
             
             # Link diagnostic to conversation for chat
             from app.services.chat_service import get_chat_service
@@ -272,7 +272,7 @@ class DiagnosticService:
             if engagement and engagement.status != "completed":
                 engagement.status = "completed"
                 if not engagement.completed_at:
-                    engagement.completed_at = datetime.utcnow()
+                    engagement.completed_at = datetime.now(timezone.utc)
                 logger.info(f"Updated engagement {engagement.id} status to 'completed' because diagnostic {diagnostic.id} is completed")
             
         except Exception as e:
@@ -507,7 +507,7 @@ class DiagnosticService:
                                 old_file_id = media.openai_file_id
                                 media.openai_file_id = openai_file["id"]
                                 media.openai_purpose = openai_file.get("purpose", "user_data")
-                                media.openai_uploaded_at = datetime.utcnow()
+                                media.openai_uploaded_at = datetime.now(timezone.utc)
                                 
                                 # Update file_id_to_media mapping
                                 if old_file_id in file_id_to_media:

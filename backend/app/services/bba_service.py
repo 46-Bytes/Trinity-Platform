@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from typing import Optional, List
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.models.bba import BBA
 from app.models.diagnostic import Diagnostic
@@ -151,7 +151,7 @@ class BBAService:
             existing_stored = bba.stored_files or {}
             bba.stored_files = {**existing_stored, **stored_files}
         bba.status = 'uploaded'
-        bba.updated_at = datetime.utcnow()
+        bba.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(bba)
@@ -183,8 +183,8 @@ class BBAService:
         bba.strategic_priorities = questionnaire.strategic_priorities
         bba.exclude_sale_readiness = questionnaire.exclude_sale_readiness
         bba.status = 'questionnaire_completed'
-        bba.questionnaire_completed_at = datetime.utcnow()
-        bba.updated_at = datetime.utcnow()
+        bba.questionnaire_completed_at = datetime.now(timezone.utc)
+        bba.updated_at = datetime.now(timezone.utc)
         
         self.db.commit()
         self.db.refresh(bba)
@@ -219,7 +219,7 @@ class BBAService:
         bba.status = 'draft_findings'
         bba.ai_model_used = model
         bba.ai_tokens_used = (bba.ai_tokens_used or 0) + tokens_used
-        bba.updated_at = datetime.utcnow()
+        bba.updated_at = datetime.now(timezone.utc)
         
         self.db.commit()
         self.db.refresh(bba)
@@ -250,7 +250,7 @@ class BBAService:
             bba.draft_findings = edited_findings
             bba.draft_findings_edited = True
 
-        bba.updated_at = datetime.utcnow()
+        bba.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(bba)
@@ -374,7 +374,7 @@ class BBAService:
         bba.status = 'expanded_findings'
         bba.ai_model_used = model
         bba.ai_tokens_used = (bba.ai_tokens_used or 0) + tokens_used
-        bba.updated_at = datetime.utcnow()
+        bba.updated_at = datetime.now(timezone.utc)
         
         self.db.commit()
         self.db.refresh(bba)
@@ -408,7 +408,7 @@ class BBAService:
         bba.status = 'snapshot_table'
         bba.ai_model_used = model
         bba.ai_tokens_used = (bba.ai_tokens_used or 0) + tokens_used
-        bba.updated_at = datetime.utcnow()
+        bba.updated_at = datetime.now(timezone.utc)
         
         self.db.commit()
         self.db.refresh(bba)
@@ -446,7 +446,7 @@ class BBAService:
         bba.status = 'twelve_month_plan'
         bba.ai_model_used = model
         bba.ai_tokens_used = (bba.ai_tokens_used or 0) + tokens_used
-        bba.updated_at = datetime.utcnow()
+        bba.updated_at = datetime.now(timezone.utc)
         
         self.db.commit()
         self.db.refresh(bba)
@@ -479,7 +479,7 @@ class BBAService:
         bba.executive_summary = executive_summary
         bba.ai_model_used = model
         bba.ai_tokens_used = (bba.ai_tokens_used or 0) + tokens_used
-        bba.updated_at = datetime.utcnow()
+        bba.updated_at = datetime.now(timezone.utc)
         
         self.db.commit()
         self.db.refresh(bba)
@@ -511,7 +511,7 @@ class BBAService:
         bba.status = 'completed'
         if increment_version:
             bba.report_version = (bba.report_version or 0) + 1
-        bba.updated_at = datetime.utcnow()
+        bba.updated_at = datetime.now(timezone.utc)
         
         self.db.commit()
         self.db.refresh(bba)
@@ -554,7 +554,7 @@ class BBAService:
         if 'executive_summary' in updated_sections:
             bba.executive_summary = updated_sections['executive_summary']
         
-        bba.updated_at = datetime.utcnow()
+        bba.updated_at = datetime.now(timezone.utc)
         
         self.db.commit()
         self.db.refresh(bba)
@@ -587,7 +587,7 @@ class BBAService:
         if max_step_reached is not None:
             bba.max_step_reached = max_step_reached
         
-        bba.updated_at = datetime.utcnow()
+        bba.updated_at = datetime.now(timezone.utc)
         
         self.db.commit()
         self.db.refresh(bba)

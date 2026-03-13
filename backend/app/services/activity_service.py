@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import func, cast, Date
 
@@ -25,7 +25,7 @@ def get_superadmin_activity_data(db: Session, days: int) -> ActivityDataResponse
         - Completed AI generations (diagnostics)
     """
     # Calculate date range
-    end_date = datetime.utcnow().date()
+    end_date = datetime.now(timezone.utc).date()
     start_date = end_date - timedelta(days=days - 1)
     
     # Generate all dates in range (to ensure we have entries for all days)

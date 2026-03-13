@@ -17,7 +17,8 @@ from ..schemas.note import (
     NoteResponse,
     NoteListItem,
 )
-from ..services.role_check import get_current_user_from_token, check_engagement_access
+from ..utils.auth import get_current_user
+from ..services.role_check import check_engagement_access
 
 router = APIRouter(prefix="/api/notes", tags=["notes"])
 
@@ -48,7 +49,7 @@ def check_note_visibility(note: Note, user: User) -> bool:
 async def create_note(
     note_data: NoteCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Create a new note.
@@ -105,7 +106,7 @@ async def create_note(
 @router.get("", response_model=List[NoteListItem])
 async def list_notes(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token),
+    current_user: User = Depends(get_current_user),
     engagement_id: Optional[UUID] = Query(None, description="Filter by engagement ID"),
     task_id: Optional[UUID] = Query(None, description="Filter by task ID"),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
@@ -202,7 +203,7 @@ async def list_notes(
 async def get_note(
     note_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get a note by ID.
@@ -245,7 +246,7 @@ async def get_note(
 async def mark_note_read(
     note_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Mark a note as read by the current user.
@@ -296,7 +297,7 @@ async def update_note(
     note_id: UUID,
     note_data: NoteUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Update a note.
@@ -357,7 +358,7 @@ async def update_note(
 async def delete_note(
     note_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Delete a note.

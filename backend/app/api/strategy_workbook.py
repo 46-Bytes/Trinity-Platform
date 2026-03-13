@@ -72,7 +72,8 @@ async def create_from_diagnostic(
     try:
         workbook = service.create_from_diagnostic(diagnostic_id=diagnostic_id, user_id=current_user.id)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        logger.warning(f"Failed to create workbook from diagnostic: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid request data")
     return {
         "success": True,
         "workbook_id": str(workbook.id),
@@ -103,6 +104,12 @@ async def upload_documents(
     Returns:
         Workbook ID and uploaded file metadata
     """
+    MAX_UPLOAD_FILES = 20
+    if len(files) > MAX_UPLOAD_FILES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Too many files. Maximum {MAX_UPLOAD_FILES} files per upload."
+        )
     if not files:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -160,7 +167,7 @@ async def upload_documents(
         logger.error(f"Strategy workbook upload failed: {str(e)}\n{error_trace}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"File upload failed: {str(e)}"
+            detail="File upload failed. Please try again or contact support."
         )
 
 
@@ -217,14 +224,14 @@ async def extract_data(
         logger.warning(f"Data extraction failed for workbook {request.workbook_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            detail="Invalid request data"
         )
     except Exception as e:
         error_trace = traceback.format_exc()
-        logger.error(f"Data extraction failed for workbook {request.workbook_id}: {str(e)}\n{error_trace}")
+        logger.error(f"Data extraction failed for workbook {request.workbook_id}: {e}\n{error_trace}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Data extraction failed: {str(e)}. Check server logs for details."
+            detail="Data extraction failed. Please try again or contact support."
         )
 
 
@@ -265,16 +272,16 @@ async def precheck_workbook(
         logger.warning(f"Precheck failed for workbook {request.workbook_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            detail="Invalid request data",
         )
     except Exception as e:
         error_trace = traceback.format_exc()
         logger.error(
-            f"Precheck failed for workbook {request.workbook_id}: {str(e)}\n{error_trace}"
+            f"Precheck failed for workbook {request.workbook_id}: {e}\n{error_trace}"
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Precheck failed: {str(e)}. Check server logs for details.",
+            detail="Precheck failed. Please try again or contact support.",
         )
 
 
@@ -346,8 +353,8 @@ async def generate_workbook(
         # Update workbook record
         workbook.generated_workbook_path = str(output_path)
         workbook.status = "completed"
-        from datetime import datetime
-        workbook.completed_at = datetime.utcnow()
+        from datetime import datetime, timezone
+        workbook.completed_at = datetime.now(timezone.utc)
         db.commit()
         
         # Generate download URL
@@ -369,14 +376,14 @@ async def generate_workbook(
         logger.error(f"Template file not found for workbook {request.workbook_id}: {e}\n{error_trace}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Template file not found: {str(e)}. Ensure 'Strategy Workbook Template.xlsx' is in the correct location."
+            detail="Template file not found. Please contact support."
         )
     except Exception as e:
         error_trace = traceback.format_exc()
         logger.error(f"Workbook generation failed for workbook {request.workbook_id}: {str(e)}\n{error_trace}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Workbook generation failed: {str(e)}. Check server logs for details."
+            detail="Workbook generation failed. Please try again or contact support."
         )
 
 

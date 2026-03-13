@@ -6,7 +6,7 @@ from typing import Optional
 from authlib.integrations.starlette_client import OAuth
 from .auth0_management import Auth0Management
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timezone
 from ..models.user import User, UserRole
 from ..config import settings
 
@@ -186,8 +186,8 @@ class AuthService:
                 print(f" Backfilling missing role from Auth0: {auth0_role.value}")
                 user.role = auth0_role
             
-            user.last_login = datetime.utcnow()
-            user.updated_at = datetime.utcnow()
+            user.last_login = datetime.now(timezone.utc)
+            user.updated_at = datetime.now(timezone.utc)
         else:
             # Create new user
             # Use Auth0 role if available, otherwise default to ADVISOR
@@ -214,7 +214,7 @@ class AuthService:
                 'picture': user_info.get('picture'),
                 'email_verified': user_info.get('email_verified', False),
                 'role': default_role,
-                'last_login': datetime.utcnow(),
+                'last_login': datetime.now(timezone.utc),
             }
             
             # Add username from Auth0 if available

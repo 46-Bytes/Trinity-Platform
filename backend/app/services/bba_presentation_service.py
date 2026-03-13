@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Dict, Any, List
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import logging
 
@@ -118,7 +118,7 @@ class BBAPresentationService:
         """Persist generated slides to the BBA record."""
         bba = self._get_bba(bba_id)
         bba.presentation_slides = {"slides": slides}
-        bba.updated_at = datetime.utcnow()
+        bba.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(bba)
@@ -163,7 +163,7 @@ class BBAPresentationService:
         new_slides[slide_index] = merged
         bba.presentation_slides = {**bba.presentation_slides, "slides": new_slides}
         flag_modified(bba, "presentation_slides")
-        bba.updated_at = datetime.utcnow()
+        bba.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(bba)
@@ -210,7 +210,7 @@ class BBAPresentationService:
         slides.append(new_slide)
         bba.presentation_slides = {**bba.presentation_slides, "slides": slides}
         flag_modified(bba, "presentation_slides")
-        bba.updated_at = datetime.utcnow()
+        bba.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(bba)
@@ -256,7 +256,7 @@ class BBAPresentationService:
 
         bba.presentation_slides = {**bba.presentation_slides, "slides": slides}
         flag_modified(bba, "presentation_slides")
-        bba.updated_at = datetime.utcnow()
+        bba.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(bba)
@@ -307,7 +307,7 @@ class BBAPresentationService:
 
         bba.presentation_slides = {**bba.presentation_slides, "slides": new_slides}
         flag_modified(bba, "presentation_slides")
-        bba.updated_at = datetime.utcnow()
+        bba.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(bba)
@@ -387,7 +387,7 @@ class BBAPresentationService:
     @staticmethod
     def _current_month_year() -> str:
         """Return current month and year, e.g. 'February 2026'."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         import calendar
         return f"{calendar.month_name[now.month]} {now.year}"
 

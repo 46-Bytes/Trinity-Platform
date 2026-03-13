@@ -22,7 +22,11 @@ from ..utils.auth import get_current_user
 from ..services.auth_service import AuthService
 from ..services.audit_service import AuditService
 from ..config import settings
-from datetime import datetime, timedelta
+
+import logging
+
+logger = logging.getLogger(__name__)
+from datetime import datetime, timedelta, timezone
 from jose import jwt
 
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -221,9 +225,10 @@ async def create_user(
         )
         
     except Exception as e:
+        logger.error(f"Failed to create user: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            detail="Failed to create user. Please try again or contact support."
         )
     
     return UserResponse(
@@ -599,7 +604,7 @@ async def impersonate_user(
     
     # Generate special JWT token for impersonation
     token_secret = settings.SECRET_KEY
-    token_expiry = datetime.utcnow() + timedelta(hours=24)  # 24 hour expiry
+    token_expiry = datetime.now(timezone.utc) + timedelta(hours=24)  # 24 hour expiry
     
     token_payload = {
         "sub": str(target_user.id),  # Impersonated user ID (for current user context)

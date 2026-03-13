@@ -4,7 +4,7 @@ Chat service for managing conversations and messages with Trinity AI
 from typing import Dict, Any, Optional, List
 from uuid import UUID
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import logging
 
@@ -255,7 +255,7 @@ class ChatService:
             message_metadata={"model": gpt_response.get("model", "gpt-4o-mini") if 'gpt_response' in locals() else "gpt-4o-mini"}
         )
         self.db.add(assistant_message)
-        conversation.updated_at = datetime.utcnow()
+        conversation.updated_at = datetime.now(timezone.utc)
         self.db.commit()
         self.db.refresh(assistant_message)
         

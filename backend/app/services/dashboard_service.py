@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_, text, distinct
 from uuid import UUID
@@ -48,8 +48,6 @@ def format_time_ago(completed_at: datetime) -> str:
         Human-readable relative time (e.g., "5m ago", "1h ago", "2d ago")
     """
     now = datetime.now(timezone.utc)
-    if completed_at.tzinfo is None:
-        completed_at = completed_at.replace(tzinfo=timezone.utc)
     diff = now - completed_at
     
     # Less than 1 minute
@@ -83,7 +81,7 @@ def get_superadmin_dashboard_stats(db: Session) -> DashboardStatsResponse:
         DashboardStatsResponse with all statistics and recent AI generations
     """
     # Get current date and calculate month boundaries
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     current_month_start = datetime(now.year, now.month, 1)
     last_month_start = (current_month_start - timedelta(days=1)).replace(day=1)
     last_month_end = current_month_start - timedelta(seconds=1)

@@ -8,7 +8,7 @@ import string
 import re
 import time
 from typing import Optional, Dict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from ..config import settings
 from .email_service import EmailService
 import json
@@ -32,7 +32,7 @@ class Auth0Management:
             str: Access token for Management API
         """
         # Return cached token if still valid
-        if cls._access_token and cls._token_expiry and datetime.utcnow() < cls._token_expiry:
+        if cls._access_token and cls._token_expiry and datetime.now(timezone.utc) < cls._token_expiry:
             return cls._access_token
         
         # Request new token
@@ -54,7 +54,7 @@ class Auth0Management:
             
             # Set expiry to 5 minutes before actual expiry for safety
             expires_in = data.get("expires_in", 86400)  # Default 24 hours
-            cls._token_expiry = datetime.utcnow() + timedelta(seconds=expires_in - 300)
+            cls._token_expiry = datetime.now(timezone.utc) + timedelta(seconds=expires_in - 300)
             
             logger.info("✅ Auth0 Management API token obtained successfully")
             return cls._access_token

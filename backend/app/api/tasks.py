@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_, text
 from typing import List, Optional
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..database import get_db
 from ..models.engagement import Engagement
@@ -22,7 +22,8 @@ from ..schemas.task import (
     BulkTaskCreate,
 )
 from ..models.diagnostic import Diagnostic
-from ..services.role_check import get_current_user_from_token, check_engagement_access
+from ..utils.auth import get_current_user
+from ..services.role_check import check_engagement_access
 from .note import check_note_visibility
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
@@ -32,7 +33,7 @@ router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 async def create_task(
     task_data: TaskCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Create a new task.
@@ -112,7 +113,7 @@ async def create_task(
 async def create_tasks_from_diagnostic(
     bulk_data: BulkTaskCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Create multiple tasks from diagnostic AI recommendations.
@@ -220,7 +221,7 @@ async def create_tasks_from_diagnostic(
 @router.get("", response_model=List[TaskListItem])
 async def list_tasks(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token),
+    current_user: User = Depends(get_current_user),
     engagement_id: Optional[UUID] = Query(None, description="Filter by engagement ID"),
     assigned_to_user_id: Optional[UUID] = Query(None, description="Filter by assigned user ID"),
     status_filter: Optional[str] = Query(None, description="Filter by status (pending, in_progress, completed, cancelled)"),
@@ -362,7 +363,7 @@ async def list_tasks(
 async def get_task(
     task_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get a task by ID.
@@ -399,7 +400,7 @@ async def update_task(
     task_id: UUID,
     task_data: TaskUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Update a task.
@@ -478,7 +479,7 @@ async def update_task(
     
     # Handle status change to completed
     if update_data.get("status") == "completed" and task.status != "completed":
-        update_data["completed_at"] = datetime.utcnow()
+        update_data["completed_at"] = datetime.now(timezone.utc)
     elif update_data.get("status") != "completed" and task.status == "completed":
         # If uncompleting, clear completed_at
         update_data["completed_at"] = None
@@ -496,7 +497,7 @@ async def update_task(
 async def delete_task(
     task_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user_from_token),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Delete a task.

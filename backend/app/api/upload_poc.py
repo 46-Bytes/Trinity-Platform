@@ -32,7 +32,7 @@ from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 import tempfile
 import os
@@ -149,7 +149,8 @@ async def create_bba_from_diagnostic(
     try:
         bba = bba_service.create_bba_from_diagnostic(diagnostic_id=diagnostic_id, user_id=current_user.id)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        logger.warning(f"Invalid request creating BBA from diagnostic: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid request data")
     return {
         "success": True,
         "project_id": str(bba.id),
@@ -181,6 +182,12 @@ async def upload_files_poc(
     Returns:
         Dictionary with uploaded files and their OpenAI file_ids
     """
+    MAX_UPLOAD_FILES = 20
+    if len(files) > MAX_UPLOAD_FILES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Too many files. Maximum {MAX_UPLOAD_FILES} files per upload."
+        )
     if not files:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -676,15 +683,16 @@ async def generate_draft_findings(
         }
         
     except FileNotFoundError as e:
+        logger.error(f"Prompt template not found: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Prompt template not found: {str(e)}"
+            detail="Prompt template not found. Please try again or contact support."
         )
     except Exception as e:
         logger.error(f"Failed to generate draft findings: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate draft findings: {str(e)}"
+            detail="Failed to generate draft findings. Please try again or contact support."
         )
 
 
@@ -811,7 +819,7 @@ async def expand_findings(
         logger.error(f"Failed to expand findings: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to expand findings: {str(e)}"
+            detail="Failed to expand findings. Please try again or contact support."
         )
 
 
@@ -883,7 +891,7 @@ async def generate_snapshot_table(
         logger.error(f"Failed to generate snapshot table: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate snapshot table: {str(e)}"
+            detail="Failed to generate snapshot table. Please try again or contact support."
         )
 
 
@@ -964,7 +972,7 @@ async def generate_12month_plan(
         logger.error(f"Failed to generate 12-month plan: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate 12-month plan: {str(e)}"
+            detail="Failed to generate 12-month plan. Please try again or contact support."
         )
 
 
@@ -1086,7 +1094,7 @@ async def apply_report_edits(
         logger.error(f"Failed to apply edits: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to apply edits: {str(e)}"
+            detail="Failed to apply edits. Please try again or contact support."
         )
 
 
@@ -1150,7 +1158,7 @@ async def generate_executive_summary(
         logger.error(f"Failed to generate executive summary: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate executive summary: {str(e)}"
+            detail="Failed to generate executive summary. Please try again or contact support."
         )
 
 
@@ -1206,7 +1214,7 @@ async def export_to_word(
             "snapshot_table": bba.snapshot_table,
             "expanded_findings": bba.expanded_findings,
             "twelve_month_plan": bba.twelve_month_plan,
-            "exported_at": datetime.utcnow().isoformat()
+            "exported_at": datetime.now(timezone.utc).isoformat()
         }
         bba_service.update_final_report(project_id, final_report)
         
@@ -1232,7 +1240,7 @@ async def export_to_word(
         logger.error(f"Failed to export to Word: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to export to Word: {str(e)}"
+            detail="Failed to export to Word. Please try again or contact support."
         )
 
 
@@ -1348,9 +1356,10 @@ async def preview_task_planner(
         try:
             effective_settings = task_planner_service.load_settings(bba)
         except ValueError as e:
+            logger.warning(f"Invalid task planner settings: {e}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e),
+                detail="Invalid request data",
             )
 
     try:
@@ -1363,9 +1372,10 @@ async def preview_task_planner(
             tasks=tasks,
         )
     except ValueError as e:
+        logger.warning(f"Invalid request generating task planner preview: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            detail="Invalid request data",
         )
     except Exception as e:
         logger.error(
@@ -1376,7 +1386,7 @@ async def preview_task_planner(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate task planner preview: {str(e)}",
+            detail="Failed to generate task planner preview. Please try again or contact support.",
         )
 
     return {
@@ -1474,9 +1484,10 @@ async def export_task_planner_excel(
     try:
         settings = task_planner_service.load_settings(bba)
     except ValueError as e:
+        logger.warning(f"Invalid task planner settings for Excel export: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            detail="Invalid request data",
         )
 
     # Use existing tasks if available; otherwise regenerate
@@ -1501,16 +1512,17 @@ async def export_task_planner_excel(
             )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to generate task planner data for Excel export: {str(e)}",
+                detail="Failed to generate task planner data for Excel export. Please try again or contact support.",
             )
 
     try:
         exporter = get_bba_task_list_exporter()
         excel_bytes = exporter.generate_workbook_bytes(tasks=tasks)
     except ImportError as e:
+        logger.error(f"Required dependency not available for Excel export: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
+            detail="Required dependency not available. Please contact support.",
         )
     except Exception as e:
         logger.error(
@@ -1521,7 +1533,7 @@ async def export_task_planner_excel(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate Excel workbook: {str(e)}",
+            detail="Failed to generate Excel workbook. Please try again or contact support.",
         )
 
     # Build a safe filename for the download
@@ -1590,9 +1602,10 @@ async def generate_presentation_slides(
         slides = await presentation_service.generate_slides(bba)
         updated_bba = presentation_service.save_slides(project_id, slides)
     except ValueError as e:
+        logger.warning(f"Invalid request generating presentation slides: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            detail="Invalid request data",
         )
     except Exception as e:
         logger.error(
@@ -1603,7 +1616,7 @@ async def generate_presentation_slides(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate presentation slides: {str(e)}",
+            detail="Failed to generate presentation slides. Please try again or contact support.",
         )
 
     return {
@@ -1655,9 +1668,10 @@ async def edit_presentation_slide(
             updates=updates,
         )
     except ValueError as e:
+        logger.warning(f"Invalid request editing slide {slide_index}: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            detail="Invalid request data",
         )
     except Exception as e:
         logger.error(
@@ -1669,7 +1683,7 @@ async def edit_presentation_slide(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to edit slide: {str(e)}",
+            detail="Failed to edit slide. Please try again or contact support.",
         )
 
     return {
@@ -1718,9 +1732,10 @@ async def delete_presentation_slide(
             slide_index=slide_index,
         )
     except ValueError as e:
+        logger.warning(f"Invalid request deleting slide {slide_index}: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            detail="Invalid request data",
         )
     except Exception as e:
         logger.error(
@@ -1732,7 +1747,7 @@ async def delete_presentation_slide(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete slide: {str(e)}",
+            detail="Failed to delete slide. Please try again or contact support.",
         )
 
     return {
@@ -1778,9 +1793,10 @@ async def add_presentation_slide(
             slide_data=slide_data.model_dump(),
         )
     except ValueError as e:
+        logger.warning(f"Invalid request adding slide: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            detail="Invalid request data",
         )
     except Exception as e:
         logger.error(
@@ -1791,7 +1807,7 @@ async def add_presentation_slide(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to add slide: {str(e)}",
+            detail="Failed to add slide. Please try again or contact support.",
         )
 
     return {
@@ -1839,9 +1855,10 @@ async def move_presentation_slide(
             to_index=move_data.to_index,
         )
     except ValueError as e:
+        logger.warning(f"Invalid request moving slide: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            detail="Invalid request data",
         )
     except Exception as e:
         logger.error(
@@ -1852,7 +1869,7 @@ async def move_presentation_slide(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to move slide: {str(e)}",
+            detail="Failed to move slide. Please try again or contact support.",
         )
 
     return {
@@ -1899,14 +1916,16 @@ async def export_presentation_pptx(
         exporter = BBAPptxExporter()
         pptx_bytes = exporter.generate_presentation(bba)
     except ValueError as e:
+        logger.warning(f"Invalid request exporting presentation: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            detail="Invalid request data",
         )
     except ImportError as e:
+        logger.error(f"Required dependency not available for presentation export: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
+            detail="Required dependency not available. Please contact support.",
         )
     except Exception as e:
         logger.error(
@@ -1917,7 +1936,7 @@ async def export_presentation_pptx(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to export presentation: {str(e)}",
+            detail="Failed to export presentation. Please try again or contact support.",
         )
 
     client_name = bba.client_name or "Client"

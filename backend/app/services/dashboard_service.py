@@ -47,7 +47,9 @@ def format_time_ago(completed_at: datetime) -> str:
     Returns:
         Human-readable relative time (e.g., "5m ago", "1h ago", "2d ago")
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
+    if completed_at.tzinfo is None:
+        completed_at = completed_at.replace(tzinfo=timezone.utc)
     diff = now - completed_at
     
     # Less than 1 minute

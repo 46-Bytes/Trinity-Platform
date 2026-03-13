@@ -20,8 +20,9 @@ interface GenerateStepProps {
   workbookId: string;
   extractedData?: Record<string, any>;
   onComplete: () => void;
-  onDownload: () => void;
+  onDownload: () => Promise<void> | void;
   isGenerating: boolean;
+  isCompleted?: boolean;
   reviewNotes: string;
   onReviewNotesChange: (notes: string) => void;
 }
@@ -32,11 +33,13 @@ export function GenerateStep({
   onComplete,
   onDownload,
   isGenerating,
+  isCompleted = false,
   reviewNotes,
   onReviewNotesChange,
 }: GenerateStepProps) {
   const dispatch = useAppDispatch();
-  const [hasGenerated, setHasGenerated] = useState(false);
+  const [hasGenerated, setHasGenerated] = useState(isCompleted);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Helper: format section titles nicely
   const formatSectionTitle = (key: string): string => {
@@ -265,13 +268,30 @@ export function GenerateStep({
 
         {hasGenerated && (
           <Button
-            onClick={onDownload}
+            onClick={async () => {
+              setIsDownloading(true);
+              try {
+                await onDownload();
+              } finally {
+                setIsDownloading(false);
+              }
+            }}
+            disabled={isDownloading}
             className="w-full"
             size="lg"
             variant="default"
           >
-            <Download className="w-4 h-4 mr-2" />
-            Download Strategy Workbook
+            {isDownloading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Downloading...
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4 mr-2" />
+                Download Strategy Workbook
+              </>
+            )}
           </Button>
         )}
       </CardContent>

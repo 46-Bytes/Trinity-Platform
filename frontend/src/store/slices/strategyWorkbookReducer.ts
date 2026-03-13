@@ -359,7 +359,7 @@ const strategyWorkbookSlice = createSlice({
       .addCase(generateWorkbook.rejected, (state, action) => {
         state.isGenerating = false;
         state.error = action.payload as string;
-        if (state.currentWorkbook) {
+        if (state.currentWorkbook && state.currentWorkbook.status !== 'completed') {
           state.currentWorkbook.status = 'failed';
         }
       })

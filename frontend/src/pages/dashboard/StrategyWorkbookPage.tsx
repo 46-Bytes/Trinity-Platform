@@ -89,45 +89,41 @@ export default function StrategyWorkbookPage() {
     toast.info('Starting new workbook session');
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (currentWorkbook?.id) {
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
       const token = localStorage.getItem('auth_token');
       const downloadUrl = `${API_BASE_URL}/api/strategy-workbook/${currentWorkbook.id}/download`;
-      
-      // Use fetch with token to download the file
-      fetch(downloadUrl, {
+
+      const response = await fetch(downloadUrl, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
-      })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error('Failed to download workbook');
-          }
-          return response.blob();
-        })
-        .then((blob) => {
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.setAttribute('download', 'Strategy_Workshop_Workbook.xlsx');
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(url);
-          toast.success('Workbook downloaded successfully!');
-        })
-        .catch((error) => {
-          console.error('Download failed:', error);
-          toast.error('Failed to download workbook');
-        });
+      });
+      if (!response.ok) {
+        toast.error('Failed to download workbook');
+        throw new Error('Failed to download workbook');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'Strategy_Workshop_Workbook.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('Workbook downloaded successfully!');
     }
   };
 
   // Determine current step based on workbook status
   const getCurrentStep = () => {
     if (!currentWorkbook) return 'upload';
+    // Completed workbooks should always show the generate/download step
+    if (currentWorkbook.status === 'completed') {
+      return 'generate';
+    }
     if (currentWorkbook.status === 'draft' && uploadedFiles.length > 0) {
       // While still in draft, show clarify step first, then extract
       if (currentStep === 'clarify' || currentStep === 'upload') {
@@ -135,10 +131,7 @@ export default function StrategyWorkbookPage() {
       }
       return 'extract';
     }
-    if (
-      (currentWorkbook.status === 'ready' || currentWorkbook.status === 'completed') &&
-      currentWorkbook.extracted_data
-    ) {
+    if (currentWorkbook.status === 'ready' && currentWorkbook.extracted_data) {
       return 'generate';
     }
     return currentStep;
@@ -284,6 +277,7 @@ export default function StrategyWorkbookPage() {
           onComplete={handleGenerateComplete}
           onDownload={handleDownload}
           isGenerating={isGenerating}
+          isCompleted={currentWorkbook.status === 'completed'}
           reviewNotes={reviewNotes}
           onReviewNotesChange={setReviewNotes}
         />

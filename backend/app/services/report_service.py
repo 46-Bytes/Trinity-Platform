@@ -989,73 +989,19 @@ class ReportService:
         # Step 1: parse JSON strings
         answer = ReportService._try_parse_json(answer)
 
-        # Step 2: list of dicts → card blocks
+        # Step 2: list of dicts → columnar table
         if (isinstance(answer, list) and len(answer) > 0
                 and isinstance(answer[0], dict)):
-            # Collect columns
-            seen: dict[str, None] = {}
-            for row in answer:
-                if isinstance(row, dict):
-                    for k in row:
-                        if k not in seen:
-                            seen[k] = None
-            columns = list(seen.keys())
-            if not columns:
-                return ("&nbsp;", False)
+            rows = [r for r in answer if isinstance(r, dict)]
+            if rows:
+                table_html = ReportService._render_dicts_as_columnar_table(rows)
+                return (table_html, True)
+            return ("&nbsp;", False)
 
-            total = len([r for r in answer if isinstance(r, dict)])
-            cards: list[str] = []
-            entry_num = 0
-            for row in answer:
-                if not isinstance(row, dict):
-                    continue
-                entry_num += 1
-                lines: list[str] = []
-                if total > 1:
-                    lines.append(
-                        f'<b style="font-size: 12px; background-color: #e8e8e8;">'
-                        f'Entry {entry_num} of {total}</b>'
-                    )
-                for c in columns:
-                    val = row.get(c, "")
-                    if val is None or val == "":
-                        continue
-                    label = ReportService._escape_html(ReportService._humanize_label(str(c)))
-                    if isinstance(val, (dict, list)):
-                        display = ReportService._wrap_cell_text(
-                            ReportService._escape_html(ReportService._format_value_readable(val)), 50
-                        )
-                    else:
-                        display = ReportService._wrap_cell_text(
-                            ReportService._escape_html(str(val)), 50
-                        )
-                    lines.append(
-                        f'<b style="font-size: 12px;">{label}:</b> '
-                        f'<span style="font-size: 12px;">{display}</span>'
-                    )
-                cards.append("<br/>".join(lines))
-            return ("<br/><br/>".join(cards), True)
-
-        # Step 3: dict → single card block
+        # Step 3: dict → single-row columnar table
         if isinstance(answer, dict) and len(answer) >= 1:
-            lines: list[str] = []
-            for k, v in answer.items():
-                if v is None or v == "":
-                    continue
-                label = ReportService._escape_html(ReportService._humanize_label(str(k)))
-                if isinstance(v, (dict, list)):
-                    display = ReportService._wrap_cell_text(
-                        ReportService._escape_html(ReportService._format_value_readable(v)), 50
-                    )
-                else:
-                    display = ReportService._wrap_cell_text(
-                        ReportService._escape_html(str(v)), 50
-                    )
-                lines.append(
-                    f'<b style="font-size: 12px;">{label}:</b> '
-                    f'<span style="font-size: 12px;">{display}</span>'
-                )
-            return ("<br/>".join(lines), True)
+            table_html = ReportService._render_dicts_as_columnar_table([answer])
+            return (table_html, True)
 
         # Step 4: simple list → comma-separated
         if isinstance(answer, list) and len(answer) > 0:
@@ -1083,7 +1029,7 @@ class ReportService:
         field_map: Dict[str, str],
         question_type: str
     ) -> str:
-        """Render a matrixdynamic or multipletext response as a dynamic block.
+        """Render a matrixdynamic or multipletext response as a columnar table.
 
         Args:
             answer: The response value (list of dicts, dict, or string-encoded JSON)
@@ -1106,61 +1052,95 @@ class ReportService:
             """Get human-readable label from field_map, falling back to humanize."""
             return field_map.get(key, ReportService._humanize_label(str(key)))
 
-        def _render_dict_block(row: dict, entry_header: str = "") -> str:
-            """Render a single dict as a key-value block."""
-            lines: list = []
-            if entry_header:
-                lines.append(
-                    f'<b style="font-size: 12px; background-color: #e8e8e8; '
-                    f'padding: 2px 4px;">{ReportService._escape_html(entry_header)}</b>'
-                )
-            for k, v in row.items():
-                if v is None or v == "":
-                    continue
-                label = ReportService._escape_html(_field_label(k))
-                if isinstance(v, (dict, list)):
-                    display = ReportService._wrap_cell_text(
-                        ReportService._escape_html(ReportService._format_value_readable(v)), 50
-                    )
-                else:
-                    display = ReportService._wrap_cell_text(
-                        ReportService._escape_html(str(v)), 50
-                    )
-                lines.append(
-                    f'<b style="font-size: 12px;">{label}:</b> '
-                    f'<span style="font-size: 12px;">{display}</span>'
-                )
-            return "<br/>".join(lines)
-
-        # matrixdynamic → list of dicts
+        # matrixdynamic → list of dicts → columnar table
         if question_type == "matrixdynamic":
             if isinstance(answer, list) and len(answer) > 0:
-                total = len([r for r in answer if isinstance(r, dict)])
-                cards: list = []
-                entry_num = 0
-                for row in answer:
-                    if not isinstance(row, dict):
-                        continue
-                    entry_num += 1
-                    header = f"Entry {entry_num} of {total}" if total > 1 else ""
-                    cards.append(_render_dict_block(row, header))
-                if cards:
-                    return "<br/><br/>".join(cards)
-            # Fallback: if data is a single dict, render it directly
+                rows = [r for r in answer if isinstance(r, dict)]
+                if rows:
+                    return ReportService._render_dicts_as_columnar_table(rows, field_map)
+            # Fallback: if data is a single dict, render as single-row table
             if isinstance(answer, dict):
-                return _render_dict_block(answer)
+                return ReportService._render_dicts_as_columnar_table([answer], field_map)
 
-        # multipletext → single dict
+        # multipletext → single dict → columnar table (keys as columns)
         if question_type == "multipletext":
             if isinstance(answer, dict):
-                return _render_dict_block(answer)
+                return ReportService._render_dicts_as_columnar_table([answer], field_map)
             # Fallback: if stored as a list with one dict
             if isinstance(answer, list) and len(answer) == 1 and isinstance(answer[0], dict):
-                return _render_dict_block(answer[0])
+                return ReportService._render_dicts_as_columnar_table([answer[0]], field_map)
 
         # Final fallback: use _format_response_block for anything else
         html, _ = ReportService._format_response_block(answer)
         return html
+
+    @staticmethod
+    def _render_dicts_as_columnar_table(
+        rows: List[Dict[str, Any]],
+        field_map: Optional[Dict[str, str]] = None
+    ) -> str:
+        """Render a list of dicts as a horizontal columnar table.
+
+        Each dict key becomes a column header; each dict becomes a row.
+        For a single dict like {"Monday": "9-5", "Tuesday": "9-5", ...},
+        this produces a table with day-name columns and values in one row.
+
+        Args:
+            rows: List of dicts to render as table rows
+            field_map: Optional mapping of field keys to human-readable titles
+        """
+        if not rows:
+            return "&nbsp;"
+
+        field_map = field_map or {}
+
+        # Collect all unique keys preserving insertion order
+        seen: dict[str, None] = {}
+        for row in rows:
+            for k in row:
+                if k not in seen:
+                    seen[k] = None
+        columns = list(seen.keys())
+
+        if not columns:
+            return "&nbsp;"
+
+        def _label(key: str) -> str:
+            return field_map.get(key, ReportService._humanize_label(str(key)))
+
+        def _cell_value(val: Any) -> str:
+            if val is None or val == "":
+                return "&nbsp;"
+            if isinstance(val, (dict, list)):
+                return ReportService._escape_html(
+                    ReportService._format_value_readable(val)
+                )
+            return ReportService._escape_html(str(val))
+
+        # Build header row
+        header_cells = "".join(
+            f'<th style="text-align: center; font-size: 12px; padding: 4px 6px;">'
+            f'{ReportService._escape_html(_label(c))}</th>'
+            for c in columns
+        )
+
+        # Build data rows
+        body_rows = ""
+        for row in rows:
+            cells = "".join(
+                f'<td style="text-align: center; font-size: 12px; padding: 4px 6px;">'
+                f'{_cell_value(row.get(c))}</td>'
+                for c in columns
+            )
+            body_rows += f"<tr>{cells}</tr>"
+
+        return (
+            f'<table class="sub-table" style="table-layout: auto; width: 100%; '
+            f'border-collapse: collapse; margin: 4px 0;">'
+            f'<thead><tr>{header_cells}</tr></thead>'
+            f'<tbody>{body_rows}</tbody>'
+            f'</table>'
+        )
 
     @staticmethod
     def _format_unparseable_json_string(text: str) -> str:

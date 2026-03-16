@@ -34,7 +34,7 @@ class OpenAIService:
                 api_key=settings.OPENAI_API_KEY,
                 timeout=httpx.Timeout(
                     connect=10.0,
-                    read=1800.0,      # ← 30 minutes for long requests
+                    read=600.0,       # ← 10 minutes for long requests (reduced from 30 min)
                     write=10.0,
                     pool=10.0
                 ),
@@ -577,47 +577,42 @@ class OpenAIService:
         tools: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
-        Process user scores using GPT with the scoring map.
-        This is the core AI processing step.
-        
+        Process user scores using GPT with the scoring map (Part 1 of split pipeline).
+        Focuses on scoring & validation only. Report generation is handled by generate_report().
+
         Args:
-            scoring_prompt: Instructions for scoring (scoring_prompt.md)
+            scoring_prompt: Instructions for scoring (scoring_prompt_scoring.md)
             scoring_map: Mapping of questions to scores
-            task_library: Library of predefined tasks
+            task_library: Library of predefined tasks (kept for backward compat, not sent to AI in split mode)
             diagnostic_questions: Full diagnostic survey structure
             user_responses: User's answers
             file_context: Context about uploaded files (Balance Sheets, P&L, etc.)
             file_ids: List of OpenAI file IDs to attach for AI analysis
             reasoning_effort: Reasoning effort level ("low", "medium", "high")
-            
+
         Returns:
-            Dictionary containing scoring results, roadmap, and advisor report
+            Dictionary containing scoring results (scoredRows, allResponses, moduleAverages, fileInsights)
         """
         logger.info("[OpenAI] ========== Starting process_scoring ==========")
 
-        
+
         # Build file context message if files are present
         file_context_msg = ""
         if file_context:
             file_context_msg = f"\n\n{file_context}"
-        
+
         question_text_map = {}
         for page in diagnostic_questions.get("pages", []):
             for element in page.get("elements", []):
                 question_text_map[element["name"]] = element.get("title", element["name"])
-        
 
-        # Replace {MODULE_TASK_LIBRARY} placeholder if present in prompt
-        prompt_text = scoring_prompt.replace(
-            "{MODULE_TASK_LIBRARY}",
-            json.dumps(task_library, indent=2)
-        )
+        # Use the scoring prompt as-is (no task library injection for scoring-only mode)
+        prompt_text = scoring_prompt
 
-        # Build system message
+        # Build system message (scoring only - no task library needed)
         system_content = (
             f"{prompt_text}\n\n"
             f"Scoring Map: {json.dumps(scoring_map)}\n\n"
-            f"Task Library: {json.dumps(task_library)}\n\n"
             f"IMPORTANT: Respond with valid JSON only. No markdown, no explanations."
             f"{file_context_msg}"
         )
@@ -663,6 +658,84 @@ class OpenAIService:
             logger.error(f"[OpenAI] Full exception details:", exc_info=True)
             raise
     
+    async def generate_report(
+        self,
+        report_prompt: str,
+        scored_rows: List[Dict[str, Any]],
+        all_responses: List[Dict[str, Any]],
+        module_averages: Dict[str, Any],
+        file_insights: str,
+        task_library: Dict[str, Any],
+        summary: str,
+        reasoning_effort: str = "medium"
+    ) -> Dict[str, Any]:
+        """
+        Generate advisor report from pre-scored diagnostic data (Part 2 of split pipeline).
+
+        This method takes the scoring output from process_scoring() and generates
+        the advisory report, roadmap, client summary, and execution pack.
+        No file processing needed - works entirely from pre-computed data.
+
+        Args:
+            report_prompt: Prompt for report generation (scoring_prompt_report.md)
+            scored_rows: Pre-computed scored rows from scoring step
+            all_responses: All diagnostic responses from scoring step
+            module_averages: Pre-computed module averages with RAG/rank from scoring step
+            file_insights: Key findings from uploaded documents (from scoring step)
+            task_library: Library of predefined tasks
+            summary: Diagnostic summary from Step 2
+            reasoning_effort: Reasoning effort level ("low", "medium", "high")
+
+        Returns:
+            Dictionary containing report JSON (clientSummary, roadmap, advisorReport, executionPack)
+        """
+        logger.info("[OpenAI] ========== Starting generate_report (Part 2) ==========")
+
+        # Replace {MODULE_TASK_LIBRARY} placeholder if present in prompt
+        prompt_text = report_prompt.replace(
+            "{MODULE_TASK_LIBRARY}",
+            json.dumps(task_library, indent=2)
+        )
+
+        # Build system message with the report prompt
+        system_content = prompt_text
+
+        # Build user message with all the pre-computed scoring data
+        user_content = (
+            f"Diagnostic Summary:\n{summary}\n\n"
+            f"Module Averages (pre-computed and verified):\n{json.dumps(module_averages, indent=2)}\n\n"
+            f"File Insights:\n{file_insights if file_insights else 'No uploaded documents.'}\n\n"
+            f"Scored Rows ({len(scored_rows)} items):\n{json.dumps(scored_rows)}\n\n"
+            f"All Responses ({len(all_responses)} items):\n{json.dumps(all_responses)}\n\n"
+            f"Generate the complete JSON response as specified in the prompt instructions."
+        )
+
+        messages = [
+            {"role": "system", "content": system_content},
+            {"role": "user", "content": user_content}
+        ]
+
+        import time
+        report_start_time = time.time()
+
+        try:
+            logger.info("[OpenAI] ⏳ Starting report generation (this may take several minutes)...")
+            result = await self.generate_json_completion(
+                messages=messages,
+                temperature=0.3,
+                reasoning_effort=reasoning_effort,
+            )
+            report_elapsed = time.time() - report_start_time
+            logger.info(f"[OpenAI] ✅ Report generation completed in {report_elapsed:.2f} seconds ({report_elapsed/60:.2f} minutes)")
+            return result
+        except Exception as e:
+            report_elapsed = time.time() - report_start_time
+            error_msg = str(e)
+            logger.error(f"[OpenAI] ❌ Report generation failed after {report_elapsed:.2f} seconds ({report_elapsed/60:.2f} minutes)")
+            logger.error(f"[OpenAI] Error: {error_msg}")
+            logger.error(f"[OpenAI] Full exception details:", exc_info=True)
+            raise
+
     async def generate_advice(
         self,
         advice_prompt: str,

@@ -436,12 +436,12 @@ class DiagnosticService:
                 f"{[x.file_name + ' (' + (x.file_extension or 'no ext') + ')' for x in filtered_files]}"
             )
         
-        # Load type-specific scoring prompt
-        scoring_prompt = load_prompt_for_type("scoring_prompt", engagement_type)
+        # Load type-specific scoring prompt (split: scoring-only prompt for Part 1)
+        scoring_prompt = load_prompt_for_type("scoring_prompt_scoring", engagement_type)
 
-        
+
         # Call OpenAI API for scoring with file re-upload retry on file-not-found errors
-        logger.info("[Scoring] Calling OpenAI API for scoring (this may take several minutes)...")
+        logger.info("[Scoring] Calling OpenAI API for scoring - Part 1: Scoring & Validation (this may take several minutes)...")
         
         scoring_start_time = time_module.time()
         
@@ -551,31 +551,73 @@ class DiagnosticService:
         
         if scoring_result is None:
             raise Exception("Scoring failed after all retries")
-        
-        # Extract scoring data
+
+        # Extract scoring data from Part 1
         scoring_data = scoring_result["parsed_content"]
-        
-        step3_elapsed = time_module.time() - step3_start
-        logger.info(f"[Pipeline] STEP 3 (Scoring) completed in {step3_elapsed:.2f} seconds ({step3_elapsed/60:.2f} minutes)")
-        
-        # ===== STEP 4: Calculate and Validate Scores =====
-        step4_start = time_module.time()
-        # Check for shutdown after step 3 (scoring)
+
+        step3a_elapsed = time_module.time() - step3_start
+        logger.info(f"[Pipeline] STEP 3a (Scoring & Validation) completed in {step3a_elapsed:.2f} seconds ({step3a_elapsed/60:.2f} minutes)")
+
+        # Check for shutdown after step 3a
         if check_shutdown and background_task_manager.is_shutting_down():
             logger.warning(f"[Pipeline] Shutdown detected after scoring for diagnostic {diagnostic.id}")
             raise asyncio.CancelledError("Shutdown detected")
-        
+
+        # Extract scoring-only fields from Part 1 result
+        scored_rows = scoring_data.get("scoredRows") or scoring_data.get("scored_rows", [])
+        all_responses = scoring_data.get("allResponses") or scoring_data.get("allResponses", [])
+        module_averages = scoring_data.get("moduleAverages", {})
+        file_insights = scoring_data.get("fileInsights", "")
+
+        logger.info(f"[Pipeline] Part 1 results: {len(scored_rows)} scored rows, {len(all_responses)} total responses, {len(module_averages)} modules")
+
+        # ===== STEP 3b: Generate Report (Part 2 - no files needed) =====
+        step3b_start = time_module.time()
+        logger.info("=" * 60)
+        logger.info("[Pipeline] ========== STEP 3b: Report Generation (Part 2) ==========")
+        logger.info(f"[Pipeline] Step 3b started at {time_module.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info("=" * 60)
+
+        # Load type-specific report prompt (Part 2)
+        report_prompt = load_prompt_for_type("scoring_prompt_report", engagement_type)
+
+        report_result = await openai_service.generate_report(
+            report_prompt=report_prompt,
+            scored_rows=scored_rows,
+            all_responses=all_responses,
+            module_averages=module_averages,
+            file_insights=file_insights,
+            task_library=task_library,
+            summary=summary,
+        )
+
+        report_data = report_result["parsed_content"]
+
+        step3b_elapsed = time_module.time() - step3b_start
+        logger.info(f"[Pipeline] STEP 3b (Report Generation) completed in {step3b_elapsed:.2f} seconds ({step3b_elapsed/60:.2f} minutes)")
+
+        step3_elapsed = time_module.time() - step3_start
+        logger.info(f"[Pipeline] STEP 3 total (Scoring + Report) completed in {step3_elapsed:.2f} seconds ({step3_elapsed/60:.2f} minutes)")
+
+        # Merge scoring data with report data for downstream processing
+        scoring_data.update(report_data)
+
+        # ===== STEP 4: Calculate and Validate Scores =====
+        step4_start = time_module.time()
+        # Check for shutdown after step 3
+        if check_shutdown and background_task_manager.is_shutting_down():
+            logger.warning(f"[Pipeline] Shutdown detected after report generation for diagnostic {diagnostic.id}")
+            raise asyncio.CancelledError("Shutdown detected")
+
         logger.info("=" * 60)
         logger.info("[Pipeline] ========== STEP 4: Processing Scoring Data ==========")
         logger.info(f"[Pipeline] Step 4 started at {time_module.strftime('%Y-%m-%d %H:%M:%S')}")
         logger.info("=" * 60)
-        
-        # Support both old and new field names from AI response
-        scored_rows = scoring_data.get("scoredRows") or scoring_data.get("scored_rows", [])
+
+        # Extract fields from merged scoring + report data
         roadmap = scoring_data.get("diagnosticOverview") or scoring_data.get("roadmap", [])
         client_summary = scoring_data.get("clientSummary", "")
         advisor_report = scoring_data.get("advisorReport", "")
-        all_responses = scoring_data.get("allResponses", [])
         execution_pack = scoring_data.get("executionPack", {})
 
         # Calculate module scores

@@ -552,9 +552,22 @@ async def submit_diagnostic(
             logger.info(f"[Background Task] Starting diagnostic pipeline processing...")
             logger.info(f"[Background Task] Diagnostic status: {diagnostic_obj.status}")
             logger.info(f"[Background Task] Diagnostic engagement_id: {diagnostic_obj.engagement_id}")
-            
-            # Process the diagnostic pipeline (with shutdown checks)
-            await background_service._process_diagnostic_pipeline(diagnostic_obj, check_shutdown=True)
+
+            # Process the diagnostic pipeline with a 15-minute overall timeout
+            PIPELINE_TIMEOUT_SECONDS = 900  # 15 minutes
+            try:
+                await asyncio.wait_for(
+                    background_service._process_diagnostic_pipeline(diagnostic_obj, check_shutdown=True),
+                    timeout=PIPELINE_TIMEOUT_SECONDS
+                )
+            except asyncio.TimeoutError:
+                logger.error(f"[Background Task] ⏰ Pipeline timed out after {PIPELINE_TIMEOUT_SECONDS} seconds ({PIPELINE_TIMEOUT_SECONDS/60:.0f} minutes) for diagnostic {diagnostic_id}")
+                diagnostic_obj = background_db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
+                if diagnostic_obj:
+                    diagnostic_obj.status = "failed"
+                    background_db.commit()
+                    logger.info(f"[Background Task] Updated diagnostic {diagnostic_id} status to 'failed' (pipeline timeout)")
+                return
             
             pipeline_elapsed = time.time() - pipeline_start_time
             logger.info(f"[Background Task] ✅ Diagnostic pipeline completed in {pipeline_elapsed:.2f} seconds ({pipeline_elapsed/60:.2f} minutes)")
@@ -791,7 +804,25 @@ async def get_diagnostic_status(
 
     # Enforce engagement access (clients may be in engagement.client_ids)
     _require_diagnostic_access(db=db, diagnostic=diagnostic, current_user=current_user)
-    
+
+    # Auto-recover stuck diagnostics: if processing for more than 20 minutes, mark as failed
+    # Uses updated_at since it gets set when status changes to "processing"
+    STUCK_THRESHOLD_SECONDS = 1200  # 20 minutes
+    if diagnostic.status == "processing" and diagnostic.updated_at:
+        # Handle both naive and timezone-aware datetimes
+        updated = diagnostic.updated_at
+        now = datetime.now(timezone.utc)
+        if updated.tzinfo is None:
+            updated = updated.replace(tzinfo=timezone.utc)
+        elapsed = (now - updated).total_seconds()
+        if elapsed > STUCK_THRESHOLD_SECONDS:
+            logger.warning(
+                f"[Status] Diagnostic {diagnostic_id} stuck in 'processing' for {elapsed:.0f}s "
+                f"({elapsed/60:.1f} min). Auto-marking as 'failed'."
+            )
+            diagnostic.status = "failed"
+            db.commit()
+
     return {
         "status": diagnostic.status,
         "completed_at": diagnostic.completed_at.isoformat() if diagnostic.completed_at else None,

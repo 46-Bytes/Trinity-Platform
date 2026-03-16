@@ -341,15 +341,37 @@ class ReportService:
                 if qkey in structured_question_map:
                     reverse_text_map[qtext] = qkey
 
+        file_indicators = [
+            'media_id', 'Media Id', 'mediaId',
+            'file_name', 'File Name', 'fileName', 'filename',
+            'file_type', 'File Type', 'fileType',
+            'openai_file_id', 'Openai File Id', 'openaiFileId',
+            'relative_path', 'Relative Path', 'relativePath',
+        ]
+
         rows_html = ""
         for row in scored_rows:
             question_text = str(row.get("question", ""))
+            row_key = row.get("question_key", "")
+
+            # Skip file upload fields
+            if isinstance(row_key, str) and row_key.startswith("docs_"):
+                continue
+            response = row.get("response", "")
+            parsed_resp = ReportService._try_parse_json(response)
+            if (isinstance(parsed_resp, list) and len(parsed_resp) > 0
+                    and isinstance(parsed_resp[0], dict)
+                    and any(
+                        isinstance(r, dict) and any(ind in r for ind in file_indicators)
+                        for r in parsed_resp
+                    )):
+                continue
+
             question = ReportService._wrap_cell_text(
                 ReportService._escape_html(question_text), 40
             )
             score = str(row.get("score", ""))
             module = str(row.get("module", ""))
-            response = row.get("response", "")
 
             # Log complex responses for debugging
             logger.debug(
@@ -589,6 +611,20 @@ class ReportService:
             answer = qa.get("answer")
             key = qa.get("key", "")
 
+            # --- Skip file upload fields entirely ---
+            if key.startswith("docs_"):
+                continue
+            # Also detect file uploads by checking answer content
+            _parsed_for_file_check = ReportService._try_parse_json(answer)
+            if (isinstance(_parsed_for_file_check, list)
+                    and len(_parsed_for_file_check) > 0
+                    and isinstance(_parsed_for_file_check[0], dict)
+                    and any(
+                        isinstance(row, dict) and any(ind in row for ind in file_indicators)
+                        for row in _parsed_for_file_check
+                    )):
+                continue
+
             # Log structured data detection for debugging
             is_complex = isinstance(answer, (list, dict)) or (
                 isinstance(answer, str) and len(answer) > 10
@@ -674,49 +710,15 @@ class ReportService:
             </tr>"""
                 continue
 
-            # --- File-upload detection ---
-            parsed = answer_parsed
-            is_file_data = (
-                isinstance(parsed, list)
-                and len(parsed) > 0
-                and isinstance(parsed[0], dict)
-                and any(
-                    isinstance(row, dict) and any(ind in row for ind in file_indicators)
-                    for row in parsed
-                )
-            )
+            # Use the unified formatter
+            response_html, is_block = ReportService._format_response_block(answer)
 
-            if is_file_data:
-                file_names = []
-                for row in parsed:
-                    if isinstance(row, dict):
-                        fn = (
-                            row.get('file_name') or row.get('File Name') or
-                            row.get('fileName') or row.get('filename') or
-                            row.get('Filename') or ''
-                        )
-                        if fn:
-                            file_names.append(fn)
-                answer_html = (
-                    ', '.join(ReportService._wrap_cell_text(ReportService._escape_html(f)) for f in file_names)
-                    if file_names else "Files uploaded"
-                )
+            if not response_html:
+                response_html = "&nbsp;"
+
+            if is_block:
+                # Complex data → question header + full-width card block
                 rows_html += f"""
-            <tr>
-                <td style="text-align: center; width: 8%;">{idx}</td>
-                <td style="width: 42%; word-wrap: break-word; overflow: hidden;">{question}</td>
-                <td style="width: 50%; word-wrap: break-word; overflow: hidden;">{answer_html}</td>
-            </tr>"""
-            else:
-                # Use the unified formatter
-                response_html, is_block = ReportService._format_response_block(answer)
-
-                if not response_html:
-                    response_html = "&nbsp;"
-
-                if is_block:
-                    # Complex data → question header + full-width card block
-                    rows_html += f"""
             <tr>
                 <td style="text-align: center; width: 8%;">{idx}</td>
                 <td colspan="2" style="width: 92%; font-weight: bold; word-wrap: break-word; overflow: hidden;">{question}</td>
@@ -724,9 +726,9 @@ class ReportService:
             <tr>
                 <td colspan="3" style="padding: 4px 8px; overflow: hidden;">{response_html}</td>
             </tr>"""
-                else:
-                    # Simple data → standard 3-column row
-                    rows_html += f"""
+            else:
+                # Simple data → standard 3-column row
+                rows_html += f"""
             <tr>
                 <td style="text-align: center; width: 8%;">{idx}</td>
                 <td style="width: 42%; word-wrap: break-word; overflow: hidden;">{question}</td>

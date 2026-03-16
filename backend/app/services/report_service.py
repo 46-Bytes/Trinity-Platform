@@ -341,37 +341,15 @@ class ReportService:
                 if qkey in structured_question_map:
                     reverse_text_map[qtext] = qkey
 
-        file_indicators = [
-            'media_id', 'Media Id', 'mediaId',
-            'file_name', 'File Name', 'fileName', 'filename',
-            'file_type', 'File Type', 'fileType',
-            'openai_file_id', 'Openai File Id', 'openaiFileId',
-            'relative_path', 'Relative Path', 'relativePath',
-        ]
-
         rows_html = ""
         for row in scored_rows:
             question_text = str(row.get("question", ""))
-            row_key = row.get("question_key", "")
-
-            # Skip file upload fields
-            if isinstance(row_key, str) and row_key.startswith("docs_"):
-                continue
-            response = row.get("response", "")
-            parsed_resp = ReportService._try_parse_json(response)
-            if (isinstance(parsed_resp, list) and len(parsed_resp) > 0
-                    and isinstance(parsed_resp[0], dict)
-                    and any(
-                        isinstance(r, dict) and any(ind in r for ind in file_indicators)
-                        for r in parsed_resp
-                    )):
-                continue
-
             question = ReportService._wrap_cell_text(
                 ReportService._escape_html(question_text), 40
             )
             score = str(row.get("score", ""))
             module = str(row.get("module", ""))
+            response = row.get("response", "")
 
             # Log complex responses for debugging
             logger.debug(
@@ -589,14 +567,6 @@ class ReportService:
         dynamic blocks using the survey definition. Other responses go
         through _format_response_block() which guarantees no raw JSON.
         """
-        file_indicators = [
-            'media_id', 'Media Id', 'mediaId',
-            'file_name', 'File Name', 'fileName', 'filename',
-            'file_type', 'File Type', 'fileType',
-            'openai_file_id', 'Openai File Id', 'openaiFileId',
-            'relative_path', 'Relative Path', 'relativePath',
-        ]
-
         structured_question_map = structured_question_map or {}
 
         # Build case-insensitive lookup for structured_question_map
@@ -611,18 +581,8 @@ class ReportService:
             answer = qa.get("answer")
             key = qa.get("key", "")
 
-            # --- Skip file upload fields entirely ---
+            # Skip file upload fields
             if key.startswith("docs_"):
-                continue
-            # Also detect file uploads by checking answer content
-            _parsed_for_file_check = ReportService._try_parse_json(answer)
-            if (isinstance(_parsed_for_file_check, list)
-                    and len(_parsed_for_file_check) > 0
-                    and isinstance(_parsed_for_file_check[0], dict)
-                    and any(
-                        isinstance(row, dict) and any(ind in row for ind in file_indicators)
-                        for row in _parsed_for_file_check
-                    )):
                 continue
 
             # Log structured data detection for debugging
@@ -766,6 +726,10 @@ class ReportService:
         for key, value in user_responses.items():
             # Skip None values
             if value is None:
+                continue
+
+            # Skip file upload fields
+            if key.startswith("docs_"):
                 continue
 
             # Deserialise JSON strings stored as text

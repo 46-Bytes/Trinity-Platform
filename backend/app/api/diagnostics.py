@@ -577,6 +577,9 @@ async def submit_diagnostic(
                             element_name = element.get("name")
                             element_title = element.get("title", element_name)
                             el_type = element.get("type", "")
+                            # Skip file upload elements - they can't be rendered in PDF
+                            if el_type == "file":
+                                continue
                             if element_name:
                                 question_text_map[element_name] = element_title
                             if element_name and el_type == "matrixdynamic":
@@ -1061,6 +1064,9 @@ async def download_diagnostic_report(
                 element_name = element.get("name")
                 element_title = element.get("title", element_name)
                 el_type = element.get("type", "")
+                # Skip file upload elements - they can't be rendered in PDF
+                if el_type == "file":
+                    continue
                 if element_name:
                     question_text_map[element_name] = element_title
                 if element_name and el_type == "matrixdynamic":

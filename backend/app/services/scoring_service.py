@@ -10,9 +10,9 @@ logger = logging.getLogger(__name__)
 
 class ScoringService:
     """Service for scoring diagnostic responses"""
-    
-    # Module mapping
-    MODULES = {
+
+    # Sale Ready module mapping (M1-M8)
+    SALE_READY_MODULES = {
         "M1": "Financial Clarity & Reporting",
         "M2": "Legal, Compliance & Property",
         "M3": "Owner Dependency & Operations",
@@ -22,6 +22,31 @@ class ScoringService:
         "M7": "Tax, Compliance & Regulatory",
         "M8": "Due Diligence Preparation"
     }
+
+    # Value Builder module mapping (V1-V11)
+    VALUE_BUILDER_MODULES = {
+        "V1": "Financial Management",
+        "V2": "Strategy & Planning",
+        "V3": "Leadership & Communications",
+        "V4": "People",
+        "V5": "Systems & Processes",
+        "V6": "Technology",
+        "V7": "Sales & Marketing",
+        "V8": "Brand, IP & Competitive Advantage",
+        "V9": "Owner Independence",
+        "V10": "Value & Growth",
+        "V11": "Risk, Legal, Compliance & Property"
+    }
+
+    # Backward-compatible default
+    MODULES = SALE_READY_MODULES
+
+    @classmethod
+    def get_modules(cls, engagement_type: str = 'sale_ready') -> Dict[str, str]:
+        """Get module mapping for the given engagement type."""
+        if engagement_type == 'value_builder':
+            return cls.VALUE_BUILDER_MODULES
+        return cls.SALE_READY_MODULES
     
     # RAG thresholds
     RAG_RED_THRESHOLD = 2.0
@@ -29,55 +54,50 @@ class ScoringService:
     
     @staticmethod
     def calculate_module_scores(
-        scored_rows: List[Dict[str, Any]]
+        scored_rows: List[Dict[str, Any]],
+        engagement_type: str = 'sale_ready'
     ) -> Dict[str, Dict[str, Any]]:
         """
         Calculate average scores for each module.
-        
+
         Args:
             scored_rows: List of scored question responses with module assignments
-            
+            engagement_type: 'sale_ready' or 'value_builder' for correct module name lookup
+
         Returns:
             Dictionary mapping module codes to score data
-            
-        Example scored_row:
-            {
-                "question": "How has your financial performance been?",
-                "response": "Better",
-                "score": 5,
-                "module": "M1"
-            }
         """
+        modules_map = ScoringService.get_modules(engagement_type)
         module_data = {}
-        
+
         # Group scores by module
         for row in scored_rows:
             module = row.get("module")
             score_raw = row.get("score")
-            
+
             if not module or score_raw is None:
                 continue
-            
+
             # Convert score to float if it's a string
             try:
                 score = float(score_raw) if not isinstance(score_raw, (int, float)) else float(score_raw)
             except (ValueError, TypeError):
                 logger.warning(f"Invalid score format for module {module}: {score_raw}")
                 continue
-            
+
             if module not in module_data:
                 module_data[module] = {
                     "scores": [],
                     "questions": []
                 }
-            
+
             module_data[module]["scores"].append(score)
             module_data[module]["questions"].append({
                 "question": row.get("question"),
                 "response": row.get("response"),
                 "score": score
             })
-        
+
         # Calculate averages
         module_scores = {}
         for module, data in module_data.items():
@@ -85,16 +105,16 @@ class ScoringService:
             total = sum(scores)
             count = len(scores)
             average = Decimal(total / count).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
-            
+
             module_scores[module] = {
                 "module": module,
-                "module_name": ScoringService.MODULES.get(module, module),
+                "module_name": modules_map.get(module, module),
                 "score": float(average),
                 "count": count,
                 "total": total,
                 "questions": data["questions"]
             }
-        
+
         return module_scores
     
     @staticmethod
@@ -274,8 +294,8 @@ class ScoringService:
             "errors": []
         }
         
-        scored_rows = ai_scoring_data.get("scored_rows", [])
-        roadmap = ai_scoring_data.get("roadmap", [])
+        scored_rows = ai_scoring_data.get("scoredRows") or ai_scoring_data.get("scored_rows", [])
+        roadmap = ai_scoring_data.get("diagnosticOverview") or ai_scoring_data.get("roadmap", [])
         
         # Check if scored_rows exists
         if not scored_rows:

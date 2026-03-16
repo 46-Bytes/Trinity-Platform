@@ -20,16 +20,19 @@ class ReportService:
     def generate_pdf_report(
         diagnostic: Any,
         user: Any,
-        question_text_map: Dict[str, str]
+        question_text_map: Dict[str, str],
+        structured_question_map: Optional[Dict[str, Any]] = None
     ) -> bytes:
         """
         Generate PDF report for a diagnostic.
-        
+
         Args:
             diagnostic: Diagnostic model instance
             user: User model instance (report owner)
             question_text_map: Mapping of question keys to question text
-            
+            structured_question_map: Mapping of question keys to field definitions
+                for matrixdynamic/multipletext questions
+
         Returns:
             PDF bytes
         """
@@ -46,10 +49,11 @@ class ReportService:
         html_content = ReportService._build_html_report(
             diagnostic=diagnostic,
             user=user,
-            question_text_map=question_text_map
+            question_text_map=question_text_map,
+            structured_question_map=structured_question_map
         )
         logger.debug("HTML report built; length=%s characters", len(html_content or ""))
-        
+
         # Generate PDF from HTML
         pdf_bytes = ReportService._html_to_pdf(html_content)
         logger.info(
@@ -64,7 +68,8 @@ class ReportService:
     def _build_html_report(
         diagnostic: Any,
         user: Any,
-        question_text_map: Dict[str, str]
+        question_text_map: Dict[str, str],
+        structured_question_map: Optional[Dict[str, Any]] = None
     ) -> str:
         """Build HTML report content."""
         
@@ -182,8 +187,8 @@ class ReportService:
     {ReportService._build_summary_section(summary)}
     {ReportService._build_advice_section(advice, roadmap)}
     {ReportService._build_advisor_report_section(advisor_report, business_name)}
-    {ReportService._build_scoring_section(scored_rows, client_summary, roadmap)}
-    {ReportService._build_all_responses_section(qa_data)}
+    {ReportService._build_scoring_section(scored_rows, client_summary, roadmap, question_text_map=question_text_map, structured_question_map=structured_question_map)}
+    {ReportService._build_all_responses_section(qa_data, structured_question_map=structured_question_map)}
 </body>
 </html>"""
         
@@ -243,7 +248,11 @@ class ReportService:
         # (1. Executive Summary, 2. Module Findings, 3. Task List by Module, 4. Additional Bespoke Tasks).
         # We add the major heading "Sale-Ready Assessment Report for [Company]" above it.
         advisor_html = ReportService._markdown_to_html(advisor_report)
-        
+        # Strip Section 5 (Scoring Detail) — its "5a. Scored Responses" and
+        # "5b. All Responses" tables are redundant with the dedicated formatted
+        # sections and contain raw JSON values that render badly in the PDF.
+        advisor_html = ReportService._strip_response_tables_from_summary(advisor_html)
+
         # Build major heading text
         company_text = business_name.strip() if business_name else "the business"
         heading_html = f"<h1>Sale-Ready Assessment Report for {ReportService._escape_html(company_text)}</h1>"
@@ -259,7 +268,9 @@ class ReportService:
     def _build_scoring_section(
         scored_rows: List[Dict[str, Any]],
         client_summary: str,
-        roadmap: List[Dict[str, Any]] = None
+        roadmap: List[Dict[str, Any]] = None,
+        question_text_map: Optional[Dict[str, str]] = None,
+        structured_question_map: Optional[Dict[str, Any]] = None
     ) -> str:
         """
         Build scoring section with:
@@ -273,10 +284,14 @@ class ReportService:
             len(roadmap or []) if roadmap is not None else 0,
         )
         sections: List[str] = []
-        
+
         # Scored Responses Table
         if scored_rows:
-            sections.append(ReportService._build_scored_responses_table(scored_rows))
+            sections.append(ReportService._build_scored_responses_table(
+                scored_rows,
+                question_text_map=question_text_map,
+                structured_question_map=structured_question_map
+            ))
         
         # Client Summary section (narrative + roadmap table)
         if client_summary or roadmap:
@@ -306,34 +321,102 @@ class ReportService:
         return ""
     
     @staticmethod
-    def _build_scored_responses_table(scored_rows: List[Dict[str, Any]]) -> str:
-        """Build scored responses table."""
+    def _build_scored_responses_table(
+        scored_rows: List[Dict[str, Any]],
+        question_text_map: Optional[Dict[str, str]] = None,
+        structured_question_map: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """Build scored responses table.
+
+        Scored items (numeric score) → compact 4-column row.
+        Informational items (score="Info" or complex response) → question
+        header row + full-width formatted card block underneath.
+        Structured questions (matrixdynamic/multipletext) use the survey
+        definition for proper field labels.
+        """
+        # Build reverse lookup: question_text → question_key for structured matching
+        reverse_text_map: Dict[str, str] = {}
+        if question_text_map and structured_question_map:
+            for qkey, qtext in question_text_map.items():
+                if qkey in structured_question_map:
+                    reverse_text_map[qtext] = qkey
+
         rows_html = ""
         for row in scored_rows:
-            question = ReportService._wrap_cell_text(ReportService._escape_html(str(row.get("question", ""))), 40)
-
-            # Matrix/complex responses would stringify to a massive string
-            # that overflows the fixed 20%-wide column → negative availWidth
-            # in xhtml2pdf.  Summarise them instead.
-            response_raw = row.get("response", "")
-            if isinstance(response_raw, list):
-                response = f"[{len(response_raw)} entries]"
-            elif isinstance(response_raw, dict):
-                response = "[Complex response]"
-            else:
-                response = ReportService._wrap_cell_text(ReportService._escape_html(str(response_raw)), 15)
-
+            question_text = str(row.get("question", ""))
+            question = ReportService._wrap_cell_text(
+                ReportService._escape_html(question_text), 40
+            )
             score = str(row.get("score", ""))
             module = str(row.get("module", ""))
-            
-            rows_html += f"""
+            response = row.get("response", "")
+
+            # Log complex responses for debugging
+            logger.debug(
+                "ScoredRow question=%r response_type=%s response_preview=%r score=%s",
+                question_text[:60], type(response).__name__,
+                str(response)[:120] if response else "", score,
+            )
+
+            # Check if this scored row corresponds to a structured question
+            matched_key = reverse_text_map.get(question_text)
+            # Also try matching by question_key if present in the row
+            if not matched_key:
+                row_key = row.get("question_key", "")
+                if row_key and structured_question_map and row_key in structured_question_map:
+                    matched_key = row_key
+
+            if matched_key and structured_question_map:
+                struct_info = structured_question_map[matched_key]
+                response_html = ReportService._render_structured_response(
+                    response, struct_info["fields"], struct_info["type"]
+                )
+                is_block = True
+            else:
+                # Runtime detection: parse response and check if it's complex data
+                parsed_response = ReportService._try_parse_json(response)
+
+                if isinstance(parsed_response, dict) and len(parsed_response) > 0:
+                    # Single dict → render as block
+                    response_html = ReportService._render_structured_response(
+                        parsed_response, {}, "multipletext"
+                    )
+                    is_block = True
+                elif (isinstance(parsed_response, list) and len(parsed_response) > 0
+                        and isinstance(parsed_response[0], dict)):
+                    # List of dicts → render as block
+                    response_html = ReportService._render_structured_response(
+                        parsed_response, {}, "matrixdynamic"
+                    )
+                    is_block = True
+                else:
+                    # Use unified formatter to decide how to render the response
+                    response_html, is_block = ReportService._format_response_block(response)
+
+            if is_block:
+                # Complex response → question header + full-width card block
+                rows_html += f"""
+            <tr>
+                <td colspan="2" style="font-weight: bold;">{question}</td>
+                <td>{score}</td>
+                <td>{module}</td>
+            </tr>
+            <tr>
+                <td colspan="4" style="padding: 4px 8px;">{response_html}</td>
+            </tr>"""
+            else:
+                # Simple response → standard 4-column row
+                response_cell = ReportService._wrap_cell_text(
+                    ReportService._escape_html(str(response_html)), 15
+                )
+                rows_html += f"""
             <tr>
                 <td>{question}</td>
-                <td>{response}</td>
+                <td>{response_cell}</td>
                 <td>{score}</td>
                 <td>{module}</td>
             </tr>"""
-        
+
         return f"""
         <h3>Scored Responses</h3>
         <table class="data-table" style="border-collapse: collapse; width: 100%; table-layout: fixed;">
@@ -474,19 +557,16 @@ class ReportService:
         </table>"""
     
     @staticmethod
-    def _build_all_responses_section(qa_data: List[Dict[str, str]]) -> str:
+    def _build_all_responses_section(
+        qa_data: List[Dict[str, str]],
+        structured_question_map: Optional[Dict[str, Any]] = None
+    ) -> str:
         """Build all responses section.
 
-        Uses class="data-table" (table-layout:fixed) — the same proven
-        approach used by Scored Responses, Roadmap, and Diagnostic Advice.
-        All cell content is plain text + <br/> only (no <ul>/<li>)
-        via _format_answer_plain(), which prevents xhtml2pdf from
-        miscalculating column widths.
+        Structured questions (matrixdynamic/multipletext) are rendered as
+        dynamic blocks using the survey definition. Other responses go
+        through _format_response_block() which guarantees no raw JSON.
         """
-        logger.debug(
-            "ReportService _build_all_responses_section: qa_data_len=%s", len(qa_data or [])
-        )
-
         file_indicators = [
             'media_id', 'Media Id', 'mediaId',
             'file_name', 'File Name', 'fileName', 'filename',
@@ -495,70 +575,162 @@ class ReportService:
             'relative_path', 'Relative Path', 'relativePath',
         ]
 
+        structured_question_map = structured_question_map or {}
+
+        # Build case-insensitive lookup for structured_question_map
+        struct_map_lower: Dict[str, str] = {}
+        for skey in structured_question_map:
+            struct_map_lower[skey.lower()] = skey
+
         rows_html = ""
 
         for idx, qa in enumerate(qa_data, 1):
             question = ReportService._escape_html(qa.get("question", ""))
             answer = qa.get("answer")
+            key = qa.get("key", "")
 
-            # File-upload detection (list-of-dicts with file indicator keys)
-            is_matrix = (
-                isinstance(answer, list)
-                and len(answer) > 0
-                and isinstance(answer[0], dict)
+            # Log structured data detection for debugging
+            is_complex = isinstance(answer, (list, dict)) or (
+                isinstance(answer, str) and len(answer) > 10
+                and any(c in answer for c in '[{')
+            )
+            if is_complex:
+                logger.debug(
+                    "AllResponses Q#%d key=%r type=%s struct_match=%s preview=%r",
+                    idx, key, type(answer).__name__,
+                    key in structured_question_map or key.lower() in struct_map_lower,
+                    str(answer)[:120] if answer else "",
+                )
+
+            # --- Structured question detection (matrixdynamic / multipletext) ---
+            # Case-insensitive lookup
+            struct_info = structured_question_map.get(key)
+            if not struct_info:
+                canonical_key = struct_map_lower.get(key.lower())
+                if canonical_key:
+                    struct_info = structured_question_map.get(canonical_key)
+            if struct_info:
+                response_html = ReportService._render_structured_response(
+                    answer, struct_info["fields"], struct_info["type"]
+                )
+                if not response_html:
+                    response_html = "&nbsp;"
+                logger.debug(
+                    "AllResponses Q#%d STRUCTURED key=%r",
+                    idx, key,
+                )
+                # Always render as full-width block row
+                rows_html += f"""
+            <tr>
+                <td style="text-align: center; width: 8%;">{idx}</td>
+                <td colspan="2" style="width: 92%; font-weight: bold; word-wrap: break-word; overflow: hidden;">{question}</td>
+            </tr>
+            <tr>
+                <td colspan="3" style="padding: 4px 8px; overflow: hidden;">{response_html}</td>
+            </tr>"""
+                continue
+
+            # --- Runtime detection: if answer is list-of-dicts or dict even without
+            #     structured_question_map match, render as block ---
+            answer_parsed = ReportService._try_parse_json(answer)
+            if isinstance(answer_parsed, dict) and len(answer_parsed) > 0:
+                response_html = ReportService._render_structured_response(
+                    answer_parsed, {}, "multipletext"
+                )
+                if not response_html:
+                    response_html = "&nbsp;"
+                logger.debug(
+                    "AllResponses Q#%d RUNTIME_DICT key=%r",
+                    idx, key,
+                )
+                rows_html += f"""
+            <tr>
+                <td style="text-align: center; width: 8%;">{idx}</td>
+                <td colspan="2" style="width: 92%; font-weight: bold; word-wrap: break-word; overflow: hidden;">{question}</td>
+            </tr>
+            <tr>
+                <td colspan="3" style="padding: 4px 8px; overflow: hidden;">{response_html}</td>
+            </tr>"""
+                continue
+
+            if (isinstance(answer_parsed, list) and len(answer_parsed) > 0
+                    and isinstance(answer_parsed[0], dict)):
+                response_html = ReportService._render_structured_response(
+                    answer_parsed, {}, "matrixdynamic"
+                )
+                if not response_html:
+                    response_html = "&nbsp;"
+                logger.debug(
+                    "AllResponses Q#%d RUNTIME_LIST key=%r",
+                    idx, key,
+                )
+                rows_html += f"""
+            <tr>
+                <td style="text-align: center; width: 8%;">{idx}</td>
+                <td colspan="2" style="width: 92%; font-weight: bold; word-wrap: break-word; overflow: hidden;">{question}</td>
+            </tr>
+            <tr>
+                <td colspan="3" style="padding: 4px 8px; overflow: hidden;">{response_html}</td>
+            </tr>"""
+                continue
+
+            # --- File-upload detection ---
+            parsed = answer_parsed
+            is_file_data = (
+                isinstance(parsed, list)
+                and len(parsed) > 0
+                and isinstance(parsed[0], dict)
+                and any(
+                    isinstance(row, dict) and any(ind in row for ind in file_indicators)
+                    for row in parsed
+                )
             )
 
-            if is_matrix:
-                is_file_data = any(
-                    isinstance(row, dict) and any(ind in row for ind in file_indicators)
-                    for row in answer
+            if is_file_data:
+                file_names = []
+                for row in parsed:
+                    if isinstance(row, dict):
+                        fn = (
+                            row.get('file_name') or row.get('File Name') or
+                            row.get('fileName') or row.get('filename') or
+                            row.get('Filename') or ''
+                        )
+                        if fn:
+                            file_names.append(fn)
+                answer_html = (
+                    ', '.join(ReportService._wrap_cell_text(ReportService._escape_html(f)) for f in file_names)
+                    if file_names else "Files uploaded"
                 )
-                if is_file_data:
-                    file_names = []
-                    for row in answer:
-                        if isinstance(row, dict):
-                            file_name = (
-                                row.get('file_name') or row.get('File Name') or
-                                row.get('fileName') or row.get('filename') or
-                                row.get('Filename') or ''
-                            )
-                            if file_name:
-                                file_names.append(file_name)
-                    answer_html = (
-                        ', '.join(ReportService._wrap_cell_text(ReportService._escape_html(fn)) for fn in file_names)
-                        if file_names else "Files uploaded"
-                    )
-                    # File uploads: normal 3-column row
-                    rows_html += f"""
+                rows_html += f"""
             <tr>
                 <td style="text-align: center; width: 8%;">{idx}</td>
                 <td style="width: 42%; word-wrap: break-word; overflow: hidden;">{question}</td>
                 <td style="width: 50%; word-wrap: break-word; overflow: hidden;">{answer_html}</td>
             </tr>"""
-                else:
-                    # Matrix data — question header row + full-width sub-table row
-                    matrix_html = ReportService._format_matrix_as_table(answer)
+            else:
+                # Use the unified formatter
+                response_html, is_block = ReportService._format_response_block(answer)
+
+                if not response_html:
+                    response_html = "&nbsp;"
+
+                if is_block:
+                    # Complex data → question header + full-width card block
                     rows_html += f"""
             <tr>
                 <td style="text-align: center; width: 8%;">{idx}</td>
                 <td colspan="2" style="width: 92%; font-weight: bold; word-wrap: break-word; overflow: hidden;">{question}</td>
             </tr>
             <tr>
-                <td colspan="3" style="padding: 2px 4px; overflow: hidden;">{matrix_html}</td>
+                <td colspan="3" style="padding: 4px 8px; overflow: hidden;">{response_html}</td>
             </tr>"""
-            else:
-                # All other answers — plain text only (no <ul>)
-                answer_html = ReportService._format_answer_plain(answer)
-
-                # Ensure no empty cells — xhtml2pdf miscalculates widths on empty <td>
-                if not answer_html:
-                    answer_html = "&nbsp;"
-
-                rows_html += f"""
+                else:
+                    # Simple data → standard 3-column row
+                    rows_html += f"""
             <tr>
                 <td style="text-align: center; width: 8%;">{idx}</td>
                 <td style="width: 42%; word-wrap: break-word; overflow: hidden;">{question}</td>
-                <td style="width: 50%; word-wrap: break-word; overflow: hidden;">{answer_html}</td>
+                <td style="width: 50%; word-wrap: break-word; overflow: hidden;">{response_html}</td>
             </tr>"""
 
         return f"""
@@ -582,26 +754,115 @@ class ReportService:
     def _build_qa_data(
         user_responses: Dict[str, Any],
         question_text_map: Dict[str, str]
-    ) -> List[Dict[str, str]]:
+    ) -> List[Dict[str, Any]]:
         """Build Q&A data with question text mapping."""
         qa_data = []
-        
+
         if not user_responses:
             return qa_data
-        
+
         for key, value in user_responses.items():
             # Skip None values
             if value is None:
                 continue
-                
+
+            # Deserialise JSON strings stored as text
+            value = ReportService._try_parse_json(value)
+
             question_text = question_text_map.get(key, key)
             qa_data.append({
                 "question": question_text,
-                "answer": value
+                "answer": value,
+                "key": key
             })
-        
+
         return qa_data
     
+    @staticmethod
+    def _try_parse_json(value: Any) -> Any:
+        """If value is a string that looks like a JSON array/object, parse it.
+
+        Handles standard JSON, double-encoded JSON, Python repr format
+        (single-quoted dicts/lists), BOM characters, and quoted wrappers.
+        """
+        if not isinstance(value, str):
+            return value
+
+        # Strip BOM and whitespace
+        stripped = value.strip().lstrip('\ufeff')
+        if not stripped:
+            return value
+
+        # Standard JSON parsing
+        if ((stripped.startswith('[') and stripped.endswith(']'))
+                or (stripped.startswith('{') and stripped.endswith('}'))):
+            try:
+                parsed = json.loads(stripped)
+                # Double-encoded: if result is still a JSON-like string, recurse
+                if isinstance(parsed, str):
+                    parsed = ReportService._try_parse_json(parsed)
+                return parsed
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+            # Fallback: ast.literal_eval for Python repr (single-quoted dicts)
+            try:
+                import ast
+                parsed = ast.literal_eval(stripped)
+                if isinstance(parsed, (list, dict)):
+                    return parsed
+            except (ValueError, SyntaxError):
+                pass
+
+            logger.debug(
+                "_try_parse_json: failed to parse string starting with %r (len=%d)",
+                stripped[:50], len(stripped),
+            )
+
+        # Handle quoted JSON wrappers: '"[...]"' or "'[...]'"
+        if ((stripped.startswith('"') and stripped.endswith('"'))
+                or (stripped.startswith("'") and stripped.endswith("'"))):
+            inner = stripped[1:-1]
+            result = ReportService._try_parse_json(inner)
+            if not isinstance(result, str):
+                return result
+
+        # Last resort: try to find embedded JSON within the string
+        # (handles prefixed text like "Response: [{...}]")
+        for start_char, end_char in [('[', ']'), ('{', '}')]:
+            start_idx = stripped.find(start_char)
+            end_idx = stripped.rfind(end_char)
+            if start_idx >= 0 and end_idx > start_idx:
+                fragment = stripped[start_idx:end_idx + 1]
+                try:
+                    parsed = json.loads(fragment)
+                    if isinstance(parsed, (list, dict)):
+                        return parsed
+                except (json.JSONDecodeError, ValueError):
+                    pass
+
+        return value
+
+    @staticmethod
+    def _format_value_readable(value: Any) -> str:
+        """Recursively convert a dict/list/scalar to human-readable text.
+
+        Used as a replacement for ``json.dumps()`` so that nested
+        structures display as readable prose instead of raw JSON.
+        """
+        if value is None or value == "":
+            return ""
+        if isinstance(value, dict):
+            parts = []
+            for k, v in value.items():
+                label = ReportService._humanize_label(str(k))
+                parts.append(f"{label}: {ReportService._format_value_readable(v)}")
+            return ", ".join(parts)
+        if isinstance(value, (list, tuple)):
+            items = [ReportService._format_value_readable(item) for item in value]
+            return "; ".join(items)
+        return str(value)
+
     @staticmethod
     def _humanize_label(slug: str) -> str:
         """Convert field_name or camelCase to Field Name."""
@@ -624,7 +885,10 @@ class ReportService:
         """
         if answer is None:
             return ""
-        
+
+        # Deserialise JSON strings so type checks below work correctly
+        answer = ReportService._try_parse_json(answer)
+
         # Type 2: Associative array (dict)
         if isinstance(answer, dict):
             items = []
@@ -639,7 +903,7 @@ class ReportService:
             items = []
             for item in answer:
                 if isinstance(item, (dict, list)):
-                    item_str = json.dumps(item)
+                    item_str = ReportService._format_value_readable(item)
                 else:
                     item_str = str(item)
                 items.append(f"<li>{ReportService._escape_html(item_str)}</li>")
@@ -664,6 +928,9 @@ class ReportService:
         if answer is None:
             return ""
 
+        # Deserialise JSON strings so type checks below work correctly
+        answer = ReportService._try_parse_json(answer)
+
         # Matrix: list of dicts → one line per row
         if (isinstance(answer, list) and len(answer) > 0
                 and isinstance(answer[0], dict)):
@@ -672,24 +939,25 @@ class ReportService:
                 if not isinstance(row, dict):
                     continue
                 pairs = ", ".join(
-                    f"{ReportService._wrap_cell_text(ReportService._escape_html(ReportService._humanize_label(str(k))))}: "
-                    f"{ReportService._wrap_cell_text(ReportService._escape_html(str(v)))}"
+                    f"{ReportService._escape_html(ReportService._humanize_label(str(k)))}: "
+                    f"{ReportService._escape_html(str(v))}"
                     for k, v in row.items()
                     if v is not None and v != ""
                 )
                 if pairs:
-                    lines.append(f"Row {i}: {pairs}")
-            return "<br/>".join(lines) if lines else ""
+                    prefix = f"Entry {i}: " if len(answer) > 1 else ""
+                    lines.append(ReportService._wrap_cell_text(f"{prefix}{pairs}", 55))
+            return "<br/><br/>".join(lines) if lines else ""
 
-        # Dict → key: value per line
+        # Dict → key: value per line (use wider wrap for response column)
         if isinstance(answer, dict):
             lines = []
             for k, v in answer.items():
-                key_label = ReportService._wrap_cell_text(ReportService._escape_html(
+                key_label = ReportService._escape_html(
                     ReportService._humanize_label(str(k))
-                ))
-                val_str = ReportService._wrap_cell_text(ReportService._escape_html(str(v)))
-                lines.append(f"{key_label}: {val_str}")
+                )
+                val_str = ReportService._escape_html(str(v))
+                lines.append(ReportService._wrap_cell_text(f"{key_label}: {val_str}", 55))
             return "<br/>".join(lines)
 
         # Simple list/tuple → one item per line
@@ -697,7 +965,7 @@ class ReportService:
             items = []
             for item in answer:
                 if isinstance(item, (dict, list)):
-                    item_str = json.dumps(item)
+                    item_str = ReportService._format_value_readable(item)
                 else:
                     item_str = str(item)
                 items.append(ReportService._wrap_cell_text(ReportService._escape_html(item_str)))
@@ -710,12 +978,200 @@ class ReportService:
         return ReportService._wrap_cell_text(ReportService._escape_html(str(answer)))
 
     @staticmethod
+    def _format_response_block(answer: Any) -> tuple:
+        """Unified response formatter that NEVER returns raw JSON.
+
+        Returns a tuple (html, is_block):
+        - html: formatted HTML string
+        - is_block: True if the output is a multi-line card block that needs
+          a full-width colspan row; False if it fits in a normal cell.
+        """
+        # Step 1: parse JSON strings
+        answer = ReportService._try_parse_json(answer)
+
+        # Step 2: list of dicts → columnar table
+        if (isinstance(answer, list) and len(answer) > 0
+                and isinstance(answer[0], dict)):
+            rows = [r for r in answer if isinstance(r, dict)]
+            if rows:
+                table_html = ReportService._render_dicts_as_columnar_table(rows)
+                return (table_html, True)
+            return ("&nbsp;", False)
+
+        # Step 3: dict → single-row columnar table
+        if isinstance(answer, dict) and len(answer) >= 1:
+            table_html = ReportService._render_dicts_as_columnar_table([answer])
+            return (table_html, True)
+
+        # Step 4: simple list → comma-separated
+        if isinstance(answer, list) and len(answer) > 0:
+            items = [ReportService._escape_html(str(item))
+                     for item in answer if item is not None and item != ""]
+            text = ", ".join(items) if items else "&nbsp;"
+            return (ReportService._wrap_cell_text(text, 55), False)
+
+        # Step 5: string that still looks like JSON → regex extraction
+        if isinstance(answer, str) and len(answer) > 20:
+            stripped = answer.strip()
+            if ((stripped.startswith('[') and stripped.endswith(']'))
+                    or (stripped.startswith('{') and stripped.endswith('}'))):
+                return (ReportService._format_unparseable_json_string(answer), True)
+
+        # Step 6: scalar
+        if answer is None or answer == "":
+            return ("&nbsp;", False)
+        text = ReportService._wrap_cell_text(ReportService._escape_html(str(answer)), 55)
+        return (text, False)
+
+    @staticmethod
+    def _render_structured_response(
+        answer: Any,
+        field_map: Dict[str, str],
+        question_type: str
+    ) -> str:
+        """Render a matrixdynamic or multipletext response as a columnar table.
+
+        Args:
+            answer: The response value (list of dicts, dict, or string-encoded JSON)
+            field_map: Mapping of field keys to human-readable titles
+            question_type: "matrixdynamic" or "multipletext"
+
+        Returns:
+            Formatted HTML string (always block-level, never raw JSON)
+        """
+        # Aggressively parse string-encoded data
+        answer = ReportService._try_parse_json(answer)
+        if isinstance(answer, str):
+            # Second attempt: strip outer quotes and retry
+            stripped = answer.strip()
+            if ((stripped.startswith('"') and stripped.endswith('"'))
+                    or (stripped.startswith("'") and stripped.endswith("'"))):
+                answer = ReportService._try_parse_json(stripped[1:-1])
+
+        def _field_label(key: str) -> str:
+            """Get human-readable label from field_map, falling back to humanize."""
+            return field_map.get(key, ReportService._humanize_label(str(key)))
+
+        # matrixdynamic → list of dicts → columnar table
+        if question_type == "matrixdynamic":
+            if isinstance(answer, list) and len(answer) > 0:
+                rows = [r for r in answer if isinstance(r, dict)]
+                if rows:
+                    return ReportService._render_dicts_as_columnar_table(rows, field_map)
+            # Fallback: if data is a single dict, render as single-row table
+            if isinstance(answer, dict):
+                return ReportService._render_dicts_as_columnar_table([answer], field_map)
+
+        # multipletext → single dict → columnar table (keys as columns)
+        if question_type == "multipletext":
+            if isinstance(answer, dict):
+                return ReportService._render_dicts_as_columnar_table([answer], field_map)
+            # Fallback: if stored as a list with one dict
+            if isinstance(answer, list) and len(answer) == 1 and isinstance(answer[0], dict):
+                return ReportService._render_dicts_as_columnar_table([answer[0]], field_map)
+
+        # Final fallback: use _format_response_block for anything else
+        html, _ = ReportService._format_response_block(answer)
+        return html
+
+    @staticmethod
+    def _render_dicts_as_columnar_table(
+        rows: List[Dict[str, Any]],
+        field_map: Optional[Dict[str, str]] = None
+    ) -> str:
+        """Render a list of dicts as a horizontal columnar table.
+
+        Each dict key becomes a column header; each dict becomes a row.
+        For a single dict like {"Monday": "9-5", "Tuesday": "9-5", ...},
+        this produces a table with day-name columns and values in one row.
+
+        Args:
+            rows: List of dicts to render as table rows
+            field_map: Optional mapping of field keys to human-readable titles
+        """
+        if not rows:
+            return "&nbsp;"
+
+        field_map = field_map or {}
+
+        # Collect all unique keys preserving insertion order
+        seen: dict[str, None] = {}
+        for row in rows:
+            for k in row:
+                if k not in seen:
+                    seen[k] = None
+        columns = list(seen.keys())
+
+        if not columns:
+            return "&nbsp;"
+
+        def _label(key: str) -> str:
+            return field_map.get(key, ReportService._humanize_label(str(key)))
+
+        def _cell_value(val: Any) -> str:
+            if val is None or val == "":
+                return "&nbsp;"
+            if isinstance(val, (dict, list)):
+                return ReportService._escape_html(
+                    ReportService._format_value_readable(val)
+                )
+            return ReportService._escape_html(str(val))
+
+        # Build header row
+        header_cells = "".join(
+            f'<th style="text-align: center; font-size: 12px; padding: 4px 6px;">'
+            f'{ReportService._escape_html(_label(c))}</th>'
+            for c in columns
+        )
+
+        # Build data rows
+        body_rows = ""
+        for row in rows:
+            cells = "".join(
+                f'<td style="text-align: center; font-size: 12px; padding: 4px 6px;">'
+                f'{_cell_value(row.get(c))}</td>'
+                for c in columns
+            )
+            body_rows += f"<tr>{cells}</tr>"
+
+        return (
+            f'<table class="sub-table" style="table-layout: auto; width: 100%; '
+            f'border-collapse: collapse; margin: 4px 0;">'
+            f'<thead><tr>{header_cells}</tr></thead>'
+            f'<tbody>{body_rows}</tbody>'
+            f'</table>'
+        )
+
+    @staticmethod
+    def _format_unparseable_json_string(text: str) -> str:
+        """Best-effort formatting of a string that looks like JSON but failed parsing.
+
+        Extracts "key":"value" pairs using regex and renders them as readable
+        Key: Value lines.  Falls back to word-wrapped plain text.
+        """
+        pairs = re.findall(r'"([^"]+)"\s*:\s*"([^"]*)"', text)
+        if pairs:
+            lines = []
+            for key, val in pairs:
+                label = ReportService._humanize_label(key)
+                lines.append(
+                    ReportService._wrap_cell_text(
+                        f"{ReportService._escape_html(label)}: {ReportService._escape_html(val)}",
+                        55,
+                    )
+                )
+            return "<br/>".join(lines)
+
+        # Fallback: just wrap the raw text
+        return ReportService._wrap_cell_text(ReportService._escape_html(text), 55)
+
+    @staticmethod
     def _format_matrix_as_table(answer: List[Dict[str, Any]]) -> str:
         """Render a matrix response (list of dicts) as an HTML sub-table.
 
         Each dict key becomes a column header; each list item becomes a row.
-        Uses the .sub-table CSS class with table-layout:auto so xhtml2pdf
-        can size columns naturally within the parent cell.
+        For tables with 6+ columns, switches to a vertical card layout
+        (one card per row, two-column key/value table) to avoid cramming.
         """
         if not answer:
             return ""
@@ -733,57 +1189,112 @@ class ReportService:
         if not columns:
             return ""
 
-        # Calculate max chars per cell based on column count
-        # A4 usable width ~170mm, minus cell padding/borders → ~70 usable chars at 10px font
-        # Adjust wrap budget based on column count and reduced font sizes
-        if len(columns) >= 8:
-            col_max = max(110 // len(columns), 14)
-        elif len(columns) >= 6:
-            col_max = max(100 // len(columns), 16)
-        elif len(columns) >= 4:
-            col_max = max(90 // len(columns), 18)
-        else:
-            col_max = max(70 // len(columns), 20)
+        # For wide tables (6+ columns) OR tables with very long values,
+        # use vertical card layout to avoid cramming
+        use_cards = len(columns) >= 6
+        if not use_cards:
+            # Check if any cell value is very long (would overflow horizontal table)
+            for row in answer:
+                if not isinstance(row, dict):
+                    continue
+                total_chars = sum(len(str(row.get(c, ""))) for c in columns)
+                if total_chars > 120 or any(len(str(row.get(c, ""))) > 60 for c in columns):
+                    use_cards = True
+                    break
+        if use_cards:
+            return ReportService._format_matrix_as_cards(answer, columns)
 
-        # Determine font size early so we can inline it on every cell
-        # (xhtml2pdf ignores CSS inheritance, so table font-size doesn't reach td/th)
-        if len(columns) >= 8:
-            cell_font = "11px"
-        elif len(columns) >= 6:
-            cell_font = "12px"
-        elif len(columns) >= 4:
-            cell_font = "13px"
-        else:
-            cell_font = "14px"
+        # Render narrow matrices as plain text (bold headers + values)
+        # instead of nested <table> elements to avoid xhtml2pdf crashes.
+        total = len([r for r in answer if isinstance(r, dict)])
+        col_max = 50
 
-        # Build header row with inline font-size
-        header_cells = "".join(
-            f'<th style="font-size: {cell_font};">{ReportService._wrap_cell_text(ReportService._escape_html(ReportService._humanize_label(str(c))), col_max)}</th>'
-            for c in columns
-        )
-
-        # Build data rows with inline font-size
-        body_rows = ""
+        blocks: list[str] = []
+        entry_num = 0
         for row in answer:
             if not isinstance(row, dict):
                 continue
-            cells = ""
+            entry_num += 1
+            lines: list[str] = []
+
+            if total > 1:
+                lines.append(
+                    f'<b style="font-size: 12px; background-color: #e8e8e8;">'
+                    f'Entry {entry_num} of {total}</b>'
+                )
+
             for c in columns:
                 val = row.get(c, "")
                 if val is None or val == "":
-                    cells += f'<td style="font-size: {cell_font};">&nbsp;</td>'
-                elif isinstance(val, (dict, list)):
-                    cells += f'<td style="font-size: {cell_font};">{ReportService._wrap_cell_text(ReportService._escape_html(json.dumps(val)), col_max)}</td>'
+                    continue
+                label = ReportService._escape_html(ReportService._humanize_label(str(c)))
+                if isinstance(val, (dict, list)):
+                    display = ReportService._wrap_cell_text(
+                        ReportService._escape_html(ReportService._format_value_readable(val)), col_max
+                    )
                 else:
-                    cells += f'<td style="font-size: {cell_font};">{ReportService._wrap_cell_text(ReportService._escape_html(str(val)), col_max)}</td>'
-            body_rows += f"<tr>{cells}</tr>"
+                    display = ReportService._wrap_cell_text(
+                        ReportService._escape_html(str(val)), col_max
+                    )
+                lines.append(f'<b style="font-size: 12px;">{label}:</b> '
+                             f'<span style="font-size: 12px;">{display}</span>')
 
-        return (
-            f'<table class="sub-table" style="table-layout: fixed; width: 100%;">'
-            f"<thead><tr>{header_cells}</tr></thead>"
-            f"<tbody>{body_rows}</tbody>"
-            f"</table>"
-        )
+            blocks.append("<br/>".join(lines))
+
+        return "<br/><br/>".join(blocks)
+
+    @staticmethod
+    def _format_matrix_as_cards(
+        answer: List[Dict[str, Any]], columns: List[str]
+    ) -> str:
+        """Render a wide matrix as vertical cards (one per row).
+
+        Each entry is shown as a two-column key/value mini-table with a
+        header like "Entry 1 of N".  This avoids the cramped horizontal
+        layout when there are many fields (e.g. staff details with 8+ keys).
+        """
+        total = len([r for r in answer if isinstance(r, dict)])
+        cards: list[str] = []
+        entry_num = 0
+
+        for row in answer:
+            if not isinstance(row, dict):
+                continue
+            entry_num += 1
+            rows_html = ""
+            for c in columns:
+                val = row.get(c, "")
+                if val is None or val == "":
+                    continue
+                label = ReportService._escape_html(ReportService._humanize_label(str(c)))
+                if isinstance(val, (dict, list)):
+                    display = ReportService._wrap_cell_text(
+                        ReportService._escape_html(ReportService._format_value_readable(val)), 50
+                    )
+                else:
+                    display = ReportService._wrap_cell_text(
+                        ReportService._escape_html(str(val)), 50
+                    )
+                rows_html += (
+                    f'<tr>'
+                    f'<td style="font-size: 12px; font-weight: bold; width: 30%; vertical-align: top;">{label}</td>'
+                    f'<td style="font-size: 12px; width: 70%; vertical-align: top;">{display}</td>'
+                    f'</tr>'
+                )
+
+            header = f"Entry {entry_num} of {total}" if total > 1 else ""
+            header_html = (
+                f'<tr><td colspan="2" style="font-size: 12px; font-weight: bold; '
+                f'background-color: #e8e8e8; padding: 4px 6px;">{header}</td></tr>'
+                if header else ""
+            )
+
+            cards.append(
+                f'<table class="sub-table" style="table-layout: fixed; width: 100%; margin-bottom: 6px;">'
+                f"{header_html}{rows_html}</table>"
+            )
+
+        return "".join(cards)
 
     @staticmethod
     def _markdown_to_html(text: str) -> str:
@@ -975,7 +1486,7 @@ class ReportService:
         table.data-table th,
         table.data-table td {
             border: 1px solid #444;
-            padding: 4px 6px;
+            padding: 6px 8px;
             text-align: left;
             font-size: 15px;
             color: #000000;
@@ -1027,7 +1538,7 @@ class ReportService:
         .sub-table th,
         .sub-table td {
             border: 1px solid #444;
-            padding: 4px;
+            padding: 5px 6px;
             text-align: left;
             color: #000000;
             font-size: inherit;
@@ -1042,6 +1553,79 @@ class ReportService:
         }
         """
     
+    @staticmethod
+    def _strip_response_tables_from_summary(html: str) -> str:
+        """Remove redundant response-data tables from the AI client summary.
+
+        The AI scoring prompt often embeds a full "All Responses" table inside
+        the client summary markdown.  These tables contain raw JSON values and
+        are redundant with the dedicated All Responses section.  We identify
+        them in three ways:
+
+        1. Heading-based: any <hN> containing "All Responses" / "User Responses"
+           followed by a <table>.
+        2. Column-based: any <table> whose first row of <th> cells includes
+           both "Question" and "Response" headers.
+        3. Cell-based: any remaining <td> containing raw JSON gets formatted
+           using _format_response_block().
+        """
+        # --- Pass 1: strip heading + table by heading text ---
+        html = re.sub(
+            r'<h[1-6][^>]*>[^<]*?(?:All|User|Complete|Scored)\s+Responses[^<]*?</h[1-6]>'
+            r'(?:\s*<table[^>]*>.*?</table>)?',
+            '',
+            html,
+            flags=re.S | re.I,
+        )
+        # Also strip "Scoring Detail" heading (orphaned after table removal)
+        html = re.sub(
+            r'<h[1-6][^>]*>[^<]*?Scoring\s+Detail[^<]*?</h[1-6]>',
+            '',
+            html,
+            flags=re.S | re.I,
+        )
+
+        # --- Pass 2: strip tables whose headers include Question + Response ---
+        def _is_response_data_table(match: re.Match) -> str:
+            table_html = match.group(0)
+            # Extract header cells
+            headers = re.findall(r'<th[^>]*>(.*?)</th>', table_html, re.S | re.I)
+            header_text = ' '.join(h.strip().lower() for h in headers)
+            if 'question' in header_text and 'response' in header_text:
+                # Also strip any immediately preceding heading
+                return ''
+            return table_html
+
+        html = re.sub(
+            r'<table(?![^>]*\bclass=)[^>]*>.*?</table>',
+            _is_response_data_table,
+            html,
+            flags=re.S,
+        )
+
+        # --- Pass 3: format raw JSON in any surviving <td> cells ---
+        def _format_cell(match: re.Match) -> str:
+            attrs = match.group(1) or ''
+            content = match.group(2)
+            stripped = content.strip()
+            # Skip cells that already contain HTML formatting
+            if '<b ' in stripped or '<span ' in stripped or '<br' in stripped:
+                return match.group(0)
+            # Check for JSON-like content
+            if not stripped:
+                return match.group(0)
+            if (stripped[0] in '[{' and stripped[-1] in ']}'):
+                parsed = ReportService._try_parse_json(stripped)
+                if isinstance(parsed, (dict, list)):
+                    formatted, _ = ReportService._format_response_block(parsed)
+                    if formatted and formatted != '&nbsp;':
+                        return f'<td{attrs}>{formatted}</td>'
+            return match.group(0)
+
+        html = re.sub(r'<td([^>]*)>(.*?)</td>', _format_cell, html, flags=re.S)
+
+        return html
+
     @staticmethod
     def _strip_markdown_tables(html: str) -> str:
         """Replace markdown-generated <table> blocks (those without class=)

@@ -33,7 +33,8 @@ import {
 } from '@/store/slices/diagnosticReducer';
 import { updateEngagement } from '@/store/slices/engagementReducer';
 import { useAuth } from '@/context/AuthContext';
-import surveyData from '@/questions/diagnostic-survey.json';
+import valueBuilderSurveyData from '@/questions/questions_ValueBuilder.json';
+import saleReadySurveyData from '@/questions/questions_sale_ready.json';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -42,9 +43,10 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 interface ToolSurveyProps {
   engagementId: string;
   toolType?: 'diagnostic'; // Can extend for other tools
+  engagementType?: string; // 'value_builder' | 'sale_ready'
 }
 
-export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurveyProps) {
+export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementType }: ToolSurveyProps) {
   const dispatch = useAppDispatch();
   const { user } = useAuth();
   const { diagnostic, isSaving, isLoading, isSubmitting, isPolling, error, isCancelling } = useAppSelector(
@@ -76,6 +78,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic' }: ToolSurvey
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  const surveyData = engagementType === 'sale_ready' ? saleReadySurveyData : valueBuilderSurveyData;
   const pages = surveyData.pages;
   const totalPages = pages.length;
   const currentPageData = pages[currentPage];

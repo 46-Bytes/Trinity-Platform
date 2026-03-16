@@ -568,21 +568,40 @@ async def submit_diagnostic(
                 report_user = background_db.query(User).filter(User.id == report_user_id).first()
                 
                 if report_user:
-                    # Build question text map
+                    # Build question text map and structured question map
                     question_text_map = {}
+                    structured_question_map = {}
                     diagnostic_questions = diagnostic_obj.questions or {}
                     for page in diagnostic_questions.get("pages", []):
                         for element in page.get("elements", []):
                             element_name = element.get("name")
                             element_title = element.get("title", element_name)
+                            el_type = element.get("type", "")
                             if element_name:
                                 question_text_map[element_name] = element_title
-                    
+                            if element_name and el_type == "matrixdynamic":
+                                structured_question_map[element_name] = {
+                                    "type": "matrixdynamic",
+                                    "fields": {
+                                        col.get("name"): col.get("title", col.get("name", ""))
+                                        for col in element.get("columns", []) if col.get("name")
+                                    }
+                                }
+                            elif element_name and el_type == "multipletext":
+                                structured_question_map[element_name] = {
+                                    "type": "multipletext",
+                                    "fields": {
+                                        item.get("name"): item.get("title", item.get("name", ""))
+                                        for item in element.get("items", []) if item.get("name")
+                                    }
+                                }
+
                     # Generate PDF (this will be stored/cached for download)
                     pdf_bytes = ReportService.generate_pdf_report(
                         diagnostic=diagnostic_obj,
                         user=report_user,
-                        question_text_map=question_text_map
+                        question_text_map=question_text_map,
+                        structured_question_map=structured_question_map
                     )
                     logger.info(f"  PDF report generated successfully ({len(pdf_bytes)} bytes)")
                 else:
@@ -1034,25 +1053,44 @@ async def download_diagnostic_report(
             )
         
         question_text_map = {}
+        structured_question_map = {}
         diagnostic_questions = diagnostic.questions or {}
-        
+
         for page in diagnostic_questions.get("pages", []):
             for element in page.get("elements", []):
                 element_name = element.get("name")
                 element_title = element.get("title", element_name)
+                el_type = element.get("type", "")
                 if element_name:
                     question_text_map[element_name] = element_title
-        
+                if element_name and el_type == "matrixdynamic":
+                    structured_question_map[element_name] = {
+                        "type": "matrixdynamic",
+                        "fields": {
+                            col.get("name"): col.get("title", col.get("name", ""))
+                            for col in element.get("columns", []) if col.get("name")
+                        }
+                    }
+                elif element_name and el_type == "multipletext":
+                    structured_question_map[element_name] = {
+                        "type": "multipletext",
+                        "fields": {
+                            item.get("name"): item.get("title", item.get("name", ""))
+                            for item in element.get("items", []) if item.get("name")
+                        }
+                    }
+
         report_user_id = diagnostic.completed_by_user_id or diagnostic.created_by_user_id
         report_user = db.query(User).filter(User.id == report_user_id).first()
-        
+
         if not report_user:
             report_user = current_user
-        
+
         pdf_bytes = ReportService.generate_pdf_report(
             diagnostic=diagnostic,
             user=report_user,
-            question_text_map=question_text_map
+            question_text_map=question_text_map,
+            structured_question_map=structured_question_map
         )
         
         filename = ReportService.get_download_filename(diagnostic, report_user)

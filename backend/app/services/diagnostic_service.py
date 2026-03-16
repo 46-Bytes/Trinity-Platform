@@ -21,8 +21,10 @@ from app.utils.background_task_manager import background_task_manager
 from app.utils.file_loader import (
     load_diagnostic_questions,
     load_scoring_map,
+    load_scoring_map_for_type,
     load_task_library,
-    load_prompt
+    load_prompt,
+    load_prompt_for_type
 )
 
 
@@ -327,7 +329,15 @@ class DiagnosticService:
         # Load required data files
         logger.info(f"[Pipeline] Loading required data files...")
         diagnostic_questions = load_diagnostic_questions()
-        scoring_map = load_scoring_map()
+
+        # Load scoring map based on engagement type
+        engagement = self.db.query(Engagement).filter(
+            Engagement.id == diagnostic.engagement_id
+        ).first()
+        engagement_type = engagement.tool if engagement else 'value_builder'
+        scoring_map = load_scoring_map_for_type(engagement_type or 'value_builder')
+        logger.info(f"[Pipeline] Using scoring map for engagement type: {engagement_type}")
+
         task_library = load_task_library()
         logger.info(f"[Pipeline] Data files loaded successfully")
         
@@ -426,8 +436,8 @@ class DiagnosticService:
                 f"{[x.file_name + ' (' + (x.file_extension or 'no ext') + ')' for x in filtered_files]}"
             )
         
-        # Load scoring prompt
-        scoring_prompt = load_prompt("scoring_prompt")
+        # Load type-specific scoring prompt
+        scoring_prompt = load_prompt_for_type("scoring_prompt", engagement_type)
 
         
         # Call OpenAI API for scoring with file re-upload retry on file-not-found errors
@@ -560,15 +570,17 @@ class DiagnosticService:
         logger.info(f"[Pipeline] Step 4 started at {time_module.strftime('%Y-%m-%d %H:%M:%S')}")
         logger.info("=" * 60)
         
-        scored_rows = scoring_data.get("scored_rows", [])
-        roadmap = scoring_data.get("roadmap", [])
+        # Support both old and new field names from AI response
+        scored_rows = scoring_data.get("scoredRows") or scoring_data.get("scored_rows", [])
+        roadmap = scoring_data.get("diagnosticOverview") or scoring_data.get("roadmap", [])
         client_summary = scoring_data.get("clientSummary", "")
         advisor_report = scoring_data.get("advisorReport", "")
-        
-        
+        all_responses = scoring_data.get("allResponses", [])
+        execution_pack = scoring_data.get("executionPack", {})
+
         # Calculate module scores
         logger.info("[Scoring Data] Calculating module scores...")
-        module_scores = scoring_service.calculate_module_scores(scored_rows)
+        module_scores = scoring_service.calculate_module_scores(scored_rows, engagement_type=engagement_type)
         
         # Rank modules
         logger.info("[Scoring Data] Ranking modules...")
@@ -599,26 +611,11 @@ class DiagnosticService:
             logger.warning(f"[Pipeline] Shutdown detected after scoring data processing for diagnostic {diagnostic.id}")
             raise asyncio.CancelledError("Shutdown detected")
         
-        # ===== STEP 5: Generate Advice (Optional) =====
-        step5_start = time_module.time()
-        logger.info(f"[Pipeline] ========== STEP 5: Generate Advice (Optional) Started ==========")
-        logger.info(f"[Pipeline] Step 5 started at {time_module.strftime('%Y-%m-%d %H:%M:%S')}")
-        
+        # ===== STEP 5: Advice (Skipped - embedded in advisorReport) =====
         advice = None
-        try:
-            advice_prompt = load_prompt("advice_prompt_diagnostic")
-            advice_result = await openai_service.generate_advice(
-                advice_prompt=advice_prompt,
-                scoring_data=scoring_data
-            )
-            advice = advice_result["content"]
-            step5_elapsed = time_module.time() - step5_start
-            logger.info(f"[Pipeline] STEP 5 completed in {step5_elapsed:.2f} seconds")
-        except Exception as e:
-            step5_elapsed = time_module.time() - step5_start
-            # Advice generation is optional, don't fail the whole process
-            logger.warning(f"[Pipeline] STEP 5 (Advice) failed after {step5_elapsed:.2f} seconds (non-critical): {str(e)}")
-        
+        step5_elapsed = 0.0
+        logger.info(f"[Pipeline] STEP 5 (Advice): Skipped - advisory content is now embedded in advisorReport from scoring step")
+
         # ===== STEP 6: Auto-Generate Tasks =====
         step6_start = time_module.time()
         tasks_count = 0
@@ -660,6 +657,7 @@ class DiagnosticService:
         # Store scoring data (ensure it's a dict, not a string)
         scoring_data_dict = {
             "scored_rows": scored_rows,
+            "allResponses": all_responses,
             "validation": validation,
             "tokens_used": scoring_result.get("tokens_used", 0)
         }
@@ -692,6 +690,8 @@ class DiagnosticService:
             "roadmap": roadmap,
             "advisorReport": advisor_report_str,
             "advice": advice,
+            "allResponses": all_responses,
+            "executionPack": execution_pack,
             "validation": validation
         }
         diagnostic.ai_analysis = ai_analysis_dict
@@ -705,8 +705,7 @@ class DiagnosticService:
         diagnostic.ai_model_used = scoring_result.get("model", "gpt-4o")
         diagnostic.ai_tokens_used = (
             scoring_result.get("tokens_used", 0) +
-            summary_result.get("tokens_used", 0) +
-            (advice_result.get("tokens_used", 0) if advice else 0)
+            summary_result.get("tokens_used", 0)
         )
         
         # Store tasks count
@@ -1156,17 +1155,10 @@ class DiagnosticService:
         if diagnostic.status != "completed":
             raise ValueError("Can only regenerate reports for completed diagnostics")
         
-        # Use existing scoring data to regenerate report
+        # Use existing AI analysis to refresh report HTML
         scoring_data = diagnostic.ai_analysis
-        
-        advice_prompt = load_prompt("advice_prompt_diagnostic")
-        advice_result = await openai_service.generate_advice(
-            advice_prompt=advice_prompt,
-            scoring_data=scoring_data
-        )
-        
-        # Update report
-        diagnostic.ai_analysis["advice"] = advice_result["content"]
+
+        # Update report HTML from advisorReport (advice is now embedded in scoring output)
         diagnostic.report_html = scoring_data.get("advisorReport", "")
         
         self.db.commit()

@@ -15,6 +15,7 @@ from .impersonation import ImpersonationSession
 from .bba import BBA
 from .firm import Firm
 from .strategy_workbook import StrategyWorkbook
+from .document_template import DocumentTemplate
 
 __all__ = [
     "User",
@@ -31,6 +32,7 @@ __all__ = [
     "BBA",
     "Firm",
     "StrategyWorkbook",
+    "DocumentTemplate",
 ]
 
 

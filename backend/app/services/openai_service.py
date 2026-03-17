@@ -34,7 +34,7 @@ class OpenAIService:
                 api_key=settings.OPENAI_API_KEY,
                 timeout=httpx.Timeout(
                     connect=10.0,
-                    read=600.0,       # ← 10 minutes for long requests (reduced from 30 min)
+                    read=1800.0,       # ← 10 minutes for long requests (reduced from 30 min)
                     write=10.0,
                     pool=10.0
                 ),

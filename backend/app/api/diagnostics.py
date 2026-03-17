@@ -1180,8 +1180,8 @@ async def list_diagnostic_templates(
     
     # Get template service and list templates
     template_service = get_document_template_service()
-    templates = template_service.list_available_templates()
-    
+    templates = template_service.list_available_templates(db)
+
     return [DocumentTemplateResponse(**template) for template in templates]
 
 
@@ -1231,6 +1231,7 @@ async def generate_document_from_template(
         
         # Generate document
         document_bytes = template_service.generate_document(
+            db=db,
             template_name=request.template_name,
             user_responses=diagnostic.user_responses
         )
@@ -1304,39 +1305,37 @@ async def upload_template(
         )
     
     try:
-        # Get template service to access templates directory
         template_service = get_document_template_service()
-        templates_dir = template_service.templates_dir
-        
-        # Ensure directory exists
-        templates_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Save file
-        file_path = templates_dir / file.filename
-        
-        # Check if file already exists
-        if file_path.exists():
+
+        # Check if template already exists in database
+        existing = template_service.get_template(db, file.filename)
+        if existing:
             logger.warning(f"Template upload failed: File '{file.filename}' already exists")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Template '{file.filename}' already exists. Please use a different name or delete the existing template first."
             )
-        
-        # Write file
-        # Reset file pointer to beginning in case it was read before
+
+        # Read file content
         await file.seek(0)
-        with open(file_path, "wb") as buffer:
-            content = await file.read()
-            buffer.write(content)
-        
+        content = await file.read()
+
+        # Store in database
+        template_service.upload_template(
+            db=db,
+            file_name=file.filename,
+            file_data=content,
+            uploaded_by_user_id=current_user.id,
+        )
+
         logger.info(f"Template uploaded: {file.filename} by user {current_user.id}")
-        
+
         return {
             "success": True,
             "message": f"Template '{file.filename}' uploaded successfully",
             "template_name": file.filename
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -1370,35 +1369,22 @@ async def delete_template(
         )
     
     try:
-        # Get template service to access templates directory
         template_service = get_document_template_service()
-        templates_dir = template_service.templates_dir
-        
-        # Security: prevent directory traversal
-        if '..' in template_name or '/' in template_name or '\\' in template_name:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid template name"
-            )
-        
-        file_path = templates_dir / template_name
-        
-        if not file_path.exists():
+
+        deleted = template_service.delete_template(db, template_name)
+        if not deleted:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Template '{template_name}' not found"
             )
-        
-        # Delete file
-        file_path.unlink()
-        
+
         logger.info(f"Template deleted: {template_name} by user {current_user.id}")
-        
+
         return {
             "success": True,
             "message": f"Template '{template_name}' deleted successfully"
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:

@@ -39,7 +39,8 @@ import os
 import logging
 import io
 import json
-from app.services.openai_service import OpenAIService
+# from app.services.openai_service import OpenAIService  # Preserved for rollback
+from app.services.claude_service import ClaudeService
 from app.services.bba_service import get_bba_service, BBAService
 from app.services.bba_conversation_engine import get_bba_conversation_engine
 from app.services.bba_task_planner_service import get_bba_task_planner_service
@@ -210,7 +211,7 @@ async def upload_files_poc(
         )
     
     # Initialize OpenAI service
-    openai_service = OpenAIService()
+    openai_service = ClaudeService()
     
     # Results storage
     results = []
@@ -1344,7 +1345,7 @@ async def preview_task_planner(
             ),
         )
 
-    openai_service = OpenAIService()
+    openai_service = ClaudeService()
     task_planner_service = get_bba_task_planner_service(db, openai_service)
 
     # Determine effective settings: use provided payload if present,
@@ -1478,7 +1479,7 @@ async def export_task_planner_excel(
             ),
         )
 
-    openai_service = OpenAIService()
+    openai_service = ClaudeService()
     task_planner_service = get_bba_task_planner_service(db, openai_service)
 
     try:
@@ -1595,7 +1596,7 @@ async def generate_presentation_slides(
             ),
         )
 
-    openai_service = OpenAIService()
+    openai_service = ClaudeService()
     presentation_service = get_bba_presentation_service(db, openai_service)
 
     try:

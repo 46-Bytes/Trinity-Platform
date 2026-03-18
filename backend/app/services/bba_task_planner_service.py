@@ -25,7 +25,8 @@ from app.models.bba import BBA
 from app.schemas.bba import (
     BBATaskPlannerSettings,
 )
-from app.services.openai_service import OpenAIService
+# from app.services.openai_service import OpenAIService  # Preserved for rollback
+from app.services.claude_service import ClaudeService
 from app.services.bba_conversation_engine import load_bba_prompt
 
 logger = logging.getLogger(__name__)
@@ -40,9 +41,9 @@ class BBATaskPlannerService:
     warnings.
     """
 
-    def __init__(self, db: Session, openai_service: OpenAIService | None = None):
+    def __init__(self, db: Session, openai_service: ClaudeService | None = None):
         self.db = db
-        self.openai_service = openai_service or OpenAIService()
+        self.openai_service = openai_service or ClaudeService()
 
     # -------------------------------------------------------------------------
     # Settings persistence
@@ -388,7 +389,7 @@ Return ONLY a JSON object with a "tasks" key containing the array of task rows.
 
 def get_bba_task_planner_service(
     db: Session,
-    openai_service: OpenAIService | None = None,
+    openai_service: ClaudeService | None = None,
 ) -> BBATaskPlannerService:
     """FastAPI dependency factory for the BBA task planner service."""
     return BBATaskPlannerService(db, openai_service)

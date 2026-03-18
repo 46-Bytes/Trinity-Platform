@@ -23,7 +23,8 @@ from .api.subscriptions import router as subscriptions_router
 from .api.dashboard import router as dashboard_router
 from .api.strategy_workbook import router as strategy_workbook_router
 
-from .services.openai_service import OpenAIService
+# from .services.openai_service import OpenAIService  # Preserved for rollback
+from .services.claude_service import ClaudeService
 from . import models  # noqa: F401 — registers models with Base metadata for Alembic
 
 # Configure logging
@@ -110,9 +111,13 @@ async def startup_event():
     logger = logging.getLogger(__name__)
     logger.info("🚀 Application startup - initializing services...")
     
-    # Initialize OpenAI client once at startup
-    OpenAIService.initialize_client()
-    logger.info("✅ OpenAI client initialized")
+    # Initialize Claude client once at startup
+    ClaudeService.initialize_client()
+    logger.info("Claude client initialized")
+
+    # Preserved for rollback:
+    # OpenAIService.initialize_client()
+    # logger.info("OpenAI client initialized")
     
     logger.info("✅ Application startup complete")
 

@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 
 from app.models.media import Media
 from app.models.user import User
-from app.services.openai_service import openai_service
+# from app.services.openai_service import openai_service  # Preserved for rollback
+from app.services.claude_service import claude_service
 from app.config import settings
 
 
@@ -41,7 +42,7 @@ class FileService:
     def __init__(self, db: Session):
         self.db = db
         # Use the singleton openai_service instance
-        self.openai_service = openai_service
+        self.claude_service = claude_service
         # Use files/uploads as the base upload directory
         # Path(__file__) = backend/app/services/file_service.py
         # .parents[2] = backend/
@@ -139,25 +140,30 @@ class FileService:
         self.db.add(media)
         self.db.flush()  # Get the media ID
         
-        # Upload to OpenAI if requested
-        if upload_to_openai:
+        # Upload to LLM provider if requested
+        if upload_to_openai:  # param name kept for interface compat
             try:
                 file_path_str = str(file_path)
-                print(f"📤 Uploading file to OpenAI from path: {file_path_str}")
-                openai_file = await self.openai_service.upload_file(
+                print(f"Uploading file to Claude from path: {file_path_str}")
+                llm_file = await self.claude_service.upload_file(
                     file_path=file_path_str,
-                    purpose="user_data"  # For Responses API + tools (e.g., code_interpreter)
+                    purpose="user_data",
                 )
-                
-                if openai_file:
-                    media.openai_file_id = openai_file.get('id')
-                    media.openai_purpose = openai_file.get('purpose') or "user_data"
+
+                if llm_file:
+                    # Set generic LLM fields
                     from datetime import datetime, timezone
-                    media.openai_uploaded_at = datetime.now(timezone.utc)
-                    print(f"  File uploaded to OpenAI: {media.openai_file_id}")
+                    media.llm_file_id = llm_file.get("id")
+                    media.llm_provider = "claude"
+                    media.llm_uploaded_at = datetime.now(timezone.utc)
+                    # Also populate legacy OpenAI fields for backward compatibility
+                    media.openai_file_id = llm_file.get("id")
+                    media.openai_purpose = llm_file.get("purpose") or "user_data"
+                    media.openai_uploaded_at = media.llm_uploaded_at
+                    print(f"  File uploaded to Claude: {media.llm_file_id}")
             except Exception as e:
-                print(f"  Failed to upload file to OpenAI: {str(e)}")
-                # Continue even if OpenAI upload fails
+                print(f"  Failed to upload file to LLM provider: {str(e)}")
+                # Continue even if LLM upload fails
         
         self.db.commit()
         self.db.refresh(media)

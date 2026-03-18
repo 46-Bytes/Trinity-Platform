@@ -12,7 +12,9 @@ from app.models.conversation import Conversation
 from app.models.message import Message
 from app.models.diagnostic import Diagnostic
 from app.models.user import User
-from app.services.openai_service import openai_service
+# from app.services.openai_service import openai_service  # Preserved for rollback
+from app.services.claude_service import claude_service
+from app.config import settings
 from app.utils.file_loader import load_prompt
 
 logger = logging.getLogger(__name__)
@@ -177,7 +179,7 @@ class ChatService:
         message_text: str,
         limit: int = 50,
         engagement_id: Optional[UUID] = None,
-        model: str = "gpt-5-nano"
+        model: str = None  # Uses settings.ANTHROPIC_MODEL by default
     ) -> Message:
         """
         Send a message in a conversation and get AI response.
@@ -226,33 +228,33 @@ class ChatService:
         )
         
         try:
-            gpt_response = await openai_service.generate_completion(
+            ai_response = await claude_service.generate_completion(
                 messages=messages,
                 temperature=0.7,
                 model=model,
-                reasoning_effort="minimal",
+                reasoning_effort="low",
                 max_output_tokens=1000,
             )
-            
-            response_text = gpt_response.get("content", "")
+
+            response_text = ai_response.get("content", "")
             response_data = {
-                "model": gpt_response.get("model"),
-                "tokens_used": gpt_response.get("tokens_used", 0),
-                "prompt_tokens": gpt_response.get("prompt_tokens", 0),
-                "completion_tokens": gpt_response.get("completion_tokens", 0),
+                "model": ai_response.get("model"),
+                "tokens_used": ai_response.get("tokens_used", 0),
+                "prompt_tokens": ai_response.get("prompt_tokens", 0),
+                "completion_tokens": ai_response.get("completion_tokens", 0),
             }
-            
+
         except Exception as e:
-            logger.error(f"  Error calling OpenAI: {str(e)}", exc_info=True)
+            logger.error(f"  Error calling AI service: {str(e)}", exc_info=True)
             response_text = "I apologize, but I'm having trouble processing your request right now. Please try again later."
             response_data = {"error": str(e)}
-        
+
         assistant_message = Message(
             conversation_id=conversation_id,
             role="assistant",
             message=response_text,
             response_data=response_data,
-            message_metadata={"model": gpt_response.get("model", "gpt-4o-mini") if 'gpt_response' in locals() else "gpt-4o-mini"}
+            message_metadata={"model": ai_response.get("model", settings.ANTHROPIC_MODEL) if 'ai_response' in locals() else settings.ANTHROPIC_MODEL}
         )
         self.db.add(assistant_message)
         conversation.updated_at = datetime.now(timezone.utc)

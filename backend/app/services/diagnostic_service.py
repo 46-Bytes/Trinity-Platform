@@ -15,7 +15,8 @@ import os
 from app.models.diagnostic import Diagnostic
 from app.models.task import Task
 from app.models.engagement import Engagement
-from app.services.openai_service import openai_service
+# from app.services.openai_service import openai_service  # Preserved for rollback
+from app.services.claude_service import claude_service
 from app.services.scoring_service import scoring_service
 from app.utils.background_task_manager import background_task_manager
 from app.utils.file_loader import (
@@ -365,7 +366,7 @@ class DiagnosticService:
         logger.info(f"[Pipeline] Step 2 started at {time_module.strftime('%Y-%m-%d %H:%M:%S')}")
         
         summary_prompt = load_prompt("diagnostic_summary")
-        summary_result = await openai_service.generate_summary(
+        summary_result = await claude_service.generate_summary(
             system_prompt=summary_prompt,
             user_responses=user_responses
         )
@@ -461,7 +462,7 @@ class DiagnosticService:
                 pdf_file_ids = [f.openai_file_id for f in pdf_files if f.openai_file_id]
                 ci_file_ids = [f.openai_file_id for f in ci_files if f.openai_file_id]
                 
-                scoring_result = await openai_service.process_scoring(
+                scoring_result = await claude_service.process_scoring(
                     scoring_prompt=scoring_prompt,
                     scoring_map=scoring_map,
                     task_library=task_library,
@@ -508,13 +509,18 @@ class DiagnosticService:
                         
                         try:
                             logger.info(f"[Scoring] Re-uploading {media.file_name}...")
-                            openai_file = await openai_service.upload_file(
+                            openai_file = await claude_service.upload_file(
                                 file_path=file_path_str,
                                 purpose="user_data"
                             )
                             
                             if openai_file and openai_file.get("id"):
-                                old_file_id = media.openai_file_id
+                                old_file_id = media.openai_file_id or media.llm_file_id
+                                # Update generic LLM fields
+                                media.llm_file_id = openai_file["id"]
+                                media.llm_provider = "claude"
+                                media.llm_uploaded_at = datetime.now(timezone.utc)
+                                # Also update legacy OpenAI fields for backward compat
                                 media.openai_file_id = openai_file["id"]
                                 media.openai_purpose = openai_file.get("purpose", "user_data")
                                 media.openai_uploaded_at = datetime.now(timezone.utc)
@@ -581,7 +587,7 @@ class DiagnosticService:
         # Load type-specific report prompt (Part 2)
         report_prompt = load_prompt_for_type("scoring_prompt_report", engagement_type)
 
-        report_result = await openai_service.generate_report(
+        report_result = await claude_service.generate_report(
             report_prompt=report_prompt,
             scored_rows=scored_rows,
             all_responses=all_responses,
@@ -1024,7 +1030,7 @@ class DiagnosticService:
         task_prompt = load_prompt("initial_task_prompt")
         
         # Generate tasks with GPT
-        task_result = await openai_service.generate_tasks(
+        task_result = await claude_service.generate_tasks(
             task_prompt=task_prompt,
             diagnostic_summary=summary,
             json_extract=json_extract,

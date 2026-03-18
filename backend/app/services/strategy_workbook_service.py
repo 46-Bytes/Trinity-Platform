@@ -11,7 +11,8 @@ import logging
 from app.models.strategy_workbook import StrategyWorkbook
 from app.models.diagnostic import Diagnostic
 from app.models.media import Media
-from app.services.openai_service import openai_service
+# from app.services.openai_service import openai_service  # Preserved for rollback
+from app.services.claude_service import claude_service
 from app.services.file_service import get_file_service
 from app.config import settings
 from app.utils.file_loader import load_prompt
@@ -24,7 +25,7 @@ class StrategyWorkbookService:
     
     def __init__(self, db: Session):
         self.db = db
-        self.openai_service = openai_service
+        self.claude_service = claude_service
         self.file_service = get_file_service(db)
         # Prompts
         self.extraction_prompt = load_prompt("strategy-workbook/extraction_prompt")
@@ -253,7 +254,7 @@ class StrategyWorkbookService:
                 else None
             )
 
-            step1_response = await self.openai_service.generate_completion(
+            step1_response = await self.claude_service.generate_completion(
                 messages=step1_messages,
                 file_ids=pdf_file_ids if pdf_file_ids else None,
                 tools=step1_tools,
@@ -290,7 +291,7 @@ class StrategyWorkbookService:
                 },
             ]
 
-            step2_response = await self.openai_service.generate_json_completion(
+            step2_response = await self.claude_service.generate_json_completion(
                 messages=step2_messages,
                 reasoning_effort="medium",
                 model=settings.OPENAI_MODEL,
@@ -408,7 +409,7 @@ class StrategyWorkbookService:
             else None
         )
 
-        response = await self.openai_service.generate_json_completion(
+        response = await self.claude_service.generate_json_completion(
             messages=messages,
             file_ids=pdf_file_ids if pdf_file_ids else None,
             tools=tools,

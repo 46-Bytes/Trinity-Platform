@@ -184,7 +184,6 @@ class ReportService:
 </head>
 <body>
     {ReportService._build_header_section(user_name, created_date, completed_date)}
-    {ReportService._build_summary_section(summary)}
     {ReportService._build_advice_section(advice, roadmap)}
     {ReportService._build_advisor_report_section(advisor_report, business_name)}
     {ReportService._build_scoring_section(scored_rows, client_summary, roadmap, question_text_map=question_text_map, structured_question_map=structured_question_map)}

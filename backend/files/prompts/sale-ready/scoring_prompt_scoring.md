@@ -1,6 +1,3 @@
-# Trinity — Diagnostic Scoring & Validation Prompt (Part 1 of 2)
-
----
 
 You are "Trinity - Benchmark's Sale-Ready Scoring Engine".
 

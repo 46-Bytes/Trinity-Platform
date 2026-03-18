@@ -8,7 +8,8 @@ import json
 import logging
 from pathlib import Path
 
-from app.services.openai_service import OpenAIService
+# from app.services.openai_service import OpenAIService  # Preserved for rollback
+from app.services.claude_service import ClaudeService
 from app.models.bba import BBA
 
 logger = logging.getLogger(__name__)
@@ -47,8 +48,8 @@ class BBAConversationEngine:
     """
     
     def __init__(self):
-        """Initialize the conversation engine with OpenAI service."""
-        self.openai_service = OpenAIService()
+        """Initialize the conversation engine with Claude service."""
+        self.openai_service = ClaudeService()
     
     def _build_context_from_bba(self, bba: BBA) -> Dict[str, Any]:
         """

@@ -37,11 +37,19 @@ class Settings(BaseSettings):
     # Security
     SECRET_KEY: str
 
-    # OpenAI
-    OPENAI_API_KEY: str
+    # OpenAI (preserved for rollback — optional when using Claude)
+    OPENAI_API_KEY: Optional[str] = None
     OPENAI_MODEL: str = "gpt-4o"
     OPENAI_TEMPERATURE: float = 1.0
     OPENAI_TIMEOUT: Optional[float] = None  # None = no timeout, or specify seconds (e.g., 60.0)
+
+    # Anthropic / Claude
+    ANTHROPIC_API_KEY: str
+    ANTHROPIC_MODEL: str = "claude-opus-4-6"
+    ANTHROPIC_TEMPERATURE: float = 0.5
+    ANTHROPIC_TIMEOUT: Optional[float] = 600.0
+    ANTHROPIC_MAX_TOKENS: int = 128000  # Claude Opus 4.6 max output tokens
+    LLM_PROVIDER: str = "claude"  # "claude" or "openai"
 
     # File Uploads
     UPLOAD_DIR: str = "uploads"
@@ -58,6 +66,13 @@ class Settings(BaseSettings):
     def validate_temperature(cls, v: float) -> float:
         if not 0.0 <= v <= 2.0:
             raise ValueError("OPENAI_TEMPERATURE must be between 0.0 and 2.0")
+        return v
+
+    @field_validator("ANTHROPIC_TEMPERATURE")
+    @classmethod
+    def validate_anthropic_temperature(cls, v: float) -> float:
+        if not 0.0 <= v <= 1.0:
+            raise ValueError("ANTHROPIC_TEMPERATURE must be between 0.0 and 1.0")
         return v
 
     class Config:

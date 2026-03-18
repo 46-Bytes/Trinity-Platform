@@ -31,8 +31,11 @@ python-dateutil==2.9.0.post0
 bcrypt==5.0.0
 passlib[bcrypt]==1.7.4
 
-# OpenAI for AI processing
+# OpenAI for AI processing (preserved for rollback)
 openai==2.9.0
+
+# Anthropic for Claude AI processing
+anthropic>=0.52.0
 
 # PDF generation
 xhtml2pdf==0.2.17

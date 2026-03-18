@@ -1,5 +1,14 @@
 """
-OpenAI service for GPT interactions using Responses API
+PRESERVED FOR ROLLBACK -- OpenAI GPT integration via Responses API.
+
+This service has been replaced by claude_service.py (Anthropic Claude).
+All downstream services now import from claude_service instead.
+
+To re-enable OpenAI:
+1. Set LLM_PROVIDER=openai in .env and uncomment OPENAI_API_KEY
+2. In main.py: switch ClaudeService.initialize_client() -> OpenAIService.initialize_client()
+3. In each service file: swap 'from app.services.claude_service import ...'
+   back to 'from app.services.openai_service import ...'
 """
 from typing import Dict, Any, List, Optional
 import json

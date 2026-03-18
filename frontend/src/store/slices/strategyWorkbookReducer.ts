@@ -24,6 +24,8 @@ export interface UploadedFile {
   file_size?: number;
   file_type?: string;
   openai_file_id?: string;
+  llm_file_id?: string;
+  llm_provider?: string;
   description?: string;
   question_field_name?: string;
   tag?: string;

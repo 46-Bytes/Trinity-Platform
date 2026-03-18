@@ -39,12 +39,20 @@ class Media(Base):
     file_type = Column(String(100), nullable=True, comment="MIME type")
     file_extension = Column(String(20), nullable=True, comment="File extension (pdf, jpg, etc.)")
     
-    # OpenAI integration
+    # OpenAI integration (preserved for rollback)
     openai_file_id = Column(String(255), nullable=True, unique=True, index=True,
                            comment="OpenAI file ID for GPT analysis")
-    openai_purpose = Column(String(50), nullable=True, 
+    openai_purpose = Column(String(50), nullable=True,
                            comment="OpenAI file purpose (assistants, vision, etc.)")
     openai_uploaded_at = Column(DateTime, nullable=True, comment="When uploaded to OpenAI")
+
+    # Generic LLM integration (provider-agnostic)
+    llm_file_id = Column(String(255), nullable=True, index=True,
+                        comment="LLM provider file ID (Claude, OpenAI, etc.)")
+    llm_provider = Column(String(50), nullable=True,
+                         comment="LLM provider name (claude, openai)")
+    llm_uploaded_at = Column(DateTime, nullable=True,
+                            comment="When uploaded to current LLM provider")
     
     # Metadata
     description = Column(Text, nullable=True, comment="User-provided description")
@@ -64,8 +72,9 @@ class Media(Base):
     diagnostics = relationship("Diagnostic", secondary=diagnostic_media, back_populates="media")
     
     def __repr__(self):
-        return f"<Media(id={self.id}, file_name='{self.file_name}', openai_file_id='{self.openai_file_id}')>"
-    
+        file_id = self.llm_file_id or self.openai_file_id
+        return f"<Media(id={self.id}, file_name='{self.file_name}', llm_file_id='{file_id}')>"
+
     def to_dict(self):
         """Convert media to dictionary"""
         return {
@@ -74,9 +83,11 @@ class Media(Base):
             "file_size": self.file_size,
             "file_type": self.file_type,
             "openai_file_id": self.openai_file_id,
+            "llm_file_id": self.llm_file_id,
+            "llm_provider": self.llm_provider,
             "description": self.description,
             "question_field_name": self.question_field_name,
             "tag": self.tag,
-            "created_at": self.created_at.isoformat() if self.created_at else None
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 

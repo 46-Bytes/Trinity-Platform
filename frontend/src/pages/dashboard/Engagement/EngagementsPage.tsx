@@ -260,10 +260,10 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
                       <div className="flex items-start justify-between lg:justify-start gap-3 mb-2">
                         <div>
                             <h3 className="font-semibold text-foreground group-hover:text-accent transition-colors">
-                              {engagement.title}
+                              {engagement.businessName || engagement.title}
                             </h3>
                             <p className="text-sm text-muted-foreground">
-                              {engagement.clientName || engagement.businessName}
+                              {engagement.title}
                             </p>
                           </div>
                         <div className="flex items-center gap-2">

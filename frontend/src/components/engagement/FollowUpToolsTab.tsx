@@ -1,6 +1,7 @@
 /**
  * Follow-up tools tab for an engagement.
- * Lists completed diagnostics and allows running BBA Builder (and future tools) from any of them.
+ * Always shows BBA Builder and Strategy Workbook tools.
+ * If a completed diagnostic exists, it can optionally be used as context.
  */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -54,8 +55,8 @@ export function FollowUpToolsTab({
 }: FollowUpToolsTabProps) {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const [loadingDiagnosticId, setLoadingDiagnosticId] = useState<string | null>(null);
-  const [loadingSwDiagnosticId, setLoadingSwDiagnosticId] = useState<string | null>(null);
+  const [bbaLoading, setBbaLoading] = useState(false);
+  const [swLoading, setSwLoading] = useState(false);
 
   const completedDiagnostics = diagnostics.filter(
     (d) => (d.status || (d as any).status) === 'completed'
@@ -72,18 +73,38 @@ export function FollowUpToolsTab({
 
   const visibleDiagnostics = completedDiagnostics.filter(canSeeDiagnostic);
 
-  const runBbaBuilder = async (diagnosticId: string) => {
-    setLoadingDiagnosticId(diagnosticId);
+  // Auto-use the most recent completed diagnostic as context (if any)
+  const effectiveDiagnosticId = visibleDiagnostics.length > 0 ? visibleDiagnostics[0].id : null;
+
+  const anyLoading = bbaLoading || swLoading;
+
+  const getAuthToken = () => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      toast.error('Not authenticated');
+      return null;
+    }
+    return token;
+  };
+
+  const runBbaBuilder = async () => {
+    setBbaLoading(true);
     try {
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        toast.error('Not authenticated');
-        return;
+      const token = getAuthToken();
+      if (!token) return;
+
+      let url: string;
+      if (effectiveDiagnosticId) {
+        url = `${API_BASE_URL}/api/poc/create-from-diagnostic?diagnostic_id=${effectiveDiagnosticId}`;
+      } else {
+        url = `${API_BASE_URL}/api/poc/create-project?engagement_id=${engagementId}`;
       }
-      const res = await fetch(
-        `${API_BASE_URL}/api/poc/create-from-diagnostic?diagnostic_id=${diagnosticId}`,
-        { method: 'POST', headers: { Authorization: `Bearer ${token}` }, credentials: 'include' }
-      );
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: 'Failed to create BBA project' }));
         toast.error(err.detail || 'Failed to start BBA Builder');
@@ -100,22 +121,28 @@ export function FollowUpToolsTab({
       console.error(e);
       toast.error('Failed to start BBA Builder');
     } finally {
-      setLoadingDiagnosticId(null);
+      setBbaLoading(false);
     }
   };
 
-  const runStrategyWorkbook = async (diagnosticId: string) => {
-    setLoadingSwDiagnosticId(diagnosticId);
+  const runStrategyWorkbook = async () => {
+    setSwLoading(true);
     try {
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        toast.error('Not authenticated');
-        return;
+      const token = getAuthToken();
+      if (!token) return;
+
+      let url: string;
+      if (effectiveDiagnosticId) {
+        url = `${API_BASE_URL}/api/strategy-workbook/create-from-diagnostic?diagnostic_id=${effectiveDiagnosticId}`;
+      } else {
+        url = `${API_BASE_URL}/api/strategy-workbook/create-project?engagement_id=${engagementId}`;
       }
-      const res = await fetch(
-        `${API_BASE_URL}/api/strategy-workbook/create-from-diagnostic?diagnostic_id=${diagnosticId}`,
-        { method: 'POST', headers: { Authorization: `Bearer ${token}` }, credentials: 'include' }
-      );
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: 'Failed to create strategy workbook' }));
         toast.error(err.detail || 'Failed to start Strategy Workbook');
@@ -133,7 +160,7 @@ export function FollowUpToolsTab({
       console.error(e);
       toast.error('Failed to start Strategy Workbook');
     } finally {
-      setLoadingSwDiagnosticId(null);
+      setSwLoading(false);
     }
   };
 
@@ -142,78 +169,70 @@ export function FollowUpToolsTab({
       <div>
         <h2 className="text-xl font-semibold flex items-center gap-2">
           <Wrench className="h-5 w-5 text-muted-foreground" />
-          Follow-up tools
+          AI Tools
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Run additional tools using your completed diagnostics. Each tool uses a selected diagnostic as context.
+          Run AI-powered tools for this engagement.
+          {effectiveDiagnosticId && ' A completed diagnostic will be used as context.'}
         </p>
       </div>
 
-      {visibleDiagnostics.length === 0 ? (
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-muted-foreground text-center py-8">
-              No completed diagnostics yet. Complete a diagnostic in the <strong>Diagnostic</strong> tab to run follow-up tools here.
-            </p>
+      {/* Tool cards - always visible and always enabled */}
+      <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
+        <Card className="flex flex-col">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-medium flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Report and Recommendation Builder
+            </CardTitle>
+            <CardDescription>
+              Generate a Business Benchmark Analysis{effectiveDiagnosticId ? ' from your diagnostic data' : ' for this engagement'}.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="mt-auto pt-4">
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              disabled={anyLoading}
+              onClick={runBbaBuilder}
+            >
+              {bbaLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <FileText className="h-4 w-4 mr-2" />
+              )}
+              Run BBA Builder
+            </Button>
           </CardContent>
         </Card>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
-          {visibleDiagnostics.map((diagnostic) => {
-            const tag = diagnosticTags[diagnostic.id] ?? diagnostic.tag ?? (diagnostic as any).tag;
-            const completedAt = diagnostic.completed_at ?? (diagnostic as any).completedAt;
-            const isBbaLoading = loadingDiagnosticId === diagnostic.id;
-            const isSwLoading = loadingSwDiagnosticId === diagnostic.id;
-            const anyLoading = !!loadingDiagnosticId || !!loadingSwDiagnosticId;
 
-            return (
-              <Card key={diagnostic.id} className="flex flex-col">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-medium">
-                    {tag && String(tag).trim() ? tag : 'Diagnostic report'}
-                  </CardTitle>
-                  <CardDescription>
-                    Completed {formatDate(completedAt)}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="mt-auto pt-4">
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="outline"
-                      className="sm:w-auto"
-                      disabled={anyLoading}
-                      onClick={() => runBbaBuilder(diagnostic.id)}
-                    >
-                      {isBbaLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      ) : (
-                        <FileText className="h-4 w-4 mr-2" />
-                      )}
-                      BBA Builder
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="sm:w-auto"
-                      disabled={anyLoading}
-                      onClick={() => runStrategyWorkbook(diagnostic.id)}
-                    >
-                      {isSwLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      ) : (
-                        <BookOpen className="h-4 w-4 mr-2" />
-                      )}
-                      Strategy Workbook
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Run follow-up tools using this completed diagnostic.
-                  </p>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+        <Card className="flex flex-col">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-medium flex items-center gap-2">
+              <BookOpen className="h-4 w-4" />
+              Strategy Workbook Creator
+            </CardTitle>
+            <CardDescription>
+              Create a strategic planning workbook{effectiveDiagnosticId ? ' based on your diagnostic insights' : ' for this engagement'}.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="mt-auto pt-4">
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              disabled={anyLoading}
+              onClick={runStrategyWorkbook}
+            >
+              {swLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <BookOpen className="h-4 w-4 mr-2" />
+              )}
+              Run Strategy Workbook
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

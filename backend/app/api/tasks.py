@@ -328,6 +328,16 @@ async def list_tasks(
         creator = db.query(User).filter(User.id == task.created_by_user_id).first()
         created_by_name = creator.name or creator.email if creator else None
 
+        # Get client names from engagement
+        client_names = []
+        if engagement:
+            client_ids_to_fetch = engagement.client_ids if engagement.client_ids else []
+            if not client_ids_to_fetch and engagement.client_id:
+                client_ids_to_fetch = [engagement.client_id]
+            if client_ids_to_fetch:
+                clients = db.query(User).filter(User.id.in_(client_ids_to_fetch)).all()
+                client_names = [c.name or c.email or c.nickname for c in clients if c]
+
         # Compute unread notes count for the current user
         unread_notes_count_for_current_user = 0
         if engagement:
@@ -352,6 +362,7 @@ async def list_tasks(
             "engagement_name": engagement_name,
             "assigned_to_name": assigned_to_name,
             "created_by_name": created_by_name,
+            "client_names": client_names or None,
             "unread_notes_count_for_current_user": unread_notes_count_for_current_user,
         }
         result.append(TaskListItem(**task_dict))

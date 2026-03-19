@@ -10,6 +10,7 @@ export interface Task {
   assignedToName?: string;
   createdByUserId: string;
   createdByName?: string;
+  clientNames?: string[];
   title: string;
   description?: string;
   taskType: 'manual' | 'diagnostic_generated';
@@ -99,6 +100,7 @@ function mapBackendTaskToFrontend(item: any): Task {
     createdAt: item.created_at,
     updatedAt: item.updated_at,
     unreadNotesCountForCurrentUser: item.unread_notes_count_for_current_user ?? 0,
+    clientNames: item.client_names || undefined,
   };
 }
 

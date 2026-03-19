@@ -38,6 +38,35 @@ from app.schemas.strategy_workbook import (
 router = APIRouter(prefix="/strategy-workbook", tags=["strategy-workbook"])
 
 
+@router.post("/create-project", status_code=status.HTTP_201_CREATED)
+async def create_workbook_project(
+    engagement_id: Optional[UUID] = Query(None, description="Optional engagement ID to link the workbook to"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Create a new strategy workbook without requiring a diagnostic.
+    """
+    if engagement_id:
+        engagement = db.query(Engagement).filter(
+            Engagement.id == engagement_id,
+            Engagement.is_deleted == False,
+        ).first()
+        if not engagement:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Engagement not found")
+        if not check_engagement_access(engagement, current_user, db=db):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have access to this engagement")
+
+    service = get_strategy_workbook_service(db)
+    workbook = service.create_workbook(user_id=current_user.id, engagement_id=engagement_id)
+    return {
+        "success": True,
+        "workbook_id": str(workbook.id),
+        "engagement_id": str(workbook.engagement_id) if workbook.engagement_id else None,
+    }
+
+
+
 @router.post("/create-from-diagnostic", status_code=status.HTTP_201_CREATED)
 async def create_from_diagnostic(
     diagnostic_id: UUID = Query(..., description="Completed diagnostic ID to create strategy workbook from"),

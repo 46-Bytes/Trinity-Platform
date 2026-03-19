@@ -50,7 +50,7 @@ export default function Login() {
   return (
     <div className="min-h-screen flex">
       {/* Left Panel - Hero */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden" style={{ background: 'var(--gradient-hero)' }}>
+      <div className="hidden lg:flex lg:w-1/2 items-center justify-center relative overflow-hidden" style={{ background: 'var(--gradient-hero)' }}>
         <div className="absolute inset-0 opacity-20">
           <div className="absolute top-20 left-20 w-72 h-72 bg-accent/20 rounded-full blur-3xl" />
           <div className="absolute bottom-40 right-10 w-96 h-96 bg-accent/10 rounded-full blur-3xl" />
@@ -72,8 +72,7 @@ export default function Login() {
           </h1>
           
           <p className="text-lg text-primary-foreground/80 mb-8 max-w-md animate-slide-up stagger-1">
-            A secure, cloud-based engagement platform that enables advisors to manage clients, 
-            produce diagnostics, and generate AI-assisted business artefacts.
+            A secure, internal workspace for Benchmark Business Advisory advisors and authorised clients to manage engagements, collaborate, and use built-in tools (including AI) to support diagnostics, planning, and delivery.
           </p>
 
           <div className="space-y-4 animate-slide-up stagger-2">
@@ -81,19 +80,19 @@ export default function Login() {
               <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
                 <Sparkles className="w-4 h-4 text-accent" />
               </div>
-              <span className="text-primary-foreground/90">AI-Powered Business Tools</span>
+              <span className="text-primary-foreground/90">Advisor and client access only</span>
             </div>
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
                 <Sparkles className="w-4 h-4 text-accent" />
               </div>
-              <span className="text-primary-foreground/90">Secure Client Engagement</span>
+              <span className="text-primary-foreground/90">Secure collaboration and document workflow</span>
             </div>
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
                 <Sparkles className="w-4 h-4 text-accent" />
               </div>
-              <span className="text-primary-foreground/90">Comprehensive Task Management</span>
+              <span className="text-primary-foreground/90">Diagnostic, planning tools, tasks, and reporting in one place</span>
             </div>
           </div>
         </div>

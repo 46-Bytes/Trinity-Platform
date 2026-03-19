@@ -699,7 +699,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
       {shouldShowDownloadReport && (
         <div className="mb-6 sm:mb-8 rounded-lg border border-green-200 bg-green-50 p-3 sm:p-4" style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
           <p className="font-semibold text-green-800 break-words" style={{ maxWidth: '100%' }}>
-            Diagnostic completed and analyzed.
+            Diagnostic completed and analysed.
           </p>
           <p className="mt-1 text-sm text-green-900 break-words" style={{ maxWidth: '100%' }}>
             You can download the full diagnostic report as a PDF.

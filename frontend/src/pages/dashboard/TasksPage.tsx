@@ -32,6 +32,7 @@ function mapTaskToDisplay(task: Task) {
     title: task.title,
     description: task.description || '',
     engagementName: task.engagementName || 'Unknown Engagement',
+    clientNames: task.clientNames || [],
     assignedToName: task.assignedToName || task.createdByName || 'Unassigned',
     dueDate: task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No due date',
     status: task.status as TaskStatus,
@@ -245,9 +246,15 @@ export default function TasksPage() {
                           </span>
                         </div>
 
-                        <div className="mt-2 pt-2 border-t border-border">
-                          <span className="text-xs text-muted-foreground">{task.engagementName}</span>
-                        </div>
+                        {task.clientNames.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-border flex flex-wrap gap-1">
+                            {task.clientNames.map((name, idx) => (
+                              <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent/10 text-accent">
+                                {name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
 

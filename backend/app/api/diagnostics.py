@@ -612,17 +612,33 @@ async def submit_diagnostic(
                                     }
                                 }
 
+                    # Look up lead advisor name for cover page
+                    advisor_name = ""
+                    try:
+                        engagement_obj = background_db.query(Engagement).filter(
+                            Engagement.id == diagnostic_obj.engagement_id
+                        ).first()
+                        if engagement_obj and engagement_obj.primary_advisor_id:
+                            advisor_user = background_db.query(User).filter(
+                                User.id == engagement_obj.primary_advisor_id
+                            ).first()
+                            if advisor_user:
+                                advisor_name = advisor_user.name or advisor_user.email or ""
+                    except Exception:
+                        advisor_name = ""
+
                     # Generate PDF (this will be stored/cached for download)
                     pdf_bytes = ReportService.generate_pdf_report(
                         diagnostic=diagnostic_obj,
                         user=report_user,
                         question_text_map=question_text_map,
-                        structured_question_map=structured_question_map
+                        structured_question_map=structured_question_map,
+                        advisor_name=advisor_name
                     )
                     logger.info(f"  PDF report generated successfully ({len(pdf_bytes)} bytes)")
                 else:
                     logger.warning(f"  Could not find user for PDF generation")
-                    
+
             except Exception as pdf_error:
                 logger.error(f"  PDF generation failed (non-critical): {str(pdf_error)}", exc_info=True)
                 # Don't fail the whole process if PDF generation fails
@@ -1123,11 +1139,27 @@ async def download_diagnostic_report(
         if not report_user:
             report_user = current_user
 
+        # Look up lead advisor name for cover page
+        advisor_name = ""
+        try:
+            engagement_obj = db.query(Engagement).filter(
+                Engagement.id == diagnostic.engagement_id
+            ).first()
+            if engagement_obj and engagement_obj.primary_advisor_id:
+                advisor_user = db.query(User).filter(
+                    User.id == engagement_obj.primary_advisor_id
+                ).first()
+                if advisor_user:
+                    advisor_name = advisor_user.name or advisor_user.email or ""
+        except Exception:
+            advisor_name = ""
+
         pdf_bytes = ReportService.generate_pdf_report(
             diagnostic=diagnostic,
             user=report_user,
             question_text_map=question_text_map,
-            structured_question_map=structured_question_map
+            structured_question_map=structured_question_map,
+            advisor_name=advisor_name
         )
         
         filename = ReportService.get_download_filename(diagnostic, report_user)

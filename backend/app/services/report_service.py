@@ -173,8 +173,11 @@ class ReportService:
             business_name = ""
             firm_name = ""
 
-        # Determine diagnostic type for report title
-        diagnostic_type = getattr(diagnostic, "diagnostic_type", "business_health_assessment") or "business_health_assessment"
+        # Determine diagnostic type for report title — prefer engagement.tool
+        # (which holds "sale_ready" / "value_builder") over diagnostic.diagnostic_type
+        # (which defaults to the generic "business_health_assessment").
+        engagement_tool = getattr(engagement, "tool", None) if engagement is not None else None
+        diagnostic_type = engagement_tool or getattr(diagnostic, "diagnostic_type", "") or "sale_ready"
         
         # Build Q&A data (all responses with question text)
         qa_data = ReportService._build_qa_data(user_responses, question_text_map)
@@ -224,9 +227,8 @@ class ReportService:
         """Build the cover/title page for the report."""
         # Map diagnostic type to display title
         type_titles = {
-            "sale_ready": "Sale-Ready Assessment Report",
+            "sale_ready": "Sale Ready Diagnostic Report",
             "value_builder": "Value Builder Diagnostic Report",
-            "business_health_assessment": "Business Health Assessment Report",
         }
         report_title = type_titles.get(diagnostic_type, "Diagnostic Report")
 
@@ -242,12 +244,7 @@ class ReportService:
         firm_display = firm_name.upper() if firm_name else ""
         firm_spaced = " &nbsp; ".join(firm_display) if firm_display else ""
 
-        # Top-right header line: "Firm Name | Confidential"
-        header_parts = []
-        if firm_name:
-            header_parts.append(ReportService._escape_html(firm_name))
-        header_parts.append("Confidential")
-        header_line = " &nbsp;|&nbsp; ".join(header_parts)
+        # Top-right header line removed per design request
 
         # Prepared for line
         prepared_for = f'<p class="cover-prepared-for">Prepared for: {ReportService._escape_html(client_name)}</p>' if client_name else ""
@@ -265,7 +262,6 @@ class ReportService:
 
         return f"""
     <div class="cover-page">
-        <p class="cover-header-line">{header_line}</p>
         <p class="cover-firm-spaced">{firm_spaced if firm_spaced else ''}</p>
         <h1 class="cover-title">{ReportService._escape_html(report_title)}</h1>
         <hr class="cover-rule" />
@@ -325,10 +321,16 @@ class ReportService:
         if not advisor_report:
             return ""
         
-        # The advisor report is generated as HTML/Markdown containing numbered sections
-        # (1. Executive Summary, 2. Module Findings, 3. Task List by Module, 4. Additional Bespoke Tasks).
-        # We add the major heading "Sale-Ready Assessment Report for [Company]" above it.
-        advisor_html = ReportService._markdown_to_html(advisor_report)
+        # The advisor report is returned from Claude as raw HTML (the prompt
+        # requests "a single HTML string").  Running it through the Markdown
+        # converter would escape the existing HTML tags (e.g. <br/>, <table>)
+        # turning them into visible literal text in the PDF.  We therefore
+        # use the HTML as-is, only falling back to Markdown conversion when
+        # the content looks like plain Markdown (no HTML tags present).
+        if re.search(r"<(?:table|tr|td|th|br|h[1-6]|p|ul|ol|li|div|span)\b", advisor_report, re.IGNORECASE):
+            advisor_html = advisor_report
+        else:
+            advisor_html = ReportService._markdown_to_html(advisor_report)
         # Strip Section 5 (Scoring Detail) — its "5a. Scored Responses" and
         # "5b. All Responses" tables are redundant with the dedicated formatted
         # sections and contain raw JSON values that render badly in the PDF.

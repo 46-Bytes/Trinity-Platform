@@ -553,8 +553,8 @@ async def submit_diagnostic(
             logger.info(f"[Background Task] Diagnostic status: {diagnostic_obj.status}")
             logger.info(f"[Background Task] Diagnostic engagement_id: {diagnostic_obj.engagement_id}")
 
-            # Process the diagnostic pipeline with a 15-minute overall timeout
-            PIPELINE_TIMEOUT_SECONDS = 900  # 15 minutes
+            # Process the diagnostic pipeline with a 30-minute overall timeout
+            PIPELINE_TIMEOUT_SECONDS = 1800  # 30 minutes
             try:
                 await asyncio.wait_for(
                     background_service._process_diagnostic_pipeline(diagnostic_obj, check_shutdown=True),

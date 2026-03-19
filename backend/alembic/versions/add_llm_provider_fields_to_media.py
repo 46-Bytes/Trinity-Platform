@@ -1,6 +1,6 @@
 """Add generic LLM provider fields to media table
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: 9267fb9f2c3b
 Revises: f227a49caf86
 Create Date: 2026-03-18
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'a1b2c3d4e5f6'
+revision = '9267fb9f2c3b'
 down_revision = 'f227a49caf86'
 branch_labels = None
 depends_on = None

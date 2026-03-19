@@ -1,7 +1,7 @@
 """Add generic LLM provider fields to media table
 
-Revision ID: a1b2c3d4e5f6
-Revises: f227a49caf86
+Revision ID: add_llm_provider_fields
+Revises: add_document_templates
 Create Date: 2026-03-18
 
 Adds llm_file_id, llm_provider, and llm_uploaded_at columns
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'a1b2c3d4e5f6'
-down_revision = 'f227a49caf86'
+revision = 'add_llm_provider_fields'
+down_revision = 'add_document_templates'
 branch_labels = None
 depends_on = None
 

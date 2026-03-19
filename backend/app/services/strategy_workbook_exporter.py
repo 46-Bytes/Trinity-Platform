@@ -135,7 +135,7 @@ class StrategyWorkbookExporter:
         Returns:
             Row number or None if not found
         """
-        for row_idx, row in enumerate(ws.iter_rows(min_row=1, max_row=200, values_only=False), start=1):
+        for row_idx, row in enumerate(ws.iter_rows(min_row=1, max_row=500, values_only=False), start=1):
             for cell in row:
                 if cell.value and isinstance(cell.value, str):
                     if section_name.upper() in cell.value.upper():

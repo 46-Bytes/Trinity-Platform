@@ -396,7 +396,7 @@ class DiagnosticService:
         if attached_files:
             logger.info(f"[Scoring] Files being used for scoring:")
             for f in attached_files:
-                logger.info(f"[Scoring]   - {f.file_name} (media_id: {f.id}, openai_file_id: {f.openai_file_id})")
+                logger.info(f"[Scoring]   - {f.file_name} (media_id: {f.id}, llm_file_id: {f.llm_file_id or f.openai_file_id})")
         else:
             logger.info(f"[Scoring] No files found in user_responses - scoring will proceed without file attachments")
         
@@ -413,23 +413,23 @@ class DiagnosticService:
 
         pdf_files = [
             f for f in attached_files
-            if f.openai_file_id and f.file_extension and f.file_extension.lower() in pdf_ext
+            if (f.llm_file_id or f.openai_file_id) and f.file_extension and f.file_extension.lower() in pdf_ext
         ]
         ci_files = [
             f for f in attached_files
             if (
-                f.openai_file_id
+                (f.llm_file_id or f.openai_file_id)
                 and f.file_extension
                 and f.file_extension.lower() in ci_ext
             )
         ]
         filtered_files = [
             f for f in attached_files
-            if f.openai_file_id and f.file_extension and f.file_extension.lower() in image_or_archive_ext
+            if (f.llm_file_id or f.openai_file_id) and f.file_extension and f.file_extension.lower() in image_or_archive_ext
         ]
 
-        pdf_file_ids = [f.openai_file_id for f in pdf_files if f.openai_file_id]
-        ci_file_ids = [f.openai_file_id for f in ci_files if f.openai_file_id]
+        pdf_file_ids = [(f.llm_file_id or f.openai_file_id) for f in pdf_files if (f.llm_file_id or f.openai_file_id)]
+        ci_file_ids = [(f.llm_file_id or f.openai_file_id) for f in ci_files if (f.llm_file_id or f.openai_file_id)]
 
         if filtered_files:
             logger.info(
@@ -441,17 +441,47 @@ class DiagnosticService:
         scoring_prompt = load_prompt_for_type("scoring_prompt_scoring", engagement_type)
 
 
-        # Call OpenAI API for scoring with file re-upload retry on file-not-found errors
-        logger.info("[Scoring] Calling OpenAI API for scoring - Part 1: Scoring & Validation (this may take several minutes)...")
-        
+        # Re-upload files that have stale OpenAI IDs (not yet uploaded to Claude)
+        files_needing_upload = [
+            f for f in (pdf_files + ci_files)
+            if not f.llm_file_id or f.llm_provider != "claude"
+        ]
+        if files_needing_upload:
+            logger.info(f"[Scoring] Found {len(files_needing_upload)} file(s) needing upload to Claude")
+            for media in files_needing_upload:
+                file_path_str = str(media.file_path) if media.file_path else None
+                if not file_path_str or not os.path.exists(file_path_str):
+                    logger.warning(f"[Scoring] Cannot upload {media.file_name}: file not found at {file_path_str}")
+                    continue
+                try:
+                    logger.info(f"[Scoring] Uploading {media.file_name} to Claude...")
+                    claude_file = await claude_service.upload_file(
+                        file_path=file_path_str,
+                        purpose="user_data"
+                    )
+                    if claude_file and claude_file.get("id"):
+                        media.llm_file_id = claude_file["id"]
+                        media.llm_provider = "claude"
+                        media.llm_uploaded_at = datetime.now(timezone.utc)
+                        media.openai_file_id = claude_file["id"]
+                        media.openai_uploaded_at = datetime.now(timezone.utc)
+                        self.db.commit()
+                        logger.info(f"[Scoring] Uploaded {media.file_name}: file_id={claude_file['id']}")
+                except Exception as upload_err:
+                    logger.error(f"[Scoring] Failed to upload {media.file_name}: {str(upload_err)}")
+
+        # Call Claude API for scoring with file re-upload retry on file-not-found errors
+        logger.info("[Scoring] Calling Claude API for scoring - Part 1: Scoring & Validation (this may take several minutes)...")
+
         scoring_start_time = time_module.time()
-        
+
         # Build mapping of file_id -> Media object for retry logic
         file_id_to_media = {}
         for media in pdf_files + ci_files:
-            if media.openai_file_id:
-                file_id_to_media[media.openai_file_id] = media
-        
+            fid = media.llm_file_id or media.openai_file_id
+            if fid:
+                file_id_to_media[fid] = media
+
         max_retries = 1  # Retry once after re-uploading files
         retry_count = 0
         scoring_result = None
@@ -459,8 +489,8 @@ class DiagnosticService:
         while retry_count <= max_retries:
             try:
                 # Rebuild file_ids in case they were updated during retry
-                pdf_file_ids = [f.openai_file_id for f in pdf_files if f.openai_file_id]
-                ci_file_ids = [f.openai_file_id for f in ci_files if f.openai_file_id]
+                pdf_file_ids = [(f.llm_file_id or f.openai_file_id) for f in pdf_files if (f.llm_file_id or f.openai_file_id)]
+                ci_file_ids = [(f.llm_file_id or f.openai_file_id) for f in ci_files if (f.llm_file_id or f.openai_file_id)]
                 
                 scoring_result = await claude_service.process_scoring(
                     scoring_prompt=scoring_prompt,
@@ -515,7 +545,7 @@ class DiagnosticService:
                             )
                             
                             if openai_file and openai_file.get("id"):
-                                old_file_id = media.openai_file_id or media.llm_file_id
+                                old_file_id = media.llm_file_id or media.openai_file_id
                                 # Update generic LLM fields
                                 media.llm_file_id = openai_file["id"]
                                 media.llm_provider = "claude"
@@ -524,7 +554,7 @@ class DiagnosticService:
                                 media.openai_file_id = openai_file["id"]
                                 media.openai_purpose = openai_file.get("purpose", "user_data")
                                 media.openai_uploaded_at = datetime.now(timezone.utc)
-                                
+
                                 # Update file_id_to_media mapping
                                 if old_file_id in file_id_to_media:
                                     del file_id_to_media[old_file_id]
@@ -543,8 +573,8 @@ class DiagnosticService:
                         logger.info(f"[Scoring] Re-uploaded {reuploaded_count}/{len(files_to_reupload)} files. Retrying scoring call...")
                         retry_count += 1
                         # Rebuild file lists with updated IDs
-                        pdf_files = [f for f in attached_files if f.openai_file_id and f.file_extension and f.file_extension.lower() in pdf_ext]
-                        ci_files = [f for f in attached_files if f.openai_file_id and f.file_extension and f.file_extension.lower() in ci_ext]
+                        pdf_files = [f for f in attached_files if (f.llm_file_id or f.openai_file_id) and f.file_extension and f.file_extension.lower() in pdf_ext]
+                        ci_files = [f for f in attached_files if (f.llm_file_id or f.openai_file_id) and f.file_extension and f.file_extension.lower() in ci_ext]
                         continue  # Retry the scoring call
                     else:
                         logger.error(f"[Scoring] Could not re-upload any files. Failing.")
@@ -595,6 +625,7 @@ class DiagnosticService:
             file_insights=file_insights,
             task_library=task_library,
             summary=summary,
+            reasoning_effort="low",
         )
 
         report_data = report_result["parsed_content"]
@@ -947,10 +978,10 @@ class DiagnosticService:
                 "filename": file.file_name,
                 "type": file.file_type or file.file_extension,
                 "question": file.question_field_name or "general",
-                "openai_file_id": file.openai_file_id
+                "openai_file_id": file.llm_file_id or file.openai_file_id
             }
             file_info_list.append(file_info)
-            if file.openai_file_id:
+            if file.llm_file_id or file.openai_file_id:
                 files_with_ids += 1
         
         # Build context string

@@ -99,6 +99,7 @@ export default function StrategyWorkbookPage() {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
+        credentials: 'include',
       });
       if (!response.ok) {
         toast.error('Failed to download workbook');

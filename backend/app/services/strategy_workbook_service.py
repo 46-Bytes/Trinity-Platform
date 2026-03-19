@@ -259,8 +259,8 @@ class StrategyWorkbookService:
                 file_ids=pdf_file_ids if pdf_file_ids else None,
                 tools=step1_tools,
                 reasoning_effort="medium",
-                model=settings.OPENAI_MODEL,
-                max_output_tokens=32000,
+                model=settings.ANTHROPIC_MODEL,
+                max_output_tokens=128000,
             )
 
             raw_content = step1_response.get("content", "")
@@ -294,8 +294,8 @@ class StrategyWorkbookService:
             step2_response = await self.claude_service.generate_json_completion(
                 messages=step2_messages,
                 reasoning_effort="medium",
-                model=settings.OPENAI_MODEL,
-                max_output_tokens=8000,
+                model=settings.ANTHROPIC_MODEL,
+                max_output_tokens=128000,
             )
 
             extracted_data = step2_response.get("parsed_content")
@@ -414,7 +414,7 @@ class StrategyWorkbookService:
             file_ids=pdf_file_ids if pdf_file_ids else None,
             tools=tools,
             reasoning_effort="low",
-            model=settings.OPENAI_MODEL,
+            model=settings.ANTHROPIC_MODEL,
             max_output_tokens=2000,
         )
 

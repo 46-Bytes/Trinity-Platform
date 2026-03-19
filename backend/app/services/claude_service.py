@@ -39,7 +39,7 @@ class ClaudeService:
                     write=10.0,
                     pool=10.0,
                 ),
-                max_retries=2,
+                max_retries=1,
             )
             timeout_str = f"{timeout_seconds} seconds ({timeout_seconds / 60:.1f} minutes)"
             logger.info(f"Claude client initialized with timeout: {timeout_str}")
@@ -260,33 +260,34 @@ class ClaudeService:
                 "model": use_model,
                 "max_tokens": max_tokens,
                 "messages": claude_messages,
-                "betas": ["files-api-2025-04-14"],
             }
 
             if system_prompt:
                 params["system"] = system_prompt
 
-            # Handle reasoning effort → extended thinking
-            if reasoning_effort and reasoning_effort.lower() in ("medium", "high"):
-                budget_map = {"medium": 10000, "high": 32000}
-                budget = budget_map.get(reasoning_effort.lower(), 10000)
-                params["thinking"] = {
-                    "type": "enabled",
-                    "budget_tokens": budget,
-                }
-                # Claude requires temperature=1.0 when thinking is enabled
+            # Enable adaptive thinking with effort control via output_config
+            if reasoning_effort and reasoning_effort.lower() in ("low", "medium", "high"):
+                params["thinking"] = {"type": "adaptive"}
+                params["output_config"] = {"effort": reasoning_effort.lower()}
                 params["temperature"] = 1.0
             else:
-                # Only set temperature when thinking is NOT enabled
                 params["temperature"] = temp
 
             if claude_tools:
                 params["tools"] = claude_tools
 
+            # Use beta endpoint when files are attached (Files API requires it)
+            has_files = bool(file_ids or ci_file_ids)
+
             start_time = time.time()
             try:
-                logger.info("[Claude API] Making API call to Claude Messages API...")
-                response = await self.client.beta.messages.create(**params)
+                if has_files:
+                    logger.info("[Claude API] Making API call to Claude Messages API (beta - files attached)...")
+                    params["betas"] = ["files-api-2025-04-14"]
+                    response = await self.client.beta.messages.create(**params)
+                else:
+                    logger.info("[Claude API] Making API call to Claude Messages API...")
+                    response = await self.client.messages.create(**params)
 
                 elapsed_time = time.time() - start_time
                 logger.info(f"[Claude API] API call succeeded in {elapsed_time:.2f} seconds")
@@ -427,7 +428,6 @@ class ClaudeService:
     def _repair_json(self, content: str) -> str:
         """
         Attempt to repair common JSON syntax errors.
-        Copied from OpenAI service for compatibility.
         """
         import re
 
@@ -436,6 +436,15 @@ class ClaudeService:
             content = content.split("```json")[1].split("```")[0].strip()
         elif "```" in content:
             content = content.split("```")[1].split("```")[0].strip()
+
+        # Try raw_decode first — extracts the first valid JSON object,
+        # ignoring any trailing text Claude may have appended
+        try:
+            decoder = json.JSONDecoder()
+            obj, _ = decoder.raw_decode(content.strip())
+            return json.dumps(obj)
+        except json.JSONDecodeError:
+            pass
 
         # Remove trailing commas before } or ]
         content = re.sub(r',(\s*[}\]])', r'\1', content)
@@ -502,40 +511,48 @@ class ClaudeService:
                 result["parsed_content"] = parsed_content
                 logger.info("[Claude] JSON parsed successfully (from markdown)")
                 logger.info(f"[Claude] Parsed content keys: {list(parsed_content.keys()) if isinstance(parsed_content, dict) else 'Not a dict'}")
-            except json.JSONDecodeError as e2:
-                logger.warning(f"[Claude] JSON parsing failed after markdown extraction: {str(e2)}")
-                logger.info("[Claude] Attempting to repair JSON...")
-
-                # Try to repair JSON
+            except json.JSONDecodeError:
+                # Try raw_decode to extract first JSON object (ignores trailing text)
                 try:
-                    repaired_content = self._repair_json(content)
-                    parsed_content = json.loads(repaired_content)
+                    decoder = json.JSONDecoder()
+                    parsed_content, _ = decoder.raw_decode(content.strip())
                     result["parsed_content"] = parsed_content
-                    logger.info("[Claude] JSON parsed successfully (after repair)")
+                    logger.info("[Claude] JSON parsed successfully (raw_decode - trailing text ignored)")
                     logger.info(f"[Claude] Parsed content keys: {list(parsed_content.keys()) if isinstance(parsed_content, dict) else 'Not a dict'}")
-                except (json.JSONDecodeError, Exception) as e3:
-                    error_line = None
-                    error_col = None
-                    if isinstance(e2, json.JSONDecodeError):
-                        error_line = getattr(e2, 'lineno', None)
-                        error_col = getattr(e2, 'colno', None)
+                except json.JSONDecodeError as e2:
+                    logger.warning(f"[Claude] JSON parsing failed after markdown extraction: {str(e2)}")
+                    logger.info("[Claude] Attempting to repair JSON...")
 
-                    if error_line:
-                        lines = content.split('\n')
-                        start = max(0, error_line - 3)
-                        end = min(len(lines), error_line + 3)
-                        context = '\n'.join(lines[start:end])
-                        logger.error(f"[Claude] JSON repair failed: {str(e3)}")
-                        logger.error(f"[Claude] Error at line {error_line}, col {error_col}")
-                        logger.error(f"[Claude] Context around error:\n{context}")
-                    else:
-                        logger.error(f"[Claude] JSON repair failed: {str(e3)}")
-                        logger.error(f"[Claude] Content preview (first 1000 chars): {content[:1000]}")
+                    # Try to repair JSON
+                    try:
+                        repaired_content = self._repair_json(content)
+                        parsed_content = json.loads(repaired_content)
+                        result["parsed_content"] = parsed_content
+                        logger.info("[Claude] JSON parsed successfully (after repair)")
+                        logger.info(f"[Claude] Parsed content keys: {list(parsed_content.keys()) if isinstance(parsed_content, dict) else 'Not a dict'}")
+                    except (json.JSONDecodeError, Exception) as e3:
+                        error_line = None
+                        error_col = None
+                        if isinstance(e2, json.JSONDecodeError):
+                            error_line = getattr(e2, 'lineno', None)
+                            error_col = getattr(e2, 'colno', None)
 
-                    raise Exception(
-                        f"Failed to parse JSON response after repair attempts: {str(e2)}\n"
-                        f"Error location: line {error_line}, col {error_col if error_col else 'unknown'}"
-                    )
+                        if error_line:
+                            lines = content.split('\n')
+                            start = max(0, error_line - 3)
+                            end = min(len(lines), error_line + 3)
+                            context = '\n'.join(lines[start:end])
+                            logger.error(f"[Claude] JSON repair failed: {str(e3)}")
+                            logger.error(f"[Claude] Error at line {error_line}, col {error_col}")
+                            logger.error(f"[Claude] Context around error:\n{context}")
+                        else:
+                            logger.error(f"[Claude] JSON repair failed: {str(e3)}")
+                            logger.error(f"[Claude] Content preview (first 1000 chars): {content[:1000]}")
+
+                        raise Exception(
+                            f"Failed to parse JSON response after repair attempts: {str(e2)}\n"
+                            f"Error location: line {error_line}, col {error_col if error_col else 'unknown'}"
+                        )
 
         return result
 

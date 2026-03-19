@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str
     ANTHROPIC_MODEL: str = "claude-opus-4-6"
     ANTHROPIC_TEMPERATURE: float = 0.5
-    ANTHROPIC_TIMEOUT: Optional[float] = 600.0
+    ANTHROPIC_TIMEOUT: Optional[float] = 1800.0
     ANTHROPIC_MAX_TOKENS: int = 128000  # Claude Opus 4.6 max output tokens
     LLM_PROVIDER: str = "claude"  # "claude" or "openai"
 

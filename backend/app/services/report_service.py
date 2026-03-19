@@ -21,7 +21,8 @@ class ReportService:
         diagnostic: Any,
         user: Any,
         question_text_map: Dict[str, str],
-        structured_question_map: Optional[Dict[str, Any]] = None
+        structured_question_map: Optional[Dict[str, Any]] = None,
+        advisor_name: str = ""
     ) -> bytes:
         """
         Generate PDF report for a diagnostic.
@@ -32,6 +33,7 @@ class ReportService:
             question_text_map: Mapping of question keys to question text
             structured_question_map: Mapping of question keys to field definitions
                 for matrixdynamic/multipletext questions
+            advisor_name: Name of the lead advisor for the cover page
 
         Returns:
             PDF bytes
@@ -50,7 +52,8 @@ class ReportService:
             diagnostic=diagnostic,
             user=user,
             question_text_map=question_text_map,
-            structured_question_map=structured_question_map
+            structured_question_map=structured_question_map,
+            advisor_name=advisor_name
         )
         logger.debug("HTML report built; length=%s characters", len(html_content or ""))
 
@@ -69,7 +72,8 @@ class ReportService:
         diagnostic: Any,
         user: Any,
         question_text_map: Dict[str, str],
-        structured_question_map: Optional[Dict[str, Any]] = None
+        structured_question_map: Optional[Dict[str, Any]] = None,
+        advisor_name: str = ""
     ) -> str:
         """Build HTML report content."""
         
@@ -151,8 +155,9 @@ class ReportService:
         # Get user name
         user_name = user.name or user.email or "Unknown User"
         
-        # Get business / company name from engagement if available
+        # Get business / company name and firm name from engagement if available
         business_name = ""
+        firm_name = ""
         try:
             engagement = getattr(diagnostic, "engagement", None)
             if engagement is not None:
@@ -161,8 +166,15 @@ class ReportService:
                     or getattr(engagement, "engagement_name", None)
                     or ""
                 )
+                firm = getattr(engagement, "firm", None)
+                if firm is not None:
+                    firm_name = getattr(firm, "firm_name", "") or ""
         except Exception:
             business_name = ""
+            firm_name = ""
+
+        # Determine diagnostic type for report title
+        diagnostic_type = getattr(diagnostic, "diagnostic_type", "business_health_assessment") or "business_health_assessment"
         
         # Build Q&A data (all responses with question text)
         qa_data = ReportService._build_qa_data(user_responses, question_text_map)
@@ -183,7 +195,14 @@ class ReportService:
     </style>
 </head>
 <body>
-    {ReportService._build_header_section(user_name, created_date, completed_date)}
+    {ReportService._build_cover_page(
+        firm_name=firm_name,
+        diagnostic_type=diagnostic_type,
+        business_name=business_name,
+        client_name=user_name,
+        advisor_name=advisor_name,
+        date_display=completed_date if completed_date else created_date
+    )}
     {ReportService._build_advice_section(advice, roadmap)}
     {ReportService._build_advisor_report_section(advisor_report, business_name)}
     {ReportService._build_scoring_section(scored_rows, client_summary, roadmap, question_text_map=question_text_map, structured_question_map=structured_question_map)}
@@ -193,6 +212,69 @@ class ReportService:
         
         return html
     
+    @staticmethod
+    def _build_cover_page(
+        firm_name: str,
+        diagnostic_type: str,
+        business_name: str,
+        client_name: str,
+        advisor_name: str,
+        date_display: str
+    ) -> str:
+        """Build the cover/title page for the report."""
+        # Map diagnostic type to display title
+        type_titles = {
+            "sale_ready": "Sale-Ready Assessment Report",
+            "value_builder": "Value Builder Diagnostic Report",
+            "business_health_assessment": "Business Health Assessment Report",
+        }
+        report_title = type_titles.get(diagnostic_type, "Diagnostic Report")
+
+        # Map diagnostic type to short label for header
+        type_labels = {
+            "sale_ready": "Sale-Ready Assessment",
+            "value_builder": "Value Builder Diagnostic",
+            "business_health_assessment": "Business Health Assessment",
+        }
+        report_label = type_labels.get(diagnostic_type, "Diagnostic")
+
+        # Build spaced-out firm name (e.g. "B E N C H M A R K")
+        firm_display = firm_name.upper() if firm_name else ""
+        firm_spaced = " &nbsp; ".join(firm_display) if firm_display else ""
+
+        # Top-right header line: "Firm Name | Confidential"
+        header_parts = []
+        if firm_name:
+            header_parts.append(ReportService._escape_html(firm_name))
+        header_parts.append("Confidential")
+        header_line = " &nbsp;|&nbsp; ".join(header_parts)
+
+        # Prepared for line
+        prepared_for = f'<p class="cover-prepared-for">Prepared for: {ReportService._escape_html(client_name)}</p>' if client_name else ""
+
+        # Advisor and date line
+        meta_parts = []
+        if advisor_name:
+            meta_parts.append(f"Lead Advisor: {ReportService._escape_html(advisor_name)}")
+        if date_display:
+            meta_parts.append(f"Date: {date_display}")
+        meta_line = f'<p class="cover-meta">{" &nbsp;|&nbsp; ".join(meta_parts)}</p>' if meta_parts else ""
+
+        # Spaced CONFIDENTIAL - use plain spaces, rely on letter-spacing for spread
+        confidential_spaced = "C O N F I D E N T I A L"
+
+        return f"""
+    <div class="cover-page">
+        <p class="cover-header-line">{header_line}</p>
+        <p class="cover-firm-spaced">{firm_spaced if firm_spaced else ''}</p>
+        <h1 class="cover-title">{ReportService._escape_html(report_title)}</h1>
+        <hr class="cover-rule" />
+        {f'<p class="cover-business-name">{ReportService._escape_html(business_name)}</p>' if business_name else ''}
+        {prepared_for}
+        {meta_line}
+    </div>
+    <div style="text-align: center; width: 100%;"><p style="text-align: center; font-size: 14px; font-weight: bold; color: #cc0000; margin-top: 30px;">{confidential_spaced}</p></div>"""
+
     @staticmethod
     def _build_header_section(user_name: str, created_date: str, completed_date: str) -> str:
         """Build header section."""
@@ -1334,7 +1416,77 @@ class ReportService:
             size: A4;
             margin: 25mm 20mm 25mm 20mm;
         }
-        
+
+        /* Cover Page */
+        .cover-page {
+            text-align: center;
+        }
+
+        .cover-header-line {
+            font-size: 11px;
+            color: #666666;
+            text-align: right;
+            margin-bottom: 5px;
+            margin-top: 0;
+        }
+
+        .cover-rule {
+            border: none;
+            border-top: 2px solid #2c3e6b;
+            margin: 10px 0 0 0;
+        }
+
+        .cover-firm-spaced {
+            font-size: 13px;
+            font-weight: bold;
+            color: #2c3e6b;
+            letter-spacing: 4px;
+            text-align: center;
+            margin-top: 120px;
+            margin-bottom: 8px;
+        }
+
+        .cover-title {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2c3e6b;
+            text-align: center;
+            margin-top: 5px;
+            margin-bottom: 50px;
+            line-height: 1.2;
+        }
+
+        .cover-business-name {
+            font-size: 22px;
+            font-weight: bold;
+            color: #3366a0;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .cover-prepared-for {
+            font-size: 15px;
+            color: #333333;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+
+        .cover-meta {
+            font-size: 14px;
+            color: #333333;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .cover-confidential {
+            font-size: 14px;
+            font-weight: bold;
+            color: #cc0000;
+            letter-spacing: 3px;
+            text-align: center;
+            margin-top: 30px;
+        }
+
         /* Base Typography - Arial font, black color */
         body, td, li, p {
             font-family: Arial, sans-serif;

@@ -161,11 +161,7 @@ class ReportService:
         try:
             engagement = getattr(diagnostic, "engagement", None)
             if engagement is not None:
-                business_name = (
-                    getattr(engagement, "business_name", None)
-                    or getattr(engagement, "engagement_name", None)
-                    or ""
-                )
+                business_name = getattr(engagement, "business_name", None) or ""
                 firm = getattr(engagement, "firm", None)
                 if firm is not None:
                     firm_name = getattr(firm, "firm_name", "") or ""
@@ -235,19 +231,10 @@ class ReportService:
         }
         report_title = type_titles.get(diagnostic_type, "Diagnostic Report")
 
-        # Map diagnostic type to short label for header
-        type_labels = {
-            "sale_ready": "Sale-Ready Assessment",
-            "value_builder": "Value Builder Diagnostic",
-            "business_health_assessment": "Business Health Assessment",
-        }
-        report_label = type_labels.get(diagnostic_type, "Diagnostic")
 
         # Build spaced-out firm name (e.g. "B E N C H M A R K")
         firm_display = firm_name.upper() if firm_name else ""
         firm_spaced = " &nbsp; ".join(firm_display) if firm_display else ""
-
-        # Top-right header line removed per design request
 
         # Prepared for line
         prepared_for = f'<p class="cover-prepared-for">Prepared for: {ReportService._escape_html(client_name)}</p>' if client_name else ""
@@ -266,6 +253,7 @@ class ReportService:
         return f"""
     <div class="cover-page">
         <p class="cover-firm-spaced">{firm_spaced if firm_spaced else ''}</p>
+        <p class="cover-brand-name" style="text-align: center; font-size: 18px; font-weight: 600; color: #A1AEB1; letter-spacing: 5px; margin-bottom: 8px; padding-right: 125px;">BENCHMARK BUSINESS ADVISORY</p>
         <h1 class="cover-title">{ReportService._escape_html(report_title)}</h1>
         <hr class="cover-rule" />
         {f'<p class="cover-business-name">{ReportService._escape_html(business_name)}</p>' if business_name else ''}
@@ -1831,34 +1819,39 @@ class ReportService:
     def get_download_filename(diagnostic: Any, user: Any) -> str:
         """
         Generate download filename for diagnostic report.
-        
-        Format: YYYY-MM-DD_HH-MM-SS-TrinityAI-diagnostic-LastName_FirstName.pdf
+
+        Format: TrinityAI-Sale-Ready-Report-LastName_FirstName.pdf
+                TrinityAI-Value-Builder-Report-LastName_FirstName.pdf
         """
-        # Get date (use completed_at if available, else created_at)
-        date_obj = diagnostic.completed_at or diagnostic.created_at
-        if date_obj:
-            file_date = date_obj.strftime("%Y-%m-%d_%H-%M-%S")
-        else:
-            file_date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        
+        # Determine report type label from engagement tool or diagnostic type
+        engagement = getattr(diagnostic, "engagement", None)
+        tool = getattr(engagement, "tool", None) if engagement else None
+        diag_type = tool or getattr(diagnostic, "diagnostic_type", "") or ""
+
+        type_labels = {
+            "sale_ready": "Sale-Ready-Report",
+            "value_builder": "Value-Builder-Report",
+        }
+        report_label = type_labels.get(diag_type, "Diagnostic-Report")
+
         # Get user name parts
         name = user.name or user.email or "Unknown"
         name_parts = name.split()
-        
+
         if len(name_parts) >= 2:
             last_name = name_parts[-1]
             first_name = name_parts[0]
         else:
             last_name = name_parts[0] if name_parts else "User"
             first_name = ""
-        
+
         # Clean names (remove special characters)
         last_name = "".join(c for c in last_name if c.isalnum() or c in ('-', '_'))
         first_name = "".join(c for c in first_name if c.isalnum() or c in ('-', '_'))
-        
+
         if first_name:
-            filename = f"{file_date}-TrinityAI-diagnostic-{last_name}_{first_name}.pdf"
+            filename = f"TrinityAI-{report_label}-{last_name}_{first_name}.pdf"
         else:
-            filename = f"{file_date}-TrinityAI-diagnostic-{last_name}.pdf"
-        
+            filename = f"TrinityAI-{report_label}-{last_name}.pdf"
+
         return filename

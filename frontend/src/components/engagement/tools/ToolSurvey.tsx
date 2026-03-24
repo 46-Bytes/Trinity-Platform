@@ -65,6 +65,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
   const [completedPages, setCompletedPages] = useState<number[]>([]);
   const [engagementStatusUpdated, setEngagementStatusUpdated] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   
   // Document generation state
   const [templates, setTemplates] = useState<Array<{ name: string; display_name: string }>>([]);
@@ -707,7 +708,9 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
           <div className="mt-3 sm:mt-4">
             <Button
               variant="default"
+              disabled={isDownloadingPdf}
               onClick={async () => {
+                setIsDownloadingPdf(true);
                 try {
                   const token = localStorage.getItem('auth_token');
                   if (!token) {
@@ -751,10 +754,13 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
                 } catch (err) {
                   console.error('Download error', err);
                   toast.error('Failed to download diagnostic report');
+                } finally {
+                  setIsDownloadingPdf(false);
                 }
               }}
             >
-              Download Diagnostic Summary
+              {isDownloadingPdf && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isDownloadingPdf ? 'Downloading...' : 'Download Diagnostic Summary'}
             </Button>
           </div>
         </div>
@@ -886,10 +892,37 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2" style={{ maxWidth: '100%' }}>
-            <div 
+            <div
               className="bg-accent h-2 rounded-full transition-all"
               style={{ width: `${progress}%`, maxWidth: '100%' }}
             />
+          </div>
+
+          {/* Page navigation pills */}
+          <div className="flex gap-1.5 mt-4 overflow-x-auto p-1" style={{ scrollbarWidth: 'thin' }}>
+            {pages.map((page, index) => (
+              <button
+                key={index}
+                disabled={isSaving || isLoading}
+                title={page.title}
+                onClick={async () => {
+                  if (index === currentPage) return;
+                  // Auto-save current page before navigating
+                  if (diagnostic?.id && Object.keys(localResponses).length > 0) {
+                    await handleSaveProgress();
+                  }
+                  setCurrentPage(index as any);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className={`flex-shrink-0 w-8 h-8 rounded-full text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-1 ${
+                  index === currentPage
+                    ? 'bg-accent text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                } ${(isSaving || isLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {index + 1}
+              </button>
+            ))}
           </div>
         </div>
       )}

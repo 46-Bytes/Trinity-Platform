@@ -119,13 +119,18 @@ async def create_bba_project(
 @router.post("/create-from-diagnostic", status_code=status.HTTP_201_CREATED)
 async def create_bba_from_diagnostic(
     diagnostic_id: UUID = Query(..., description="Completed diagnostic ID to create BBA from"),
+    force_new: bool = Query(False, description="Force creation of a new BBA even if one exists for this engagement"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """
     Create a BBA project from a completed diagnostic. The diagnostic report
-    is stored as context for the BBA. Idempotent: if a BBA already exists
-    for this diagnostic, returns the existing project.
+    is stored as context for the BBA.
+
+    Resolution order (unless force_new=True):
+    1. Return existing BBA for this diagnostic_id.
+    2. Re-link a progressed BBA from the same engagement (preserves all step data).
+    3. Create a brand-new BBA.
     """
     diagnostic = db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
     if not diagnostic:
@@ -148,7 +153,9 @@ async def create_bba_from_diagnostic(
         )
     bba_service = get_bba_service(db)
     try:
-        bba = bba_service.create_bba_from_diagnostic(diagnostic_id=diagnostic_id, user_id=current_user.id)
+        bba = bba_service.create_bba_from_diagnostic(
+            diagnostic_id=diagnostic_id, user_id=current_user.id, force_new=force_new
+        )
     except ValueError as e:
         logger.warning(f"Invalid request creating BBA from diagnostic: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid request data")

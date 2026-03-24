@@ -46,9 +46,11 @@ interface TwelveMonthPlanStepProps {
   onBack: () => void;
   className?: string;
   onLoadingStateChange?: (isLoading: boolean) => void;
+  initialData?: Record<string, any> | null;
+  onDataChange?: () => void;
 }
 
-export function TwelveMonthPlanStep({ projectId, onComplete, onBack, className, onLoadingStateChange }: TwelveMonthPlanStepProps) {
+export function TwelveMonthPlanStep({ projectId, onComplete, onBack, className, onLoadingStateChange, initialData, onDataChange }: TwelveMonthPlanStepProps) {
   const [plan, setPlan] = useState<TwelveMonthPlan | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -69,8 +71,26 @@ export function TwelveMonthPlanStep({ projectId, onComplete, onBack, className, 
     onLoadingStateChangeRef.current = onLoadingStateChange;
   }, [onLoadingStateChange]);
 
-  // Load existing 12-month plan on mount
+  // Load existing 12-month plan on mount — use cached data if available
   useEffect(() => {
+    const applyProject = (project: any) => {
+      if (project?.twelve_month_plan) {
+        const planData = project.twelve_month_plan;
+        // Check if it's wrapped in a key or direct
+        const actualPlan = planData.twelve_month_plan || planData;
+        if (actualPlan && actualPlan.recommendations && Array.isArray(actualPlan.recommendations) && actualPlan.recommendations.length > 0) {
+          setPlan(actualPlan);
+          setOpenItems([0]);
+        }
+      }
+    };
+
+    if (initialData?.twelve_month_plan) {
+      applyProject(initialData);
+      setIsInitialLoading(false);
+      return;
+    }
+
     const loadExistingData = async () => {
       setIsInitialLoading(true);
       try {
@@ -84,17 +104,7 @@ export function TwelveMonthPlanStep({ projectId, onComplete, onBack, className, 
 
         if (response.ok) {
           const result = await response.json();
-          const project = result.project;
-          
-          if (project?.twelve_month_plan) {
-            const planData = project.twelve_month_plan;
-            // Check if it's wrapped in a key or direct
-            const actualPlan = planData.twelve_month_plan || planData;
-            if (actualPlan && actualPlan.recommendations && Array.isArray(actualPlan.recommendations) && actualPlan.recommendations.length > 0) {
-              setPlan(actualPlan);
-              setOpenItems([0]);
-            }
-          }
+          applyProject(result.project);
         }
       } catch (err) {
         console.error('Failed to load existing 12-month plan:', err);
@@ -106,7 +116,7 @@ export function TwelveMonthPlanStep({ projectId, onComplete, onBack, className, 
     if (projectId) {
       loadExistingData();
     }
-  }, [projectId]);
+  }, [projectId, initialData]);
 
   useEffect(() => {
     if (onLoadingStateChangeRef.current) {
@@ -142,6 +152,7 @@ export function TwelveMonthPlanStep({ projectId, onComplete, onBack, className, 
       if (planData.recommendations?.length > 0) {
         setOpenItems([0]);
       }
+      onDataChange?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate plan');
     } finally {
@@ -228,6 +239,7 @@ export function TwelveMonthPlanStep({ projectId, onComplete, onBack, className, 
         const err = await response.json().catch(() => ({ detail: 'Failed to save plan' }));
         throw new Error(err.detail || String(response.status));
       }
+      onDataChange?.();
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : 'Failed to save plan');
     } finally {

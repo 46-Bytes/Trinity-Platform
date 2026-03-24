@@ -54,6 +54,8 @@ interface TaskPlannerStepProps {
   onContinueToPhase3?: () => void;
   className?: string;
   onLoadingStateChange?: (isLoading: boolean) => void;
+  initialData?: Record<string, any> | null;
+  onDataChange?: () => void;
 }
 
 // ---------- Helpers ----------
@@ -94,7 +96,7 @@ const STATUS_COLOURS: Record<string, string> = {
 
 // ---------- Component ----------
 
-export function TaskPlannerStep({ projectId, onBack, onContinueToPhase3, className, onLoadingStateChange }: TaskPlannerStepProps) {
+export function TaskPlannerStep({ projectId, onBack, onContinueToPhase3, className, onLoadingStateChange, initialData, onDataChange }: TaskPlannerStepProps) {
   // --- settings form state ---
   const [settings, setSettings] = useState<TaskPlannerSettings>({
     lead_advisor: '',
@@ -141,10 +143,32 @@ export function TaskPlannerStep({ projectId, onBack, onContinueToPhase3, classNa
     onLoadingStateChange,
   ]);
 
-  // --- Load existing settings/tasks from the project on mount ---
+  // --- Load existing settings/tasks from the project on mount — use cached data if available ---
   useEffect(() => {
+    const applyProject = (project: any) => {
+      // Pre-fill settings if they were saved before
+      if (project.task_planner_settings) {
+        setSettings(project.task_planner_settings);
+        setSettingsSaved(true);
+      }
+
+      // Pre-fill tasks if already generated
+      if (project.task_planner_tasks?.length) {
+        setTasks(project.task_planner_tasks);
+        setHasPreview(true);
+        setActiveSection('preview');
+        setTasksDirty(false);
+      }
+    };
+
+    if (initialData?.task_planner_settings || initialData?.task_planner_tasks) {
+      applyProject(initialData);
+      setIsLoadingProject(false);
+      return;
+    }
+
     loadExistingData();
-  }, [projectId]);
+  }, [projectId, initialData]);
 
   const getAuthHeaders = (): Record<string, string> => {
     const token = localStorage.getItem('auth_token');

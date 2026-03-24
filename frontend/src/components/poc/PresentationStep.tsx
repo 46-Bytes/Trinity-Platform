@@ -35,6 +35,16 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 
 const API_BASE_URL =
@@ -59,6 +69,8 @@ interface PresentationStepProps {
   projectId: string;
   onBack: () => void;
   className?: string;
+  initialData?: Record<string, any> | null;
+  onDataChange?: () => void;
 }
 
 // ─── Slide-type display labels ──────────────────────────────────────────
@@ -87,12 +99,17 @@ export default function PresentationStep({
   projectId,
   onBack,
   className,
+  initialData,
+  onDataChange,
 }: PresentationStepProps) {
   // State
   const [slides, setSlides] = useState<PresentationSlide[]>([]);
   const [generating, setGenerating] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [approvingIndices, setApprovingIndices] = useState<Set<number>>(new Set());
+  const [deleteTarget, setDeleteTarget] = useState<{ index: number; title: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [expandedSlide, setExpandedSlide] = useState<number | null>(null);
   const [editingSlide, setEditingSlide] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<Partial<PresentationSlide>>({});
@@ -105,7 +122,14 @@ export default function PresentationStep({
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
-  // ── Load existing slides on mount ──
+  // ── Load existing slides on mount — use cached data if available ──
+  const applyProject = useCallback((project: any) => {
+    const existing = project?.presentation_slides?.slides || [];
+    if (existing.length > 0) {
+      setSlides(existing);
+    }
+  }, []);
+
   const loadExistingSlides = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/poc/${projectId}`, {
@@ -114,22 +138,24 @@ export default function PresentationStep({
       });
       if (res.ok) {
         const data = await res.json();
-        const existing =
-          data?.project?.presentation_slides?.slides || [];
-        if (existing.length > 0) {
-          setSlides(existing);
-        }
+        applyProject(data?.project);
       }
     } catch {
       // non-critical – we just won't pre-populate
     } finally {
       setLoaded(true);
     }
-  }, [projectId]);
+  }, [projectId, applyProject]);
 
   useEffect(() => {
+    if (initialData?.presentation_slides) {
+      applyProject(initialData);
+      setLoaded(true);
+      return;
+    }
+
     loadExistingSlides();
-  }, [loadExistingSlides]);
+  }, [loadExistingSlides, initialData, applyProject]);
 
   // ── Generate ──
   const handleGenerate = async () => {
@@ -165,10 +191,7 @@ export default function PresentationStep({
     if (!slide) return;
 
     const newApproved = !slide.approved;
-    // Optimistic update
-    setSlides((prev) =>
-      prev.map((s, i) => (i === index ? { ...s, approved: newApproved } : s))
-    );
+    setApprovingIndices((prev) => new Set(prev).add(index));
 
     try {
       const res = await fetch(
@@ -187,19 +210,24 @@ export default function PresentationStep({
         const errBody = await res.json().catch(() => ({}));
         throw new Error(errBody.detail || `Failed to save approval (${res.status})`);
       }
-      // Optionally sync from response so server state is source of truth
+      // Sync from response so server state is source of truth
       const data = await res.json().catch(() => null);
       if (data?.slides?.length) {
         setSlides(data.slides);
+      } else {
+        // Fallback: update locally only after API success
+        setSlides((prev) =>
+          prev.map((s, i) => (i === index ? { ...s, approved: newApproved } : s))
+        );
       }
     } catch (err: any) {
       setError(err?.message || 'Failed to save approval');
-      // Revert on error so UI matches server
-      setSlides((prev) =>
-        prev.map((s, i) =>
-          i === index ? { ...s, approved: !newApproved } : s
-        )
-      );
+    } finally {
+      setApprovingIndices((prev) => {
+        const next = new Set(prev);
+        next.delete(index);
+        return next;
+      });
     }
   };
 
@@ -290,16 +318,17 @@ export default function PresentationStep({
   const progressPct = totalCount > 0 ? (approvedCount / totalCount) * 100 : 0;
 
   // ── Delete slide ──
-  const deleteSlide = async (index: number) => {
+  const deleteSlide = (index: number) => {
     const slide = slides[index];
     if (!slide) return;
+    setDeleteTarget({ index, title: slide.title });
+  };
 
-    // Simple confirmation to avoid accidental deletes
-    const confirmed = window.confirm(
-      `Remove slide ${index + 1}: "${slide.title}" from this presentation?`,
-    );
-    if (!confirmed) return;
+  const confirmDeleteSlide = async () => {
+    if (!deleteTarget) return;
+    const { index } = deleteTarget;
 
+    setIsDeleting(true);
     setError(null);
     try {
       const res = await fetch(
@@ -319,8 +348,11 @@ export default function PresentationStep({
       setExpandedSlide(null);
       setEditingSlide(null);
       setEditDraft({});
+      setDeleteTarget(null);
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -563,6 +595,7 @@ export default function PresentationStep({
                       <Button
                         size="sm"
                         variant={slide.approved ? 'default' : 'outline'}
+                        disabled={approvingIndices.has(idx)}
                         className={cn(
                           'h-7 text-xs',
                           slide.approved &&
@@ -573,7 +606,9 @@ export default function PresentationStep({
                           toggleApprove(idx);
                         }}
                       >
-                        {slide.approved ? 'Approved' : 'Approve'}
+                        {approvingIndices.has(idx) ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : slide.approved ? 'Approved' : 'Approve'}
                       </Button>
                       <Button
                         size="sm"
@@ -689,6 +724,37 @@ export default function PresentationStep({
           </CardContent>
         </Card>
       )}
+      {/* Delete slide confirmation dialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open && !isDeleting) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Slide</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove slide {deleteTarget ? deleteTarget.index + 1 : ''}: "{deleteTarget?.title}" from this presentation?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeleting}
+              onClick={(e) => {
+                e.preventDefault();
+                confirmDeleteSlide();
+              }}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

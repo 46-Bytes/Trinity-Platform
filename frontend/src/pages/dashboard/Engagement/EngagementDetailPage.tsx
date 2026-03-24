@@ -412,7 +412,8 @@ export default function EngagementDetailPage() {
       // - A report was already generated (hasReport) even if status is now in_progress/draft
       if (status === 'completed' || status === 'processing' || hasReport) {
         const baseDate = completedAt || diagnostic.updated_at || (diagnostic as any).updatedAt || diagnostic.created_at || (diagnostic as any).createdAt;
-        const reportFileName = `Diagnostic Report - ${new Date(baseDate).toLocaleDateString()}.pdf`;
+        const toolLabel = engagement?.tool === 'value_builder' ? 'Value-Builder-Report' : 'Sale-Ready-Report';
+        const reportFileName = `TrinityAI-${toolLabel}.pdf`;
 
         const completedByUserRole = (diagnostic as any).completed_by_user_role || (diagnostic as any).completedByUserRole;
         const createdByUserRole = (diagnostic as any).created_by_user_role || (diagnostic as any).createdByUserRole;

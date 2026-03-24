@@ -737,8 +737,9 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
 
                   const disposition = res.headers.get('Content-Disposition') || '';
                   const match = disposition.match(/filename="(.+)"/);
+                  const fallbackLabel = engagementType === 'value_builder' ? 'Value-Builder-Report' : 'Sale-Ready-Report';
                   const filename =
-                    match?.[1] || `TrinityAi-diagnostic-${diagnostic.id}.pdf`;
+                    match?.[1] || `TrinityAI-${fallbackLabel}.pdf`;
 
                   const a = document.createElement('a');
                   a.href = url;

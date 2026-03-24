@@ -169,9 +169,14 @@ export default function UserDetailPage() {
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
+
+      const disposition = response.headers.get('Content-Disposition') || '';
+      const match = disposition.match(/filename="(.+)"/);
+      const filename = match?.[1] || `TrinityAI-Diagnostic-Report.pdf`;
+
       const a = document.createElement('a');
       a.href = url;
-      a.download = `diagnostic-report-${diagnosticId}.pdf`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);

@@ -198,6 +198,9 @@ class ReportService:
     </style>
 </head>
 <body>
+    <div id="page-header">
+        <p style="text-align: right; font-size: 10px; color: #c0c0c0; margin: 0; padding: 0;">Benchmark Business Advisory &nbsp;|&nbsp; {"Value Builder Diagnostic" if diagnostic_type == "value_builder" else "Sale Ready Diagnostic"} &nbsp;|&nbsp; Confidential</p>
+    </div>
     {ReportService._build_cover_page(
         firm_name=firm_name,
         diagnostic_type=diagnostic_type,
@@ -1417,6 +1420,14 @@ class ReportService:
         @page {
             size: A4;
             margin: 25mm 20mm 25mm 20mm;
+
+            @frame header_frame {
+                -pdf-frame-content: page-header;
+                top: 0.5cm;
+                margin-left: 1cm;
+                margin-right: 1cm;
+                height: 2cm;
+            }
         }
 
         /* Cover Page */

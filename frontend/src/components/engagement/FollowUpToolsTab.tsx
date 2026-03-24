@@ -9,6 +9,16 @@ import { useAppDispatch } from '@/store/hooks';
 import { clearWorkbook } from '@/store/slices/strategyWorkbookReducer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { BookOpen, FileText, Loader2, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -57,6 +67,9 @@ export function FollowUpToolsTab({
   const dispatch = useAppDispatch();
   const [bbaLoading, setBbaLoading] = useState(false);
   const [swLoading, setSwLoading] = useState(false);
+  const [showBbaDialog, setShowBbaDialog] = useState(false);
+  const [existingBbaStep, setExistingBbaStep] = useState<number>(0);
+  const [existingBbaProjectId, setExistingBbaProjectId] = useState<string | null>(null);
 
   const completedDiagnostics = diagnostics.filter(
     (d) => (d.status || (d as any).status) === 'completed'
@@ -87,7 +100,7 @@ export function FollowUpToolsTab({
     return token;
   };
 
-  const runBbaBuilder = async () => {
+  const launchBba = async (forceNew: boolean = false) => {
     setBbaLoading(true);
     try {
       const token = getAuthToken();
@@ -95,7 +108,7 @@ export function FollowUpToolsTab({
 
       let url: string;
       if (effectiveDiagnosticId) {
-        url = `${API_BASE_URL}/api/poc/create-from-diagnostic?diagnostic_id=${effectiveDiagnosticId}`;
+        url = `${API_BASE_URL}/api/poc/create-from-diagnostic?diagnostic_id=${effectiveDiagnosticId}${forceNew ? '&force_new=true' : ''}`;
       } else {
         url = `${API_BASE_URL}/api/poc/create-project?engagement_id=${engagementId}`;
       }
@@ -123,6 +136,39 @@ export function FollowUpToolsTab({
     } finally {
       setBbaLoading(false);
     }
+  };
+
+  const runBbaBuilder = async () => {
+    const token = getAuthToken();
+    if (!token) return;
+
+    setBbaLoading(true);
+    // Check for existing progressed BBA before creating/navigating
+    try {
+      const listRes = await fetch(`${API_BASE_URL}/api/poc?engagement_id=${engagementId}`, {
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        credentials: 'include',
+      });
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        const projects = listData.projects || [];
+        const progressed = projects.find(
+          (p: { max_step_reached?: number }) => (p.max_step_reached || 0) >= 2
+        );
+        if (progressed && effectiveDiagnosticId) {
+          // Show confirmation dialog — user has work in progress
+          setExistingBbaStep(progressed.max_step_reached || 0);
+          setExistingBbaProjectId(progressed.id);
+          setShowBbaDialog(true);
+          setBbaLoading(false);
+          return;
+        }
+      }
+    } catch {
+      // If pre-check fails, fall through to normal flow
+    }
+
+    await launchBba();
   };
 
   const runStrategyWorkbook = async () => {
@@ -233,6 +279,48 @@ export function FollowUpToolsTab({
           </CardContent>
         </Card>
       </div>
+
+      {/* Confirmation dialog when a progressed BBA already exists */}
+      <AlertDialog open={showBbaDialog} onOpenChange={setShowBbaDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Existing Report In Progress</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have an existing BBA report in progress (Step {existingBbaStep} of 9).
+              Would you like to continue where you left off, or start fresh?
+            </AlertDialogDescription>
+            <p className="text-sm text-destructive mt-2 font-medium">
+              Starting fresh will permanently delete all existing report data including uploaded files, findings, and plans.
+            </p>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowBbaDialog(false);
+                if (existingBbaProjectId) {
+                  navigate(`/dashboard/engagements/${engagementId}/bba`, {
+                    state: { bbaProjectId: existingBbaProjectId },
+                  });
+                } else {
+                  launchBba();
+                }
+              }}
+            >
+              Continue Existing
+            </AlertDialogAction>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                setShowBbaDialog(false);
+                launchBba(true);
+              }}
+            >
+              Start Fresh
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

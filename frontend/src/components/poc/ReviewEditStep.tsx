@@ -31,9 +31,11 @@ interface ReviewEditStepProps {
   onContinueToPhase2?: () => void;
   className?: string;
   onLoadingStateChange?: (isLoading: boolean) => void;
+  initialData?: Record<string, any> | null;
+  onDataChange?: () => void;
 }
 
-export function ReviewEditStep({ projectId, onBack, onContinueToPhase2, className, onLoadingStateChange }: ReviewEditStepProps) {
+export function ReviewEditStep({ projectId, onBack, onContinueToPhase2, className, onLoadingStateChange, initialData, onDataChange }: ReviewEditStepProps) {
   const [project, setProject] = useState<BBAProject | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
@@ -58,10 +60,23 @@ export function ReviewEditStep({ projectId, onBack, onContinueToPhase2, classNam
     }
   }, [isLoading, isExporting, isGeneratingSummary]);
 
-  // Load project data
+  // Load project data — use cached data if available
   useEffect(() => {
+    const applyProject = (project: any) => {
+      console.log('Project data loaded:', project);
+      console.log('Snapshot table data:', project?.snapshot_table);
+      setProject(project);
+      setSummaryDraft(project.executive_summary || '');
+    };
+
+    if (initialData?.id) {
+      applyProject(initialData);
+      setIsLoading(false);
+      return;
+    }
+
     loadProject();
-  }, [projectId]);
+  }, [projectId, initialData]);
 
   const loadProject = async () => {
     setIsLoading(true);
@@ -116,6 +131,7 @@ export function ReviewEditStep({ projectId, onBack, onContinueToPhase2, classNam
       const result = await response.json();
       setProject((prev) => prev ? { ...prev, executive_summary: result.executive_summary } : null);
       setSummaryDraft(result.executive_summary || '');
+      onDataChange?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate summary');
     } finally {

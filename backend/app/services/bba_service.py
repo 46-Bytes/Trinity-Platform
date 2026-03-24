@@ -44,16 +44,19 @@ class BBAService:
         logger.info(f"Created BBA project {bba.id} for user {user_id}")
         return bba
 
-    def create_bba_from_diagnostic(self, diagnostic_id: UUID, user_id: UUID) -> BBA:
+    def create_bba_from_diagnostic(
+        self, diagnostic_id: UUID, user_id: UUID, force_new: bool = False
+    ) -> BBA:
         """
-        Create a BBA project from a completed diagnostic. Idempotent: if a BBA
-        already exists for this diagnostic_id, returns that BBA.
-        """
-        existing = self.get_bba_by_diagnostic(diagnostic_id)
-        if existing:
-            logger.info(f"BBA project already exists for diagnostic {diagnostic_id}: {existing.id}")
-            return existing
+        Create a BBA project from a completed diagnostic.
 
+        Resolution order (unless force_new=True):
+        1. If a BBA already exists for this exact diagnostic_id, return it.
+        2. If a BBA with meaningful progress (max_step_reached >= 2) exists for the
+           same engagement, re-link it to the new diagnostic and refresh context —
+           preserving all step data so the user doesn't lose work.
+        3. Otherwise create a brand-new BBA.
+        """
         diagnostic = self.db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
         if not diagnostic:
             raise ValueError(f"Diagnostic {diagnostic_id} not found")
@@ -65,6 +68,36 @@ class BBAService:
             diagnostic_context["report_html"] = diagnostic.report_html
         if diagnostic.ai_analysis:
             diagnostic_context["ai_analysis"] = diagnostic.ai_analysis
+
+        if not force_new:
+            # 1. Exact diagnostic match (existing idempotent behaviour)
+            existing = self.get_bba_by_diagnostic(diagnostic_id)
+            if existing:
+                logger.info(f"BBA project already exists for diagnostic {diagnostic_id}: {existing.id}")
+                return existing
+
+            # 2. Re-link most-progressed BBA from the same engagement
+            if diagnostic.engagement_id:
+                progressed = self.find_most_progressed_bba(diagnostic.engagement_id, user_id)
+                if progressed and (progressed.max_step_reached or 0) >= 2:
+                    logger.info(
+                        f"Re-linking BBA {progressed.id} (step {progressed.max_step_reached}) "
+                        f"from old diagnostic {progressed.diagnostic_id} to new diagnostic {diagnostic_id}"
+                    )
+                    progressed.diagnostic_id = diagnostic_id
+                    progressed.diagnostic_context = diagnostic_context or None
+                    progressed.updated_at = datetime.now(timezone.utc)
+                    self.db.commit()
+                    self.db.refresh(progressed)
+                    return progressed
+
+        # 3. force_new: reset existing BBA row if one exists, otherwise create new
+        if force_new and diagnostic.engagement_id:
+            existing = self.find_most_progressed_bba(diagnostic.engagement_id, user_id)
+            if existing:
+                self._reset_bba(existing, diagnostic_id, diagnostic_context)
+                logger.info(f"Reset BBA {existing.id} for fresh start from diagnostic {diagnostic_id}")
+                return existing
 
         bba = BBA(
             created_by_user_id=user_id,
@@ -78,6 +111,69 @@ class BBAService:
         self.db.refresh(bba)
         logger.info(f"Created BBA project {bba.id} from diagnostic {diagnostic_id} for user {user_id}")
         return bba
+
+    def _reset_bba(self, bba: BBA, diagnostic_id: UUID, diagnostic_context: dict) -> None:
+        """
+        Wipe all step data on an existing BBA row so it can be reused
+        for a fresh start. Keeps the same ID, engagement, and user.
+        """
+        bba.diagnostic_id = diagnostic_id
+        bba.diagnostic_context = diagnostic_context or None
+        bba.status = "uploaded"
+        bba.current_step = None
+        bba.max_step_reached = None
+        # Step 1
+        bba.file_ids = None
+        bba.file_mappings = None
+        bba.stored_files = None
+        # Step 2
+        bba.client_name = None
+        bba.industry = None
+        bba.company_size = None
+        bba.locations = None
+        bba.exclusions = None
+        bba.constraints = None
+        bba.preferred_ranking = None
+        bba.strategic_priorities = None
+        bba.exclude_sale_readiness = False
+        # Step 3
+        bba.draft_findings = None
+        bba.draft_findings_edited = False
+        # Step 4
+        bba.expanded_findings = None
+        # Step 5
+        bba.snapshot_table = None
+        # Step 6
+        bba.twelve_month_plan = None
+        bba.plan_notes = None
+        # Step 7
+        bba.executive_summary = None
+        bba.final_report = None
+        bba.report_version = 1
+        # Phase 2 & 3
+        bba.task_planner_settings = None
+        bba.task_planner_tasks = None
+        bba.task_planner_summary = None
+        bba.presentation_slides = None
+        # AI metadata
+        bba.conversation_history = None
+        bba.ai_model_used = None
+        bba.ai_tokens_used = None
+        bba.questionnaire_completed_at = None
+        bba.updated_at = datetime.now(timezone.utc)
+
+        self.db.commit()
+        self.db.refresh(bba)
+
+    def find_most_progressed_bba(self, engagement_id: UUID, user_id: UUID) -> Optional[BBA]:
+        """
+        Find the BBA with the most progress for an engagement.
+        Uses max_step_reached as primary sort, updated_at as tiebreaker.
+        """
+        bbas = self.get_bbas_by_engagement(engagement_id, user_id)
+        if not bbas:
+            return None
+        return max(bbas, key=lambda b: (b.max_step_reached or 0, b.updated_at or b.created_at))
 
     def get_bba(self, bba_id: UUID) -> Optional[BBA]:
         """

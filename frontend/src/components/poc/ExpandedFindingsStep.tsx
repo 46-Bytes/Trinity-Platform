@@ -27,9 +27,11 @@ interface ExpandedFindingsStepProps {
   onBack: () => void;
   className?: string;
   onLoadingStateChange?: (isLoading: boolean) => void;
+  initialData?: Record<string, any> | null;
+  onDataChange?: () => void;
 }
 
-export function ExpandedFindingsStep({ projectId, onComplete, onBack, className, onLoadingStateChange }: ExpandedFindingsStepProps) {
+export function ExpandedFindingsStep({ projectId, onComplete, onBack, className, onLoadingStateChange, initialData, onDataChange }: ExpandedFindingsStepProps) {
   const [expandedFindings, setExpandedFindings] = useState<ExpandedFinding[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -45,32 +47,36 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
     onLoadingStateChangeRef.current = onLoadingStateChange;
   }, [onLoadingStateChange]);
 
-  // Load existing expanded findings on mount
+  // Load existing expanded findings on mount — use cached data if available
   useEffect(() => {
+    const applyProject = (project: any) => {
+      if (project?.expanded_findings) {
+        const findingsData = project.expanded_findings.expanded_findings ||
+          (Array.isArray(project.expanded_findings) ? project.expanded_findings : []);
+        if (findingsData.length > 0) {
+          setExpandedFindings(findingsData);
+          setOpenItems(findingsData.map((_: any, i: number) => i));
+        }
+      }
+    };
+
+    if (initialData?.expanded_findings) {
+      applyProject(initialData);
+      setIsInitialLoading(false);
+      return;
+    }
+
     const loadExistingData = async () => {
       setIsInitialLoading(true);
       try {
         const token = localStorage.getItem('auth_token');
         const response = await fetch(`${API_BASE_URL}/api/poc/${projectId}`, {
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
           credentials: 'include',
         });
-
         if (response.ok) {
           const result = await response.json();
-          const project = result.project;
-          
-          // Load existing expanded findings if available
-          if (project?.expanded_findings) {
-            const findingsData = project.expanded_findings.expanded_findings || 
-                                 (Array.isArray(project.expanded_findings) ? project.expanded_findings : []);
-            if (findingsData.length > 0) {
-              setExpandedFindings(findingsData);
-              setOpenItems(findingsData.map((_: any, i: number) => i));
-            }
-          }
+          applyProject(result.project);
         }
       } catch (err) {
         console.error('Failed to load existing expanded findings:', err);
@@ -82,7 +88,7 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
     if (projectId) {
       loadExistingData();
     }
-  }, [projectId]);
+  }, [projectId, initialData]);
 
   // Notify parent of loading state changes (only for processing states, not initial load)
   useEffect(() => {
@@ -109,7 +115,16 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: 'Failed to expand findings' }));
-        throw new Error(errorData.detail || `HTTP ${response.status}`);
+        const detail = errorData.detail || '';
+        if (response.status === 401) {
+          throw new Error('Your session has expired. Please save your work, log in again, and retry.');
+        } else if (response.status === 400 && /draft findings/i.test(detail)) {
+          throw new Error('Draft findings have not been generated yet. Please go back to Step 3.');
+        } else if (response.status >= 500) {
+          throw new Error('An error occurred while expanding findings. This may be due to a timeout or service issue. Please try again.');
+        } else {
+          throw new Error(detail || `HTTP ${response.status}`);
+        }
       }
 
       const result = await response.json();
@@ -117,8 +132,13 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
       setExpandedFindings(findingsData);
       // Open all items by default
       setOpenItems(findingsData.map((_: any, i: number) => i));
+      onDataChange?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to expand findings');
+      if (err instanceof TypeError && err.message === 'Failed to fetch') {
+        setError('Network error. Please check your connection and try again.');
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to expand findings');
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -203,8 +223,16 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Initial loading spinner */}
+        {isInitialLoading && (
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Loading expanded findings...</p>
+          </div>
+        )}
+
         {/* Generate Button */}
-        {expandedFindings.length === 0 && !isGenerating && (
+        {!isInitialLoading && expandedFindings.length === 0 && !isGenerating && (
           <div className="text-center py-8">
             <p className="text-muted-foreground mb-4">
               Click below to expand each finding into detailed paragraphs.

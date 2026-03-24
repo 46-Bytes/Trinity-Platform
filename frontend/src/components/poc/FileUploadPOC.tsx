@@ -99,6 +99,28 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
   });
   const [isRestoring, setIsRestoring] = useState(true);
   const extractedContextCaptureRef = useRef(false);
+  const [stepTransition, setStepTransition] = useState(false);
+
+  // Cache full project data so step components don't re-fetch on every navigation
+  const [projectCache, setProjectCache] = useState<Record<string, any> | null>(null);
+
+  // Fetch and cache full project data when projectId is available
+  const refreshProjectCache = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch(`${API_BASE_URL}/api/poc/${projectId}`, {
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProjectCache(data.project || null);
+      }
+    } catch (e) {
+      console.error('Failed to refresh project cache:', e);
+    }
+  }, [projectId]);
 
   // Update loading state for a specific step
   const updateStepLoadingState = useCallback((step: number, isLoading: boolean) => {
@@ -194,7 +216,10 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
             const result = await response.json();
             const projects = result.projects;
             const project = Array.isArray(projects) && projects.length > 0
-              ? projects.find((p: { id: string }) => p.id === initialProjectId) || projects[0]
+              ? projects.find((p: { id: string }) => p.id === initialProjectId) ||
+                projects.reduce((best: any, p: any) =>
+                  (p.max_step_reached || 0) > (best.max_step_reached || 0) ? p : best
+                , projects[0])
               : result.project;
 
             if (project && project.id) {
@@ -404,12 +429,25 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engagementId, initialProjectId]); // Run when engagementId or initialProjectId (from diagnostic flow) changes
 
-  // Persist project ID to localStorage
+  // Load full project data into cache once restoration is done
+  useEffect(() => {
+    if (!isRestoring && projectId) {
+      refreshProjectCache();
+    }
+  }, [isRestoring, projectId, refreshProjectCache]);
+
+  // Persist project ID to localStorage and URL
   useEffect(() => {
     if (projectId) {
       localStorage.setItem(STORAGE_KEYS.PROJECT_ID, projectId);
       if (engagementId) {
         localStorage.setItem(STORAGE_KEYS.ENGAGEMENT_ID, engagementId);
+      }
+      // Persist project_id in URL so browser back/forward keeps the right project
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('project_id') !== projectId) {
+        url.searchParams.set('project_id', projectId);
+        window.history.replaceState({}, '', url.toString());
       }
     }
   }, [projectId, engagementId]);
@@ -488,8 +526,10 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
   }, [projectId]);
 
   // When entering Context Capture (step 2), try to extract and pre-fill from diagnostic if present
+  // Skip if questionnaire already has data (context was already captured previously)
   useEffect(() => {
-    if (currentStep !== 2 || !projectId || extractedContextCaptureRef.current || isRestoring) return;
+    const alreadyHasData = !!(questionnaireData.clientName || questionnaireData.industry || questionnaireData.companySize);
+    if (currentStep !== 2 || !projectId || extractedContextCaptureRef.current || isRestoring || alreadyHasData) return;
 
     const runExtract = async () => {
       extractedContextCaptureRef.current = true;
@@ -572,10 +612,16 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
     
     const newStep = step as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
     const newMaxStep = Math.max(maxStepReached, step);
-    
-    setCurrentStep(newStep);
-    setMaxStepReached(newMaxStep);
-    
+
+    // Fade out, switch step, fade in
+    setStepTransition(true);
+    setTimeout(() => {
+      setCurrentStep(newStep);
+      setMaxStepReached(newMaxStep);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(() => setStepTransition(false), 30);
+    }, 150);
+
     // Step progress will be saved to backend via useEffect hooks
   };
 
@@ -1040,6 +1086,14 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
           </div>
         </div>
 
+        {/* Step content with fade transition */}
+        <div
+          style={{
+            opacity: stepTransition ? 0 : 1,
+            transition: 'opacity 150ms ease-in-out',
+          }}
+        >
+
         {/* Step 1: File Upload */}
         {currentStep === 1 && (
           <>
@@ -1259,6 +1313,8 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
         {currentStep === 3 && projectId && (
           <DraftFindingsStep
             projectId={projectId}
+            initialData={projectCache}
+            onDataChange={refreshProjectCache}
             onComplete={() => {
               goToStep(4);
             }}
@@ -1271,6 +1327,8 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
         {currentStep === 4 && projectId && (
           <ExpandedFindingsStep
             projectId={projectId}
+            initialData={projectCache}
+            onDataChange={refreshProjectCache}
             onComplete={() => goToStep(5)}
             onBack={() => goToStep(3)}
             onLoadingStateChange={(isLoading) => updateStepLoadingState(4, isLoading)}
@@ -1281,6 +1339,8 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
         {currentStep === 5 && projectId && (
           <SnapshotTableStep
             projectId={projectId}
+            initialData={projectCache}
+            onDataChange={refreshProjectCache}
             onComplete={() => goToStep(6)}
             onBack={() => goToStep(4)}
             onLoadingStateChange={(isLoading) => updateStepLoadingState(5, isLoading)}
@@ -1291,6 +1351,8 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
         {currentStep === 6 && projectId && (
           <TwelveMonthPlanStep
             projectId={projectId}
+            initialData={projectCache}
+            onDataChange={refreshProjectCache}
             onComplete={() => goToStep(7)}
             onBack={() => goToStep(5)}
             onLoadingStateChange={(isLoading) => updateStepLoadingState(6, isLoading)}
@@ -1301,6 +1363,8 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
         {currentStep === 7 && projectId && (
           <ReviewEditStep
             projectId={projectId}
+            initialData={projectCache}
+            onDataChange={refreshProjectCache}
             onBack={() => goToStep(6)}
             onContinueToPhase2={() => goToStep(8)}
             onLoadingStateChange={(isLoading) => updateStepLoadingState(7, isLoading)}
@@ -1311,8 +1375,10 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
         {currentStep === 8 && projectId && (
           <TaskPlannerStep
             projectId={projectId}
-            onBack={() => setCurrentStep(7)}
-            onContinueToPhase3={() => setCurrentStep(9)}
+            initialData={projectCache}
+            onDataChange={refreshProjectCache}
+            onBack={() => goToStep(7)}
+            onContinueToPhase3={() => goToStep(9)}
           />
         )}
 
@@ -1320,9 +1386,12 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
         {currentStep === 9 && projectId && (
           <PresentationStep
             projectId={projectId}
-            onBack={() => setCurrentStep(8)}
+            initialData={projectCache}
+            onDataChange={refreshProjectCache}
+            onBack={() => goToStep(8)}
           />
         )}
+        </div>{/* end step transition wrapper */}
       </CardContent>
     </Card>
   );

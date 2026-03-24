@@ -35,9 +35,11 @@ interface DraftFindingsStepProps {
   onBack: () => void;
   className?: string;
   onLoadingStateChange?: (isLoading: boolean) => void;
+  initialData?: Record<string, any> | null;
+  onDataChange?: () => void;
 }
 
-export function DraftFindingsStep({ projectId, onComplete, onBack, className, onLoadingStateChange }: DraftFindingsStepProps) {
+export function DraftFindingsStep({ projectId, onComplete, onBack, className, onLoadingStateChange, initialData, onDataChange }: DraftFindingsStepProps) {
   const [findings, setFindings] = useState<Finding[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -53,39 +55,36 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
     onLoadingStateChangeRef.current = onLoadingStateChange;
   }, [onLoadingStateChange]);
 
-  // Load existing findings on mount
+  // Load existing findings on mount — use cached data if available
   useEffect(() => {
+    const applyProject = (project: any) => {
+      if (project?.draft_findings) {
+        const findingsData = project.draft_findings.findings ||
+          (Array.isArray(project.draft_findings) ? project.draft_findings : []);
+        if (findingsData && findingsData.length > 0) {
+          setFindings(findingsData);
+          setAnalysisNotes(project.draft_findings?.analysis_notes || '');
+        }
+      }
+    };
+
+    if (initialData?.draft_findings) {
+      applyProject(initialData);
+      setIsInitialLoading(false);
+      return;
+    }
+
     const loadExistingData = async () => {
       setIsInitialLoading(true);
       try {
         const token = localStorage.getItem('auth_token');
         const response = await fetch(`${API_BASE_URL}/api/poc/${projectId}`, {
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
           credentials: 'include',
         });
-
         if (response.ok) {
           const result = await response.json();
-          const project = result.project;
-          
-          console.log('Loading draft findings from project:', project?.draft_findings);
-          
-          if (project?.draft_findings) {
-            const findingsData = project.draft_findings.findings || 
-                                 (Array.isArray(project.draft_findings) ? project.draft_findings : []);
-            console.log('Extracted findings data:', findingsData);
-            if (findingsData && findingsData.length > 0) {
-              setFindings(findingsData);
-              setAnalysisNotes(project.draft_findings?.analysis_notes || '');
-              console.log('Successfully loaded', findingsData.length, 'findings');
-            } else {
-              console.log('No findings found in draft_findings');
-            }
-          } else {
-            console.log('No draft_findings in project');
-          }
+          applyProject(result.project);
         }
       } catch (err) {
         console.error('Failed to load existing findings:', err);
@@ -97,7 +96,7 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
     if (projectId) {
       loadExistingData();
     }
-  }, [projectId]);
+  }, [projectId, initialData]);
 
   useEffect(() => {
     if (onLoadingStateChangeRef.current) {
@@ -132,15 +131,31 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: 'Failed to generate findings' }));
-        throw new Error(errorData.detail || `HTTP ${response.status}`);
+        const detail = errorData.detail || '';
+        if (response.status === 401) {
+          throw new Error('Your session has expired. Please save your work, log in again, and retry.');
+        } else if (response.status === 400 && /no files/i.test(detail)) {
+          throw new Error('No files have been uploaded yet. Please go back to Step 1 and upload your documents.');
+        } else if (response.status === 400 && /questionnaire/i.test(detail)) {
+          throw new Error('The context capture has not been completed. Please go back to Step 2.');
+        } else if (response.status >= 500) {
+          throw new Error('An error occurred while generating findings. This may be due to a timeout or service issue. Please try again.');
+        } else {
+          throw new Error(detail || `HTTP ${response.status}`);
+        }
       }
 
       const result = await response.json();
       const findingsData = result.findings?.findings || result.findings || [];
       setFindings(findingsData);
       setAnalysisNotes(result.findings?.analysis_notes || '');
+      onDataChange?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate findings');
+      if (err instanceof TypeError && err.message === 'Failed to fetch') {
+        setError('Network error. Please check your connection and try again.');
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to generate findings');
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -177,7 +192,8 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
 
       // Success - proceed to next step
       setIsLoading(false);
-      
+      onDataChange?.();
+
       // Call onComplete to proceed to next step
       setTimeout(() => {
         onComplete(findings);

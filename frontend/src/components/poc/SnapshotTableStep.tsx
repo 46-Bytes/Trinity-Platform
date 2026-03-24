@@ -30,9 +30,11 @@ interface SnapshotTableStepProps {
   onBack: () => void;
   className?: string;
   onLoadingStateChange?: (isLoading: boolean) => void;
+  initialData?: Record<string, any> | null;
+  onDataChange?: () => void;
 }
 
-export function SnapshotTableStep({ projectId, onComplete, onBack, className, onLoadingStateChange }: SnapshotTableStepProps) {
+export function SnapshotTableStep({ projectId, onComplete, onBack, className, onLoadingStateChange, initialData, onDataChange }: SnapshotTableStepProps) {
   const [snapshotTable, setSnapshotTable] = useState<SnapshotTable | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -46,8 +48,23 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
     onLoadingStateChangeRef.current = onLoadingStateChange;
   }, [onLoadingStateChange]);
 
-  // Load existing snapshot table on mount
+  // Load existing snapshot table on mount — use cached data if available
   useEffect(() => {
+    const applyProject = (project: any) => {
+      if (project?.snapshot_table) {
+        const tableData = project.snapshot_table.snapshot_table || project.snapshot_table;
+        if (tableData && tableData.rows && Array.isArray(tableData.rows) && tableData.rows.length > 0) {
+          setSnapshotTable(tableData);
+        }
+      }
+    };
+
+    if (initialData?.snapshot_table) {
+      applyProject(initialData);
+      setIsInitialLoading(false);
+      return;
+    }
+
     const loadExistingData = async () => {
       setIsInitialLoading(true);
       try {
@@ -61,16 +78,7 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
 
         if (response.ok) {
           const result = await response.json();
-          const project = result.project;
-          
-          // Load existing snapshot table if available
-          // snapshot_table can be: {snapshot_table: {...}} or just the object
-          if (project?.snapshot_table) {
-            const tableData = project.snapshot_table.snapshot_table || project.snapshot_table;
-            if (tableData && tableData.rows && Array.isArray(tableData.rows) && tableData.rows.length > 0) {
-              setSnapshotTable(tableData);
-            }
-          }
+          applyProject(result.project);
         }
       } catch (err) {
         console.error('Failed to load existing snapshot table:', err);
@@ -82,7 +90,7 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
     if (projectId) {
       loadExistingData();
     }
-  }, [projectId]);
+  }, [projectId, initialData]);
 
   // Notify parent of loading state changes
   useEffect(() => {
@@ -115,6 +123,7 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
       const result = await response.json();
       const tableData = result.snapshot_table?.snapshot_table || result.snapshot_table || { title: 'Key Findings & Recommendations Snapshot', rows: [] };
       setSnapshotTable(tableData);
+      onDataChange?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate snapshot table');
     } finally {

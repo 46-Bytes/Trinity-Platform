@@ -394,6 +394,64 @@ class ReportService:
                 result_parts.append(part)
             advisor_html = ''.join(result_parts)
 
+        # Colorize module headings and RAG status lines based on RAG color.
+        # The structure is: <h3>M1 Module Name</h3> followed by
+        # <p><strong>Red / High | Score: ... | Rank: ...</strong></p>
+        # We color the <h3> and the RAG line to match.
+        rag_colors = {
+            'red': '#cc0000',
+            'amber': '#e67e00',
+            'green': '#2e7d32',
+        }
+
+        # Color RAG status lines: <strong>Red / High | ...</strong>
+        # or <p><strong>Red / High | ...</strong></p>
+        for rag_key, color in rag_colors.items():
+            # Match the RAG keyword at the start of a <strong> or <p><strong> block
+            advisor_html = re.sub(
+                rf'(<(?:p|strong)[^>]*>(?:<strong>)?\s*)({re.escape(rag_key)}\s*/\s*\w+\s*\|[^<]*)',
+                rf'\1<span style="color: {color};">\2</span>',
+                advisor_html,
+                flags=re.IGNORECASE,
+            )
+
+        # Color module <h3> headings based on the RAG in the next <strong> line.
+        # We find each <h3>M[X]...</h3> and look ahead for the RAG keyword.
+        def _color_module_heading(m):
+            h3_tag = m.group(0)
+            # Look at what follows this match in advisor_html to find the RAG
+            after = advisor_html[m.end():m.end() + 300]
+            color = None
+            for rag_key, c in rag_colors.items():
+                if re.search(rf'\b{rag_key}\b', after, re.IGNORECASE):
+                    color = c
+                    break
+            if color:
+                return re.sub(r'<h3', f'<h3 style="color: {color};"', h3_tag, count=1)
+            return h3_tag
+
+        if module_codes:
+            codes_pattern = '|'.join(re.escape(c) for c in module_codes)
+            heading_pattern = rf'<h3[^>]*>\s*(?:{codes_pattern})\b[^<]*</h3>'
+            # Use a loop instead of re.sub with function to handle lookahead correctly
+            result = ""
+            last_end = 0
+            for m in re.finditer(heading_pattern, advisor_html, re.IGNORECASE):
+                result += advisor_html[last_end:m.start()]
+                h3_tag = m.group(0)
+                after = advisor_html[m.end():m.end() + 300]
+                color = None
+                for rag_key, c in rag_colors.items():
+                    if re.search(rf'\b{rag_key}\b', after, re.IGNORECASE):
+                        color = c
+                        break
+                if color:
+                    h3_tag = re.sub(r'<h3', f'<h3 style="color: {color};"', h3_tag, count=1)
+                result += h3_tag
+                last_end = m.end()
+            result += advisor_html[last_end:]
+            advisor_html = result
+
         return f"""
     <div class="section advisor-report-section">
         <div class="advisor-report">{advisor_html}</div>

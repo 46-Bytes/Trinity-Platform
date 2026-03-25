@@ -442,60 +442,67 @@ class StrategyWorkbookExporter:
             insert_row += 1
     
     def _map_swot(self, ws, swot_data: Dict[str, Any]):
-        """Map SWOT data - one row per item in each block."""
+        """Map SWOT data - one row per item in each block, Column A only.
+
+        Items are written to Column A (the item column). Column B ("Our Actions")
+        is left empty for the user to fill in. Items are truncated to fit the
+        available template slots — no rows are inserted.
+        """
         section_row = self._find_section_start(ws, "SWOT")
         if not section_row:
             logger.warning("SWOT section not found")
             return
-        
+
         # Find each SWOT category block
         categories = ["Strengths", "Weaknesses", "Opportunities", "Threats"]
         data_keys = ["strengths", "weaknesses", "opportunities", "threats"]
-        
+
         for category, data_key in zip(categories, data_keys):
             items = swot_data.get(data_key, [])
             if not items:
                 continue
-            
-            # Find the category block
+
+            # Find the category header row
             category_row = None
             for row_idx in range(section_row, section_row + 100):
                 cell = ws.cell(row=row_idx, column=1)
                 if cell.value and category.upper() in str(cell.value).upper():
                     category_row = row_idx
                     break
-            
+
             if not category_row:
                 continue
-            
-            # Find data start (usually column B)
+
+            # Data starts on the row immediately after the category header
             data_start = category_row + 1
-            insert_row = data_start
-            
-            # Find last row in this category
+
+            # Find the boundary: next category header or next major section
             next_category_row = None
             for row_idx in range(category_row + 1, category_row + 50):
                 cell = ws.cell(row=row_idx, column=1)
                 if cell.value and any(c.upper() in str(cell.value).upper() for c in categories if c != category):
                     next_category_row = row_idx
                     break
-            
-            last_row = next_category_row - 1 if next_category_row else data_start + 20
-            
-            # Find first empty row
-            for row_idx in range(data_start, last_row):
-                if not ws.cell(row=row_idx, column=2).value:
-                    insert_row = row_idx
-                    break
-                insert_row = row_idx + 1
-            
-            # Insert items
-            for item in items:
-                if insert_row >= last_row:
-                    self._insert_row_with_formatting(ws, insert_row, insert_row - 1)
-                
-                self._safe_set_value(ws, insert_row, 2, str(item))
-                insert_row += 1
+
+            # If no next category found, look for the next major section
+            if not next_category_row:
+                next_section = self._find_next_section_start(ws, section_row)
+                next_category_row = next_section if next_section else data_start + 20
+
+            # Available empty slots (rows between this header and the next)
+            available_slots = next_category_row - data_start
+
+            # Truncate items to fit available slots — never insert rows
+            items_to_write = items[:available_slots]
+            if len(items) > available_slots:
+                logger.warning(
+                    f"SWOT {category}: {len(items)} items but only {available_slots} "
+                    f"slots available. Truncating to {available_slots}."
+                )
+
+            # Write items to Column A (item column), leave Column B for user actions
+            for i, item in enumerate(items_to_write):
+                self._safe_set_value(ws, data_start + i, 1, str(item))
     
     def _map_customer_analysis(self, ws, customers: List[Dict[str, Any]]):
         """Map customer analysis - one row per customer."""

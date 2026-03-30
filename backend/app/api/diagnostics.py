@@ -1,7 +1,7 @@
 """
 Diagnostic API endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, BackgroundTasks, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, Form
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -15,7 +15,7 @@ import time
 
 logger = logging.getLogger(__name__)
 
-from app.database import get_db, SessionLocal
+from app.database import get_db
 from app.schemas.diagnostic import (
     DiagnosticCreate,
     DiagnosticResponse,
@@ -33,14 +33,12 @@ from app.services.report_service import ReportService
 from app.services.document_template_service import get_document_template_service
 from app.services.role_check import check_engagement_access
 from app.utils.file_loader import load_diagnostic_questions
-from app.utils.background_task_manager import background_task_manager
 from app.utils.auth import get_current_user
 from app.utils.diagnostic_utils import get_admin_role_if_applicable, enrich_diagnostic_with_roles, filter_diagnostic_report_for_user
 from app.models.user import User, UserRole
 from app.models.diagnostic import Diagnostic
 from app.models.engagement import Engagement
 from app.models.media import Media
-import asyncio
 
 
 router = APIRouter(prefix="/diagnostics", tags=["diagnostics"])
@@ -427,7 +425,6 @@ async def submit_diagnostic(
     diagnostic_id: UUID,
     submit_data: DiagnosticSubmit,
     response: Response,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -498,246 +495,15 @@ async def submit_diagnostic(
     db.commit()
     db.refresh(diagnostic)
     
-    # Add background task for processing
-    async def process_diagnostic_background():
-        """Background task to process diagnostic and generate PDF"""
-        # Create a new database session for background task
-        background_db = SessionLocal()
-        task = None
-        # Initialize pipeline_start_time early to avoid UnboundLocalError
-        pipeline_start_time = None
-        try:
-            pipeline_start_time = time.time()
-        except (NameError, UnboundLocalError, AttributeError) as time_err:
-            # Fallback if time module has issues - use a default value
-            logger.warning(f"[Background Task] Could not get start time: {time_err}")
-            import time as time_module
-            try:
-                pipeline_start_time = time_module.time()
-            except Exception:
-                pipeline_start_time = 0  # Fallback to 0 if time completely fails
-        
-        try:
-            logger.info(f"🚀 Starting background processing for diagnostic {diagnostic_id}")
-            logger.info(f"[Background Task] Task registered at {time.strftime('%Y-%m-%d %H:%M:%S')}")
-            
-            # Check if shutdown was initiated before starting
-            if background_task_manager.is_shutting_down():
-                logger.warning(f"  Shutdown detected before starting diagnostic {diagnostic_id} processing")
-                # Update status back to draft or leave as processing
-                try:
-                    diagnostic_obj = background_db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
-                    if diagnostic_obj:
-                        diagnostic_obj.status = "draft"  # Reset to draft so user can resubmit
-                        background_db.commit()
-                except Exception as e:
-                    logger.error(f"Failed to reset diagnostic status: {e}")
-                finally:
-                    background_db.close()
-                return
-            
-            # Get current task for tracking
-            task = asyncio.current_task()
-            if task:
-                background_task_manager.register_task(task, diagnostic_id)
-                logger.info(f"[Background Task] Task registered with background_task_manager")
-            
-            background_service = get_diagnostic_service(background_db)
-            diagnostic_obj = background_service.get_diagnostic(diagnostic_id)
-            
-            if not diagnostic_obj:
-                logger.error(f"  Diagnostic {diagnostic_id} not found in background task")
-                return
-            
-            logger.info(f"[Background Task] Starting diagnostic pipeline processing...")
-            logger.info(f"[Background Task] Diagnostic status: {diagnostic_obj.status}")
-            logger.info(f"[Background Task] Diagnostic engagement_id: {diagnostic_obj.engagement_id}")
+    # Dispatch Celery task for background processing
+    from app.tasks.diagnostic_tasks import process_diagnostic_task
+    result = process_diagnostic_task.delay(str(diagnostic_id))
+    diagnostic.celery_task_id = result.id
+    db.commit()
+    db.refresh(diagnostic)
 
-            # Process the diagnostic pipeline with a 15-minute overall timeout
-            PIPELINE_TIMEOUT_SECONDS = 1800  # 30 minutes
-            try:
-                await asyncio.wait_for(
-                    background_service._process_diagnostic_pipeline(diagnostic_obj, check_shutdown=True),
-                    timeout=PIPELINE_TIMEOUT_SECONDS
-                )
-            except asyncio.TimeoutError:
-                logger.error(f"[Background Task] ⏰ Pipeline timed out after {PIPELINE_TIMEOUT_SECONDS} seconds ({PIPELINE_TIMEOUT_SECONDS/60:.0f} minutes) for diagnostic {diagnostic_id}")
-                diagnostic_obj = background_db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
-                if diagnostic_obj:
-                    diagnostic_obj.status = "failed"
-                    background_db.commit()
-                    logger.info(f"[Background Task] Updated diagnostic {diagnostic_id} status to 'failed' (pipeline timeout)")
-                return
-            
-            pipeline_elapsed = time.time() - pipeline_start_time
-            logger.info(f"[Background Task] ✅ Diagnostic pipeline completed in {pipeline_elapsed:.2f} seconds ({pipeline_elapsed/60:.2f} minutes)")
-            
-            # Generate PDF report after processing is complete
-            try:
-                logger.info(f"📄 Generating PDF report for diagnostic {diagnostic_id}")
-                
-                # Get user for report
-                report_user_id = diagnostic_obj.completed_by_user_id or diagnostic_obj.created_by_user_id
-                report_user = background_db.query(User).filter(User.id == report_user_id).first()
-                
-                if report_user:
-                    # Build question text map and structured question map
-                    question_text_map = {}
-                    structured_question_map = {}
-                    diagnostic_questions = diagnostic_obj.questions or {}
-                    for page in diagnostic_questions.get("pages", []):
-                        for element in page.get("elements", []):
-                            element_name = element.get("name")
-                            element_title = element.get("title", element_name)
-                            el_type = element.get("type", "")
-                            # Skip file upload elements - they can't be rendered in PDF
-                            if el_type == "file":
-                                continue
-                            if element_name:
-                                question_text_map[element_name] = element_title
-                            if element_name and el_type == "matrixdynamic":
-                                structured_question_map[element_name] = {
-                                    "type": "matrixdynamic",
-                                    "fields": {
-                                        col.get("name"): col.get("title", col.get("name", ""))
-                                        for col in element.get("columns", []) if col.get("name")
-                                    }
-                                }
-                            elif element_name and el_type == "multipletext":
-                                structured_question_map[element_name] = {
-                                    "type": "multipletext",
-                                    "fields": {
-                                        item.get("name"): item.get("title", item.get("name", ""))
-                                        for item in element.get("items", []) if item.get("name")
-                                    }
-                                }
+    logger.info(f"Diagnostic {diagnostic_id} submitted, Celery task {result.id} dispatched")
 
-                    # Look up lead advisor name for cover page
-                    advisor_name = ""
-                    try:
-                        engagement_obj = background_db.query(Engagement).filter(
-                            Engagement.id == diagnostic_obj.engagement_id
-                        ).first()
-                        if engagement_obj and engagement_obj.primary_advisor_id:
-                            advisor_user = background_db.query(User).filter(
-                                User.id == engagement_obj.primary_advisor_id
-                            ).first()
-                            if advisor_user:
-                                advisor_name = advisor_user.name or advisor_user.email or ""
-                    except Exception:
-                        advisor_name = ""
-
-                    # Generate PDF (this will be stored/cached for download)
-                    pdf_bytes = ReportService.generate_pdf_report(
-                        diagnostic=diagnostic_obj,
-                        user=report_user,
-                        question_text_map=question_text_map,
-                        structured_question_map=structured_question_map,
-                        advisor_name=advisor_name
-                    )
-                    logger.info(f"  PDF report generated successfully ({len(pdf_bytes)} bytes)")
-                else:
-                    logger.warning(f"  Could not find user for PDF generation")
-
-            except Exception as pdf_error:
-                logger.error(f"  PDF generation failed (non-critical): {str(pdf_error)}", exc_info=True)
-                # Don't fail the whole process if PDF generation fails
-            
-            # Update status to completed
-            diagnostic_obj.status = "completed"
-            diagnostic_obj.completed_at = datetime.now(timezone.utc)
-            
-            # Update engagement status
-            engagement = background_db.query(Engagement).filter(
-                Engagement.id == diagnostic_obj.engagement_id
-            ).first()
-            if engagement and engagement.status != "completed":
-                engagement.status = "completed"
-                if not engagement.completed_at:
-                    engagement.completed_at = datetime.now(timezone.utc)
-                logger.info(f"  Updated engagement {engagement.id} status to 'completed'")
-            
-            background_db.commit()
-            
-            total_elapsed = time.time() - pipeline_start_time
-            logger.info(f"[Background Task] ✅✅✅ Background processing completed successfully for diagnostic {diagnostic_id} ✅✅✅")
-            logger.info(f"[Background Task] Total processing time: {total_elapsed:.2f} seconds ({total_elapsed/60:.2f} minutes)")
-            logger.info(f"[Background Task] Completed at {time.strftime('%Y-%m-%d %H:%M:%S')}")
-            
-        except asyncio.CancelledError:
-            try:
-                if pipeline_start_time is not None:
-                    elapsed = time.time() - pipeline_start_time
-                    elapsed_str = f"{elapsed:.2f} seconds ({elapsed/60:.2f} minutes)"
-                else:
-                    elapsed_str = "unknown duration"
-            except (NameError, UnboundLocalError, AttributeError, TypeError):
-                elapsed_str = "unknown duration"
-            logger.warning(f"[Background Task] ⚠️ Background processing cancelled for diagnostic {diagnostic_id} (shutdown detected)")
-            logger.warning(f"[Background Task] Processing was cancelled after {elapsed_str}")
-            # Update status to indicate it was cancelled
-            try:
-                diagnostic_obj = background_db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
-                if diagnostic_obj:
-                    diagnostic_obj.status = "draft"  # Reset to draft so user can resubmit after redeploy
-                    background_db.commit()
-                    logger.info(f"[Background Task] Updated diagnostic {diagnostic_id} status to 'draft' (cancelled due to shutdown)")
-            except Exception as update_error:
-                logger.error(f"[Background Task] Failed to update diagnostic status after cancellation: {str(update_error)}")
-            raise  # Re-raise to properly handle cancellation
-        except Exception as e:
-            try:
-                if pipeline_start_time is not None:
-                    elapsed = time.time() - pipeline_start_time
-                    elapsed_str = f"{elapsed:.2f} seconds ({elapsed/60:.2f} minutes)"
-                else:
-                    elapsed_str = "unknown duration"
-            except (NameError, UnboundLocalError, AttributeError, TypeError, Exception):
-                elapsed_str = "unknown duration"
-            
-            error_msg = str(e)
-            error_type = type(e).__name__
-            
-            logger.error(f"[Background Task] ❌❌❌ Background processing FAILED for diagnostic {diagnostic_id} ❌❌❌")
-            logger.error(f"[Background Task] Failed after {elapsed_str}")
-            logger.error(f"[Background Task] Error type: {error_type}")
-            logger.error(f"[Background Task] Error message: {error_msg}")
-            logger.error(f"[Background Task] Full exception traceback:", exc_info=True)
-            
-            # Check if shutdown was the cause
-            if background_task_manager.is_shutting_down():
-                logger.warning(f"[Background Task] Shutdown was detected - this may have caused the failure")
-                try:
-                    diagnostic_obj = background_db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
-                    if diagnostic_obj:
-                        diagnostic_obj.status = "draft"
-                        background_db.commit()
-                        logger.info(f"[Background Task] Updated diagnostic {diagnostic_id} status to 'draft' (shutdown detected)")
-                except Exception as update_error:
-                    logger.error(f"[Background Task] Failed to update diagnostic status: {str(update_error)}")
-            else:
-                logger.error(f"[Background Task] This was NOT a shutdown-related failure")
-                # Update status to failed so the task is done and resources are released
-                try:
-                    diagnostic_obj = background_service.get_diagnostic(diagnostic_id)
-                    if diagnostic_obj:
-                        diagnostic_obj.status = "failed"
-                        background_db.commit()
-                        logger.info(f"[Background Task] Updated diagnostic {diagnostic_id} status to 'failed'")
-                    else:
-                        logger.error(f"[Background Task] Could not find diagnostic {diagnostic_id} to update status")
-                except Exception as update_error:
-                    logger.error(f"[Background Task] Failed to update diagnostic status to 'failed': {str(update_error)}")
-            # End task on failure: exit immediately so the background task completes and is cleaned up
-            return
-        finally:
-            background_db.close()
-    
-    # Add the background task
-    background_tasks.add_task(process_diagnostic_background)
-    
-    logger.info(f"  Diagnostic {diagnostic_id} submitted, processing in background")
-    
     return diagnostic
 
 
@@ -772,20 +538,19 @@ async def cancel_diagnostic_processing(
     # Optional: add role / access checks here if needed
     # e.g. ensure current_user can manage this engagement
 
-    # Cancel the background task for this diagnostic, if one is registered
-    task = background_task_manager.get_diagnostic_task(diagnostic_id)
-    if task and not task.done():
-        logger.info(f"🔴 Cancelling background diagnostic task for {diagnostic_id}")
-        task.cancel()
-    else:
-        logger.info(
-            f"Cancel requested for diagnostic {diagnostic_id} but no active task found"
-        )
-
-    # Reset diagnostic status so user can edit / resubmit
+    # Set status to "draft" — the pipeline's checkpoint checks will detect this
     diagnostic.status = "draft"
     diagnostic.completed_at = None
     db.commit()
+
+    # Also revoke the Celery task to free the worker
+    if diagnostic.celery_task_id:
+        from app.celery_app import celery_app
+        celery_app.control.revoke(diagnostic.celery_task_id, terminate=True)
+        logger.info(f"Revoked Celery task {diagnostic.celery_task_id} for diagnostic {diagnostic_id}")
+    else:
+        logger.info(f"Cancel requested for diagnostic {diagnostic_id} but no Celery task ID found")
+
     db.refresh(diagnostic)
 
     return diagnostic

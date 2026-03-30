@@ -50,3 +50,8 @@ openpyxl==3.1.5
 
 # PowerPoint generation (Phase 3 – Presentation Generator)
 python-pptx==1.0.2
+
+# Celery task queue with Redis broker
+celery[redis]==5.4.0
+redis==5.2.1
+flower==2.0.1

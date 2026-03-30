@@ -217,7 +217,6 @@ class ClaudeService:
                     if not isinstance(t, dict):
                         continue
                     tool_type = t.get("type", "")
-                    # Map OpenAI code_interpreter to Claude code_execution
                     if tool_type == "code_interpreter":
                         claude_tools = claude_tools or []
                         claude_tools.append({
@@ -681,6 +680,25 @@ class ClaudeService:
             {"role": "system", "content": system_content},
             {"role": "user", "content": user_content},
         ]
+
+        # Log input breakdown before API call
+        summary_chars = len(summary)
+        module_avg_str = json.dumps(module_averages, indent=2)
+        module_avg_chars = len(module_avg_str)
+        file_insights_chars = len(file_insights) if file_insights else 0
+        scored_rows_str = json.dumps(scored_rows)
+        scored_rows_chars = len(scored_rows_str)
+        all_responses_str = json.dumps(all_responses)
+        all_responses_chars = len(all_responses_str)
+
+        logger.info("[Claude] Report generation input breakdown:")
+        logger.info(f"[Claude]   System prompt: {len(system_content):,} chars")
+        logger.info(f"[Claude]   User content:  {len(user_content):,} chars total")
+        logger.info(f"[Claude]     - Diagnostic Summary: {summary_chars:,} chars")
+        logger.info(f"[Claude]     - Module Averages: {module_avg_chars:,} chars ({len(module_averages)} modules)")
+        logger.info(f"[Claude]     - File Insights: {file_insights_chars:,} chars")
+        logger.info(f"[Claude]     - Scored Rows: {scored_rows_chars:,} chars ({len(scored_rows)} items)")
+        logger.info(f"[Claude]     - All Responses: {all_responses_chars:,} chars ({len(all_responses)} items)")
 
         report_start_time = time.time()
 

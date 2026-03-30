@@ -442,18 +442,20 @@ class StrategyWorkbookExporter:
             insert_row += 1
     
     def _map_swot(self, ws, swot_data: Dict[str, Any]):
-        """Map SWOT data - one row per item in each block, Column A only.
+        """Map SWOT data - one row per item in each block, Column A.
 
-        Items are written to Column A (the item column). Column B ("Our Actions")
-        is left empty for the user to fill in. Items are truncated to fit the
-        available template slots — no rows are inserted.
+        Dynamically inserts rows when items exceed available template slots,
+        copying formatting from existing data rows to preserve visual consistency.
+        Column B ("Our Actions") is left empty for the user.
+
+        Categories are re-searched each iteration so prior row insertions
+        are automatically accounted for.
         """
         section_row = self._find_section_start(ws, "SWOT")
         if not section_row:
             logger.warning("SWOT section not found")
             return
 
-        # Find each SWOT category block
         categories = ["Strengths", "Weaknesses", "Opportunities", "Threats"]
         data_keys = ["strengths", "weaknesses", "opportunities", "threats"]
 
@@ -462,9 +464,9 @@ class StrategyWorkbookExporter:
             if not items:
                 continue
 
-            # Find the category header row
+            # Re-find category header each time (may have shifted from prior insertions)
             category_row = None
-            for row_idx in range(section_row, section_row + 100):
+            for row_idx in range(section_row, section_row + 150):
                 cell = ws.cell(row=row_idx, column=1)
                 if cell.value and category.upper() in str(cell.value).upper():
                     category_row = row_idx
@@ -473,36 +475,69 @@ class StrategyWorkbookExporter:
             if not category_row:
                 continue
 
-            # Data starts on the row immediately after the category header
             data_start = category_row + 1
 
-            # Find the boundary: next category header or next major section
-            next_category_row = None
-            for row_idx in range(category_row + 1, category_row + 50):
+            # Find next boundary (next category header or next major section)
+            next_boundary = None
+            for row_idx in range(data_start, data_start + 50):
                 cell = ws.cell(row=row_idx, column=1)
                 if cell.value and any(c.upper() in str(cell.value).upper() for c in categories if c != category):
-                    next_category_row = row_idx
+                    next_boundary = row_idx
                     break
 
-            # If no next category found, look for the next major section
-            if not next_category_row:
+            if not next_boundary:
                 next_section = self._find_next_section_start(ws, section_row)
-                next_category_row = next_section if next_section else data_start + 20
+                next_boundary = next_section if next_section else data_start + 20
 
-            # Available empty slots (rows between this header and the next)
-            available_slots = next_category_row - data_start
+            available_slots = next_boundary - data_start
+            extra_rows_needed = max(0, len(items) - available_slots)
 
-            # Truncate items to fit available slots — never insert rows
-            items_to_write = items[:available_slots]
-            if len(items) > available_slots:
-                logger.warning(
-                    f"SWOT {category}: {len(items)} items but only {available_slots} "
-                    f"slots available. Truncating to {available_slots}."
+            # Insert extra rows just before the boundary, copying data-row formatting
+            if extra_rows_needed > 0:
+                for i in range(extra_rows_needed):
+                    self._insert_row_with_formatting(ws, next_boundary + i, data_start)
+                logger.info(
+                    f"SWOT {category}: inserted {extra_rows_needed} extra row(s) "
+                    f"to fit {len(items)} items (template had {available_slots} slots)."
                 )
 
-            # Write items to Column A (item column), leave Column B for user actions
-            for i, item in enumerate(items_to_write):
-                self._safe_set_value(ws, data_start + i, 1, str(item))
+            # Write all items to Column A, leave Column B for user actions.
+            # Also normalise formatting: rows that were originally separator/transition
+            # rows may have different styling (e.g. Aptos Narrow instead of Calibri).
+            # Copy the data-row formatting from the first slot onto every used row.
+            for i, item in enumerate(items):
+                target_row = data_start + i
+                self._safe_set_value(ws, target_row, 1, str(item))
+                # Ensure consistent data-row formatting across all columns
+                for col_idx in range(1, ws.max_column + 1):
+                    src = ws.cell(row=data_start, column=col_idx)
+                    tgt = ws.cell(row=target_row, column=col_idx)
+                    if src.font and src.has_style:
+                        try:
+                            tgt.font = Font(
+                                name=src.font.name,
+                                size=src.font.size,
+                                bold=src.font.bold,
+                                italic=src.font.italic,
+                                vertAlign=src.font.vertAlign,
+                                underline=src.font.underline,
+                                strike=src.font.strike,
+                                color=src.font.color,
+                            )
+                        except Exception:
+                            pass
+                    if src.alignment:
+                        try:
+                            tgt.alignment = Alignment(
+                                horizontal=src.alignment.horizontal,
+                                vertical=src.alignment.vertical,
+                                text_rotation=src.alignment.text_rotation,
+                                wrap_text=src.alignment.wrap_text,
+                                shrink_to_fit=src.alignment.shrink_to_fit,
+                                indent=src.alignment.indent,
+                            )
+                        except Exception:
+                            pass
     
     def _map_customer_analysis(self, ws, customers: List[Dict[str, Any]]):
         """Map customer analysis - one row per customer."""

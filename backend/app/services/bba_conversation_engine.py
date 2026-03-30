@@ -217,9 +217,10 @@ Return your response as a JSON object.
                 messages=messages,
                 file_ids=pdf_file_ids if pdf_file_ids else None,  # Only PDFs as input_file
                 tools=tools,  # CSV/TXT/XLSX go to Code Interpreter
-                reasoning_effort="medium"
+                reasoning_effort="medium",
+                max_output_tokens=16384,
             )
-            
+
             logger.info(f"[BBA Engine] Draft findings generated successfully")
             
             return {
@@ -294,29 +295,15 @@ Return your response as a JSON object.
             {"role": "user", "content": user_content}
         ]
         
-        # Separate files by type: PDFs go as input_file, CSV/TXT/XLSX go to Code Interpreter
-        file_mappings = context['file_mappings'] or {}
-        pdf_file_ids, ci_file_ids = self._separate_files_by_type(file_mappings)
-        
-        # Build tools parameter for Code Interpreter if needed
-        tools = None
-        if ci_file_ids:
-            tools = [{
-                "type": "code_interpreter",
-                "container": {
-                    "type": "auto",
-                    "file_ids": ci_file_ids
-                }
-            }]
-        
+        # No file attachments needed — draft findings already contain all extracted insights.
+        # Re-attaching files would force the model to re-read every PDF/CSV, adding 30-120s.
         try:
             result = await self.openai_service.generate_json_completion(
                 messages=messages,
-                file_ids=pdf_file_ids if pdf_file_ids else None,  # Only PDFs as input_file
-                tools=tools,  # CSV/TXT/XLSX go to Code Interpreter
-                reasoning_effort="medium"
+                reasoning_effort="low",
+                max_output_tokens=32768,
             )
-            
+
             logger.info(f"[BBA Engine] Findings expanded successfully")
             
             return {
@@ -387,9 +374,10 @@ Return your response as a JSON object.
         try:
             result = await self.openai_service.generate_json_completion(
                 messages=messages,
-                reasoning_effort="low"
+                reasoning_effort="low",
+                max_output_tokens=8192,
             )
-            
+
             logger.info(f"[BBA Engine] Snapshot table generated successfully")
             
             return {
@@ -475,29 +463,15 @@ Return your response as a JSON object.
             {"role": "user", "content": user_content}
         ]
         
-        # Separate files by type: PDFs go as input_file, CSV/TXT/XLSX go to Code Interpreter
-        file_mappings = context['file_mappings'] or {}
-        pdf_file_ids, ci_file_ids = self._separate_files_by_type(file_mappings)
-        
-        # Build tools parameter for Code Interpreter if needed
-        tools = None
-        if ci_file_ids:
-            tools = [{
-                "type": "code_interpreter",
-                "container": {
-                    "type": "auto",
-                    "file_ids": ci_file_ids
-                }
-            }]
-        
+        # No file attachments needed — expanded findings and snapshot table
+        # already contain all detail. Re-attaching files adds 30-120s of re-processing.
         try:
             result = await self.openai_service.generate_json_completion(
                 messages=messages,
-                file_ids=pdf_file_ids if pdf_file_ids else None,  # Only PDFs as input_file
-                tools=tools,  # CSV/TXT/XLSX go to Code Interpreter
-                reasoning_effort="high"
+                reasoning_effort="medium",
+                max_output_tokens=65536,
             )
-            
+
             logger.info(f"[BBA Engine] 12-month plan generated successfully")
             
             return {
@@ -584,9 +558,10 @@ Return the updated sections as a JSON object.
         try:
             result = await self.openai_service.generate_json_completion(
                 messages=messages,
-                reasoning_effort="medium"
+                reasoning_effort="low",
+                max_output_tokens=65536,
             )
-            
+
             logger.info(f"[BBA Engine] Edits applied successfully")
             
             return {
@@ -665,9 +640,10 @@ Return your response as a JSON object with an "executive_summary" key containing
         try:
             result = await self.openai_service.generate_json_completion(
                 messages=messages,
-                reasoning_effort="medium"
+                reasoning_effort="low",
+                max_output_tokens=8192,
             )
-            
+
             logger.info(f"[BBA Engine] Executive summary generated successfully")
             
             return {
@@ -719,10 +695,11 @@ Return your response as a JSON object with an "executive_summary" key containing
             {"role": "user", "content": user_content},
         ]
 
-        # Separate uploaded files by type (reuse existing pattern from draft findings)
+        # Only attach files when diagnostic text is NOT available.
+        # When diagnostic text exists, it already contains all info needed for field extraction.
         pdf_file_ids = None
         tools = None
-        if file_mappings:
+        if file_mappings and not has_text:
             pdf_ids, ci_ids = self._separate_files_by_type(file_mappings)
             pdf_file_ids = pdf_ids if pdf_ids else None
             if ci_ids:
@@ -740,6 +717,7 @@ Return your response as a JSON object with an "executive_summary" key containing
             file_ids=pdf_file_ids,
             tools=tools,
             temperature=0.2,
+            max_output_tokens=4096,
         )
         parsed = result.get("parsed_content") or {}
         if not isinstance(parsed, dict):

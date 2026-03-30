@@ -106,7 +106,9 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
 
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${API_BASE_URL}/api/poc/${projectId}/step5/generate`, {
+      // Use parallel endpoint to generate both snapshot table AND 12-month plan concurrently.
+      // The 12-month plan is saved to DB silently; Step 6 will find it pre-loaded.
+      const response = await fetch(`${API_BASE_URL}/api/poc/${projectId}/step5-6/generate-parallel`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

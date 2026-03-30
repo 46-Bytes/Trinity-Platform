@@ -39,6 +39,7 @@ import os
 import logging
 import io
 import json
+import asyncio
 # from app.services.openai_service import OpenAIService  # Preserved for rollback
 from app.services.claude_service import ClaudeService
 from app.services.bba_service import get_bba_service, BBAService
@@ -217,60 +218,73 @@ async def upload_files_poc(
             detail="You don't have access to this project"
         )
     
-    # Initialize OpenAI service
+    # Initialize Claude service
     openai_service = ClaudeService()
-    
+
     # Results storage
     results = []
     file_mapping = {}
     file_ids = []
     stored_file_mapping = {}  # filename -> relative path for persisted copies
 
-    # Process each file
+    # Pre-read all files (must happen sequentially — UploadFile objects are async)
+    file_data_list = []
     for file in files:
-        temp_file_path = None
         try:
-            # Read file content
             file_content = await file.read()
-            file_size = len(file_content)
-            
-            logger.info(f"Processing file: {file.filename} (size: {file_size} bytes)")
-            
-            # Create temporary file for OpenAI upload
-            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
+            file_data_list.append({
+                "filename": file.filename,
+                "content": file_content,
+                "size": len(file_content),
+            })
+        except Exception as e:
+            logger.error(f"Error reading file {file.filename}: {str(e)}", exc_info=True)
+            results.append({
+                "filename": file.filename,
+                "file_id": None,
+                "status": "error",
+                "error": str(e)
+            })
+
+    async def _upload_single_file(file_info: Dict[str, Any]) -> Dict[str, Any]:
+        """Upload a single file to Claude Files API and persist to disk."""
+        filename = file_info["filename"]
+        file_content = file_info["content"]
+        file_size = file_info["size"]
+        temp_file_path = None
+
+        try:
+            logger.info(f"Processing file: {filename} (size: {file_size} bytes)")
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(filename)[1]) as temp_file:
                 temp_file.write(file_content)
                 temp_file_path = temp_file.name
-            
-            try:
-                # Upload to OpenAI Files API
-                openai_result = await openai_service.upload_file(
-                    file_path=temp_file_path,
-                    purpose="assistants"  # Standard purpose for file uploads
-                )
-                
-                if openai_result and openai_result.get("id"):
-                    file_id = openai_result["id"]
-                    filename = file.filename
-                    safe_name = _sanitize_filename(filename)
 
-                    # Persist file to disk so it remains available after refresh/completion
-                    try:
-                        bba_base = _bba_uploads_base()
-                        project_dir = bba_base / str(project_id)
-                        project_dir.mkdir(parents=True, exist_ok=True)
-                        stored_path = project_dir / safe_name
-                        stored_path.write_bytes(file_content)
-                        relative_path = f"{project_id}/{safe_name}"
-                        stored_file_mapping[filename] = relative_path
-                        logger.info(f"Stored file {filename} at {stored_path}")
-                    except Exception as store_err:
-                        logger.warning(f"Failed to persist file {filename} to disk: {store_err}")
+            openai_result = await openai_service.upload_file(
+                file_path=temp_file_path,
+                purpose="assistants"
+            )
 
-                    # Store mapping and file_id
-                    file_mapping[filename] = file_id
-                    file_ids.append(file_id)
+            if openai_result and openai_result.get("id"):
+                file_id = openai_result["id"]
+                safe_name = _sanitize_filename(filename)
 
-                    results.append({
+                # Persist file to disk
+                disk_path = None
+                try:
+                    bba_base = _bba_uploads_base()
+                    project_dir = bba_base / str(project_id)
+                    project_dir.mkdir(parents=True, exist_ok=True)
+                    stored_path = project_dir / safe_name
+                    stored_path.write_bytes(file_content)
+                    disk_path = f"{project_id}/{safe_name}"
+                    logger.info(f"Stored file {filename} at {stored_path}")
+                except Exception as store_err:
+                    logger.warning(f"Failed to persist file {filename} to disk: {store_err}")
+
+                logger.info(f"Successfully uploaded {filename}. File ID: {file_id}")
+                return {
+                    "result": {
                         "filename": filename,
                         "file_id": file_id,
                         "status": "success",
@@ -278,44 +292,48 @@ async def upload_files_poc(
                         "openai_info": {
                             "bytes": openai_result.get("bytes"),
                             "purpose": openai_result.get("purpose"),
-                            "created_at": openai_result.get("created_at")
-                        }
-                    })
-
-                    logger.info(f"Successfully uploaded {filename} to OpenAI. File ID: {file_id}")
-                else:
-                    results.append({
-                        "filename": file.filename,
-                        "file_id": None,
-                        "status": "error",
-                        "error": "OpenAI upload returned no file_id"
-                    })
-                    logger.error(f"OpenAI upload failed for {file.filename}: No file_id returned")
-                    
-            except Exception as openai_error:
-                logger.error(f"OpenAI upload error for {file.filename}: {str(openai_error)}", exc_info=True)
-                results.append({
-                    "filename": file.filename,
-                    "file_id": None,
-                    "status": "error",
-                    "error": str(openai_error)
-                })
-            finally:
-                # Clean up temporary file
+                            "created_at": openai_result.get("created_at"),
+                        },
+                    },
+                    "file_id": file_id,
+                    "filename": filename,
+                    "disk_path": disk_path,
+                }
+            else:
+                logger.error(f"Upload failed for {filename}: No file_id returned")
+                return {
+                    "result": {"filename": filename, "file_id": None, "status": "error", "error": "Upload returned no file_id"},
+                    "file_id": None, "filename": filename, "disk_path": None,
+                }
+        except Exception as upload_error:
+            logger.error(f"Upload error for {filename}: {str(upload_error)}", exc_info=True)
+            return {
+                "result": {"filename": filename, "file_id": None, "status": "error", "error": str(upload_error)},
+                "file_id": None, "filename": filename, "disk_path": None,
+            }
+        finally:
+            if temp_file_path and os.path.exists(temp_file_path):
                 try:
-                    if temp_file_path and os.path.exists(temp_file_path):
-                        os.unlink(temp_file_path)
-                except Exception as cleanup_error:
-                    logger.warning(f"Failed to cleanup temp file {temp_file_path}: {str(cleanup_error)}")
-                    
-        except Exception as e:
-            logger.error(f"Error processing file {file.filename}: {str(e)}", exc_info=True)
-            results.append({
-                "filename": file.filename,
-                "file_id": None,
-                "status": "error",
-                "error": str(e)
-            })
+                    os.unlink(temp_file_path)
+                except Exception:
+                    pass
+
+    # Upload all files in parallel
+    upload_results = await asyncio.gather(
+        *[_upload_single_file(fd) for fd in file_data_list],
+        return_exceptions=True,
+    )
+
+    for ur in upload_results:
+        if isinstance(ur, Exception):
+            logger.error(f"Unexpected upload exception: {ur}", exc_info=True)
+            continue
+        results.append(ur["result"])
+        if ur["file_id"]:
+            file_ids.append(ur["file_id"])
+            file_mapping[ur["filename"]] = ur["file_id"]
+        if ur.get("disk_path"):
+            stored_file_mapping[ur["filename"]] = ur["disk_path"]
     
     # Update BBA project with file information
     if file_ids:
@@ -981,6 +999,80 @@ async def generate_12month_plan(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate 12-month plan. Please try again or contact support."
+        )
+
+
+# =============================================================================
+# STEPS 5+6 PARALLEL: Snapshot Table + 12-Month Plan (concurrent generation)
+# =============================================================================
+
+@router.post("/{project_id}/step5-6/generate-parallel", status_code=status.HTTP_200_OK)
+async def generate_snapshot_and_plan_parallel(
+    project_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Generate Snapshot Table (Step 5) and 12-Month Plan (Step 6) concurrently.
+
+    Both steps depend only on expanded_findings (Step 4 output) and are
+    independent of each other, so they can run in parallel.
+    """
+    bba_service = get_bba_service(db)
+    bba = bba_service.get_bba(project_id)
+
+    if not bba:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="BBA project not found")
+    if bba.created_by_user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this project")
+    if not bba.expanded_findings:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No expanded findings. Complete Step 4 first.")
+
+    try:
+        engine = get_bba_conversation_engine()
+
+        # Run both LLM calls concurrently
+        snapshot_result, plan_result = await asyncio.gather(
+            engine.generate_snapshot_table(bba),
+            engine.generate_12month_plan(bba),
+        )
+
+        # Save snapshot table
+        snapshot_data = snapshot_result.get("snapshot_table", {})
+        bba_service.update_snapshot_table(
+            bba_id=project_id,
+            snapshot_table=snapshot_data,
+            tokens_used=snapshot_result.get("tokens_used", 0),
+            model=snapshot_result.get("model", ""),
+        )
+
+        # Save 12-month plan
+        plan_data = plan_result.get("twelve_month_plan", {})
+        plan_notes = plan_data.get("plan_notes", None)
+        updated_bba = bba_service.update_twelve_month_plan(
+            bba_id=project_id,
+            twelve_month_plan=plan_data,
+            plan_notes=plan_notes,
+            tokens_used=plan_result.get("tokens_used", 0),
+            model=plan_result.get("model", ""),
+        )
+
+        total_tokens = snapshot_result.get("tokens_used", 0) + plan_result.get("tokens_used", 0)
+
+        return {
+            "success": True,
+            "message": "Snapshot table and 12-month plan generated successfully (parallel)",
+            "snapshot_table": snapshot_data,
+            "twelve_month_plan": plan_data,
+            "tokens_used": total_tokens,
+            "project": updated_bba.to_dict(),
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to generate snapshot + plan in parallel: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate snapshot table and 12-month plan. Please try again or contact support.",
         )
 
 

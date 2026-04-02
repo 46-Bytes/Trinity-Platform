@@ -44,6 +44,7 @@ markdown==3.10
 gunicorn==24.1.1
 
 python-docx==1.2.0
+beautifulsoup4==4.14.3
 
 # Excel generation (Phase 2 – Task Planner)
 openpyxl==3.1.5

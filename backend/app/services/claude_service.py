@@ -246,8 +246,9 @@ class ClaudeService:
             # If json_mode, append instruction to system prompt for JSON enforcement
             if json_mode:
                 json_instruction = (
-                    "\n\nIMPORTANT: You MUST respond with valid JSON only. "
-                    "No markdown fences, no explanations, no text outside the JSON object."
+                    "\n\nCRITICAL OUTPUT RULE: Your response MUST start immediately with `{` and end with `}`. "
+                    "Output raw JSON only — no preamble, no summary, no markdown fences, no text of any kind before or after the JSON object. "
+                    "Do not say what you are about to do. Do not explain your reasoning. Just output the JSON."
                 )
                 system_prompt = (system_prompt + json_instruction) if system_prompt else json_instruction.strip()
 
@@ -317,23 +318,18 @@ class ClaudeService:
                 logger.error("[Claude API] Full exception details:", exc_info=True)
                 raise
 
-            # Extract text content from response (skip thinking blocks)
-            content = ""
+            # Collect ALL text blocks (Claude may emit preamble text, run code, then output JSON
+            # in a later text block — taking only the first block loses the JSON).
+            text_chunks: List[str] = []
             for block in response.content:
                 block_type = getattr(block, "type", None)
                 if block_type == "text":
-                    content = getattr(block, "text", "")
-                    break
-
-            # Fallback: try to get any text from content blocks
-            if not content:
-                for block in response.content:
-                    block_type = getattr(block, "type", None)
-                    if block_type == "text":
-                        text = getattr(block, "text", "")
-                        if text:
-                            content = text
-                            break
+                    text = getattr(block, "text", "")
+                    if text:
+                        text_chunks.append(text)
+            content = "\n".join(text_chunks)
+            if len(text_chunks) > 1:
+                logger.info(f"[Claude API] Collected {len(text_chunks)} text blocks from response")
 
             # Extract content from code execution results if present
             if not content:
@@ -518,40 +514,91 @@ class ClaudeService:
                     result["parsed_content"] = parsed_content
                     logger.info("[Claude] JSON parsed successfully (raw_decode - trailing text ignored)")
                     logger.info(f"[Claude] Parsed content keys: {list(parsed_content.keys()) if isinstance(parsed_content, dict) else 'Not a dict'}")
-                except json.JSONDecodeError as e2:
-                    logger.warning(f"[Claude] JSON parsing failed after markdown extraction: {str(e2)}")
-                    logger.info("[Claude] Attempting to repair JSON...")
-
-                    # Try to repair JSON
+                except json.JSONDecodeError:
+                    # Try to find the first { or [ and parse from there (handles preamble text)
                     try:
-                        repaired_content = self._repair_json(content)
-                        parsed_content = json.loads(repaired_content)
-                        result["parsed_content"] = parsed_content
-                        logger.info("[Claude] JSON parsed successfully (after repair)")
-                        logger.info(f"[Claude] Parsed content keys: {list(parsed_content.keys()) if isinstance(parsed_content, dict) else 'Not a dict'}")
-                    except (json.JSONDecodeError, Exception) as e3:
-                        error_line = None
-                        error_col = None
-                        if isinstance(e2, json.JSONDecodeError):
-                            error_line = getattr(e2, 'lineno', None)
-                            error_col = getattr(e2, 'colno', None)
-
-                        if error_line:
-                            lines = content.split('\n')
-                            start = max(0, error_line - 3)
-                            end = min(len(lines), error_line + 3)
-                            context = '\n'.join(lines[start:end])
-                            logger.error(f"[Claude] JSON repair failed: {str(e3)}")
-                            logger.error(f"[Claude] Error at line {error_line}, col {error_col}")
-                            logger.error(f"[Claude] Context around error:\n{context}")
-                        else:
-                            logger.error(f"[Claude] JSON repair failed: {str(e3)}")
-                            logger.error(f"[Claude] Content preview (first 1000 chars): {content[:1000]}")
-
-                        raise Exception(
-                            f"Failed to parse JSON response after repair attempts: {str(e2)}\n"
-                            f"Error location: line {error_line}, col {error_col if error_col else 'unknown'}"
+                        stripped = content.strip()
+                        first_brace = min(
+                            (stripped.index(c) for c in ('{', '[') if c in stripped),
+                            default=None,
                         )
+                        if first_brace is not None:
+                            decoder = json.JSONDecoder()
+                            parsed_content, _ = decoder.raw_decode(stripped[first_brace:])
+                            result["parsed_content"] = parsed_content
+                            logger.info("[Claude] JSON parsed successfully (skipped preamble text)")
+                            logger.info(f"[Claude] Parsed content keys: {list(parsed_content.keys()) if isinstance(parsed_content, dict) else 'Not a dict'}")
+                        else:
+                            raise json.JSONDecodeError("No JSON object found", content, 0)
+                    except json.JSONDecodeError as e2:
+                        logger.warning(f"[Claude] JSON parsing failed after markdown extraction: {str(e2)}")
+                        logger.info("[Claude] Attempting to repair JSON...")
+
+                        # Try to repair JSON
+                        try:
+                            repaired_content = self._repair_json(content)
+                            parsed_content = json.loads(repaired_content)
+                            result["parsed_content"] = parsed_content
+                            logger.info("[Claude] JSON parsed successfully (after repair)")
+                            logger.info(f"[Claude] Parsed content keys: {list(parsed_content.keys()) if isinstance(parsed_content, dict) else 'Not a dict'}")
+                        except (json.JSONDecodeError, Exception) as e3:
+                            error_line = None
+                            error_col = None
+                            if isinstance(e2, json.JSONDecodeError):
+                                error_line = getattr(e2, 'lineno', None)
+                                error_col = getattr(e2, 'colno', None)
+
+                            if error_line:
+                                lines = content.split('\n')
+                                start = max(0, error_line - 3)
+                                end = min(len(lines), error_line + 3)
+                                context = '\n'.join(lines[start:end])
+                                logger.error(f"[Claude] JSON repair failed: {str(e3)}")
+                                logger.error(f"[Claude] Error at line {error_line}, col {error_col}")
+                                logger.error(f"[Claude] Context around error:\n{context}")
+                            else:
+                                logger.error(f"[Claude] JSON repair failed: {str(e3)}")
+                                logger.error(f"[Claude] Content preview (first 1000 chars): {content[:1000]}")
+
+                            # Last resort: retry with a follow-up message asking for JSON only
+                            logger.info("[Claude] Retrying with explicit JSON-only follow-up message...")
+                            try:
+                                retry_messages = list(messages) + [
+                                    {"role": "assistant", "content": content},
+                                    {"role": "user", "content": (
+                                        "Your previous response did not contain valid JSON. "
+                                        "Output ONLY the raw JSON object — start with `{` and end with `}`. "
+                                        "No preamble, no explanation, no markdown."
+                                    )},
+                                ]
+                                retry_result = await self.generate_completion(
+                                    messages=retry_messages,
+                                    temperature=0.0,
+                                    json_mode=True,
+                                    file_ids=file_ids,
+                                    tools=tools,
+                                    model=model or settings.ANTHROPIC_MODEL,
+                                    max_output_tokens=max_output_tokens,
+                                )
+                                retry_content = retry_result["content"].strip()
+                                first_brace_retry = min(
+                                    (retry_content.index(c) for c in ('{', '[') if c in retry_content),
+                                    default=None,
+                                )
+                                if first_brace_retry is not None:
+                                    decoder = json.JSONDecoder()
+                                    parsed_content, _ = decoder.raw_decode(retry_content[first_brace_retry:])
+                                    result["parsed_content"] = parsed_content
+                                    result["content"] = retry_content
+                                    logger.info("[Claude] JSON parsed successfully (follow-up retry)")
+                                else:
+                                    raise ValueError("No JSON in retry response")
+                            except Exception as retry_err:
+                                logger.error(f"[Claude] Follow-up retry also failed: {retry_err}")
+                                raise Exception(
+                                    f"Failed to parse JSON response after repair attempts: {str(e2)}\n"
+                                    f"Error location: line {error_line}, col {error_col if error_col else 'unknown'}"
+                                )
 
         return result
 

@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '@/store/hooks';
 import { clearWorkbook } from '@/store/slices/strategyWorkbookReducer';
+import { clearPlan } from '@/store/slices/strategicBusinessPlanReducer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -19,7 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { BookOpen, FileText, Loader2, Wrench } from 'lucide-react';
+import { BookOpen, FileText, Loader2, Wrench, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -67,6 +68,7 @@ export function FollowUpToolsTab({
   const dispatch = useAppDispatch();
   const [bbaLoading, setBbaLoading] = useState(false);
   const [swLoading, setSwLoading] = useState(false);
+  const [sbpLoading, setSbpLoading] = useState(false);
   const [showBbaDialog, setShowBbaDialog] = useState(false);
   const [existingBbaStep, setExistingBbaStep] = useState<number>(0);
   const [existingBbaProjectId, setExistingBbaProjectId] = useState<string | null>(null);
@@ -89,7 +91,7 @@ export function FollowUpToolsTab({
   // Auto-use the most recent completed diagnostic as context (if any)
   const effectiveDiagnosticId = visibleDiagnostics.length > 0 ? visibleDiagnostics[0].id : null;
 
-  const anyLoading = bbaLoading || swLoading;
+  const anyLoading = bbaLoading || swLoading || sbpLoading;
 
   const getAuthToken = () => {
     const token = localStorage.getItem('auth_token');
@@ -210,6 +212,45 @@ export function FollowUpToolsTab({
     }
   };
 
+  const runStrategicBusinessPlan = async () => {
+    setSbpLoading(true);
+    try {
+      const token = getAuthToken();
+      if (!token) return;
+
+      let url: string;
+      if (effectiveDiagnosticId) {
+        url = `${API_BASE_URL}/api/strategic-business-plan/create-from-diagnostic?diagnostic_id=${effectiveDiagnosticId}`;
+      } else {
+        url = `${API_BASE_URL}/api/strategic-business-plan/create?engagement_id=${engagementId}`;
+      }
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Failed to create strategic business plan' }));
+        toast.error(err.detail || 'Failed to start Strategic Business Plan');
+        return;
+      }
+      const data = await res.json();
+      const planId = data.plan_id;
+      if (planId) {
+        dispatch(clearPlan());
+        navigate(`/dashboard/engagements/${engagementId}/strategic-business-plan`, { state: { sbpPlanId: planId } });
+      } else {
+        toast.error('Invalid response from server');
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to start Strategic Business Plan');
+    } finally {
+      setSbpLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -275,6 +316,33 @@ export function FollowUpToolsTab({
                 <BookOpen className="h-4 w-4 mr-2" />
               )}
               Run Strategy Workbook
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="flex flex-col">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-medium flex items-center gap-2">
+              <ClipboardList className="h-4 w-4" />
+              Strategic Business Plan
+            </CardTitle>
+            <CardDescription>
+              Build a professional Strategic Business Plan{effectiveDiagnosticId ? ' from your diagnostic and strategy workbook' : ' for this engagement'}.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="mt-auto pt-4">
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              disabled={anyLoading}
+              onClick={runStrategicBusinessPlan}
+            >
+              {sbpLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <ClipboardList className="h-4 w-4 mr-2" />
+              )}
+              Run Strategic Business Plan
             </Button>
           </CardContent>
         </Card>

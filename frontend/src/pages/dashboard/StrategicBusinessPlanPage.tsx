@@ -33,14 +33,33 @@ export default function StrategicBusinessPlanPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const lastLoadedId = useRef<string | null>(null);
 
-  // Load plan from navigation state
+  // Load plan from navigation state, or fall back to fetching by engagement ID
   useEffect(() => {
     const statePlanId = (location.state as { sbpPlanId?: string } | null)?.sbpPlanId;
     if (statePlanId && lastLoadedId.current !== statePlanId) {
       lastLoadedId.current = statePlanId;
       dispatch(getPlan(statePlanId));
+      return;
     }
-  }, [location.state, dispatch]);
+    // Fallback: no state (page refresh / direct URL) — load latest plan for this engagement
+    if (!statePlanId && engagementId && lastLoadedId.current !== `engagement-${engagementId}`) {
+      lastLoadedId.current = `engagement-${engagementId}`;
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      fetch(`${API_BASE_URL}/api/strategic-business-plan/?engagement_id=${engagementId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
+      })
+        .then((res) => (res.ok ? res.json() : Promise.reject()))
+        .then((plans: Array<{ id: string }>) => {
+          if (plans.length > 0) {
+            dispatch(getPlan(plans[0].id));
+          }
+        })
+        .catch(() => {/* no existing plan, stay on blank step 1 */});
+    }
+  }, [location.state, engagementId, dispatch]);
 
   // Restore step from loaded plan
   useEffect(() => {

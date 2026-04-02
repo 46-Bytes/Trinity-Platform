@@ -58,7 +58,7 @@ Return a JSON array of slides:
 Create 8-12 slides covering the key strategic points. Keep bullets concise (max 6 per slide)."""
 
         try:
-            response = self.claude_service.client.messages.create(
+            response = await self.claude_service.client.messages.create(
                 model="claude-sonnet-4-20250514",
                 max_tokens=4096,
                 system=system_prompt,

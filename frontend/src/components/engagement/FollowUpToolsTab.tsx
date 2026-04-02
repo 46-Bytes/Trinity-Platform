@@ -218,6 +218,26 @@ export function FollowUpToolsTab({
       const token = getAuthToken();
       if (!token) return;
 
+      // Check for an existing plan for this engagement first
+      try {
+        const listRes = await fetch(`${API_BASE_URL}/api/strategic-business-plan/?engagement_id=${engagementId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
+        });
+        if (listRes.ok) {
+          const plans: Array<{ id: string; max_step_reached?: number; updated_at?: string }> = await listRes.json();
+          if (plans.length > 0) {
+            // Load the most recent plan (already sorted by updated_at desc from backend)
+            const existing = plans[0];
+            dispatch(clearPlan());
+            navigate(`/dashboard/engagements/${engagementId}/strategic-business-plan`, { state: { sbpPlanId: existing.id } });
+            return;
+          }
+        }
+      } catch {
+        // If pre-check fails, fall through to create
+      }
+
       let url: string;
       if (effectiveDiagnosticId) {
         url = `${API_BASE_URL}/api/strategic-business-plan/create-from-diagnostic?diagnostic_id=${effectiveDiagnosticId}`;

@@ -16,6 +16,7 @@ from .bba import BBA
 from .firm import Firm
 from .strategy_workbook import StrategyWorkbook
 from .document_template import DocumentTemplate
+from .strategic_business_plan import StrategicBusinessPlan
 
 __all__ = [
     "User",
@@ -33,6 +34,7 @@ __all__ = [
     "Firm",
     "StrategyWorkbook",
     "DocumentTemplate",
+    "StrategicBusinessPlan",
 ]
 
 

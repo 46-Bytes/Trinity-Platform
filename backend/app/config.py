@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     ANTHROPIC_MAX_TOKENS: int = 128000  # Claude Opus 4.6 max output tokens
     LLM_PROVIDER: str = "claude"  # "claude" or "openai"
 
+    # Celery / Redis
+    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
+
     # File Uploads
     UPLOAD_DIR: str = "uploads"
 

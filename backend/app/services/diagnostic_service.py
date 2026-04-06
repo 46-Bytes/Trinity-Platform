@@ -18,7 +18,6 @@ from app.models.engagement import Engagement
 # from app.services.openai_service import openai_service  # Preserved for rollback
 from app.services.claude_service import claude_service
 from app.services.scoring_service import scoring_service
-from app.utils.background_task_manager import background_task_manager
 from app.utils.file_loader import (
     load_diagnostic_questions,
     load_scoring_map,
@@ -323,9 +322,11 @@ class DiagnosticService:
         user_responses = diagnostic.user_responses
         
         # Check for shutdown before starting
-        if check_shutdown and background_task_manager.is_shutting_down():
-            logger.warning(f"[Pipeline] Shutdown detected before starting diagnostic pipeline for {diagnostic.id}")
-            raise asyncio.CancelledError("Shutdown detected")
+        if check_shutdown:
+            self.db.refresh(diagnostic)
+            if diagnostic.status == "draft":
+                logger.warning(f"[Pipeline] Task cancelled before starting diagnostic pipeline for {diagnostic.id}")
+                raise asyncio.CancelledError("Task cancelled")
         
         # Load required data files
         logger.info(f"[Pipeline] Loading required data files...")
@@ -356,9 +357,11 @@ class DiagnosticService:
         logger.info(f"[Pipeline] JSON Extract: {len(json_extract)} items extracted")
         
         # Check for shutdown after step 1
-        if check_shutdown and background_task_manager.is_shutting_down():
-            logger.warning(f"[Pipeline] Shutdown detected after Q&A extract for diagnostic {diagnostic.id}")
-            raise asyncio.CancelledError("Shutdown detected")
+        if check_shutdown:
+            self.db.refresh(diagnostic)
+            if diagnostic.status == "draft":
+                logger.warning(f"[Pipeline] Task cancelled after Q&A extract for diagnostic {diagnostic.id}")
+                raise asyncio.CancelledError("Task cancelled")
         
         # ===== STEP 2: Generate Summary =====
         step2_start = time_module.time()
@@ -376,9 +379,11 @@ class DiagnosticService:
         summary = summary_result["content"]
         
         # Check for shutdown after step 2
-        if check_shutdown and background_task_manager.is_shutting_down():
-            logger.warning(f"  Shutdown detected after summary generation for diagnostic {diagnostic.id}")
-            raise asyncio.CancelledError("Shutdown detected")
+        if check_shutdown:
+            self.db.refresh(diagnostic)
+            if diagnostic.status == "draft":
+                logger.warning(f"[Pipeline] Task cancelled after summary generation for diagnostic {diagnostic.id}")
+                raise asyncio.CancelledError("Task cancelled")
         
         # ===== STEP 3: Process Scores with GPT (including uploaded files) =====
         step3_start = time_module.time()
@@ -595,9 +600,11 @@ class DiagnosticService:
         logger.info(f"[Pipeline] STEP 3a (Scoring & Validation) completed in {step3a_elapsed:.2f} seconds ({step3a_elapsed/60:.2f} minutes)")
 
         # Check for shutdown after step 3a
-        if check_shutdown and background_task_manager.is_shutting_down():
-            logger.warning(f"[Pipeline] Shutdown detected after scoring for diagnostic {diagnostic.id}")
-            raise asyncio.CancelledError("Shutdown detected")
+        if check_shutdown:
+            self.db.refresh(diagnostic)
+            if diagnostic.status == "draft":
+                logger.warning(f"[Pipeline] Task cancelled after scoring for diagnostic {diagnostic.id}")
+                raise asyncio.CancelledError("Task cancelled")
 
         # Extract scoring-only fields from Part 1 result
         scored_rows = scoring_data.get("scoredRows") or scoring_data.get("scored_rows", [])
@@ -642,9 +649,11 @@ class DiagnosticService:
         # ===== STEP 4: Calculate and Validate Scores =====
         step4_start = time_module.time()
         # Check for shutdown after step 3
-        if check_shutdown and background_task_manager.is_shutting_down():
-            logger.warning(f"[Pipeline] Shutdown detected after report generation for diagnostic {diagnostic.id}")
-            raise asyncio.CancelledError("Shutdown detected")
+        if check_shutdown:
+            self.db.refresh(diagnostic)
+            if diagnostic.status == "draft":
+                logger.warning(f"[Pipeline] Task cancelled after report generation for diagnostic {diagnostic.id}")
+                raise asyncio.CancelledError("Task cancelled")
 
         logger.info("=" * 60)
         logger.info("[Pipeline] ========== STEP 4: Processing Scoring Data ==========")
@@ -686,9 +695,11 @@ class DiagnosticService:
         logger.info("=" * 60)
         
         # Check for shutdown after step 4
-        if check_shutdown and background_task_manager.is_shutting_down():
-            logger.warning(f"[Pipeline] Shutdown detected after scoring data processing for diagnostic {diagnostic.id}")
-            raise asyncio.CancelledError("Shutdown detected")
+        if check_shutdown:
+            self.db.refresh(diagnostic)
+            if diagnostic.status == "draft":
+                logger.warning(f"[Pipeline] Task cancelled after scoring data processing for diagnostic {diagnostic.id}")
+                raise asyncio.CancelledError("Task cancelled")
         
         # ===== STEP 5: Advice (Skipped - embedded in advisorReport) =====
         advice = None
@@ -714,9 +725,11 @@ class DiagnosticService:
             logger.info(f"==========================Tasks Generation Completed Successfully==========================:")
             
             # Check for shutdown after step 6
-            if check_shutdown and background_task_manager.is_shutting_down():
-                logger.warning(f"  Shutdown detected after task generation for diagnostic {diagnostic.id}")
-                raise asyncio.CancelledError("Shutdown detected")
+            if check_shutdown:
+                self.db.refresh(diagnostic)
+                if diagnostic.status == "draft":
+                    logger.warning(f"[Pipeline] Task cancelled after task generation for diagnostic {diagnostic.id}")
+                    raise asyncio.CancelledError("Task cancelled")
         except Exception as e:
             logger.warning(f"Warning: Could not generate tasks: {str(e)}", exc_info=True)
         

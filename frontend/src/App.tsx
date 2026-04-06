@@ -37,6 +37,7 @@ import FirmDetailsSubscription from "./pages/dashboard/firm/firmDetails/FirmDeta
 import SubscriptionsPage from "./pages/dashboard/Subscriptions";
 import FileUploadPOCPage from "./pages/poc/FileUploadPOCPage";
 import StrategyWorkbookPage from "./pages/dashboard/StrategyWorkbookPage";
+import StrategicBusinessPlanPage from "./pages/dashboard/StrategicBusinessPlanPage";
 
 const queryClient = new QueryClient();
 
@@ -77,6 +78,7 @@ function AppRoutes() {
         <Route path="engagements/:engagementId" element={<EngagementDetailPage />} />
         <Route path="engagements/:engagementId/bba" element={<FileUploadPOCPage />} />
         <Route path="engagements/:engagementId/strategy-workbook" element={<StrategyWorkbookPage />} />
+        <Route path="engagements/:engagementId/strategic-business-plan" element={<StrategicBusinessPlanPage />} />
         <Route path="tasks" element={<TasksPage />} />
         <Route path="documents" element={<DocumentsPage />} />
         <Route path="ai-tools" element={<AIToolsPage />} />

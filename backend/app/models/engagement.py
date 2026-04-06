@@ -47,6 +47,7 @@ class Engagement(Base):
     notes = relationship("Note", back_populates="engagement", cascade="all, delete-orphan")
     bba_projects = relationship("BBA", back_populates="engagement", cascade="all, delete-orphan")
     strategy_workbooks = relationship("StrategyWorkbook", back_populates="engagement")
+    strategic_business_plans = relationship("StrategicBusinessPlan", back_populates="engagement", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Engagement(id={self.id}, name='{self.engagement_name}', client_id={self.client_id})>"

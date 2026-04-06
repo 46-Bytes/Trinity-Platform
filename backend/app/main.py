@@ -7,9 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from pathlib import Path
 import logging
-import asyncio
 from .config import settings
-from .utils.background_task_manager import background_task_manager
 
 from .api.diagnostics import router as diagnostics_router
 
@@ -22,6 +20,7 @@ from .api.firms import router as firms_router
 from .api.subscriptions import router as subscriptions_router
 from .api.dashboard import router as dashboard_router
 from .api.strategy_workbook import router as strategy_workbook_router
+from .api.strategic_business_plan import router as sbp_router
 
 # from .services.openai_service import OpenAIService  # Preserved for rollback
 from .services.claude_service import ClaudeService
@@ -95,6 +94,7 @@ app.include_router(firms_router)
 app.include_router(subscriptions_router)
 app.include_router(dashboard_router)
 app.include_router(strategy_workbook_router, prefix="/api")
+app.include_router(sbp_router, prefix="/api")
 
 # Mount static files directory for serving uploaded files
 # This allows /files/... URLs to be served directly
@@ -144,17 +144,10 @@ async def health_check():
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Handle application shutdown - gracefully terminate background tasks."""
+    """Handle application shutdown."""
     logger = logging.getLogger(__name__)
-    logger.info("🛑 Application shutdown initiated")
-    
-    # Initiate shutdown in task manager
-    background_task_manager.initiate_shutdown()
-    
-    # Wait for tasks to complete (with shorter timeout to avoid hanging)
-    await background_task_manager.wait_for_shutdown(timeout=5.0)
-    
-    logger.info("✅ Application shutdown complete")
+    logger.info("Application shutdown initiated")
+    logger.info("Application shutdown complete")
 
 
 if __name__ == "__main__":

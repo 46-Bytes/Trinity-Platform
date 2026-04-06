@@ -56,6 +56,9 @@ class Diagnostic(Base):
     
     # Document tag (advisor-only)
     tag = Column(String(255), nullable=True, comment="Document tag for organization (advisor-only)")
+
+    # Celery task tracking
+    celery_task_id = Column(String(255), nullable=True, comment="Celery task ID for cancellation/tracking")
     
     # Timestamps
     created_at = Column(DateTime, nullable=False, server_default=func.current_timestamp())

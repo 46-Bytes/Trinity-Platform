@@ -37,6 +37,9 @@ openai==2.9.0
 # Anthropic for Claude AI processing
 anthropic>=0.52.0
 
+# JSON repair for malformed AI responses
+json-repair==0.30.3
+
 # PDF generation
 xhtml2pdf==0.2.17
 markdown==3.10

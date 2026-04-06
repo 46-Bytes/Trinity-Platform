@@ -136,11 +136,6 @@ async def create_bba_from_diagnostic(
     diagnostic = db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
     if not diagnostic:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Diagnostic not found")
-    if diagnostic.status != "completed":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Diagnostic must be completed (current status: {diagnostic.status})",
-        )
     engagement = db.query(Engagement).filter(
         Engagement.id == diagnostic.engagement_id,
         Engagement.is_deleted == False,

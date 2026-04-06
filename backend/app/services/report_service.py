@@ -9,6 +9,10 @@ from typing import Dict, Any, Optional, List
 from io import BytesIO
 from xhtml2pdf import pisa
 import logging
+from collections import OrderedDict
+
+from app.services.scoring_service import ScoringService
+from app.utils.file_loader import FileLoader
 
 logger = logging.getLogger(__name__)
 
@@ -175,6 +179,12 @@ class ReportService:
         engagement_tool = getattr(engagement, "tool", None) if engagement is not None else None
         diagnostic_type = engagement_tool or getattr(diagnostic, "diagnostic_type", "") or "sale_ready"
         
+        # Load scoring map for question-to-module mapping in All Responses
+        try:
+            scoring_map = FileLoader.load_scoring_map_for_type(diagnostic_type)
+        except Exception:
+            scoring_map = {}
+
         # Build Q&A data (all responses with question text)
         qa_data = ReportService._build_qa_data(user_responses, question_text_map)
         logger.debug(
@@ -206,9 +216,9 @@ class ReportService:
         date_display=completed_date if completed_date else created_date
     )}
     {ReportService._build_advice_section(advice, roadmap)}
-    {ReportService._build_advisor_report_section(advisor_report, business_name)}
-    {ReportService._build_scoring_section(scored_rows, client_summary, roadmap, question_text_map=question_text_map, structured_question_map=structured_question_map)}
-    {ReportService._build_all_responses_section(qa_data, structured_question_map=structured_question_map)}
+    {ReportService._build_advisor_report_section(advisor_report, business_name, diagnostic_type=diagnostic_type)}
+    {ReportService._build_scoring_section(scored_rows, client_summary, roadmap, question_text_map=question_text_map, structured_question_map=structured_question_map, diagnostic_type=diagnostic_type)}
+    {ReportService._build_all_responses_section(qa_data, structured_question_map=structured_question_map, diagnostic_type=diagnostic_type, scoring_map=scoring_map)}
 </body>
 </html>"""
         
@@ -307,11 +317,11 @@ class ReportService:
     </div>"""
     
     @staticmethod
-    def _build_advisor_report_section(advisor_report: str, business_name: str = "") -> str:
+    def _build_advisor_report_section(advisor_report: str, business_name: str = "", diagnostic_type: str = "sale_ready") -> str:
         """Build advisor report section (detailed narrative paragraphs, not tables)."""
         if not advisor_report:
             return ""
-        
+
         # The advisor report is returned from Claude as raw HTML (the prompt
         # requests "a single HTML string").  Running it through the Markdown
         # converter would escape the existing HTML tags (e.g. <br/>, <table>)
@@ -327,14 +337,123 @@ class ReportService:
         # sections and contain raw JSON values that render badly in the PDF.
         advisor_html = ReportService._strip_response_tables_from_summary(advisor_html)
 
-        # Build major heading text
-        company_text = business_name.strip() if business_name else "the business"
-        heading_html = f"<h1>Sale-Ready Assessment Report for {ReportService._escape_html(company_text)}</h1>"
-        
+        # Inject subtitle text after the "1. Roadmap Summary" heading
+        advisor_html = re.sub(
+            r'(<h2[^>]*>\s*1\.\s*Roadmap\s+Summary\s*</h2>)',
+            r'\1<p style="font-style: italic; color: #555; margin-top: 2px; margin-bottom: 8px;">'
+            r'Module scoring, RAG status, and priority ranking based on diagnostic responses. '
+            r'Lower score = larger gap = higher priority.</p>',
+            advisor_html,
+            flags=re.IGNORECASE,
+        )
+
+        # Insert page breaks before every <h2> section heading (Roadmap Summary,
+        # Advisor Action Brief, Module Assessments, Program Roadmap) so each
+        # major section starts on its own page.
+        advisor_html = re.sub(
+            r'(<h2\b)',
+            r'<div class="page-break"></div>\1',
+            advisor_html,
+            flags=re.IGNORECASE,
+        )
+
+        # Inject subtitle text after "Pre-Listing Readiness Checklist" heading
+        advisor_html = re.sub(
+            r'(<(?:h[2-4]|p|strong)[^>]*>(?:<strong>)?\s*Pre-Listing\s+Readiness\s+Checklist\s*(?:</strong>)?</(?:h[2-4]|p|strong)>)',
+            r'\1<p style="font-style: italic; color: #555; margin-top: 2px; margin-bottom: 8px;">'
+            r'The business is ready to list when ALL of the following are complete:</p>',
+            advisor_html,
+            flags=re.IGNORECASE,
+        )
+
+        # Inject subtitle text after the "3. Module Assessments" heading
+        advisor_html = re.sub(
+            r'(<h2[^>]*>\s*3\.\s*Module\s+Assessments?\s*</h2>)',
+            r'\1<p style="font-style: italic; color: #555; margin-top: 2px; margin-bottom: 8px;">'
+            r'Each module is presented in priority order. All Must-Do tasks in every module are '
+            r'compulsory for every client. This section identifies the current state, what may need '
+            r'the most attention, and what additional work is required beyond the standard program.</p>',
+            advisor_html,
+            flags=re.IGNORECASE,
+        )
+
+        # Insert page breaks before each module <h3> heading (e.g. <h3>M1 – ...)
+        # Skip the first module so it flows after the "3. Module Assessments" subtitle
+        module_codes = list(ScoringService.get_modules(diagnostic_type).keys())
+        if module_codes:
+            codes_pattern = '|'.join(re.escape(c) for c in module_codes)
+            pattern = rf'(<h3[^>]*>\s*(?:{codes_pattern})\b)'
+            parts = re.split(pattern, advisor_html, flags=re.IGNORECASE)
+            result_parts = []
+            h3_count = 0
+            for part in parts:
+                if re.match(pattern, part, re.IGNORECASE):
+                    h3_count += 1
+                    if h3_count > 1:
+                        result_parts.append('<div class="page-break"></div>')
+                result_parts.append(part)
+            advisor_html = ''.join(result_parts)
+
+        # Colorize module headings and RAG status lines based on RAG color.
+        # The structure is: <h3>M1 Module Name</h3> followed by
+        # <p><strong>Red / High | Score: ... | Rank: ...</strong></p>
+        # We color the <h3> and the RAG line to match.
+        rag_colors = {
+            'red': '#cc0000',
+            'amber': '#e67e00',
+            'green': '#2e7d32',
+        }
+
+        # Color RAG status lines: <strong>Red / High | ...</strong>
+        # or <p><strong>Red / High | ...</strong></p>
+        for rag_key, color in rag_colors.items():
+            # Match the RAG keyword at the start of a <strong> or <p><strong> block
+            advisor_html = re.sub(
+                rf'(<(?:p|strong)[^>]*>(?:<strong>)?\s*)({re.escape(rag_key)}\s*/\s*\w+\s*\|[^<]*)',
+                rf'\1<span style="color: {color};">\2</span>',
+                advisor_html,
+                flags=re.IGNORECASE,
+            )
+
+        # Color module <h3> headings based on the RAG in the next <strong> line.
+        # We find each <h3>M[X]...</h3> and look ahead for the RAG keyword.
+        def _color_module_heading(m):
+            h3_tag = m.group(0)
+            # Look at what follows this match in advisor_html to find the RAG
+            after = advisor_html[m.end():m.end() + 300]
+            color = None
+            for rag_key, c in rag_colors.items():
+                if re.search(rf'\b{rag_key}\b', after, re.IGNORECASE):
+                    color = c
+                    break
+            if color:
+                return re.sub(r'<h3', f'<h3 style="color: {color};"', h3_tag, count=1)
+            return h3_tag
+
+        if module_codes:
+            codes_pattern = '|'.join(re.escape(c) for c in module_codes)
+            heading_pattern = rf'<h3[^>]*>\s*(?:{codes_pattern})\b[^<]*</h3>'
+            # Use a loop instead of re.sub with function to handle lookahead correctly
+            result = ""
+            last_end = 0
+            for m in re.finditer(heading_pattern, advisor_html, re.IGNORECASE):
+                result += advisor_html[last_end:m.start()]
+                h3_tag = m.group(0)
+                after = advisor_html[m.end():m.end() + 300]
+                color = None
+                for rag_key, c in rag_colors.items():
+                    if re.search(rf'\b{rag_key}\b', after, re.IGNORECASE):
+                        color = c
+                        break
+                if color:
+                    h3_tag = re.sub(r'<h3', f'<h3 style="color: {color};"', h3_tag, count=1)
+                result += h3_tag
+                last_end = m.end()
+            result += advisor_html[last_end:]
+            advisor_html = result
+
         return f"""
-    <div class="page-break"></div>
     <div class="section advisor-report-section">
-        {heading_html}
         <div class="advisor-report">{advisor_html}</div>
     </div>"""
     
@@ -344,7 +463,8 @@ class ReportService:
         client_summary: str,
         roadmap: List[Dict[str, Any]] = None,
         question_text_map: Optional[Dict[str, str]] = None,
-        structured_question_map: Optional[Dict[str, Any]] = None
+        structured_question_map: Optional[Dict[str, Any]] = None,
+        diagnostic_type: str = "sale_ready"
     ) -> str:
         """
         Build scoring section with:
@@ -364,7 +484,8 @@ class ReportService:
             sections.append(ReportService._build_scored_responses_table(
                 scored_rows,
                 question_text_map=question_text_map,
-                structured_question_map=structured_question_map
+                structured_question_map=structured_question_map,
+                diagnostic_type=diagnostic_type
             ))
         
         # Client Summary section (narrative + roadmap table)
@@ -378,8 +499,10 @@ class ReportService:
                 roadmap_table_html = ReportService._build_roadmap_table(roadmap)
 
             sections.append(f"""
+    <div class="page-break"></div>
     <div class="section">
         <h2>Client Summary</h2>
+        <p style="font-style: italic; color: #555; margin-top: 2px; margin-bottom: 8px;">A plain-language overview of diagnostic findings and prioritised improvement roadmap prepared for the client.</p>
         {f'<div class="client-summary">{client_summary_html}</div>' if client_summary_html else ''}
         {roadmap_table_html}
     </div>""")
@@ -388,7 +511,8 @@ class ReportService:
             return f"""
     <div class="page-break"></div>
     <div class="section">
-        <h2>Scoring</h2>
+        <h2>5. Scoring Detail</h2>
+        <p style="font-style: italic; color: #555; margin-top: 2px; margin-bottom: 8px;">Raw scoring data generated by Trinity. Included for advisor reference and quality assurance.</p>
         {''.join(sections)}
     </div>"""
         
@@ -398,9 +522,10 @@ class ReportService:
     def _build_scored_responses_table(
         scored_rows: List[Dict[str, Any]],
         question_text_map: Optional[Dict[str, str]] = None,
-        structured_question_map: Optional[Dict[str, Any]] = None
+        structured_question_map: Optional[Dict[str, Any]] = None,
+        diagnostic_type: str = "sale_ready"
     ) -> str:
-        """Build scored responses table.
+        """Build scored responses tables grouped by module with page breaks.
 
         Scored items (numeric score) → compact 4-column row.
         Informational items (score="Info" or complex response) → question
@@ -415,61 +540,83 @@ class ReportService:
                 if qkey in structured_question_map:
                     reverse_text_map[qtext] = qkey
 
-        rows_html = ""
+        # Group rows by module
+        modules = ScoringService.get_modules(diagnostic_type)
+        grouped: OrderedDict[str, List[Dict[str, Any]]] = OrderedDict()
         for row in scored_rows:
-            question_text = str(row.get("question", ""))
-            question = ReportService._wrap_cell_text(
-                ReportService._escape_html(question_text), 40
-            )
-            score = str(row.get("score", ""))
-            module = str(row.get("module", ""))
-            response = row.get("response", "")
+            mod = str(row.get("module", "Other"))
+            grouped.setdefault(mod, []).append(row)
 
-            # Log complex responses for debugging
-            logger.debug(
-                "ScoredRow question=%r response_type=%s response_preview=%r score=%s",
-                question_text[:60], type(response).__name__,
-                str(response)[:120] if response else "", score,
-            )
+        ordered_keys = ReportService._ordered_module_keys(grouped, modules)
 
-            # Check if this scored row corresponds to a structured question
-            matched_key = reverse_text_map.get(question_text)
-            # Also try matching by question_key if present in the row
-            if not matched_key:
-                row_key = row.get("question_key", "")
-                if row_key and structured_question_map and row_key in structured_question_map:
-                    matched_key = row_key
+        sections_html = '<h3>5a. Scored Responses</h3>' \
+            '<p style="font-style: italic; color: #555; margin-top: 2px; margin-bottom: 8px;">' \
+            'Every diagnostic question mapped to a scoring value, with client response, score, and contributing module.</p>'
+        for mod_idx, mod_code in enumerate(ordered_keys):
+            mod_rows = grouped[mod_code]
+            mod_name = modules.get(mod_code, mod_code)
 
-            if matched_key and structured_question_map:
-                struct_info = structured_question_map[matched_key]
-                response_html = ReportService._render_structured_response(
-                    response, struct_info["fields"], struct_info["type"]
+            # Page break between modules (not before the first)
+            if mod_idx > 0:
+                sections_html += '<div class="page-break"></div>'
+
+            sections_html += f'<h4>{ReportService._escape_html(mod_code)} - {ReportService._escape_html(mod_name)}</h4>'
+
+            rows_html = ""
+            for row in mod_rows:
+                question_text = str(row.get("question", ""))
+                question = ReportService._wrap_cell_text(
+                    ReportService._escape_html(question_text), 40
                 )
-                is_block = True
-            else:
-                # Runtime detection: parse response and check if it's complex data
-                parsed_response = ReportService._try_parse_json(response)
+                score = str(row.get("score", ""))
+                module = str(row.get("module", ""))
+                response = row.get("response", "")
 
-                if isinstance(parsed_response, dict) and len(parsed_response) > 0:
-                    # Single dict → render as block
+                # Log complex responses for debugging
+                logger.debug(
+                    "ScoredRow question=%r response_type=%s response_preview=%r score=%s",
+                    question_text[:60], type(response).__name__,
+                    str(response)[:120] if response else "", score,
+                )
+
+                # Check if this scored row corresponds to a structured question
+                matched_key = reverse_text_map.get(question_text)
+                # Also try matching by question_key if present in the row
+                if not matched_key:
+                    row_key = row.get("question_key", "")
+                    if row_key and structured_question_map and row_key in structured_question_map:
+                        matched_key = row_key
+
+                if matched_key and structured_question_map:
+                    struct_info = structured_question_map[matched_key]
                     response_html = ReportService._render_structured_response(
-                        parsed_response, {}, "multipletext"
-                    )
-                    is_block = True
-                elif (isinstance(parsed_response, list) and len(parsed_response) > 0
-                        and isinstance(parsed_response[0], dict)):
-                    # List of dicts → render as block
-                    response_html = ReportService._render_structured_response(
-                        parsed_response, {}, "matrixdynamic"
+                        response, struct_info["fields"], struct_info["type"]
                     )
                     is_block = True
                 else:
-                    # Use unified formatter to decide how to render the response
-                    response_html, is_block = ReportService._format_response_block(response)
+                    # Runtime detection: parse response and check if it's complex data
+                    parsed_response = ReportService._try_parse_json(response)
 
-            if is_block:
-                # Complex response → question header + full-width card block
-                rows_html += f"""
+                    if isinstance(parsed_response, dict) and len(parsed_response) > 0:
+                        # Single dict → render as block
+                        response_html = ReportService._render_structured_response(
+                            parsed_response, {}, "multipletext"
+                        )
+                        is_block = True
+                    elif (isinstance(parsed_response, list) and len(parsed_response) > 0
+                            and isinstance(parsed_response[0], dict)):
+                        # List of dicts → render as block
+                        response_html = ReportService._render_structured_response(
+                            parsed_response, {}, "matrixdynamic"
+                        )
+                        is_block = True
+                    else:
+                        # Use unified formatter to decide how to render the response
+                        response_html, is_block = ReportService._format_response_block(response)
+
+                if is_block:
+                    # Complex response → question header + full-width card block
+                    rows_html += f"""
             <tr>
                 <td colspan="2" style="font-weight: bold;">{question}</td>
                 <td>{score}</td>
@@ -478,12 +625,12 @@ class ReportService:
             <tr>
                 <td colspan="4" style="padding: 4px 8px;">{response_html}</td>
             </tr>"""
-            else:
-                # Simple response → standard 4-column row
-                response_cell = ReportService._wrap_cell_text(
-                    ReportService._escape_html(str(response_html)), 15
-                )
-                rows_html += f"""
+                else:
+                    # Simple response → standard 4-column row
+                    response_cell = ReportService._wrap_cell_text(
+                        ReportService._escape_html(str(response_html)), 15
+                    )
+                    rows_html += f"""
             <tr>
                 <td>{question}</td>
                 <td>{response_cell}</td>
@@ -491,8 +638,7 @@ class ReportService:
                 <td>{module}</td>
             </tr>"""
 
-        return f"""
-        <h3>Scored Responses</h3>
+            sections_html += f"""
         <table class="data-table" style="border-collapse: collapse; width: 100%; table-layout: fixed;">
             <thead>
                 <tr>
@@ -505,6 +651,8 @@ class ReportService:
             <tbody>{rows_html}
             </tbody>
         </table>"""
+
+        return sections_html
     
     @staticmethod
     def _build_roadmap_table(roadmap: List[Dict[str, Any]]) -> str:
@@ -633,64 +781,156 @@ class ReportService:
     @staticmethod
     def _build_all_responses_section(
         qa_data: List[Dict[str, str]],
-        structured_question_map: Optional[Dict[str, Any]] = None
+        structured_question_map: Optional[Dict[str, Any]] = None,
+        diagnostic_type: str = "sale_ready",
+        scoring_map: Optional[Dict[str, Any]] = None
     ) -> str:
-        """Build all responses section.
+        """Build all responses section grouped by module with page breaks.
 
         Structured questions (matrixdynamic/multipletext) are rendered as
         dynamic blocks using the survey definition. Other responses go
         through _format_response_block() which guarantees no raw JSON.
         """
         structured_question_map = structured_question_map or {}
+        scoring_map = scoring_map or {}
 
         # Build case-insensitive lookup for structured_question_map
         struct_map_lower: Dict[str, str] = {}
         for skey in structured_question_map:
             struct_map_lower[skey.lower()] = skey
 
-        rows_html = ""
+        # Build key-to-module lookup from scoring map
+        key_to_module: Dict[str, str] = {}
+        for qkey, qdata in scoring_map.items():
+            if isinstance(qdata, dict):
+                key_to_module[qkey] = qdata.get("module", "Other")
 
-        for idx, qa in enumerate(qa_data, 1):
-            question = ReportService._escape_html(qa.get("question", ""))
-            answer = qa.get("answer")
+        # Group qa_data by module
+        modules = ScoringService.get_modules(diagnostic_type)
+        grouped: OrderedDict[str, List[Dict[str, Any]]] = OrderedDict()
+        for qa in qa_data:
             key = qa.get("key", "")
-
-            # Skip file upload fields
             if key.startswith("docs_"):
                 continue
+            mod = key_to_module.get(key, "Other")
+            grouped.setdefault(mod, []).append(qa)
 
-            # Log structured data detection for debugging
-            is_complex = isinstance(answer, (list, dict)) or (
-                isinstance(answer, str) and len(answer) > 10
-                and any(c in answer for c in '[{')
-            )
-            if is_complex:
-                logger.debug(
-                    "AllResponses Q#%d key=%r type=%s struct_match=%s preview=%r",
-                    idx, key, type(answer).__name__,
-                    key in structured_question_map or key.lower() in struct_map_lower,
-                    str(answer)[:120] if answer else "",
-                )
+        ordered_keys = ReportService._ordered_module_keys(grouped, modules)
 
-            # --- Structured question detection (matrixdynamic / multipletext) ---
-            # Case-insensitive lookup
-            struct_info = structured_question_map.get(key)
-            if not struct_info:
-                canonical_key = struct_map_lower.get(key.lower())
-                if canonical_key:
-                    struct_info = structured_question_map.get(canonical_key)
-            if struct_info:
-                response_html = ReportService._render_structured_response(
-                    answer, struct_info["fields"], struct_info["type"]
+        all_tables_html = ""
+        idx = 0  # Global counter across all modules
+
+        for mod_idx, mod_code in enumerate(ordered_keys):
+            mod_items = grouped[mod_code]
+            mod_name = modules.get(mod_code, mod_code)
+
+            # Page break between modules (not before the first)
+            if mod_idx > 0:
+                all_tables_html += '<div class="page-break"></div>'
+
+            all_tables_html += f'<h4>{ReportService._escape_html(mod_code)} - {ReportService._escape_html(mod_name)}</h4>'
+
+            rows_html = ""
+            for qa in mod_items:
+                idx += 1
+                question = ReportService._escape_html(qa.get("question", ""))
+                answer = qa.get("answer")
+                key = qa.get("key", "")
+
+                # Log structured data detection for debugging
+                is_complex = isinstance(answer, (list, dict)) or (
+                    isinstance(answer, str) and len(answer) > 10
+                    and any(c in answer for c in '[{')
                 )
+                if is_complex:
+                    logger.debug(
+                        "AllResponses Q#%d key=%r type=%s struct_match=%s preview=%r",
+                        idx, key, type(answer).__name__,
+                        key in structured_question_map or key.lower() in struct_map_lower,
+                        str(answer)[:120] if answer else "",
+                    )
+
+                # --- Structured question detection (matrixdynamic / multipletext) ---
+                # Case-insensitive lookup
+                struct_info = structured_question_map.get(key)
+                if not struct_info:
+                    canonical_key = struct_map_lower.get(key.lower())
+                    if canonical_key:
+                        struct_info = structured_question_map.get(canonical_key)
+                if struct_info:
+                    response_html = ReportService._render_structured_response(
+                        answer, struct_info["fields"], struct_info["type"]
+                    )
+                    if not response_html:
+                        response_html = "&nbsp;"
+                    logger.debug(
+                        "AllResponses Q#%d STRUCTURED key=%r",
+                        idx, key,
+                    )
+                    # Always render as full-width block row
+                    rows_html += f"""
+            <tr>
+                <td style="text-align: center; width: 8%;">{idx}</td>
+                <td colspan="2" style="width: 92%; font-weight: bold; word-wrap: break-word; overflow: hidden;">{question}</td>
+            </tr>
+            <tr>
+                <td colspan="3" style="padding: 4px 8px; overflow: hidden;">{response_html}</td>
+            </tr>"""
+                    continue
+
+                # --- Runtime detection: if answer is list-of-dicts or dict even without
+                #     structured_question_map match, render as block ---
+                answer_parsed = ReportService._try_parse_json(answer)
+                if isinstance(answer_parsed, dict) and len(answer_parsed) > 0:
+                    response_html = ReportService._render_structured_response(
+                        answer_parsed, {}, "multipletext"
+                    )
+                    if not response_html:
+                        response_html = "&nbsp;"
+                    logger.debug(
+                        "AllResponses Q#%d RUNTIME_DICT key=%r",
+                        idx, key,
+                    )
+                    rows_html += f"""
+            <tr>
+                <td style="text-align: center; width: 8%;">{idx}</td>
+                <td colspan="2" style="width: 92%; font-weight: bold; word-wrap: break-word; overflow: hidden;">{question}</td>
+            </tr>
+            <tr>
+                <td colspan="3" style="padding: 4px 8px; overflow: hidden;">{response_html}</td>
+            </tr>"""
+                    continue
+
+                if (isinstance(answer_parsed, list) and len(answer_parsed) > 0
+                        and isinstance(answer_parsed[0], dict)):
+                    response_html = ReportService._render_structured_response(
+                        answer_parsed, {}, "matrixdynamic"
+                    )
+                    if not response_html:
+                        response_html = "&nbsp;"
+                    logger.debug(
+                        "AllResponses Q#%d RUNTIME_LIST key=%r",
+                        idx, key,
+                    )
+                    rows_html += f"""
+            <tr>
+                <td style="text-align: center; width: 8%;">{idx}</td>
+                <td colspan="2" style="width: 92%; font-weight: bold; word-wrap: break-word; overflow: hidden;">{question}</td>
+            </tr>
+            <tr>
+                <td colspan="3" style="padding: 4px 8px; overflow: hidden;">{response_html}</td>
+            </tr>"""
+                    continue
+
+                # Use the unified formatter
+                response_html, is_block = ReportService._format_response_block(answer)
+
                 if not response_html:
                     response_html = "&nbsp;"
-                logger.debug(
-                    "AllResponses Q#%d STRUCTURED key=%r",
-                    idx, key,
-                )
-                # Always render as full-width block row
-                rows_html += f"""
+
+                if is_block:
+                    # Complex data → question header + full-width card block
+                    rows_html += f"""
             <tr>
                 <td style="text-align: center; width: 8%;">{idx}</td>
                 <td colspan="2" style="width: 92%; font-weight: bold; word-wrap: break-word; overflow: hidden;">{question}</td>
@@ -698,81 +938,16 @@ class ReportService:
             <tr>
                 <td colspan="3" style="padding: 4px 8px; overflow: hidden;">{response_html}</td>
             </tr>"""
-                continue
-
-            # --- Runtime detection: if answer is list-of-dicts or dict even without
-            #     structured_question_map match, render as block ---
-            answer_parsed = ReportService._try_parse_json(answer)
-            if isinstance(answer_parsed, dict) and len(answer_parsed) > 0:
-                response_html = ReportService._render_structured_response(
-                    answer_parsed, {}, "multipletext"
-                )
-                if not response_html:
-                    response_html = "&nbsp;"
-                logger.debug(
-                    "AllResponses Q#%d RUNTIME_DICT key=%r",
-                    idx, key,
-                )
-                rows_html += f"""
-            <tr>
-                <td style="text-align: center; width: 8%;">{idx}</td>
-                <td colspan="2" style="width: 92%; font-weight: bold; word-wrap: break-word; overflow: hidden;">{question}</td>
-            </tr>
-            <tr>
-                <td colspan="3" style="padding: 4px 8px; overflow: hidden;">{response_html}</td>
-            </tr>"""
-                continue
-
-            if (isinstance(answer_parsed, list) and len(answer_parsed) > 0
-                    and isinstance(answer_parsed[0], dict)):
-                response_html = ReportService._render_structured_response(
-                    answer_parsed, {}, "matrixdynamic"
-                )
-                if not response_html:
-                    response_html = "&nbsp;"
-                logger.debug(
-                    "AllResponses Q#%d RUNTIME_LIST key=%r",
-                    idx, key,
-                )
-                rows_html += f"""
-            <tr>
-                <td style="text-align: center; width: 8%;">{idx}</td>
-                <td colspan="2" style="width: 92%; font-weight: bold; word-wrap: break-word; overflow: hidden;">{question}</td>
-            </tr>
-            <tr>
-                <td colspan="3" style="padding: 4px 8px; overflow: hidden;">{response_html}</td>
-            </tr>"""
-                continue
-
-            # Use the unified formatter
-            response_html, is_block = ReportService._format_response_block(answer)
-
-            if not response_html:
-                response_html = "&nbsp;"
-
-            if is_block:
-                # Complex data → question header + full-width card block
-                rows_html += f"""
-            <tr>
-                <td style="text-align: center; width: 8%;">{idx}</td>
-                <td colspan="2" style="width: 92%; font-weight: bold; word-wrap: break-word; overflow: hidden;">{question}</td>
-            </tr>
-            <tr>
-                <td colspan="3" style="padding: 4px 8px; overflow: hidden;">{response_html}</td>
-            </tr>"""
-            else:
-                # Simple data → standard 3-column row
-                rows_html += f"""
+                else:
+                    # Simple data → standard 3-column row
+                    rows_html += f"""
             <tr>
                 <td style="text-align: center; width: 8%;">{idx}</td>
                 <td style="width: 42%; word-wrap: break-word; overflow: hidden;">{question}</td>
                 <td style="width: 50%; word-wrap: break-word; overflow: hidden;">{response_html}</td>
             </tr>"""
 
-        return f"""
-    <div class="page-break"></div>
-    <div class="section">
-        <h3>All Responses</h3>
+            all_tables_html += f"""
         <table class="data-table" style="border-collapse: collapse; width: 100%; table-layout: fixed;">
             <thead>
                 <tr>
@@ -783,9 +958,23 @@ class ReportService:
             </thead>
             <tbody>{rows_html}
             </tbody>
-        </table>
+        </table>"""
+
+        return f"""
+    <div class="page-break"></div>
+    <div class="section">
+        <h3>5b. All Responses</h3>
+        <p style="font-style: italic; color: #555; margin-top: 2px; margin-bottom: 8px;">Complete record of every client response captured during the diagnostic, grouped by module.</p>
+        {all_tables_html}
     </div>"""
     
+    @staticmethod
+    def _ordered_module_keys(grouped: Dict[str, list], modules: Dict[str, str]) -> List[str]:
+        """Return module keys in canonical order, with unknown keys at end."""
+        canonical = [k for k in modules if k in grouped]
+        extra = sorted(k for k in grouped if k not in modules)
+        return canonical + extra
+
     @staticmethod
     def _build_qa_data(
         user_responses: Dict[str, Any],

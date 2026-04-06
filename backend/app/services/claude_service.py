@@ -422,7 +422,9 @@ class ClaudeService:
 
     def _repair_json(self, content: str) -> str:
         """
-        Attempt to repair common JSON syntax errors.
+        Attempt to repair common JSON syntax errors, including unescaped quotes
+        inside string values (common when HTML with double-quoted attributes is
+        embedded in a JSON field).
         """
         import re
 
@@ -441,10 +443,20 @@ class ClaudeService:
         except json.JSONDecodeError:
             pass
 
-        # Remove trailing commas before } or ]
-        content = re.sub(r',(\s*[}\]])', r'\1', content)
+        # Use json_repair library — handles unescaped quotes inside strings,
+        # trailing commas, missing commas, and other LLM-generated JSON issues
+        try:
+            from json_repair import repair_json
+            repaired = repair_json(content, return_objects=False)
+            # Verify the repaired string is actually valid before returning
+            json.loads(repaired)
+            logger.info("[Claude] JSON repaired via json_repair library")
+            return repaired
+        except Exception:
+            pass
 
-        # Add missing commas between object/array items
+        # Fallback: structural fixes only
+        content = re.sub(r',(\s*[}\]])', r'\1', content)
         content = re.sub(r'}\s*{', '},{', content)
         content = re.sub(r']\s*\[', '],[', content)
         content = re.sub(r'}\s*\[', '},[', content)

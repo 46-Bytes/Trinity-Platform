@@ -586,6 +586,8 @@ class ReportService:
                 else:
                     response_html, is_block = ReportService._format_response_block(response)
 
+            response_html = ReportService._break_long_words_in_html(str(response_html))
+
             if is_block:
                 rows_html += f"""
             <tr>
@@ -840,6 +842,7 @@ class ReportService:
                 )
                 if not response_html:
                     response_html = "&nbsp;"
+                response_html = ReportService._break_long_words_in_html(str(response_html))
                 logger.debug("AllResponses Q#%d STRUCTURED key=%r", idx, key)
                 rows_html += f"""
             <tr>
@@ -860,6 +863,7 @@ class ReportService:
                 )
                 if not response_html:
                     response_html = "&nbsp;"
+                response_html = ReportService._break_long_words_in_html(str(response_html))
                 logger.debug("AllResponses Q#%d RUNTIME_DICT key=%r", idx, key)
                 rows_html += f"""
             <tr>
@@ -879,6 +883,7 @@ class ReportService:
                 )
                 if not response_html:
                     response_html = "&nbsp;"
+                response_html = ReportService._break_long_words_in_html(str(response_html))
                 logger.debug("AllResponses Q#%d RUNTIME_LIST key=%r", idx, key)
                 rows_html += f"""
             <tr>
@@ -895,6 +900,8 @@ class ReportService:
             response_html, is_block = ReportService._format_response_block(answer)
             if not response_html:
                 response_html = "&nbsp;"
+
+            response_html = ReportService._break_long_words_in_html(str(response_html))
 
             if is_block:
                 rows_html += f"""
@@ -1564,6 +1571,38 @@ class ReportService:
         if current_line:
             lines.append(current_line)
         return '<br/>'.join(lines)
+
+    @staticmethod
+    def _break_long_words_in_html(html: str, max_word_len: int = 30) -> str:
+        """Break long unbroken words inside HTML text nodes with hyphen + <br/>.
+
+        Unlike _wrap_cell_text (which works on plain text), this method
+        handles HTML strings by splitting on tags first so it never mangles
+        attribute values or tag names.  Applies the same hyphen-break logic
+        only to bare text nodes between tags.
+        """
+        if not html:
+            return html
+        # Split into alternating [text, tag, text, tag, ...] segments
+        parts = re.split(r'(<[^>]+>)', html)
+        result = []
+        for part in parts:
+            if part.startswith('<'):
+                # HTML tag — pass through unchanged
+                result.append(part)
+            else:
+                # Text node — break any word longer than max_word_len
+                words = part.split(' ')
+                broken_words = []
+                for word in words:
+                    chunks = []
+                    while len(word) > max_word_len:
+                        chunks.append(word[:max_word_len - 1] + '-')
+                        word = word[max_word_len - 1:]
+                    chunks.append(word)
+                    broken_words.append('<br/>'.join(chunks))
+                result.append(' '.join(broken_words))
+        return ''.join(result)
 
     @staticmethod
     def _get_css_styles() -> str:

@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { BlockEditor } from './BlockEditor';
 import {
   Loader2,
   CheckCircle2,
@@ -179,30 +180,35 @@ export function SectionEditor({
       <CardContent className="space-y-4">
         {/* Content */}
         {isEditing ? (
-          <div className="space-y-3">
-            <Textarea
-              value={editedContent}
-              onChange={(e) => setEditedContent(e.target.value)}
-              rows={15}
-              className="font-mono text-sm"
+          <div className="space-y-4">
+            <BlockEditor
+              html={editedContent}
+              onChange={setEditedContent}
+              label="Section Content"
             />
             {config?.hasDiagnosticImplications && (
-              <div>
-                <h4 className="font-semibold text-sm mb-1">Strategic Implications</h4>
-                <Textarea
-                  value={editedImplications}
-                  onChange={(e) => setEditedImplications(e.target.value)}
-                  rows={5}
-                  className="font-mono text-sm"
+              <div className="border-t pt-4">
+                <BlockEditor
+                  html={editedImplications}
+                  onChange={setEditedImplications}
+                  label="Strategic Implications"
                 />
               </div>
             )}
-            <div className="flex gap-2">
+            <div className="flex gap-2 pt-2">
               <Button onClick={handleSaveEdit} size="sm">
                 <Save className="w-4 h-4 mr-1" />
                 Save Changes
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setEditedContent(section.content || '');
+                  setEditedImplications(section.strategic_implications || '');
+                  setIsEditing(false);
+                }}
+              >
                 Cancel
               </Button>
             </div>

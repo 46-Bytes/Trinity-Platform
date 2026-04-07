@@ -7,6 +7,7 @@ interface SectionSidebarProps {
   sections: SBPSection[];
   currentIndex: number;
   onSelect: (index: number) => void;
+  isDisabled?: boolean;
 }
 
 const STATUS_ICON: Record<string, React.ReactNode> = {
@@ -25,12 +26,12 @@ const STATUS_LABEL: Record<string, string> = {
   approved: 'Approved',
 };
 
-export function SectionSidebar({ sections, currentIndex, onSelect }: SectionSidebarProps) {
+export function SectionSidebar({ sections, currentIndex, onSelect, isDisabled }: SectionSidebarProps) {
   const approvedCount = sections.filter((s) => s.status === 'approved').length;
   const requiredCount = PLAN_SECTIONS.filter((s) => s.required).length;
 
   return (
-    <div className="w-72 flex-shrink-0 border-r overflow-y-auto">
+    <div className={cn('w-72 flex-shrink-0 border-r overflow-y-auto', isDisabled && 'opacity-50 pointer-events-none')}>
       <div className="p-4 border-b">
         <h3 className="font-semibold text-sm">Plan Sections</h3>
         <p className="text-xs text-muted-foreground mt-1">

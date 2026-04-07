@@ -17,7 +17,7 @@ interface SectionDraftingStepProps {
 
 export function SectionDraftingStep({ planId, onComplete }: SectionDraftingStepProps) {
   const dispatch = useAppDispatch();
-  const { currentPlan, isLoading } = useAppSelector((s) => s.strategicBusinessPlan);
+  const { currentPlan, isLoading, isDraftingSection } = useAppSelector((s) => s.strategicBusinessPlan);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [themesShown, setThemesShown] = useState(false);
 
@@ -57,9 +57,13 @@ export function SectionDraftingStep({ planId, onComplete }: SectionDraftingStepP
   };
 
   const handleSkip = () => {
-    const config = PLAN_SECTIONS[currentIndex];
+    const config = PLAN_SECTIONS.find((c) => c.key === sections[currentIndex]?.key);
     if (!config?.required) {
-      handleNext();
+      if (currentIndex < sections.length - 1) {
+        handleNext();
+      } else {
+        toast.info('All sections complete — click "Proceed to Plan Assembly" to continue.');
+      }
     }
   };
 
@@ -134,6 +138,7 @@ export function SectionDraftingStep({ planId, onComplete }: SectionDraftingStepP
           sections={sections}
           currentIndex={currentIndex}
           onSelect={handleSelect}
+          isDisabled={isDraftingSection}
         />
         <div className="flex-1 p-6 overflow-y-auto">
           {currentSection && (

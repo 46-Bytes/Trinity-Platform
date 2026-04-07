@@ -115,11 +115,6 @@ export default function StrategicBusinessPlanPage() {
             Build a professional Strategic Business Plan from your strategy workbook and supporting materials
           </p>
         </div>
-        {currentPlan && (
-          <Button variant="outline" onClick={handleStartOver}>
-            Start New Plan
-          </Button>
-        )}
       </div>
 
       {error && (

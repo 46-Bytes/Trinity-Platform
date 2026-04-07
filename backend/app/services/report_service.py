@@ -365,6 +365,56 @@ class ReportService:
             flags=re.IGNORECASE,
         )
 
+        # Fix Pre-Listing Readiness Checklist table formatting.
+        # The LLM generates a 2-column table (Done | Readiness Item) where the
+        # "Done" column has empty cells.  With table-layout:auto, xhtml2pdf
+        # collapses the empty column to ~0 width.  We locate that specific table
+        # and inject explicit column widths + a checkbox glyph into empty Done cells.
+        checklist_match = re.search(
+            r'Pre-Listing\s+Readiness\s+Checklist',
+            advisor_html,
+            re.IGNORECASE,
+        )
+        if checklist_match:
+            after_heading = advisor_html[checklist_match.start():]
+            table_m = re.search(r'<table\b([^>]*)>(.*?)</table>', after_heading, re.IGNORECASE | re.DOTALL)
+            if table_m:
+                orig_table = table_m.group(0)
+                fixed_table = orig_table
+
+                # Give the "Done" <th> an explicit narrow width and centre-align it
+                fixed_table = re.sub(
+                    r'<th(\s[^>]*)?>(\s*(?:Done|&#9744;|&#x2610;|☐|)\s*)</th>',
+                    r'<th style="width:55px;text-align:center;min-width:55px;">\2</th>',
+                    fixed_table,
+                    count=1,
+                    flags=re.IGNORECASE,
+                )
+
+                # Replace empty first-column <td> cells with a centred checkbox glyph
+                def _add_checkbox(row_m):
+                    row = row_m.group(0)
+                    # Replace the first (empty or whitespace-only) <td>
+                    return re.sub(
+                        r'<td(\s[^>]*)?>(\s*)</td>',
+                        r'<td\1 style="width:55px;text-align:center;min-width:55px;">&#9744;</td>',
+                        row,
+                        count=1,
+                        flags=re.IGNORECASE,
+                    )
+
+                fixed_table = re.sub(
+                    r'<tr\b[^>]*>.*?</tr>',
+                    _add_checkbox,
+                    fixed_table,
+                    flags=re.IGNORECASE | re.DOTALL,
+                )
+
+                # Replace the original table in advisor_html
+                abs_start = checklist_match.start() + table_m.start()
+                abs_end = checklist_match.start() + table_m.end()
+                advisor_html = advisor_html[:abs_start] + fixed_table + advisor_html[abs_end:]
+
         # Inject subtitle text after the "3. Module Assessments" heading
         advisor_html = re.sub(
             r'(<h2[^>]*>\s*3\.\s*Module\s+Assessments?\s*</h2>)',

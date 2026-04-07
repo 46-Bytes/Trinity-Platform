@@ -36,7 +36,7 @@ class SBPPresentationService:
 
         system_prompt = """You are a presentation designer creating slides for a Strategic Business Plan.
 Create clear, concise slides suitable for a management presentation.
-Return a JSON array of slide objects."""
+Return ONLY a valid JSON array of slide objects with no markdown, no code fences, and no extra text."""
 
         section_summaries = []
         for s in sections:
@@ -69,9 +69,20 @@ Create 8-12 slides covering the key strategic points. Keep bullets concise (max 
             try:
                 slides = json.loads(response_text)
             except json.JSONDecodeError:
-                slides = [
-                    {"index": 0, "type": "title", "title": "Strategic Business Plan", "subtitle": client_name, "bullets": None, "rows": None, "approved": False},
-                ]
+                # Claude often wraps JSON in markdown code blocks — strip them and retry
+                import re
+                match = re.search(r"```(?:json)?\s*([\s\S]+?)\s*```", response_text)
+                if match:
+                    try:
+                        slides = json.loads(match.group(1))
+                    except json.JSONDecodeError:
+                        slides = [
+                            {"index": 0, "type": "title", "title": "Strategic Business Plan", "subtitle": client_name, "bullets": None, "rows": None, "approved": False},
+                        ]
+                else:
+                    slides = [
+                        {"index": 0, "type": "title", "title": "Strategic Business Plan", "subtitle": client_name, "bullets": None, "rows": None, "approved": False},
+                    ]
 
             # Save to plan
             plan.presentation_slides = {"slides": slides}

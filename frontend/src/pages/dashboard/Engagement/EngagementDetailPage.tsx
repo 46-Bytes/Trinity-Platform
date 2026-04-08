@@ -269,15 +269,9 @@ export default function EngagementDetailPage() {
         const token = localStorage.getItem('auth_token');
         if (!token) return;
 
-        // Get fresh list of processing diagnostics (in case status changed)
-        const currentProcessing = diagnostics.filter(d => d.status === 'processing');
-        if (currentProcessing.length === 0) {
-          return; // No more processing diagnostics, stop polling
-        }
-
         // Check status for each processing diagnostic (lightweight call)
         const statusChecks = await Promise.all(
-          currentProcessing.map(async (diag: any) => {
+          processingDiagnostics.map(async (diag: any) => {
             try {
               const statusResponse = await fetch(`${API_BASE_URL}/api/diagnostics/${diag.id}/status`, {
                 headers: {

@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 
 from app.models.bba import BBA
 from app.models.diagnostic import Diagnostic
+from app.models.engagement import Engagement
 from app.schemas.bba import BBACreate, BBAUpdate, BBAFileUpload, BBAQuestionnaire
 import logging
 
@@ -69,6 +70,14 @@ class BBAService:
         if diagnostic.ai_analysis:
             diagnostic_context["ai_analysis"] = diagnostic.ai_analysis
 
+        # Pull business name from the engagement so it can be used to prefill client_name
+        business_name: Optional[str] = None
+        if diagnostic.engagement_id:
+            eng = self.db.query(Engagement).filter(Engagement.id == diagnostic.engagement_id).first()
+            if eng and eng.business_name:
+                business_name = eng.business_name
+                diagnostic_context["business_name"] = business_name
+
         if not force_new:
             # 1. Exact diagnostic match (existing idempotent behaviour)
             existing = self.get_bba_by_diagnostic(diagnostic_id)
@@ -86,6 +95,8 @@ class BBAService:
                     )
                     progressed.diagnostic_id = diagnostic_id
                     progressed.diagnostic_context = diagnostic_context or None
+                    if business_name and not progressed.client_name:
+                        progressed.client_name = business_name
                     progressed.updated_at = datetime.now(timezone.utc)
                     self.db.commit()
                     self.db.refresh(progressed)
@@ -95,7 +106,7 @@ class BBAService:
         if force_new and diagnostic.engagement_id:
             existing = self.find_most_progressed_bba(diagnostic.engagement_id, user_id)
             if existing:
-                self._reset_bba(existing, diagnostic_id, diagnostic_context)
+                self._reset_bba(existing, diagnostic_id, diagnostic_context, business_name=business_name)
                 logger.info(f"Reset BBA {existing.id} for fresh start from diagnostic {diagnostic_id}")
                 return existing
 
@@ -105,6 +116,7 @@ class BBAService:
             diagnostic_id=diagnostic_id,
             diagnostic_context=diagnostic_context or None,
             status="uploaded",
+            client_name=business_name,
         )
         self.db.add(bba)
         self.db.commit()
@@ -112,7 +124,7 @@ class BBAService:
         logger.info(f"Created BBA project {bba.id} from diagnostic {diagnostic_id} for user {user_id}")
         return bba
 
-    def _reset_bba(self, bba: BBA, diagnostic_id: UUID, diagnostic_context: dict) -> None:
+    def _reset_bba(self, bba: BBA, diagnostic_id: UUID, diagnostic_context: dict, business_name: Optional[str] = None) -> None:
         """
         Wipe all step data on an existing BBA row so it can be reused
         for a fresh start. Keeps the same ID, engagement, and user.
@@ -127,7 +139,7 @@ class BBAService:
         bba.file_mappings = None
         bba.stored_files = None
         # Step 2
-        bba.client_name = None
+        bba.client_name = business_name
         bba.industry = None
         bba.company_size = None
         bba.locations = None

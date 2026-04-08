@@ -1,7 +1,7 @@
 """
 Diagnostic API endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, Form
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, UploadFile, File, Query, Form
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -425,6 +425,7 @@ async def submit_diagnostic(
     diagnostic_id: UUID,
     submit_data: DiagnosticSubmit,
     response: Response,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -495,14 +496,11 @@ async def submit_diagnostic(
     db.commit()
     db.refresh(diagnostic)
     
-    # Dispatch Celery task for background processing
-    from app.tasks.diagnostic_tasks import process_diagnostic_task
-    result = process_diagnostic_task.delay(str(diagnostic_id))
-    diagnostic.celery_task_id = result.id
-    db.commit()
-    db.refresh(diagnostic)
+    # Dispatch background processing via FastAPI BackgroundTasks
+    from app.tasks.diagnostic_tasks import _run_pipeline
+    background_tasks.add_task(_run_pipeline, str(diagnostic_id))
 
-    logger.info(f"Diagnostic {diagnostic_id} submitted, Celery task {result.id} dispatched")
+    logger.info(f"Diagnostic {diagnostic_id} submitted, background task dispatched")
 
     return diagnostic
 
@@ -538,18 +536,12 @@ async def cancel_diagnostic_processing(
     # Optional: add role / access checks here if needed
     # e.g. ensure current_user can manage this engagement
 
-    # Set status to "draft" — the pipeline's checkpoint checks will detect this
+    # Set status to "draft" — the pipeline's check_shutdown will detect this and stop
     diagnostic.status = "draft"
     diagnostic.completed_at = None
     db.commit()
 
-    # Also revoke the Celery task to free the worker
-    if diagnostic.celery_task_id:
-        from app.celery_app import celery_app
-        celery_app.control.revoke(diagnostic.celery_task_id, terminate=True)
-        logger.info(f"Revoked Celery task {diagnostic.celery_task_id} for diagnostic {diagnostic_id}")
-    else:
-        logger.info(f"Cancel requested for diagnostic {diagnostic_id} but no Celery task ID found")
+    logger.info(f"Cancel requested for diagnostic {diagnostic_id} — status reset to 'draft'")
 
     db.refresh(diagnostic)
 
@@ -586,9 +578,9 @@ async def get_diagnostic_status(
     # Enforce engagement access (clients may be in engagement.client_ids)
     _require_diagnostic_access(db=db, diagnostic=diagnostic, current_user=current_user)
 
-    # Auto-recover stuck diagnostics: if processing for more than 20 minutes, mark as failed
+    # Auto-recover stuck diagnostics: if processing for more than 60 minutes, mark as failed
     # Uses updated_at since it gets set when status changes to "processing"
-    STUCK_THRESHOLD_SECONDS = 1200  # 20 minutes
+    STUCK_THRESHOLD_SECONDS = 3600  # 60 minutes
     if diagnostic.status == "processing" and diagnostic.updated_at:
         # Handle both naive and timezone-aware datetimes
         updated = diagnostic.updated_at

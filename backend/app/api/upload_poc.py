@@ -491,6 +491,11 @@ async def extract_context_capture(
             diagnostic_text,
             file_mappings=file_mappings if file_mappings else None,
         )
+        # Fall back to the stored business_name if LLM didn't extract clientName
+        if "clientName" not in extracted and isinstance(dc, dict):
+            business_name = dc.get("business_name")
+            if isinstance(business_name, str) and business_name.strip():
+                extracted["clientName"] = business_name
         return {"extracted": extracted}
     except Exception as e:
         logger.exception("extract_context_capture failed: %s", e)

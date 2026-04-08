@@ -39,6 +39,7 @@ export default function EngagementDetailPage() {
   const [engagement, setEngagement] = useState<{ client_name?: string; tool?: string } | null>(null);
   const [isLoadingEngagement, setIsLoadingEngagement] = useState(false);
   const fetchInFlightRef = useRef(false);
+  const diagnosticsRef = useRef<any[]>([]);
   
   // Get tags from Redux store
   const { mediaTags, diagnosticTags } = useAppSelector((state) => state.tag);
@@ -169,6 +170,11 @@ export default function EngagementDetailPage() {
     }
   }, [engagementId]);
 
+  // Keep diagnosticsRef in sync with latest diagnostics state
+  useEffect(() => {
+    diagnosticsRef.current = diagnostics;
+  }, [diagnostics]);
+
   // Fetch media tags for uploaded files using Redux
   useEffect(() => {
     if (diagnostics.length > 0) {
@@ -202,87 +208,34 @@ export default function EngagementDetailPage() {
     };
   }, [engagementId, fetchDiagnostics]);
 
-  // Listen for diagnostic submission - immediately refresh when status becomes "processing"
+  // When redux diagnostic becomes "processing", refresh local diagnostics immediately
   useEffect(() => {
-    if (reduxDiagnostic && reduxDiagnostic.status === 'processing') {
-      console.log('[EngagementDetailPage] Diagnostic submitted, status is processing - refreshing diagnostics list');
-      // Immediately fetch diagnostics to show the processing file
+    if (reduxDiagnostic?.status === 'processing') {
       fetchDiagnostics();
-      
-      // Also set up immediate polling (check status every 5 seconds initially, then back to 30)
-      const quickPollInterval = setInterval(async () => {
-        try {
-          const token = localStorage.getItem('auth_token');
-          if (!token) return;
-
-          const statusResponse = await fetch(`${API_BASE_URL}/api/diagnostics/${reduxDiagnostic.id}/status`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          });
-          
-          if (statusResponse.ok) {
-            const statusData = await statusResponse.json();
-            
-            // Update diagnostics state immediately
-            setDiagnostics(prev => prev.map(d => 
-              d.id === reduxDiagnostic.id 
-                ? { ...d, status: statusData.status }
-                : d
-            ));
-            
-            // If completed, stop quick polling and fetch full details
-            if (statusData.status === 'completed' || statusData.status === 'failed') {
-              clearInterval(quickPollInterval);
-              fetchDiagnostics();
-            }
-          }
-        } catch (error) {
-          console.error('Failed to check diagnostic status:', error);
-        }
-      }, 5000); // Poll every 5 seconds for quick updates
-
-      // Stop quick polling after 2 minutes (fall back to regular 30s polling)
-      const timeout = setTimeout(() => {
-        clearInterval(quickPollInterval);
-      }, 1 * 60 * 1000);
-
-      return () => {
-        clearInterval(quickPollInterval);
-        clearTimeout(timeout);
-      };
     }
-  }, [reduxDiagnostic?.status, reduxDiagnostic?.id, fetchDiagnostics]);
+  }, [reduxDiagnostic?.status, fetchDiagnostics]);
 
-  // Poll for diagnostics that are processing (lightweight status check only)
+  // Stable polling interval — reads diagnosticsRef so it never needs to restart on state changes
   useEffect(() => {
-    // Get current processing diagnostics
-    const processingDiagnostics = diagnostics.filter(d => d.status === 'processing');
-    
-    if (processingDiagnostics.length === 0 || !engagementId) {
-      return;
-    }
+    if (!engagementId) return;
 
     const pollInterval = setInterval(async () => {
+      const processingDiagnostics = diagnosticsRef.current.filter((d: any) => d.status === 'processing');
+      if (processingDiagnostics.length === 0) return;
+
       try {
         const token = localStorage.getItem('auth_token');
         if (!token) return;
 
-        // Check status for each processing diagnostic (lightweight call)
         const statusChecks = await Promise.all(
           processingDiagnostics.map(async (diag: any) => {
             try {
-              const statusResponse = await fetch(`${API_BASE_URL}/api/diagnostics/${diag.id}/status`, {
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json',
-                },
+              const res = await fetch(`${API_BASE_URL}/api/diagnostics/${diag.id}/status`, {
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
               });
-              
-              if (statusResponse.ok) {
-                const statusData = await statusResponse.json();
-                return { id: diag.id, ...statusData };
+              if (res.ok) {
+                const data = await res.json();
+                return { id: diag.id, ...data };
               }
               return null;
             } catch (error) {
@@ -292,35 +245,27 @@ export default function EngagementDetailPage() {
           })
         );
 
-        // Update diagnostics state with new statuses (to show processing chip)
         let statusChanged = false;
-        const updatedDiagnostics = diagnostics.map((diag: any) => {
+        const updatedDiagnostics = diagnosticsRef.current.map((diag: any) => {
           const statusData = statusChecks.find((s: any) => s && s.id === diag.id);
-          if (statusData) {
-            // Update status if it changed
-            if (statusData.status !== diag.status) {
-              statusChanged = true;
-            }
-            // Always update to ensure status is current (for processing chip visibility)
+          if (statusData && statusData.status !== diag.status) {
+            statusChanged = true;
             return { ...diag, status: statusData.status };
           }
           return diag;
         });
 
-        // Always update state to keep processing chip visible
-        setDiagnostics(updatedDiagnostics);
-
-        // If status changed to completed/failed, fetch full details
         if (statusChanged) {
-          fetchDiagnostics();
+          setDiagnostics(updatedDiagnostics); // immediate UI update
+          fetchDiagnostics();                 // fetch full details in background
         }
       } catch (error) {
         console.error('Failed to poll diagnostic status:', error);
       }
-    }, 30000);
+    }, 10000); // poll every 10 seconds
 
     return () => clearInterval(pollInterval);
-  }, [diagnostics, engagementId, fetchDiagnostics]);
+  }, [engagementId, fetchDiagnostics]); // stable — never restarts due to diagnostics state changes
 
   // Extract generated files (diagnostic reports) from diagnostics
   const generatedFiles: GeneratedFileProps[] = useMemo(() => {

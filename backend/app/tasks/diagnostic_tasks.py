@@ -86,18 +86,18 @@ async def _run_pipeline(diagnostic_id_str: str):
 
     background_db = SessionLocal()
     try:
-        logger.info(f"[Celery Task] Starting background processing for diagnostic {diagnostic_id}")
-        logger.info(f"[Celery Task] Started at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"[Background Task] Starting background processing for diagnostic {diagnostic_id}")
+        logger.info(f"[Background Task] Started at {time.strftime('%Y-%m-%d %H:%M:%S')}")
 
         background_service = get_diagnostic_service(background_db)
         diagnostic_obj = background_service.get_diagnostic(diagnostic_id)
 
         if not diagnostic_obj:
-            logger.error(f"[Celery Task] Diagnostic {diagnostic_id} not found")
+            logger.error(f"[Background Task] Diagnostic {diagnostic_id} not found")
             return
 
-        logger.info(f"[Celery Task] Diagnostic status: {diagnostic_obj.status}")
-        logger.info(f"[Celery Task] Diagnostic engagement_id: {diagnostic_obj.engagement_id}")
+        logger.info(f"[Background Task] Diagnostic status: {diagnostic_obj.status}")
+        logger.info(f"[Background Task] Diagnostic engagement_id: {diagnostic_obj.engagement_id}")
 
         # Run the AI pipeline (timeout is handled by Celery's task_soft_time_limit)
         await background_service._process_diagnostic_pipeline(
@@ -106,13 +106,13 @@ async def _run_pipeline(diagnostic_id_str: str):
 
         pipeline_elapsed = time.time() - pipeline_start_time
         logger.info(
-            f"[Celery Task] Diagnostic pipeline completed in "
+            f"[Background Task] Diagnostic pipeline completed in "
             f"{pipeline_elapsed:.2f}s ({pipeline_elapsed / 60:.2f} min)"
         )
 
         # ---- Generate PDF report ----
         try:
-            logger.info(f"[Celery Task] Generating PDF report for diagnostic {diagnostic_id}")
+            logger.info(f"[Background Task] Generating PDF report for diagnostic {diagnostic_id}")
 
             report_user_id = diagnostic_obj.completed_by_user_id or diagnostic_obj.created_by_user_id
             report_user = background_db.query(User).filter(User.id == report_user_id).first()
@@ -171,12 +171,12 @@ async def _run_pipeline(diagnostic_id_str: str):
                     structured_question_map=structured_question_map,
                     advisor_name=advisor_name,
                 )
-                logger.info(f"[Celery Task] PDF report generated ({len(pdf_bytes)} bytes)")
+                logger.info(f"[Background Task] PDF report generated ({len(pdf_bytes)} bytes)")
             else:
-                logger.warning(f"[Celery Task] Could not find user for PDF generation")
+                logger.warning(f"[Background Task] Could not find user for PDF generation")
 
         except Exception as pdf_error:
-            logger.error(f"[Celery Task] PDF generation failed (non-critical): {pdf_error}", exc_info=True)
+            logger.error(f"[Background Task] PDF generation failed (non-critical): {pdf_error}", exc_info=True)
 
         # ---- Mark completed ----
         diagnostic_obj.status = "completed"
@@ -192,9 +192,9 @@ async def _run_pipeline(diagnostic_id_str: str):
                 diagnostic_id=diagnostic_obj.id,
             )
             diagnostic_obj.conversation_id = conversation.id
-            logger.info(f"[Celery Task] Linked diagnostic {diagnostic_obj.id} to conversation {conversation.id}")
+            logger.info(f"[Background Task] Linked diagnostic {diagnostic_obj.id} to conversation {conversation.id}")
         except Exception as chat_err:
-            logger.error(f"[Celery Task] Failed to link conversation (non-critical): {chat_err}")
+            logger.error(f"[Background Task] Failed to link conversation (non-critical): {chat_err}")
 
         # Update engagement status
         engagement = background_db.query(Engagement).filter(
@@ -204,19 +204,19 @@ async def _run_pipeline(diagnostic_id_str: str):
             engagement.status = "completed"
             if not engagement.completed_at:
                 engagement.completed_at = datetime.now(timezone.utc)
-            logger.info(f"[Celery Task] Updated engagement {engagement.id} status to 'completed'")
+            logger.info(f"[Background Task] Updated engagement {engagement.id} status to 'completed'")
 
         background_db.commit()
 
         total_elapsed = time.time() - pipeline_start_time
         logger.info(
-            f"[Celery Task] Background processing completed for diagnostic {diagnostic_id} "
+            f"[Background Task] Background processing completed for diagnostic {diagnostic_id} "
             f"in {total_elapsed:.2f}s ({total_elapsed / 60:.2f} min)"
         )
 
     except SoftTimeLimitExceeded:
         logger.error(
-            f"[Celery Task] Pipeline timed out for diagnostic {diagnostic_id} "
+            f"[Background Task] Pipeline timed out for diagnostic {diagnostic_id} "
             f"(soft time limit exceeded)"
         )
         try:
@@ -227,12 +227,12 @@ async def _run_pipeline(diagnostic_id_str: str):
                 diagnostic_obj.status = "failed"
                 background_db.commit()
         except Exception as update_err:
-            logger.error(f"[Celery Task] Failed to update status after timeout: {update_err}")
+            logger.error(f"[Background Task] Failed to update status after timeout: {update_err}")
 
     except asyncio.CancelledError:
         elapsed = time.time() - pipeline_start_time
         logger.warning(
-            f"[Celery Task] Processing cancelled for diagnostic {diagnostic_id} "
+            f"[Background Task] Processing cancelled for diagnostic {diagnostic_id} "
             f"after {elapsed:.2f}s"
         )
         try:
@@ -243,12 +243,12 @@ async def _run_pipeline(diagnostic_id_str: str):
                 diagnostic_obj.status = "draft"
                 background_db.commit()
         except Exception as update_err:
-            logger.error(f"[Celery Task] Failed to update status after cancellation: {update_err}")
+            logger.error(f"[Background Task] Failed to update status after cancellation: {update_err}")
 
     except Exception as e:
         elapsed = time.time() - pipeline_start_time
         logger.error(
-            f"[Celery Task] Processing FAILED for diagnostic {diagnostic_id} "
+            f"[Background Task] Processing FAILED for diagnostic {diagnostic_id} "
             f"after {elapsed:.2f}s: {type(e).__name__}: {e}",
             exc_info=True,
         )
@@ -260,7 +260,7 @@ async def _run_pipeline(diagnostic_id_str: str):
                 diagnostic_obj.status = "failed"
                 background_db.commit()
         except Exception as update_err:
-            logger.error(f"[Celery Task] Failed to update status after error: {update_err}")
+            logger.error(f"[Background Task] Failed to update status after error: {update_err}")
 
     finally:
         background_db.close()

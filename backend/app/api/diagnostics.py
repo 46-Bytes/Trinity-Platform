@@ -578,9 +578,9 @@ async def get_diagnostic_status(
     # Enforce engagement access (clients may be in engagement.client_ids)
     _require_diagnostic_access(db=db, diagnostic=diagnostic, current_user=current_user)
 
-    # Auto-recover stuck diagnostics: if processing for more than 20 minutes, mark as failed
+    # Auto-recover stuck diagnostics: if processing for more than 60 minutes, mark as failed
     # Uses updated_at since it gets set when status changes to "processing"
-    STUCK_THRESHOLD_SECONDS = 1200  # 20 minutes
+    STUCK_THRESHOLD_SECONDS = 3600  # 60 minutes
     if diagnostic.status == "processing" and diagnostic.updated_at:
         # Handle both naive and timezone-aware datetimes
         updated = diagnostic.updated_at

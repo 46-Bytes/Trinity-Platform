@@ -86,7 +86,6 @@ export function SectionDraftingStep({ planId, onComplete }: SectionDraftingStepP
     onComplete();
   };
 
-
   if (isLoading || sections.length === 0) {
     return (
       <Card>

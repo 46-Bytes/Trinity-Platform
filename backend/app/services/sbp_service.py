@@ -166,6 +166,43 @@ class SBPService:
         self.db.refresh(plan)
         return plan
 
+    def reset_plan_data(self, plan_id: UUID) -> StrategicBusinessPlan:
+        """Clear all generated data so the plan can be restarted from step 1."""
+        plan = self.get_plan(plan_id)
+        if not plan:
+            raise ValueError(f"Plan {plan_id} not found")
+
+        plan.file_ids = None
+        plan.file_mappings = None
+        plan.file_tags = None
+        plan.stored_files = None
+        plan.cross_analysis = None
+        plan.cross_analysis_advisor_notes = None
+        plan.sections = None
+        plan.current_section_index = None
+        plan.emerging_themes = None
+        plan.final_plan = None
+        plan.generated_report_path = None
+        plan.presentation_slides = None
+        plan.status = "draft"
+        plan.current_step = 1
+        plan.max_step_reached = 1
+        plan.completed_at = None
+        plan.updated_at = datetime.now(timezone.utc)
+
+        flag_modified(plan, "file_ids")
+        flag_modified(plan, "file_mappings")
+        flag_modified(plan, "cross_analysis")
+        flag_modified(plan, "sections")
+        flag_modified(plan, "emerging_themes")
+        flag_modified(plan, "final_plan")
+        flag_modified(plan, "presentation_slides")
+
+        self.db.commit()
+        self.db.refresh(plan)
+        logger.info(f"Reset SBP {plan_id} data for restart")
+        return plan
+
     # ------------------------------------------------------------------
     # Step 2: Cross-Analysis
     # ------------------------------------------------------------------

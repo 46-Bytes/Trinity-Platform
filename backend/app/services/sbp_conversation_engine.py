@@ -54,17 +54,22 @@ class SBPConversationEngine:
     # File handling (matches BBA engine pattern)
     # ------------------------------------------------------------------
 
-    def _separate_files_by_type(self, file_mappings: Dict[str, str]) -> Tuple[List[str], List[str]]:
+    _UPLOAD_DIR = Path(__file__).resolve().parents[2] / "files" / "uploads" / "sbp"
+
+    def _separate_files_by_type(self, file_mappings: Dict[str, str]) -> Tuple[List[str], List[str], List[str]]:
         """
-        Separate file IDs by type for proper Claude API routing.
-        PDFs go as document blocks (Claude reads natively).
-        CSV/TXT/XLSX etc. go through Code Interpreter (container_upload).
+        Separate file IDs/names by type for proper Claude API routing.
+        - PDFs → document blocks (Claude reads natively).
+        - CSV/TXT/XLSX etc. → Code Interpreter (container_upload).
+        - DOCX/PPTX/images → local text extraction (Claude Files API doesn't support these as document blocks).
+        Returns (pdf_file_ids, ci_file_ids, local_extract_filenames).
         """
         pdf_ext = {"pdf"}
         ci_ext = {"csv", "txt", "text", "md", "markdown", "json", "xml", "yaml", "yml", "xlsx", "xls"}
 
-        pdf_file_ids = []
-        ci_file_ids = []
+        pdf_file_ids: List[str] = []
+        ci_file_ids: List[str] = []
+        local_extract_filenames: List[str] = []
 
         for filename, file_id in file_mappings.items():
             if not file_id:
@@ -75,10 +80,56 @@ class SBPConversationEngine:
             elif ext in ci_ext:
                 ci_file_ids.append(file_id)
             else:
-                # DOCX, PPTX, images — send as document blocks (Claude reads natively)
-                pdf_file_ids.append(file_id)
+                # DOCX, PPTX, images — Claude Files API rejects these as document blocks;
+                # extract text locally and inject into the prompt instead.
+                local_extract_filenames.append(filename)
 
-        return pdf_file_ids, ci_file_ids
+        return pdf_file_ids, ci_file_ids, local_extract_filenames
+
+    def _extract_text_from_local_file(self, filename: str, stored_path: str) -> Optional[str]:
+        """Extract text content from a locally stored DOCX or PPTX file."""
+        full_path = self._UPLOAD_DIR / stored_path
+        if not full_path.exists():
+            logger.warning(f"[SBP Engine] Local file not found for text extraction: {full_path}")
+            return None
+
+        ext = Path(filename).suffix.lower()
+        try:
+            if ext == ".docx":
+                from docx import Document  # python-docx
+                doc = Document(str(full_path))
+                paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+                # Also extract tables
+                for table in doc.tables:
+                    for row in table.rows:
+                        row_text = " | ".join(cell.text.strip() for cell in row.cells if cell.text.strip())
+                        if row_text:
+                            paragraphs.append(row_text)
+                text = "\n".join(paragraphs)
+                return f"[Document: {filename}]\n{text}" if text else None
+
+            elif ext == ".pptx":
+                from pptx import Presentation  # python-pptx
+                prs = Presentation(str(full_path))
+                slides_text = []
+                for i, slide in enumerate(prs.slides, 1):
+                    slide_parts = []
+                    for shape in slide.shapes:
+                        if hasattr(shape, "text") and shape.text.strip():
+                            slide_parts.append(shape.text.strip())
+                    if slide_parts:
+                        slides_text.append(f"Slide {i}:\n" + "\n".join(slide_parts))
+                text = "\n\n".join(slides_text)
+                return f"[Presentation: {filename}]\n{text}" if text else None
+
+            elif ext in {".png", ".jpg", ".jpeg"}:
+                # Images cannot be meaningfully extracted as text; note their presence
+                return f"[Image attached: {filename}]"
+
+            return None
+        except Exception as e:
+            logger.warning(f"[SBP Engine] Failed to extract text from {filename}: {e}")
+            return None
 
     # ------------------------------------------------------------------
     # Context builders
@@ -132,10 +183,27 @@ class SBPConversationEngine:
         """
         Call Claude via ClaudeService.generate_json_completion() with proper
         file attachments. PDFs attached as document blocks, CSV/XLSX via
-        Code Interpreter container_upload blocks.
+        Code Interpreter container_upload blocks. DOCX/PPTX text is extracted
+        locally and injected into the user prompt.
         """
         file_mappings = plan.file_mappings or {}
-        pdf_file_ids, ci_file_ids = self._separate_files_by_type(file_mappings)
+        stored_files = plan.stored_files or {}
+        pdf_file_ids, ci_file_ids, local_extract_filenames = self._separate_files_by_type(file_mappings)
+
+        # Extract text from DOCX/PPTX files and append to the user prompt
+        if local_extract_filenames:
+            extracted_parts = []
+            for filename in local_extract_filenames:
+                stored_path = stored_files.get(filename)
+                if stored_path:
+                    text = self._extract_text_from_local_file(filename, stored_path)
+                    if text:
+                        extracted_parts.append(text)
+                        logger.info(f"[SBP Engine] Extracted text from {filename} ({len(text)} chars)")
+                else:
+                    logger.warning(f"[SBP Engine] No stored path for {filename}, skipping extraction")
+            if extracted_parts:
+                user_prompt = user_prompt + "\n\n## Extracted Document Content\n\n" + "\n\n---\n\n".join(extracted_parts)
 
         # Build tools for Code Interpreter if CSV/XLSX files exist
         tools = None

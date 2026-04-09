@@ -314,6 +314,22 @@ export const assemblePlan = createAsyncThunk(
   },
 );
 
+export const resetPlanData = createAsyncThunk(
+  'sbp/resetPlanData',
+  async (planId: string, { rejectWithValue }) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/strategic-business-plan/${planId}/reset`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Reset failed');
+      return await res.json();
+    } catch (e) {
+      return rejectWithValue(e instanceof Error ? e.message : 'Reset failed');
+    }
+  },
+);
+
 export const updateStepProgress = createAsyncThunk(
   'sbp/updateStepProgress',
   async ({ planId, currentStep, maxStepReached }: { planId: string; currentStep?: number; maxStepReached?: number }, { rejectWithValue }) => {
@@ -504,6 +520,16 @@ const sbpSlice = createSlice({
           state.currentPlan.emerging_themes = action.payload.emerging_themes;
         }
       });
+
+    // resetPlanData
+    builder
+      .addCase(resetPlanData.pending, (state) => { state.isLoading = true; state.error = null; })
+      .addCase(resetPlanData.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.uploadedFiles = [];
+        if (action.payload.plan) state.currentPlan = action.payload.plan;
+      })
+      .addCase(resetPlanData.rejected, (state, action) => { state.isLoading = false; state.error = action.payload as string; });
 
     // assemblePlan
     builder

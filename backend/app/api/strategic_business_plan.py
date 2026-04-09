@@ -156,6 +156,23 @@ async def list_plans(
 
 
 # ---------------------------------------------------------------------------
+# Step 1: Reset plan data (re-upload from scratch)
+# ---------------------------------------------------------------------------
+
+@router.post("/{plan_id}/reset")
+async def reset_plan(
+    plan_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    plan = _get_plan_or_404(plan_id, db)
+    _check_plan_access(plan, current_user, db)
+    service = get_sbp_service(db)
+    plan = service.reset_plan_data(plan_id)
+    return {"success": True, "plan": plan.to_dict()}
+
+
+# ---------------------------------------------------------------------------
 # Step 1: Upload files
 # ---------------------------------------------------------------------------
 

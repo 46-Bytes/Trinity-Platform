@@ -644,6 +644,11 @@ class DiagnosticService:
         logger.info(f"[Pipeline] STEP 3 total (Scoring + Report) completed in {step3_elapsed:.2f} seconds ({step3_elapsed/60:.2f} minutes)")
 
         # Merge scoring data with report data for downstream processing
+        if not isinstance(report_data, dict):
+            raise ValueError(
+                f"Report generation returned unexpected type {type(report_data).__name__}; expected dict. "
+                f"Preview: {str(report_data)[:200]}"
+            )
         scoring_data.update(report_data)
 
         # ===== STEP 4: Calculate and Validate Scores =====

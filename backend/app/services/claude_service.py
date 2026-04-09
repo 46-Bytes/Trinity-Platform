@@ -464,6 +464,15 @@ class ClaudeService:
 
         return content.strip()
 
+    def _coerce_parsed_to_dict(self, parsed_content):
+        """If JSON parsing returned a list instead of a dict, extract the first dict element."""
+        if isinstance(parsed_content, list):
+            for item in parsed_content:
+                if isinstance(item, dict):
+                    logger.warning("[Claude] Parsed content was a list; extracted first dict element")
+                    return item
+        return parsed_content
+
     async def generate_json_completion(
         self,
         messages: List[Dict[str, str]],
@@ -497,9 +506,9 @@ class ClaudeService:
         # Try direct parse first
         try:
             parsed_content = json.loads(content)
-            result["parsed_content"] = parsed_content
+            result["parsed_content"] = self._coerce_parsed_to_dict(parsed_content)
             logger.info("[Claude] JSON parsed successfully (direct parse)")
-            logger.info(f"[Claude] Parsed content keys: {list(parsed_content.keys()) if isinstance(parsed_content, dict) else 'Not a dict'}")
+            logger.info(f"[Claude] Parsed content keys: {list(result['parsed_content'].keys()) if isinstance(result['parsed_content'], dict) else 'Not a dict'}")
         except json.JSONDecodeError as e:
             logger.warning(f"[Claude] Direct JSON parse failed: {str(e)}")
             logger.info("[Claude] Attempting to extract JSON from markdown...")
@@ -515,17 +524,17 @@ class ClaudeService:
             # Try parsing after markdown extraction
             try:
                 parsed_content = json.loads(content)
-                result["parsed_content"] = parsed_content
+                result["parsed_content"] = self._coerce_parsed_to_dict(parsed_content)
                 logger.info("[Claude] JSON parsed successfully (from markdown)")
-                logger.info(f"[Claude] Parsed content keys: {list(parsed_content.keys()) if isinstance(parsed_content, dict) else 'Not a dict'}")
+                logger.info(f"[Claude] Parsed content keys: {list(result['parsed_content'].keys()) if isinstance(result['parsed_content'], dict) else 'Not a dict'}")
             except json.JSONDecodeError:
                 # Try raw_decode to extract first JSON object (ignores trailing text)
                 try:
                     decoder = json.JSONDecoder()
                     parsed_content, _ = decoder.raw_decode(content.strip())
-                    result["parsed_content"] = parsed_content
+                    result["parsed_content"] = self._coerce_parsed_to_dict(parsed_content)
                     logger.info("[Claude] JSON parsed successfully (raw_decode - trailing text ignored)")
-                    logger.info(f"[Claude] Parsed content keys: {list(parsed_content.keys()) if isinstance(parsed_content, dict) else 'Not a dict'}")
+                    logger.info(f"[Claude] Parsed content keys: {list(result['parsed_content'].keys()) if isinstance(result['parsed_content'], dict) else 'Not a dict'}")
                 except json.JSONDecodeError:
                     # Try to find the first { or [ and parse from there (handles preamble text)
                     try:
@@ -537,9 +546,9 @@ class ClaudeService:
                         if first_brace is not None:
                             decoder = json.JSONDecoder()
                             parsed_content, _ = decoder.raw_decode(stripped[first_brace:])
-                            result["parsed_content"] = parsed_content
+                            result["parsed_content"] = self._coerce_parsed_to_dict(parsed_content)
                             logger.info("[Claude] JSON parsed successfully (skipped preamble text)")
-                            logger.info(f"[Claude] Parsed content keys: {list(parsed_content.keys()) if isinstance(parsed_content, dict) else 'Not a dict'}")
+                            logger.info(f"[Claude] Parsed content keys: {list(result['parsed_content'].keys()) if isinstance(result['parsed_content'], dict) else 'Not a dict'}")
                         else:
                             raise json.JSONDecodeError("No JSON object found", content, 0)
                     except json.JSONDecodeError as e2:
@@ -550,9 +559,9 @@ class ClaudeService:
                         try:
                             repaired_content = self._repair_json(content)
                             parsed_content = json.loads(repaired_content)
-                            result["parsed_content"] = parsed_content
+                            result["parsed_content"] = self._coerce_parsed_to_dict(parsed_content)
                             logger.info("[Claude] JSON parsed successfully (after repair)")
-                            logger.info(f"[Claude] Parsed content keys: {list(parsed_content.keys()) if isinstance(parsed_content, dict) else 'Not a dict'}")
+                            logger.info(f"[Claude] Parsed content keys: {list(result['parsed_content'].keys()) if isinstance(result['parsed_content'], dict) else 'Not a dict'}")
                         except (json.JSONDecodeError, Exception) as e3:
                             error_line = None
                             error_col = None
@@ -600,7 +609,7 @@ class ClaudeService:
                                 if first_brace_retry is not None:
                                     decoder = json.JSONDecoder()
                                     parsed_content, _ = decoder.raw_decode(retry_content[first_brace_retry:])
-                                    result["parsed_content"] = parsed_content
+                                    result["parsed_content"] = self._coerce_parsed_to_dict(parsed_content)
                                     result["content"] = retry_content
                                     logger.info("[Claude] JSON parsed successfully (follow-up retry)")
                                 else:

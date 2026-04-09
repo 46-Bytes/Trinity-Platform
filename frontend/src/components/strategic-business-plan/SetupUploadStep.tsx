@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
-import { useAppDispatch } from '@/store/hooks';
-import { uploadFiles, saveSetup, createPlan } from '@/store/slices/strategicBusinessPlanReducer';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { uploadFiles, saveSetup, createPlan, resetPlanData } from '@/store/slices/strategicBusinessPlanReducer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,13 +20,14 @@ interface SetupUploadStepProps {
 
 export function SetupUploadStep({ planId, engagementId, onComplete, isLoading }: SetupUploadStepProps) {
   const dispatch = useAppDispatch();
+  const currentPlan = useAppSelector((s) => s.strategicBusinessPlan.currentPlan);
 
-  // Form state
-  const [clientName, setClientName] = useState('');
-  const [industry, setIndustry] = useState('');
-  const [planningHorizon, setPlanningHorizon] = useState('');
-  const [targetAudience, setTargetAudience] = useState('');
-  const [additionalContext, setAdditionalContext] = useState('');
+  // Form state — pre-populated from saved plan data when navigating back
+  const [clientName, setClientName] = useState(currentPlan?.client_name || '');
+  const [industry, setIndustry] = useState(currentPlan?.industry || '');
+  const [planningHorizon, setPlanningHorizon] = useState(currentPlan?.planning_horizon || '');
+  const [targetAudience, setTargetAudience] = useState(currentPlan?.target_audience || '');
+  const [additionalContext, setAdditionalContext] = useState(currentPlan?.additional_context || '');
 
   // File state
   const [files, setFiles] = useState<File[]>([]);
@@ -72,8 +73,11 @@ export function SetupUploadStep({ planId, engagementId, onComplete, isLoading }:
     try {
       let activePlanId = planId;
 
-      // Create plan if not yet created
-      if (!activePlanId) {
+      if (activePlanId) {
+        // Plan already exists — reset all generated data before re-uploading
+        await dispatch(resetPlanData(activePlanId)).unwrap();
+      } else {
+        // Create plan for the first time
         const result = await dispatch(createPlan({ engagementId })).unwrap();
         activePlanId = result.plan_id;
       }

@@ -1030,7 +1030,7 @@ class ReportService:
             # Deserialise JSON strings stored as text
             value = ReportService._try_parse_json(value)
 
-            question_text = question_text_map.get(key, key)
+            question_text = question_text_map.get(key) or ReportService._humanize_label(key)
             qa_data.append({
                 "question": question_text,
                 "answer": value,
@@ -1583,8 +1583,7 @@ class ReportService:
                 .replace("&", "&amp;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;")
-                .replace('"', "&quot;")
-                .replace("'", "&#x27;"))
+                .replace('"', "&quot;"))
     
     @staticmethod
     def _wrap_cell_text(text: str, max_line_len: int = 35) -> str:

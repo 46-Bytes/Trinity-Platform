@@ -157,7 +157,7 @@ export function FollowUpToolsTab({
         const progressed = projects.find(
           (p: { max_step_reached?: number }) => (p.max_step_reached || 0) >= 2
         );
-        if (progressed && effectiveDiagnosticId) {
+        if (progressed) {
           // Show confirmation dialog — user has work in progress
           setExistingBbaStep(progressed.max_step_reached || 0);
           setExistingBbaProjectId(progressed.id);
@@ -290,7 +290,7 @@ export function FollowUpToolsTab({
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-medium flex items-center gap-2">
               <FileText className="h-4 w-4" />
-              Report and Recommendation Builder
+              Recommendations Report Builder
             </CardTitle>
             <CardDescription>
               Generate a Business Benchmark Analysis{effectiveDiagnosticId ? ' from your diagnostic data' : ' for this engagement'}.
@@ -308,7 +308,7 @@ export function FollowUpToolsTab({
               ) : (
                 <FileText className="h-4 w-4 mr-2" />
               )}
-              Run BBA Builder
+              Run Recommendations Report Builder
             </Button>
           </CardContent>
         </Card>

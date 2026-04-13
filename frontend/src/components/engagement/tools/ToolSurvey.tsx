@@ -204,6 +204,20 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
     };
   }, [diagnostic?.id, diagnostic?.status, isPolling, dispatch, engagementId]);
 
+  // Re-fetch full diagnostic data when status flips to completed but the detail fetch inside
+  // checkDiagnosticStatus failed (leaving reportHtml / aiAnalysis empty).
+  // This is a no-op when the full data is already present (the normal success path).
+  useEffect(() => {
+    if (
+      diagnostic?.status === 'completed' &&
+      engagementId &&
+      !diagnostic.reportHtml &&
+      !diagnostic.aiAnalysis?.advisorReport
+    ) {
+      dispatch(fetchDiagnosticByEngagement(engagementId));
+    }
+  }, [diagnostic?.status, diagnostic?.reportHtml, diagnostic?.aiAnalysis, engagementId, dispatch]);
+
   // Merge Redux responses (source of truth) with local unsaved changes
   const responses = useMemo(() => {
     const savedResponses = diagnostic?.userResponses || {};

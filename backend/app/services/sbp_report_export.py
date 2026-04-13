@@ -173,7 +173,7 @@ class SBPReportExporter:
         return output_path
 
 
-class SBPEmployeeExporter:
+class SBPEmployeeExporter(SBPReportExporter):
     """Generates an employee-facing strategy document variant."""
 
     def generate_employee_docx(self, plan: StrategicBusinessPlan) -> Path:
@@ -208,10 +208,8 @@ class SBPEmployeeExporter:
 
         for section in sections:
             if section["key"] in employee_keys and section.get("content"):
-                heading = doc.add_heading(section["title"], level=1)
-                soup = BeautifulSoup(section["content"], "html.parser")
-                text = soup.get_text(separator="\n\n")
-                doc.add_paragraph(text)
+                self._add_heading(doc, section["title"], level=1)
+                self._html_to_docx(doc, section["content"])
                 doc.add_page_break()
 
         # Save

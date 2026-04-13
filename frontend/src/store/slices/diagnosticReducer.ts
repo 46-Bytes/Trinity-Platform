@@ -288,7 +288,7 @@ export const checkDiagnosticStatus = createAsyncThunk(
       }
 
       const statusData = await response.json();
-      
+
       // If completed, fetch full diagnostic data
       if (statusData.status === 'completed' || statusData.status === 'failed') {
         const detailResponse = await fetch(`${API_BASE_URL}/api/diagnostics/${diagnosticId}`, {
@@ -304,6 +304,7 @@ export const checkDiagnosticStatus = createAsyncThunk(
             status: statusData.status,
             completedAt: statusData.completed_at,
             diagnostic: mapBackendDiagnosticToFrontend(detailData),
+            diagnosticId,
           };
         }
       }
@@ -312,6 +313,7 @@ export const checkDiagnosticStatus = createAsyncThunk(
         status: statusData.status,
         completedAt: statusData.completed_at,
         diagnostic: null,
+        diagnosticId,
       };
     } catch (error) {
       return rejectWithValue(error instanceof Error ? error.message : 'Failed to check status');
@@ -487,19 +489,28 @@ const diagnosticSlice = createSlice({
         // This allows global polling to work independently
       })
       .addCase(checkDiagnosticStatus.fulfilled, (state, action) => {
-        // Update diagnostic only if the returned diagnostic matches the current one.
-        // This prevents global polling for other engagements from overwriting
-        // the diagnostic currently being edited/viewed in the survey.
+        const isTerminal = action.payload.status === 'completed' || action.payload.status === 'failed';
+
         if (action.payload.diagnostic && state.diagnostic) {
+          // Full update: detail fetch succeeded and IDs match
           if (state.diagnostic.id === action.payload.diagnostic.id) {
             state.diagnostic = action.payload.diagnostic;
+            if (isTerminal) state.isPolling = false;
           }
+        } else if (
+          !action.payload.diagnostic &&
+          state.diagnostic &&
+          state.diagnostic.id === action.payload.diagnosticId &&
+          isTerminal
+        ) {
+          // Detail fetch failed but status is terminal — update the minimum fields
+          // so the loading screen clears immediately without waiting for the next poll tick
+          state.diagnostic.status = action.payload.status;
+          if (action.payload.completedAt) {
+            state.diagnostic.completedAt = action.payload.completedAt;
+          }
+          state.isPolling = false;
         }
-        // If payload.diagnostic is null, don't touch state.diagnostic at all –
-        // global polling only needs the status in the hook, not in this slice.
-        
-        // Note: isPolling is managed by the global hook, not here
-        // This allows polling to continue even if user navigates away
       })
       .addCase(checkDiagnosticStatus.rejected, (state, action) => {
         // Don't stop polling on error, just log it

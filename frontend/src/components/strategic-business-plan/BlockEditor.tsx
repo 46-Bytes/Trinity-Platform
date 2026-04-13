@@ -152,7 +152,7 @@ function blocksToHtml(blocks: Block[]): string {
         const items = block.items.map((item) => `${openTag('li', item.attrs)}${item.text}</li>`).join('');
         return `${openTag(block.type, block.attrs)}${items}</${block.type}>`;
       }
-      return `${openTag(block.type, block.attrs)}${block.text}</${block.type}>`;
+      return `${openTag(block.type, block.attrs)}${block?.text}</${block.type}>`;
     })
     .join('\n');
 }
@@ -312,15 +312,30 @@ export function BlockEditor({ html, onChange, label }: BlockEditorProps) {
                 <table className="w-full border-collapse">
                   <tbody>
                     {block.rows.map((row, rowIdx) => (
-                      <tr key={row.id} className={cn(row.cells[0]?.isHeader && 'bg-muted/30')}>
+                      <tr
+                        key={row.id}
+                        className={cn(
+                          row.cells[0]?.isHeader
+                            ? 'bg-[hsl(222_47%_15%)]'
+                            : rowIdx % 2 === 0 ? 'bg-white' : 'bg-[hsl(214_32%_97%)]'
+                        )}
+                      >
                         {row.cells.map((cell) => (
-                          <td key={cell.id} className={cn('border border-border p-0', cell.isHeader && 'font-medium')}>
+                          <td
+                            key={cell.id}
+                            className={cn(
+                              'border p-0',
+                              cell.isHeader ? 'border-[hsl(222_47%_22%)]' : 'border-border',
+                            )}
+                          >
                             <Input
                               value={cell.text}
                               onChange={(e) => updateTableCell(block.id, row.id, cell.id, e.target.value)}
                               className={cn(
-                                'border-0 rounded-none h-9 focus-visible:ring-inset focus-visible:ring-1 bg-transparent',
-                                cell.isHeader && 'font-semibold',
+                                'border-0 rounded-none h-9 focus-visible:ring-inset focus-visible:ring-1',
+                                cell.isHeader
+                                  ? 'bg-transparent text-white placeholder:text-white/50 font-semibold'
+                                  : 'bg-transparent',
                               )}
                               placeholder={cell.isHeader ? 'Header...' : 'Cell...'}
                             />

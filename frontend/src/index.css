@@ -258,6 +258,186 @@ html, body {
   }
 }
 
+/* ── SBP Section Content ─────────────────────────────────────────────────────
+   Applied to all read-only HTML sections in the Strategic Business Plan.
+   Provides proper heading hierarchy, paragraph spacing, list styling, and
+   table formatting for LLM-generated HTML content.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+/* Headings */
+.sbp-content h1 {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: hsl(222 47% 11%);
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.sbp-content h2 {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: hsl(222 47% 11%);
+  margin-top: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.sbp-content h3 {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: hsl(222 47% 13%);
+  margin-top: 1.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.sbp-content h4 {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: hsl(222 47% 18%);
+  margin-top: 1.25rem;
+  margin-bottom: 0.35rem;
+}
+
+.sbp-content h5,
+.sbp-content h6 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: hsl(222 47% 20%);
+  margin-top: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+/* Remove top margin from the very first heading */
+.sbp-content :is(h1, h2, h3, h4, h5, h6):first-child {
+  margin-top: 0;
+}
+
+/* Paragraphs */
+.sbp-content p {
+  font-size: 0.9375rem;
+  line-height: 1.75;
+  color: hsl(222 35% 22%);
+  margin-bottom: 0.875rem;
+}
+
+.sbp-content p:last-child {
+  margin-bottom: 0;
+}
+
+/* Lists */
+.sbp-content ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin: 0.625rem 0 0.875rem;
+}
+
+.sbp-content ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin: 0.625rem 0 0.875rem;
+}
+
+.sbp-content li {
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  color: hsl(222 35% 22%);
+  margin-bottom: 0.3rem;
+}
+
+.sbp-content li:last-child {
+  margin-bottom: 0;
+}
+
+/* Nested lists */
+.sbp-content li > ul,
+.sbp-content li > ol {
+  margin-top: 0.25rem;
+  margin-bottom: 0;
+}
+
+/* Blockquote */
+.sbp-content blockquote {
+  border-left: 3px solid hsl(168 76% 36%);
+  padding: 0.5rem 0 0.5rem 1rem;
+  margin: 1rem 0;
+  color: hsl(222 30% 35%);
+  font-style: italic;
+}
+
+/* Inline emphasis */
+.sbp-content strong {
+  font-weight: 600;
+  color: hsl(222 47% 11%);
+}
+
+.sbp-content em {
+  font-style: italic;
+}
+
+/* Horizontal rule */
+.sbp-content hr {
+  border: none;
+  border-top: 1px solid hsl(214 32% 88%);
+  margin: 1.5rem 0;
+}
+
+/* Tables */
+.sbp-content table {
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  font-size: 0.875rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px hsla(222, 47%, 11%, 0.1);
+}
+
+.sbp-content table thead tr {
+  background-color: hsl(222 47% 15%);
+}
+
+.sbp-content table th {
+  color: #ffffff;
+  font-weight: 600;
+  text-align: left;
+  padding: 0.75rem 1rem;
+  font-size: 0.8125rem;
+  letter-spacing: 0.01em;
+  border-right: 1px solid hsl(222 47% 22%);
+}
+
+.sbp-content table th:last-child {
+  border-right: none;
+}
+
+.sbp-content table td {
+  padding: 0.65rem 1rem;
+  border: 1px solid hsl(214 32% 91%);
+  vertical-align: top;
+  line-height: 1.5;
+}
+
+.sbp-content table tbody tr:nth-child(even) td {
+  background-color: hsl(214 32% 97%);
+}
+
+.sbp-content table tbody tr:hover td {
+  background-color: hsl(210 40% 95%);
+}
+
+.sbp-content table tbody tr:last-child td {
+  border-bottom: none;
+}
+
 @layer utilities {
   .animate-fade-in {
     animation: fadeIn 0.5s ease-out forwards;

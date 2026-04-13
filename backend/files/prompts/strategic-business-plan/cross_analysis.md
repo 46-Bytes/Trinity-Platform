@@ -49,4 +49,6 @@ Return a JSON object with the following structure:
   "preliminary_observations": ["Strategic observation based on the synthesis"]
 }}
 
+All string values must be plain text only — do not use HTML tags, markdown, or any special formatting inside JSON strings.
+
 Treat these findings as strategic signals, not commentary. Focus on what will be most useful for building a coherent, integrated Strategic Business Plan.

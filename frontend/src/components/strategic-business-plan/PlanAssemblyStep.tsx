@@ -101,14 +101,14 @@ export function PlanAssemblyStep({ planId, onComplete }: PlanAssemblyStepProps) 
           </CardHeader>
           <CardContent>
             <div
-              className="prose prose-sm max-w-none"
+              className="prose prose-sm max-w-none sbp-content"
               dangerouslySetInnerHTML={{ __html: section.content || '<p class="text-muted-foreground">No content</p>' }}
             />
             {section.strategic_implications && (
               <div className="border-t pt-4 mt-4">
                 <h4 className="font-semibold text-sm mb-2">Strategic Implications</h4>
                 <div
-                  className="prose prose-sm max-w-none"
+                  className="prose prose-sm max-w-none sbp-content"
                   dangerouslySetInnerHTML={{ __html: section.strategic_implications }}
                 />
               </div>

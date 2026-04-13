@@ -9,7 +9,6 @@ import { useAppDispatch } from '@/store/hooks';
 import { clearWorkbook } from '@/store/slices/strategyWorkbookReducer';
 import { clearPlan } from '@/store/slices/strategicBusinessPlanReducer';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -284,88 +283,82 @@ export function FollowUpToolsTab({
         </p>
       </div>
 
-      {/* Tool cards - always visible and always enabled */}
-      <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
-        <Card className="flex flex-col">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-medium flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Recommendations Report Builder
-            </CardTitle>
-            <CardDescription>
-              Generate a Business Benchmark Analysis{effectiveDiagnosticId ? ' from your diagnostic data' : ' for this engagement'}.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="mt-auto pt-4">
-            <Button
-              variant="outline"
-              className="w-full sm:w-auto"
-              disabled={anyLoading}
-              onClick={runBbaBuilder}
-            >
-              {bbaLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <FileText className="h-4 w-4 mr-2" />
-              )}
-              Run Recommendations Report Builder
-            </Button>
-          </CardContent>
-        </Card>
+      {/* Tool list */}
+      <div className="border rounded-lg overflow-hidden divide-y">
+        {/* Recommendations Report Builder */}
+        <div className="flex items-center justify-between gap-4 p-4 hover:bg-muted/30 transition-colors">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="flex-shrink-0 p-2 rounded-md bg-muted">
+              <FileText className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-medium text-sm">Recommendations Report Builder</p>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Generate a Business Benchmark Analysis{effectiveDiagnosticId ? ' from your diagnostic data' : ' for this engagement'}.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-shrink-0"
+            disabled={anyLoading}
+            onClick={runBbaBuilder}
+          >
+            {bbaLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileText className="h-4 w-4 mr-2" />}
+            Run
+          </Button>
+        </div>
 
-        <Card className="flex flex-col">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-medium flex items-center gap-2">
-              <BookOpen className="h-4 w-4" />
-              Strategy Workbook Creator
-            </CardTitle>
-            <CardDescription>
-              Create a strategic planning workbook{effectiveDiagnosticId ? ' based on your diagnostic insights' : ' for this engagement'}.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="mt-auto pt-4">
-            <Button
-              variant="outline"
-              className="w-full sm:w-auto"
-              disabled={anyLoading}
-              onClick={runStrategyWorkbook}
-            >
-              {swLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <BookOpen className="h-4 w-4 mr-2" />
-              )}
-              Run Strategy Workbook
-            </Button>
-          </CardContent>
-        </Card>
+        {/* Strategy Workbook Creator */}
+        <div className="flex items-center justify-between gap-4 p-4 hover:bg-muted/30 transition-colors">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="flex-shrink-0 p-2 rounded-md bg-muted">
+              <BookOpen className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-medium text-sm">Strategy Workbook Creator</p>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Create a strategic planning workbook{effectiveDiagnosticId ? ' based on your diagnostic insights' : ' for this engagement'}.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-shrink-0"
+            disabled={anyLoading}
+            onClick={runStrategyWorkbook}
+          >
+            {swLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <BookOpen className="h-4 w-4 mr-2" />}
+            Run
+          </Button>
+        </div>
 
-        <Card className="flex flex-col">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-medium flex items-center gap-2">
-              <ClipboardList className="h-4 w-4" />
-              Strategic Business Plan
-            </CardTitle>
-            <CardDescription>
-              Build a professional Strategic Business Plan{effectiveDiagnosticId ? ' from your diagnostic and strategy workbook' : ' for this engagement'}.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="mt-auto pt-4">
-            <Button
-              variant="outline"
-              className="w-full sm:w-auto"
-              disabled={anyLoading}
-              onClick={runStrategicBusinessPlan}
-            >
-              {sbpLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <ClipboardList className="h-4 w-4 mr-2" />
-              )}
-              Run Strategic Business Plan
-            </Button>
-          </CardContent>
-        </Card>
+        {/* Strategic Business Plan */}
+        <div className="flex items-center justify-between gap-4 p-4 hover:bg-muted/30 transition-colors">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="flex-shrink-0 p-2 rounded-md bg-muted">
+              <ClipboardList className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-medium text-sm">Strategic Business Plan</p>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Build a professional Strategic Business Plan{effectiveDiagnosticId ? ' from your diagnostic and strategy workbook' : ' for this engagement'}.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-shrink-0"
+            disabled={anyLoading}
+            onClick={runStrategicBusinessPlan}
+          >
+            {sbpLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ClipboardList className="h-4 w-4 mr-2" />}
+            Run
+          </Button>
+        </div>
       </div>
 
       {/* Confirmation dialog when a progressed BBA already exists */}

@@ -8,8 +8,11 @@ from uuid import UUID
 import asyncio
 import json
 import logging
+import re
 from pathlib import Path
 from datetime import datetime, timezone
+
+_HTML_TAG_RE = re.compile(r'<[^>]+>')
 
 from sqlalchemy.orm import Session
 
@@ -306,7 +309,37 @@ class SBPConversationEngine:
                 "preliminary_observations": [result.get("content", "")],
             }
 
+        result = self._strip_html_from_cross_analysis(result)
         self.sbp_service.save_cross_analysis(plan_id, result)
+        return result
+
+    def _strip_html_from_cross_analysis(self, result: Dict[str, Any]) -> Dict[str, Any]:
+        """Strip any stray HTML tags from cross-analysis string fields before persisting."""
+        def clean(s: Any) -> Any:
+            return _HTML_TAG_RE.sub('', s).strip() if isinstance(s, str) else s
+
+        def clean_list_of_str(lst: list) -> list:
+            return [clean(item) for item in lst]
+
+        def clean_list_of_dict(lst: list, *keys: str) -> list:
+            return [{k: clean(v) if k in keys else v for k, v in item.items()} for item in lst]
+
+        result["recurring_themes"] = clean_list_of_dict(
+            result.get("recurring_themes", []), "theme", "description"
+        )
+        for theme in result["recurring_themes"]:
+            theme["sources"] = clean_list_of_str(theme.get("sources", []))
+
+        result["tensions"] = clean_list_of_dict(
+            result.get("tensions", []), "tension", "description"
+        )
+        result["correlations"] = clean_list_of_dict(
+            result.get("correlations", []), "correlation", "description"
+        )
+        result["data_gaps"] = clean_list_of_str(result.get("data_gaps", []))
+        result["preliminary_observations"] = clean_list_of_str(
+            result.get("preliminary_observations", [])
+        )
         return result
 
     # ------------------------------------------------------------------

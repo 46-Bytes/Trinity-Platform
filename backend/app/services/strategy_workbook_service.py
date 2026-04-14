@@ -56,10 +56,11 @@ class StrategyWorkbookService:
         logger.info(f"Created strategy workbook {workbook.id}")
         return workbook
 
-    def create_from_diagnostic(self, diagnostic_id: UUID, user_id: UUID) -> StrategyWorkbook:
+    def create_from_diagnostic(self, diagnostic_id: UUID, user_id: UUID, force_new: bool = False) -> StrategyWorkbook:
         """
         Create a strategy workbook from a completed diagnostic. Idempotent:
-        if a workbook already exists for this diagnostic_id, returns that workbook.
+        if a workbook already exists for this diagnostic_id and force_new is False,
+        returns that workbook unchanged. If force_new is True, resets it to draft state.
         """
         diagnostic = self.db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
         if not diagnostic:
@@ -77,7 +78,10 @@ class StrategyWorkbookService:
             StrategyWorkbook.diagnostic_id == diagnostic_id
         ).first()
         if existing:
-            logger.info(f"Resetting existing strategy workbook {existing.id} for diagnostic {diagnostic_id}")
+            if not force_new:
+                logger.info(f"Returning existing strategy workbook {existing.id} for diagnostic {diagnostic_id}")
+                return existing
+            logger.info(f"Resetting existing strategy workbook {existing.id} for diagnostic {diagnostic_id} (force_new=True)")
             # Delete old generated file from disk if it exists
             if existing.generated_workbook_path:
                 old_path = Path(existing.generated_workbook_path)
@@ -499,6 +503,20 @@ class StrategyWorkbookService:
         
         return normalized
     
+    def get_workbooks_by_engagement(self, engagement_id: UUID, user_id: UUID) -> List[StrategyWorkbook]:
+        """
+        Return all strategy workbooks for a given engagement, ordered most-recent first.
+        """
+        return (
+            self.db.query(StrategyWorkbook)
+            .filter(
+                StrategyWorkbook.engagement_id == engagement_id,
+                StrategyWorkbook.created_by_user_id == user_id,
+            )
+            .order_by(StrategyWorkbook.updated_at.desc())
+            .all()
+        )
+
     def get_workbook(self, workbook_id: UUID) -> Optional[StrategyWorkbook]:
         """
         Get a workbook by ID.

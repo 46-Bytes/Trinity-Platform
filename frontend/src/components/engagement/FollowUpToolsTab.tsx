@@ -71,6 +71,9 @@ export function FollowUpToolsTab({
   const [showBbaDialog, setShowBbaDialog] = useState(false);
   const [existingBbaStep, setExistingBbaStep] = useState<number>(0);
   const [existingBbaProjectId, setExistingBbaProjectId] = useState<string | null>(null);
+  const [showSwDialog, setShowSwDialog] = useState(false);
+  const [existingSwWorkbookId, setExistingSwWorkbookId] = useState<string | null>(null);
+  const [existingSwStatus, setExistingSwStatus] = useState<string>('');
 
   const completedDiagnostics = diagnostics.filter(
     (d) => (d.status || (d as any).status) === 'completed'
@@ -172,7 +175,7 @@ export function FollowUpToolsTab({
     await launchBba();
   };
 
-  const runStrategyWorkbook = async () => {
+  const launchSwWorkbook = async (forceNew: boolean = false) => {
     setSwLoading(true);
     try {
       const token = getAuthToken();
@@ -180,7 +183,7 @@ export function FollowUpToolsTab({
 
       let url: string;
       if (effectiveDiagnosticId) {
-        url = `${API_BASE_URL}/api/strategy-workbook/create-from-diagnostic?diagnostic_id=${effectiveDiagnosticId}`;
+        url = `${API_BASE_URL}/api/strategy-workbook/create-from-diagnostic?diagnostic_id=${effectiveDiagnosticId}${forceNew ? '&force_new=true' : ''}`;
       } else {
         url = `${API_BASE_URL}/api/strategy-workbook/create-project?engagement_id=${engagementId}`;
       }
@@ -209,6 +212,36 @@ export function FollowUpToolsTab({
     } finally {
       setSwLoading(false);
     }
+  };
+
+  const runStrategyWorkbook = async () => {
+    const token = getAuthToken();
+    if (!token) return;
+
+    setSwLoading(true);
+    // Pre-check for an existing workbook with meaningful progress
+    try {
+      const listRes = await fetch(
+        `${API_BASE_URL}/api/strategy-workbook/?engagement_id=${engagementId}`,
+        { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' }
+      );
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        const workbooks: Array<{ id: string; status: string }> = listData.workbooks || [];
+        const existing = workbooks[0]; // most recent, ordered by updated_at desc
+        if (existing) {
+          setExistingSwStatus(existing.status);
+          setExistingSwWorkbookId(existing.id);
+          setShowSwDialog(true);
+          setSwLoading(false);
+          return;
+        }
+      }
+    } catch {
+      // If pre-check fails, fall through to normal creation
+    }
+
+    await launchSwWorkbook();
   };
 
   const runStrategicBusinessPlan = async () => {
@@ -395,6 +428,49 @@ export function FollowUpToolsTab({
               onClick={() => {
                 setShowBbaDialog(false);
                 launchBba(true);
+              }}
+            >
+              Start Fresh
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation dialog when a strategy workbook already exists */}
+      <AlertDialog open={showSwDialog} onOpenChange={setShowSwDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Existing Strategy Workbook Found</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have an existing Strategy Workbook (Status:{' '}
+              {existingSwStatus.charAt(0).toUpperCase() + existingSwStatus.slice(1)}).
+              Would you like to continue where you left off, or start fresh?
+            </AlertDialogDescription>
+            <p className="text-sm text-destructive mt-2 font-medium">
+              Starting fresh will permanently delete all uploaded files and extracted data.
+            </p>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowSwDialog(false);
+                if (existingSwWorkbookId) {
+                  navigate(`/dashboard/engagements/${engagementId}/strategy-workbook`, {
+                    state: { workbookId: existingSwWorkbookId },
+                  });
+                } else {
+                  launchSwWorkbook();
+                }
+              }}
+            >
+              Continue Existing
+            </AlertDialogAction>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                setShowSwDialog(false);
+                launchSwWorkbook(true);
               }}
             >
               Start Fresh

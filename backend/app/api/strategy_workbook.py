@@ -38,6 +38,22 @@ from app.schemas.strategy_workbook import (
 router = APIRouter(prefix="/strategy-workbook", tags=["strategy-workbook"])
 
 
+@router.get("/", status_code=status.HTTP_200_OK)
+async def list_strategy_workbooks(
+    engagement_id: Optional[UUID] = Query(None, description="Filter workbooks by engagement ID"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    List strategy workbooks for the current user, optionally filtered by engagement.
+    """
+    if not engagement_id:
+        return {"workbooks": [], "count": 0}
+    service = get_strategy_workbook_service(db)
+    workbooks = service.get_workbooks_by_engagement(engagement_id, current_user.id)
+    return {"workbooks": [w.to_dict() for w in workbooks], "count": len(workbooks)}
+
+
 @router.post("/create-project", status_code=status.HTTP_201_CREATED)
 async def create_workbook_project(
     engagement_id: Optional[UUID] = Query(None, description="Optional engagement ID to link the workbook to"),
@@ -70,6 +86,7 @@ async def create_workbook_project(
 @router.post("/create-from-diagnostic", status_code=status.HTTP_201_CREATED)
 async def create_from_diagnostic(
     diagnostic_id: UUID = Query(..., description="Completed diagnostic ID to create strategy workbook from"),
+    force_new: bool = Query(False, description="If true, resets any existing workbook for this diagnostic to draft state"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Dict[str, Any]:
@@ -94,7 +111,7 @@ async def create_from_diagnostic(
         )
     service = get_strategy_workbook_service(db)
     try:
-        workbook = service.create_from_diagnostic(diagnostic_id=diagnostic_id, user_id=current_user.id)
+        workbook = service.create_from_diagnostic(diagnostic_id=diagnostic_id, user_id=current_user.id, force_new=force_new)
     except ValueError as e:
         logger.warning(f"Failed to create workbook from diagnostic: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid request data")

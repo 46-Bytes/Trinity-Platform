@@ -126,14 +126,31 @@ export default function StrategyWorkbookPage() {
       return 'generate';
     }
     if (currentWorkbook.status === 'draft' && uploadedFiles.length > 0) {
-      // While still in draft, show clarify step first, then extract
+      // Active upload session: files were just uploaded, follow the precheck flow
       if (currentStep === 'clarify' || currentStep === 'upload') {
         return 'clarify';
       }
       return 'extract';
     }
+    // Returning to a draft workbook that already has files on the server (e.g. after page reload)
+    // uploadedFiles Redux array is empty but server knows about the files via uploaded_media_ids
+    if (
+      currentWorkbook.status === 'draft' &&
+      uploadedFiles.length === 0 &&
+      (currentWorkbook.uploaded_media_ids?.length ?? 0) > 0
+    ) {
+      return 'extract';
+    }
     if (currentWorkbook.status === 'ready' && currentWorkbook.extracted_data) {
       return 'generate';
+    }
+    // ready without extracted_data in response (large payload edge case) — still go to generate
+    if (currentWorkbook.status === 'ready') {
+      return 'generate';
+    }
+    // Extraction was in progress when the user left — bring them back to the extract step
+    if (currentWorkbook.status === 'extracting') {
+      return 'extract';
     }
     return currentStep;
   };

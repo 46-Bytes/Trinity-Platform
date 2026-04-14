@@ -285,9 +285,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const timer = setTimeout(() => {
       loadCurrentUser();
     }, 100);
-    
+
     return () => clearTimeout(timer);
   }, [loadCurrentUser]);
+
+  // When a fetch returns 401, the global interceptor in main.tsx clears the token
+  // and dispatches this event. We update auth state here so ProtectedRoute redirects
+  // the user to /login instead of showing broken/missing data.
+  useEffect(() => {
+    const handleTokenExpired = () => {
+      setAuthState({ user: null, isAuthenticated: false, isLoading: false });
+      setIsImpersonating(false);
+      setOriginalUser(null);
+    };
+    window.addEventListener('auth:token-expired', handleTokenExpired);
+    return () => window.removeEventListener('auth:token-expired', handleTokenExpired);
+  }, []);
 
   return (
     <AuthContext.Provider value={{ 

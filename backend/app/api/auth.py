@@ -161,7 +161,7 @@ async def callback(
         # Create a custom HS256 JWT so we fully control the expiry.
         # (The raw Auth0 id_token has its own expiry set in the Auth0 dashboard
         # and cannot be shortened from the backend.)
-        token_expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
+        token_expiry = datetime.now(timezone.utc) + timedelta(days=1)
         token_payload = {
             "sub": str(user.id),
             "email": user.email,
@@ -327,7 +327,7 @@ async def login_email_password(
     
     # Create a simple JWT token for the frontend
     token_secret = settings.SECRET_KEY
-    token_expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
+    token_expiry = datetime.now(timezone.utc) + timedelta(days=1)
     
     token_payload = {
         "sub": str(user.id),  # Use user ID instead of auth0_id

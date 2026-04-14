@@ -158,14 +158,19 @@ async def callback(
                 logout_url = f"https://{settings.AUTH0_DOMAIN}/v2/logout?{urlencode(params, quote_via=quote_plus)}"
                 return RedirectResponse(url=logout_url, status_code=302)
         
-        # Get the ID token (JWT) from Auth0 - frontend will use this
-        if not id_token:
-            logger.error(f"  No id_token in Auth0 response")
-            raise Exception("No id_token received from Auth0")
-        
-        # URL encode the token to handle special characters
-        encoded_token = quote_plus(id_token)
-        
+        # Create a custom HS256 JWT so we fully control the expiry.
+        # (The raw Auth0 id_token has its own expiry set in the Auth0 dashboard
+        # and cannot be shortened from the backend.)
+        token_expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
+        token_payload = {
+            "sub": str(user.id),
+            "email": user.email,
+            "role": user.role.value if user.role else "advisor",
+            "exp": token_expiry,
+        }
+        custom_token = jwt.encode(token_payload, settings.SECRET_KEY, algorithm="HS256")
+        encoded_token = quote_plus(custom_token)
+
         # Redirect to frontend callback page with token
         # Frontend will store token in localStorage and redirect to dashboard
         callback_url = f"{settings.FRONTEND_URL}/auth/callback?token={encoded_token}"
@@ -322,7 +327,7 @@ async def login_email_password(
     
     # Create a simple JWT token for the frontend
     token_secret = settings.SECRET_KEY
-    token_expiry = datetime.now(timezone.utc) + timedelta(days=7)
+    token_expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
     
     token_payload = {
         "sub": str(user.id),  # Use user ID instead of auth0_id

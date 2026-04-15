@@ -220,6 +220,7 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
     const updated = expandedFindings.filter((_, i) => i !== index);
     updated.forEach((f, i) => (f.rank = i + 1));
     setExpandedFindings(updated);
+    persistExpandedFindings(updated);
     setOpenItems((prev) => prev.filter((i) => i !== index).map((i) => (i > index ? i - 1 : i)));
   };
 

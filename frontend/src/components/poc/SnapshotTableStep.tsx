@@ -235,8 +235,9 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
   const deleteRow = (index: number) => {
     if (!snapshotTable?.rows.length) return;
     if (!window.confirm('Remove this row from the snapshot table?')) return;
-    const rows = snapshotTable.rows.filter((_, i) => i !== index);
-    setSnapshotTable({ ...snapshotTable, rows: renumberRanks(rows) });
+    const rows = renumberRanks(snapshotTable.rows.filter((_, i) => i !== index));
+    setSnapshotTable({ ...snapshotTable, rows });
+    persistSnapshotTable(rows);
     if (editingIndex === index) {
       setEditingIndex(null);
       setEditForm(null);

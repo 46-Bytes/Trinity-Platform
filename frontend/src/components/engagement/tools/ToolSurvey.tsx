@@ -251,7 +251,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
     ) {
       dispatch(fetchDiagnosticByEngagement(engagementId));
     }
-  }, [diagnostic?.status, diagnostic?.reportHtml, diagnostic?.aiAnalysis, engagementId, dispatch]);
+  }, [diagnostic?.status, !!diagnostic?.reportHtml, !!diagnostic?.aiAnalysis?.advisorReport, engagementId, dispatch]);
 
   // Merge Redux responses (source of truth) with local unsaved changes
   const responses = useMemo(() => {

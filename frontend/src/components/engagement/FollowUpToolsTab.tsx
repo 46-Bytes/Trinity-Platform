@@ -74,6 +74,9 @@ export function FollowUpToolsTab({
   const [showSwDialog, setShowSwDialog] = useState(false);
   const [existingSwWorkbookId, setExistingSwWorkbookId] = useState<string | null>(null);
   const [existingSwStatus, setExistingSwStatus] = useState<string>('');
+  const [showSbpDialog, setShowSbpDialog] = useState(false);
+  const [existingSbpPlanId, setExistingSbpPlanId] = useState<string | null>(null);
+  const [existingSbpStatus, setExistingSbpStatus] = useState<string>('');
 
   const completedDiagnostics = diagnostics.filter(
     (d) => (d.status || (d as any).status) === 'completed'
@@ -244,37 +247,17 @@ export function FollowUpToolsTab({
     await launchSwWorkbook();
   };
 
-  const runStrategicBusinessPlan = async () => {
+  const launchStrategicBusinessPlan = async (forceNew: boolean = false) => {
     setSbpLoading(true);
     try {
       const token = getAuthToken();
       if (!token) return;
 
-      // Check for an existing plan for this engagement first
-      try {
-        const listRes = await fetch(`${API_BASE_URL}/api/strategic-business-plan/?engagement_id=${engagementId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-          credentials: 'include',
-        });
-        if (listRes.ok) {
-          const plans: Array<{ id: string; max_step_reached?: number; updated_at?: string }> = await listRes.json();
-          if (plans.length > 0) {
-            // Load the most recent plan (already sorted by updated_at desc from backend)
-            const existing = plans[0];
-            dispatch(clearPlan());
-            navigate(`/dashboard/engagements/${engagementId}/strategic-business-plan`, { state: { sbpPlanId: existing.id } });
-            return;
-          }
-        }
-      } catch {
-        // If pre-check fails, fall through to create
-      }
-
       let url: string;
       if (effectiveDiagnosticId) {
-        url = `${API_BASE_URL}/api/strategic-business-plan/create-from-diagnostic?diagnostic_id=${effectiveDiagnosticId}`;
+        url = `${API_BASE_URL}/api/strategic-business-plan/create-from-diagnostic?diagnostic_id=${effectiveDiagnosticId}${forceNew ? '&force_new=true' : ''}`;
       } else {
-        url = `${API_BASE_URL}/api/strategic-business-plan/create?engagement_id=${engagementId}`;
+        url = `${API_BASE_URL}/api/strategic-business-plan/create?engagement_id=${engagementId}${forceNew ? '&force_new=true' : ''}`;
       }
 
       const res = await fetch(url, {
@@ -301,6 +284,35 @@ export function FollowUpToolsTab({
     } finally {
       setSbpLoading(false);
     }
+  };
+
+  const runStrategicBusinessPlan = async () => {
+    const token = getAuthToken();
+    if (!token) return;
+
+    setSbpLoading(true);
+    // Pre-check for an existing plan with meaningful progress
+    try {
+      const listRes = await fetch(`${API_BASE_URL}/api/strategic-business-plan/?engagement_id=${engagementId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
+      });
+      if (listRes.ok) {
+        const plans: Array<{ id: string; status?: string; updated_at?: string }> = await listRes.json();
+        if (plans.length > 0) {
+          const existing = plans[0];
+          setExistingSbpStatus(existing.status || 'in_progress');
+          setExistingSbpPlanId(existing.id);
+          setShowSbpDialog(true);
+          setSbpLoading(false);
+          return;
+        }
+      }
+    } catch {
+      // If pre-check fails, fall through to normal creation
+    }
+
+    await launchStrategicBusinessPlan();
   };
 
   return (
@@ -428,6 +440,50 @@ export function FollowUpToolsTab({
               onClick={() => {
                 setShowBbaDialog(false);
                 launchBba(true);
+              }}
+            >
+              Start Fresh
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation dialog when a strategic business plan already exists */}
+      <AlertDialog open={showSbpDialog} onOpenChange={setShowSbpDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Existing Strategic Business Plan Found</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have an existing Strategic Business Plan (Status:{' '}
+              {existingSbpStatus.charAt(0).toUpperCase() + existingSbpStatus.slice(1).replace(/_/g, ' ')}).
+              Would you like to continue where you left off, or start fresh?
+            </AlertDialogDescription>
+            <p className="text-sm text-destructive mt-2 font-medium">
+              Starting fresh will permanently delete all existing plan data.
+            </p>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowSbpDialog(false);
+                if (existingSbpPlanId) {
+                  dispatch(clearPlan());
+                  navigate(`/dashboard/engagements/${engagementId}/strategic-business-plan`, {
+                    state: { sbpPlanId: existingSbpPlanId },
+                  });
+                } else {
+                  launchStrategicBusinessPlan();
+                }
+              }}
+            >
+              Continue Existing
+            </AlertDialogAction>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                setShowSbpDialog(false);
+                launchStrategicBusinessPlan(true);
               }}
             >
               Start Fresh

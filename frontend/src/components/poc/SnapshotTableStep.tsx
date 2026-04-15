@@ -198,18 +198,22 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
     if (index <= 0 || !snapshotTable) return;
     const rows = [...snapshotTable.rows];
     [rows[index - 1], rows[index]] = [rows[index], rows[index - 1]];
-    setSnapshotTable({ ...snapshotTable, rows: renumberRanks(rows) });
+    const reordered = renumberRanks(rows);
+    setSnapshotTable({ ...snapshotTable, rows: reordered });
     if (editingIndex === index) setEditingIndex(index - 1);
     else if (editingIndex === index - 1) setEditingIndex(index);
+    persistSnapshotTable(reordered);
   };
 
   const moveRowDown = (index: number) => {
     if (!snapshotTable || index >= snapshotTable.rows.length - 1) return;
     const rows = [...snapshotTable.rows];
     [rows[index], rows[index + 1]] = [rows[index + 1], rows[index]];
-    setSnapshotTable({ ...snapshotTable, rows: renumberRanks(rows) });
+    const reordered = renumberRanks(rows);
+    setSnapshotTable({ ...snapshotTable, rows: reordered });
     if (editingIndex === index) setEditingIndex(index + 1);
     else if (editingIndex === index + 1) setEditingIndex(index);
+    persistSnapshotTable(reordered);
   };
 
   const addRow = () => {

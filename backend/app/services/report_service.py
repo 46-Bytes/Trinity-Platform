@@ -1593,30 +1593,50 @@ class ReportService:
         hyphens on table cells.  This method pre-wraps text in Python
         using <br/> tags so content never overflows the cell boundary.
 
-        - Wraps at spaces when possible
-        - Breaks long words with '-' and <br/>
+        - Wraps at spaces AND hyphens when possible
+        - Treats hyphenated words (e.g. "under-performing") as breakable at
+          the hyphen only when wrapping is actually needed — never forces a
+          break at every hyphen unconditionally
+        - Breaks oversized tokens that exceed max_line_len with '-' and <br/>
         - Must be called AFTER _escape_html
         """
         if not text or len(text) <= max_line_len:
             return text
-        words = text.split(' ')
+
+        # Build a flat token list by splitting on spaces first, then hyphens.
+        # Each entry: (token_text, needs_space_before)
+        # e.g. "under-performing" → [("under-", True), ("performing", False)]
+        # The hyphen-continuation token gets no leading space so it glues to
+        # the end of the previous token when both fit on the same line.
+        tokens: list[tuple[str, bool]] = []
+        for space_word in text.split(' '):
+            if not space_word:
+                continue
+            hyphen_parts = space_word.split('-')
+            for j, part in enumerate(hyphen_parts):
+                token_text = part + '-' if j < len(hyphen_parts) - 1 else part
+                needs_space = (j == 0)
+                tokens.append((token_text, needs_space))
+
         lines: list[str] = []
         current_line = ''
-        for word in words:
-            # If word fits on current line
-            needed = len(current_line) + (1 if current_line else 0) + len(word)
+
+        for token_text, needs_space in tokens:
+            sep = ' ' if (needs_space and current_line) else ''
+            needed = len(current_line) + len(sep) + len(token_text)
+
             if needed <= max_line_len:
-                current_line = (current_line + ' ' + word) if current_line else word
+                current_line = current_line + sep + token_text
             else:
-                # Flush current line
                 if current_line:
                     lines.append(current_line)
                     current_line = ''
-                # Break long words that exceed max_line_len
-                while len(word) > max_line_len:
-                    lines.append(word[:max_line_len - 1] + '-')
-                    word = word[max_line_len - 1:]
-                current_line = word
+                # Break oversized tokens that exceed the full line limit
+                while len(token_text) > max_line_len:
+                    lines.append(token_text[:max_line_len - 1] + '-')
+                    token_text = token_text[max_line_len - 1:]
+                current_line = token_text
+
         if current_line:
             lines.append(current_line)
         return '<br/>'.join(lines)

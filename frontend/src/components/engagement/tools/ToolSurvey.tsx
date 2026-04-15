@@ -131,76 +131,111 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
       return;
     }
 
-    const pollInterval = setInterval(async () => {
+    let cancelled = false;
+    let pollInterval: ReturnType<typeof setInterval> | null = null;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+
+    // Remove this diagnostic from localStorage tracking
+    const removeFromLocalStorage = () => {
+      try {
+        const stored = localStorage.getItem('processing_diagnostics');
+        if (stored) {
+          const diagnostics = JSON.parse(stored);
+          const updated = diagnostics.filter((d: { id: string }) => d.id !== diagnostic.id);
+          if (updated.length > 0) {
+            localStorage.setItem('processing_diagnostics', JSON.stringify(updated));
+          } else {
+            localStorage.removeItem('processing_diagnostics');
+          }
+        }
+      } catch (e) {
+        // Ignore errors
+      }
+    };
+
+    const handleCompleted = () => {
+      if (pollInterval) clearInterval(pollInterval);
+      if (timeout) clearTimeout(timeout);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      dispatch(stopPolling());
+      removeFromLocalStorage();
+      toast.success('✅ Diagnostic processing completed! PDF report is ready for download.', {
+        duration: 10000,
+      });
+      dispatch(fetchDiagnosticByEngagement(engagementId));
+    };
+
+    const handleFailed = () => {
+      if (pollInterval) clearInterval(pollInterval);
+      if (timeout) clearTimeout(timeout);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      dispatch(stopPolling());
+      removeFromLocalStorage();
+      toast.error('❌ Diagnostic processing failed. Please try submitting again.');
+    };
+
+    // Trigger an immediate re-check whenever the tab becomes visible — handles the case
+    // where the browser throttled the setInterval while the tab was in the background.
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState !== 'visible' || cancelled) return;
       try {
         const result = await dispatch(checkDiagnosticStatus(diagnostic.id)).unwrap();
-        
-        if (result.status === 'completed') {
-          clearInterval(pollInterval);
-          dispatch(stopPolling());
-          
-          // Remove from localStorage (global polling will also handle this, but do it here too)
-          try {
-            const stored = localStorage.getItem('processing_diagnostics');
-            if (stored) {
-              const diagnostics = JSON.parse(stored);
-              const updated = diagnostics.filter((d: { id: string }) => d.id !== diagnostic.id);
-              if (updated.length > 0) {
-                localStorage.setItem('processing_diagnostics', JSON.stringify(updated));
-              } else {
-                localStorage.removeItem('processing_diagnostics');
-              }
-            }
-          } catch (e) {
-            // Ignore errors
-          }
-          
-          // Show notification (global polling will also show one, but this is for immediate feedback)
-          toast.success('✅ Diagnostic processing completed! PDF report is ready for download.', {
-            duration: 10000,
-          });
-          
-          // Refresh diagnostic data
-          dispatch(fetchDiagnosticByEngagement(engagementId));
-        } else if (result.status === 'failed') {
-          clearInterval(pollInterval);
-          dispatch(stopPolling());
-          
-          // Remove from localStorage
-          try {
-            const stored = localStorage.getItem('processing_diagnostics');
-            if (stored) {
-              const diagnostics = JSON.parse(stored);
-              const updated = diagnostics.filter((d: { id: string }) => d.id !== diagnostic.id);
-              if (updated.length > 0) {
-                localStorage.setItem('processing_diagnostics', JSON.stringify(updated));
-              } else {
-                localStorage.removeItem('processing_diagnostics');
-              }
-            }
-          } catch (e) {
-            // Ignore errors
-          }
-          
-          toast.error('❌ Diagnostic processing failed. Please try submitting again.');
-        }
-      } catch (error) {
-        console.error('Error checking diagnostic status:', error);
-        // Continue polling on error (don't stop)
+        if (cancelled) return;
+        if (result.status === 'completed') handleCompleted();
+        else if (result.status === 'failed') handleFailed();
+      } catch (e) {
+        console.error('Visibility check error:', e);
       }
-    }, 30000); // Poll every 30 seconds
+    };
 
-    // Safety timeout: stop polling after 20 minutes
-    const timeout = setTimeout(() => {
-      clearInterval(pollInterval);
-      dispatch(stopPolling());
-      toast.warning('Processing is taking longer than expected. Please check back later.');
-    }, 20 * 60 * 1000); // 20 minutes
+    const run = async () => {
+      // Immediate check on effect entry — don't wait for the first interval tick.
+      // This ensures that if the report already completed (e.g. on a different session/PC)
+      // the loading screen clears as soon as the component mounts or remounts.
+      try {
+        const immediateResult = await dispatch(checkDiagnosticStatus(diagnostic.id)).unwrap();
+        if (cancelled) return;
+        if (immediateResult.status === 'completed') { handleCompleted(); return; }
+        if (immediateResult.status === 'failed')    { handleFailed();    return; }
+      } catch (e) {
+        if (cancelled) return;
+        console.error('Immediate status check error:', e);
+        // Fall through and start interval even if the immediate check failed
+      }
 
-    // Cleanup on unmount or when status changes
+      if (cancelled) return;
+
+      // Continue polling every 10 seconds until terminal state
+      pollInterval = setInterval(async () => {
+        try {
+          const result = await dispatch(checkDiagnosticStatus(diagnostic.id)).unwrap();
+          if (result.status === 'completed') handleCompleted();
+          else if (result.status === 'failed') handleFailed();
+        } catch (error) {
+          console.error('Error checking diagnostic status:', error);
+          // Continue polling on error (don't stop)
+        }
+      }, 10000); // Poll every 10 seconds
+
+      // Safety timeout: stop polling after 20 minutes
+      timeout = setTimeout(() => {
+        if (pollInterval) clearInterval(pollInterval);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        dispatch(stopPolling());
+        toast.warning('Processing is taking longer than expected. Please check back later.');
+      }, 20 * 60 * 1000); // 20 minutes
+
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    };
+
+    run();
+
+    // Cleanup on unmount or when deps change
     return () => {
-      clearInterval(pollInterval);
-      clearTimeout(timeout);
+      cancelled = true;
+      if (pollInterval) clearInterval(pollInterval);
+      if (timeout) clearTimeout(timeout);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [diagnostic?.id, diagnostic?.status, isPolling, dispatch, engagementId]);
 
@@ -947,7 +982,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
         <div className="flex flex-col items-center justify-center py-24 gap-4">
           <Loader2 className="h-12 w-12 text-accent animate-spin" />
           <p className="text-sm text-muted-foreground text-center max-w-md">
-            Generating your AI report. This can take 10-15 minutes. You can safely keep this tab open while we process your results.
+            Generating your AI report. This can take 15-20 minutes. You can safely keep this tab open while we process your results.
           </p>
           {diagnostic.status === 'processing' && (
             <>

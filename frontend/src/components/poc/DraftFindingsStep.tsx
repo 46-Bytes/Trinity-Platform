@@ -55,8 +55,13 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
     onLoadingStateChangeRef.current = onLoadingStateChange;
   }, [onLoadingStateChange]);
 
+  // Guard against background cache refreshes overwriting live user edits
+  const hasInitialized = useRef(false);
+
   // Load existing findings on mount — use cached data if available
   useEffect(() => {
+    if (hasInitialized.current) return;
+
     const applyProject = (project: any) => {
       if (project?.draft_findings) {
         const findingsData = project.draft_findings.findings ||
@@ -71,6 +76,7 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
     if (initialData?.draft_findings) {
       applyProject(initialData);
       setIsInitialLoading(false);
+      hasInitialized.current = true;
       return;
     }
 
@@ -90,6 +96,7 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
         console.error('Failed to load existing findings:', err);
       } finally {
         setIsInitialLoading(false);
+        hasInitialized.current = true;
       }
     };
 
@@ -168,6 +175,17 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
       return;
     }
 
+    // Auto-commit any unsaved row before confirming
+    let findingsToConfirm = findings;
+    if (editingIndex !== null && editForm) {
+      const updated = [...findings];
+      updated[editingIndex] = editForm;
+      findingsToConfirm = updated;
+      setFindings(updated);
+      setEditingIndex(null);
+      setEditForm(null);
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -181,7 +199,7 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
         },
         credentials: 'include',
         body: JSON.stringify({
-          findings: findings,
+          findings: findingsToConfirm,
         }),
       });
 
@@ -196,7 +214,7 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
 
       // Call onComplete to proceed to next step
       setTimeout(() => {
-        onComplete(findings);
+        onComplete(findingsToConfirm);
       }, 50);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to confirm findings';

@@ -48,8 +48,14 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
     onLoadingStateChangeRef.current = onLoadingStateChange;
   }, [onLoadingStateChange]);
 
+  // Track whether initial data has been applied so that a cache refresh
+  // triggered by persistSnapshotTable doesn't overwrite in-progress edits
+  const hasInitialized = useRef(false);
+
   // Load existing snapshot table on mount — use cached data if available
   useEffect(() => {
+    if (hasInitialized.current) return;
+
     const applyProject = (project: any) => {
       if (project?.snapshot_table) {
         const tableData = project.snapshot_table.snapshot_table || project.snapshot_table;
@@ -62,6 +68,7 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
     if (initialData?.snapshot_table) {
       applyProject(initialData);
       setIsInitialLoading(false);
+      hasInitialized.current = true;
       return;
     }
 
@@ -84,6 +91,7 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
         console.error('Failed to load existing snapshot table:', err);
       } finally {
         setIsInitialLoading(false);
+        hasInitialized.current = true;
       }
     };
 
@@ -149,6 +157,22 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
     }
   };
 
+  // Persist snapshot table edits to backend (non-blocking)
+  const persistSnapshotTable = (updatedRows: SnapshotRow[]) => {
+    const token = localStorage.getItem('auth_token');
+    fetch(`${API_BASE_URL}/api/poc/${projectId}/step5/save`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      credentials: 'include',
+      body: JSON.stringify({ rows: updatedRows }),
+    })
+      .then(() => onDataChange?.())
+      .catch((err) => console.error('Failed to auto-save snapshot table:', err));
+  };
+
   // Save edit
   const saveEdit = () => {
     if (editingIndex !== null && editForm && snapshotTable) {
@@ -157,6 +181,7 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
       setSnapshotTable({ ...snapshotTable, rows: updatedRows });
       setEditingIndex(null);
       setEditForm(null);
+      persistSnapshotTable(updatedRows);
     }
   };
 

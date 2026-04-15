@@ -849,6 +849,35 @@ async def expand_findings(
         )
 
 
+@router.patch("/{project_id}/step4/save", status_code=status.HTTP_200_OK)
+async def save_expanded_findings(
+    project_id: UUID,
+    body: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Save manual edits to expanded findings without regenerating."""
+    bba_service = get_bba_service(db)
+    bba = bba_service.get_bba(project_id)
+
+    if not bba:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="BBA project not found")
+    if bba.created_by_user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this project")
+
+    expanded_findings = body.get("expanded_findings")
+    if expanded_findings is None or not isinstance(expanded_findings, list):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="expanded_findings must be an array")
+
+    existing = bba.expanded_findings or {}
+    updated_bba = bba_service.update_expanded_findings(
+        bba_id=project_id,
+        expanded_findings={**existing, "expanded_findings": expanded_findings},
+    )
+
+    return {"success": True, "message": "Expanded findings saved", "project": updated_bba.to_dict()}
+
+
 # =============================================================================
 # STEP 5: Snapshot Table
 # =============================================================================
@@ -919,6 +948,38 @@ async def generate_snapshot_table(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate snapshot table. Please try again or contact support."
         )
+
+
+@router.patch("/{project_id}/step5/save", status_code=status.HTTP_200_OK)
+async def save_snapshot_table(
+    project_id: UUID,
+    body: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Save manual edits to the snapshot table without regenerating."""
+    bba_service = get_bba_service(db)
+    bba = bba_service.get_bba(project_id)
+
+    if not bba:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="BBA project not found")
+    if bba.created_by_user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this project")
+
+    rows = body.get("rows")
+    if rows is None or not isinstance(rows, list):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="rows must be an array")
+
+    existing = bba.snapshot_table or {}
+    # Data is stored as { "snapshot_table": { "title": ..., "rows": [...] } }
+    # Update rows inside the nested key to preserve title and other fields
+    inner = existing.get("snapshot_table", existing)
+    updated_bba = bba_service.update_snapshot_table(
+        bba_id=project_id,
+        snapshot_table={**existing, "snapshot_table": {**inner, "rows": rows}},
+    )
+
+    return {"success": True, "message": "Snapshot table saved", "project": updated_bba.to_dict()}
 
 
 # =============================================================================

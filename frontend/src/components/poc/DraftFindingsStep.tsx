@@ -242,7 +242,9 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
       },
       credentials: 'include',
       body: JSON.stringify({ findings: updatedFindings }),
-    }).catch((err) => console.error('Failed to auto-save findings:', err));
+    })
+      .then(() => onDataChange?.())
+      .catch((err) => console.error('Failed to auto-save findings:', err));
   };
 
   // Move finding up/down

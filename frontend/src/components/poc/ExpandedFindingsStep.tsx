@@ -47,8 +47,14 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
     onLoadingStateChangeRef.current = onLoadingStateChange;
   }, [onLoadingStateChange]);
 
+  // Track whether initial data has been applied so that a cache refresh
+  // triggered by persistExpandedFindings doesn't overwrite in-progress edits
+  const hasInitialized = useRef(false);
+
   // Load existing expanded findings on mount — use cached data if available
   useEffect(() => {
+    if (hasInitialized.current) return;
+
     const applyProject = (project: any) => {
       if (project?.expanded_findings) {
         const findingsData = project.expanded_findings.expanded_findings ||
@@ -63,6 +69,7 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
     if (initialData?.expanded_findings) {
       applyProject(initialData);
       setIsInitialLoading(false);
+      hasInitialized.current = true;
       return;
     }
 
@@ -82,6 +89,7 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
         console.error('Failed to load existing expanded findings:', err);
       } finally {
         setIsInitialLoading(false);
+        hasInitialized.current = true;
       }
     };
 
@@ -164,6 +172,22 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
     setEditForm({ ...expandedFindings[index] });
   };
 
+  // Persist expanded findings edits to backend (non-blocking)
+  const persistExpandedFindings = (updatedFindings: ExpandedFinding[]) => {
+    const token = localStorage.getItem('auth_token');
+    fetch(`${API_BASE_URL}/api/poc/${projectId}/step4/save`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      credentials: 'include',
+      body: JSON.stringify({ expanded_findings: updatedFindings }),
+    })
+      .then(() => onDataChange?.())
+      .catch((err) => console.error('Failed to auto-save expanded findings:', err));
+  };
+
   // Save edit
   const saveEdit = () => {
     if (editingIndex !== null && editForm) {
@@ -172,6 +196,7 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
       setExpandedFindings(updated);
       setEditingIndex(null);
       setEditForm(null);
+      persistExpandedFindings(updated);
     }
   };
 

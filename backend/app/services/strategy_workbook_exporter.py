@@ -185,17 +185,39 @@ class StrategyWorkbookExporter:
                 return row_idx + 1  # Data starts after headers
         return section_start_row + 2  # Default: skip header row
     
+    def _shift_images_for_row_insert(self, ws, inserted_row: int):
+        """Shift drawing anchors down by 1 when a row is inserted above them.
+
+        openpyxl's insert_rows() does not move image anchors automatically.
+        Drawing anchors use 0-based row indices; worksheet rows are 1-based.
+        """
+        if not hasattr(ws, '_drawing') or ws._drawing is None:
+            return
+
+        inserted_row_0based = inserted_row - 1  # convert to 0-based
+
+        for anchor in (ws._drawing.twoCellAnchor or []):
+            if anchor._from is not None and anchor._from.row >= inserted_row_0based:
+                anchor._from.row += 1
+            if anchor.to is not None and anchor.to.row >= inserted_row_0based:
+                anchor.to.row += 1
+
+        for anchor in (ws._drawing.oneCellAnchor or []):
+            if anchor._from is not None and anchor._from.row >= inserted_row_0based:
+                anchor._from.row += 1
+
     def _insert_row_with_formatting(self, ws, row_idx: int, source_row_idx: int):
         """
         Insert a new row and copy formatting from source row.
-        
+
         Args:
             ws: Worksheet
             row_idx: Row index to insert at
             source_row_idx: Row index to copy formatting from
         """
         ws.insert_rows(row_idx)
-        
+        self._shift_images_for_row_insert(ws, row_idx)
+
         # Copy formatting from source row
         source_row = ws[source_row_idx]
         new_row = ws[row_idx]

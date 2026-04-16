@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -42,6 +43,7 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
   const [error, setError] = useState<string | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<SnapshotRow | null>(null);
+  const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
   // Use ref to store the callback to avoid infinite loops
   const onLoadingStateChangeRef = useRef(onLoadingStateChange);
   useEffect(() => {
@@ -234,7 +236,12 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
 
   const deleteRow = (index: number) => {
     if (!snapshotTable?.rows.length) return;
-    if (!window.confirm('Remove this row from the snapshot table?')) return;
+    setPendingDeleteIndex(index);
+  };
+
+  const confirmDeleteRow = () => {
+    if (pendingDeleteIndex === null || !snapshotTable) return;
+    const index = pendingDeleteIndex;
     const rows = renumberRanks(snapshotTable.rows.filter((_, i) => i !== index));
     setSnapshotTable({ ...snapshotTable, rows });
     persistSnapshotTable(rows);
@@ -244,6 +251,7 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
     } else if (editingIndex !== null && editingIndex > index) {
       setEditingIndex(editingIndex - 1);
     }
+    setPendingDeleteIndex(null);
   };
 
   return (
@@ -434,6 +442,23 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
           </>
         )}
       </CardContent>
+
+      <AlertDialog open={pendingDeleteIndex !== null} onOpenChange={(open) => { if (!open) setPendingDeleteIndex(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete row?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove row {pendingDeleteIndex !== null ? pendingDeleteIndex + 1 : ''} from the snapshot table. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteRow} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

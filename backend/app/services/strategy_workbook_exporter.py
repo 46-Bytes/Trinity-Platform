@@ -11,6 +11,9 @@ from pathlib import Path
 import io
 import logging
 import copy
+import re
+import zipfile
+import xml.etree.ElementTree as ET
 
 try:
     from openpyxl import load_workbook, Workbook
@@ -112,34 +115,62 @@ class StrategyWorkbookExporter:
         self._map_risks(ws, extracted_data.get("risks", {}))
         self._map_strategic_priorities(ws, extracted_data.get("strategic_priorities", []))
         self._map_key_actions(ws, extracted_data.get("key_actions", []))
-        
-        # Save to bytes or file
+
+        # Capture the GROWTH OPPORTUNITIES row NOW (while the worksheet is still
+        # in memory) so we can pass it to the XML patcher after saving.
+        # Use the FULL header text "GROWTH OPPORTUNITIES - ANSOFF" (not just the
+        # keyword "GROWTH OPPORTUNITIES") so that AI-extracted data values that
+        # happen to contain "growth opportunities" (e.g. a competitor market
+        # segment named "Growth opportunities in B2B") are never matched.
+        growth_row = self._find_section_start(ws, "GROWTH OPPORTUNITIES - ANSOFF")
+        if growth_row is None:
+            logger.warning("GROWTH OPPORTUNITIES - ANSOFF section not found – Ansoff image will not be repositioned")
+
+        # Save to bytes first (openpyxl preserves the original drawing XML as-is;
+        # any Python-level anchor mutations are silently discarded at save time).
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        excel_bytes = buffer.getvalue()
+
+        # Patch the drawing XML directly inside the saved zip so the Ansoff matrix
+        # image lands to the right of the Notes column in the correct section.
+        if growth_row is not None:
+            excel_bytes = self._patch_ansoff_image_xml(excel_bytes, growth_row)
+
         if output_path:
-            wb.save(output_path)
-            with open(output_path, "rb") as f:
-                return f.read()
-        else:
-            buffer = io.BytesIO()
-            wb.save(buffer)
-            buffer.seek(0)
-            return buffer.getvalue()
+            with open(output_path, "wb") as f:
+                f.write(excel_bytes)
+
+        return excel_bytes
     
     def _find_section_start(self, ws, section_name: str) -> Optional[int]:
         """
         Find the row number where a section starts.
-        
+
+        Only checks column 1, where section headers live in the template.
+        Restricting to column 1 prevents false positives from data cells in
+        other columns.
+
+        Callers that need to avoid matching ambiguous substrings should pass
+        the full, unique section-header text rather than a short keyword.
+        For example, use ``"GROWTH OPPORTUNITIES - ANSOFF"`` instead of
+        ``"GROWTH OPPORTUNITIES"`` so that a competitor market-segment value
+        like ``"Growth opportunities in B2B"`` is not mistaken for the header.
+
         Args:
             ws: Worksheet
-            section_name: Name of section to find (e.g., "VISIONING")
-            
+            section_name: Name of section to find (e.g., "VISIONING").
+                          Pass the full header text for uniqueness.
+
         Returns:
             Row number or None if not found
         """
-        for row_idx, row in enumerate(ws.iter_rows(min_row=1, max_row=500, values_only=False), start=1):
-            for cell in row:
-                if cell.value and isinstance(cell.value, str):
-                    if section_name.upper() in cell.value.upper():
-                        return row_idx
+        section_upper = section_name.upper()
+        for row_idx in range(1, 501):
+            cell = ws.cell(row=row_idx, column=1)
+            if cell.value and isinstance(cell.value, str):
+                if section_upper in cell.value.strip().upper():
+                    return row_idx
         return None
     
     def _find_next_section_start(self, ws, after_row: int) -> Optional[int]:
@@ -190,21 +221,36 @@ class StrategyWorkbookExporter:
 
         openpyxl's insert_rows() does not move image anchors automatically.
         Drawing anchors use 0-based row indices; worksheet rows are 1-based.
-        """
-        if not hasattr(ws, '_drawing') or ws._drawing is None:
-            return
 
+        When openpyxl loads an existing workbook, images are stored in
+        ws._images (not ws._drawing, which stays None).  We must iterate
+        both locations to guarantee all anchors are shifted.
+        """
         inserted_row_0based = inserted_row - 1  # convert to 0-based
 
-        for anchor in (ws._drawing.twoCellAnchor or []):
-            if anchor._from is not None and anchor._from.row >= inserted_row_0based:
-                anchor._from.row += 1
-            if anchor.to is not None and anchor.to.row >= inserted_row_0based:
-                anchor.to.row += 1
+        # Primary path: images loaded from an existing file live in ws._images
+        for img in getattr(ws, '_images', []):
+            anchor = getattr(img, 'anchor', None)
+            if anchor is None:
+                continue
+            if hasattr(anchor, '_from') and anchor._from is not None:
+                if anchor._from.row >= inserted_row_0based:
+                    anchor._from.row += 1
+            if hasattr(anchor, 'to') and anchor.to is not None:
+                if anchor.to.row >= inserted_row_0based:
+                    anchor.to.row += 1
 
-        for anchor in (ws._drawing.oneCellAnchor or []):
-            if anchor._from is not None and anchor._from.row >= inserted_row_0based:
-                anchor._from.row += 1
+        # Legacy / chart path: ws._drawing is populated in some openpyxl versions
+        if hasattr(ws, '_drawing') and ws._drawing is not None:
+            for anchor in (ws._drawing.twoCellAnchor or []):
+                if anchor._from is not None and anchor._from.row >= inserted_row_0based:
+                    anchor._from.row += 1
+                if anchor.to is not None and anchor.to.row >= inserted_row_0based:
+                    anchor.to.row += 1
+
+            for anchor in (ws._drawing.oneCellAnchor or []):
+                if anchor._from is not None and anchor._from.row >= inserted_row_0based:
+                    anchor._from.row += 1
 
     def _insert_row_with_formatting(self, ws, row_idx: int, source_row_idx: int):
         """
@@ -301,7 +347,159 @@ class StrategyWorkbookExporter:
             
             # Copy data validation (if any)
             # Note: openpyxl doesn't easily copy validation, so we'll handle it per section
-    
+
+    # ------------------------------------------------------------------
+    # Ansoff image positioning — direct XML patch
+    # ------------------------------------------------------------------
+    # When openpyxl loads an existing workbook it preserves the drawing
+    # XML as raw bytes in the zip archive.  Even though Python-level Image
+    # anchor attributes ARE mutable, the serialiser re-writes the original
+    # raw XML — completely ignoring any in-memory mutations.  The only
+    # reliable fix is to patch the drawing XML inside the zip AFTER openpyxl
+    # has saved the workbook.
+    # ------------------------------------------------------------------
+
+    _XDR_NS = 'http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing'
+
+    def _modify_drawing_xml(
+        self,
+        xml_bytes: bytes,
+        target_row_0based: int,
+        from_col: int,
+        to_col: int,
+        fallback_height: int,
+    ) -> bytes:
+        """
+        Parse a drawing XML blob, move every image anchor to *target_row_0based*
+        in columns *from_col*–*to_col*, and return the re-serialised bytes.
+
+        Only ``<xdr:twoCellAnchor>`` blocks that contain a ``<xdr:pic>`` element
+        (i.e. actual images) are modified; chart anchors are left unchanged.
+        """
+        # Register namespaces so ET.tostring preserves the original prefixes
+        # (without this, ET rewrites them as ns0:, ns1:, … which breaks Excel)
+        _ns_map = {
+            'xdr': 'http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing',
+            'a':   'http://schemas.openxmlformats.org/drawingml/2006/main',
+            'r':   'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+            'p':   'http://schemas.openxmlformats.org/presentationml/2006/main',
+            'mc':  'http://schemas.openxmlformats.org/markup-compatibility/2006',
+        }
+        for prefix, uri in _ns_map.items():
+            ET.register_namespace(prefix, uri)
+
+        try:
+            root = ET.fromstring(xml_bytes)
+        except ET.ParseError as exc:
+            logger.error(f"Drawing XML parse error: {exc}")
+            return xml_bytes
+
+        XDR = self._XDR_NS
+        modified = False
+
+        for anchor in root.findall(f'{{{XDR}}}twoCellAnchor'):
+            from_elem = anchor.find(f'{{{XDR}}}from')
+            to_elem   = anchor.find(f'{{{XDR}}}to')
+            if from_elem is None or to_elem is None:
+                continue
+
+            # Only touch anchors that hold a picture (skip charts)
+            if anchor.find(f'.//{{{XDR}}}pic') is None:
+                continue
+
+            f_row = from_elem.find(f'{{{XDR}}}row')
+            t_row = to_elem.find(f'{{{XDR}}}row')
+            if f_row is None or t_row is None:
+                continue
+
+            # Preserve the image's original row-height
+            try:
+                height = int(t_row.text or 0) - int(f_row.text or 0)
+                if height <= 0:
+                    height = fallback_height
+            except (ValueError, TypeError):
+                height = fallback_height
+
+            # ---- update row ----
+            f_row.text = str(target_row_0based)
+            t_row.text = str(target_row_0based + height)
+
+            # ---- update column ----
+            f_col = from_elem.find(f'{{{XDR}}}col')
+            t_col = to_elem.find(f'{{{XDR}}}col')
+            if f_col is not None:
+                f_col.text = str(from_col)
+            if t_col is not None:
+                t_col.text = str(to_col)
+
+            # ---- zero out pixel offsets so the image snaps to the cell grid ----
+            for marker in (from_elem, to_elem):
+                for tag in ('rowOff', 'colOff'):
+                    e = marker.find(f'{{{XDR}}}{tag}')
+                    if e is not None:
+                        e.text = '0'
+
+            modified = True
+            logger.info(
+                f"Drawing XML patched: from=(col={from_col}, row={target_row_0based}), "
+                f"to=(col={to_col}, row={target_row_0based + height})"
+            )
+
+        if not modified:
+            logger.warning("No image anchors found in drawing XML to patch")
+            return xml_bytes
+
+        # Re-serialise.  Preserve the original XML declaration if present.
+        new_xml_str = ET.tostring(root, encoding='unicode')
+        original_str = xml_bytes.decode('utf-8', errors='replace')
+        decl_match = re.match(r'<\?xml[^?]*\?>', original_str)
+        if decl_match:
+            new_xml_str = decl_match.group(0) + '\n' + new_xml_str
+
+        return new_xml_str.encode('utf-8')
+
+    def _patch_ansoff_image_xml(self, excel_bytes: bytes, growth_row_1based: int) -> bytes:
+        """
+        Open the saved Excel zip, find every drawing XML file, patch any image
+        anchor to place the Ansoff matrix to the right of the Notes column in the
+        GROWTH OPPORTUNITIES section, then return the modified zip as bytes.
+
+        Layout (0-based indices):
+            from col 6  = column G  (immediately right of Notes in column F)
+            to   col 8  = column I
+            from row    = GROWTH OPPORTUNITIES header row (0-based)
+            to   row    = from row + original image height (preserved)
+        """
+        TARGET_ROW   = growth_row_1based - 1  # convert to 0-based
+        FROM_COL     = 6    # column G
+        TO_COL       = 8    # column I
+        FALLBACK_H   = 12   # template image height in rows (189→201)
+
+        try:
+            in_buf  = io.BytesIO(excel_bytes)
+            out_buf = io.BytesIO()
+
+            with zipfile.ZipFile(in_buf, 'r') as zin:
+                with zipfile.ZipFile(out_buf, 'w', zipfile.ZIP_DEFLATED) as zout:
+                    for item in zin.infolist():
+                        data = zin.read(item.filename)
+
+                        if (
+                            'drawings/drawing' in item.filename
+                            and item.filename.endswith('.xml')
+                        ):
+                            data = self._modify_drawing_xml(
+                                data, TARGET_ROW, FROM_COL, TO_COL, FALLBACK_H
+                            )
+
+                        zout.writestr(item, data)
+
+            return out_buf.getvalue()
+
+        except Exception as exc:
+            logger.error(f"Failed to patch Excel drawing XML: {exc}", exc_info=True)
+            return excel_bytes  # fall back to unpatched bytes
+
     def _map_visioning(self, ws, visioning_data: Dict[str, Any]):
         """Map visioning data to Column B text fields."""
         section_row = self._find_section_start(ws, "VISIONING")
@@ -655,9 +853,11 @@ class StrategyWorkbookExporter:
     
     def _map_growth_opportunities(self, ws, opportunities: List[Dict[str, Any]]):
         """Map growth opportunities - insert rows with Ansoff data."""
-        section_row = self._find_section_start(ws, "GROWTH OPPORTUNITIES")
+        # Use the full header text to avoid matching competitor market-segment
+        # data that may contain the substring "growth opportunities".
+        section_row = self._find_section_start(ws, "GROWTH OPPORTUNITIES - ANSOFF")
         if not section_row:
-            logger.warning("GROWTH OPPORTUNITIES section not found")
+            logger.warning("GROWTH OPPORTUNITIES - ANSOFF section not found")
             return
         
         data_start = self._find_data_start_row(ws, section_row)

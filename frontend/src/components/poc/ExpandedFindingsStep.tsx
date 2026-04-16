@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -40,6 +41,7 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<ExpandedFinding | null>(null);
   const [openItems, setOpenItems] = useState<number[]>([]);
+  const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
   
   // Use ref to store the callback to avoid infinite loops
   const onLoadingStateChangeRef = useRef(onLoadingStateChange);
@@ -215,13 +217,20 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
     }
   };
 
-  // Delete finding
+  // Delete finding — opens confirmation dialog
   const deleteFinding = (index: number) => {
+    setPendingDeleteIndex(index);
+  };
+
+  const confirmDeleteFinding = () => {
+    if (pendingDeleteIndex === null) return;
+    const index = pendingDeleteIndex;
     const updated = expandedFindings.filter((_, i) => i !== index);
     updated.forEach((f, i) => (f.rank = i + 1));
     setExpandedFindings(updated);
     persistExpandedFindings(updated);
     setOpenItems((prev) => prev.filter((i) => i !== index).map((i) => (i > index ? i - 1 : i)));
+    setPendingDeleteIndex(null);
   };
 
   // Add a new blank expanded finding
@@ -451,6 +460,23 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
           </>
         )}
       </CardContent>
+
+      <AlertDialog open={pendingDeleteIndex !== null} onOpenChange={(open) => { if (!open) setPendingDeleteIndex(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete finding?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove this finding. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteFinding} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

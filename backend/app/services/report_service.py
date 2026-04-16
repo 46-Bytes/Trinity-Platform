@@ -1856,6 +1856,10 @@ class ReportService:
             padding: 4px;
             text-align: left;
             color: #000000;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            overflow: hidden;
         }
 
         .advisor-report table th {

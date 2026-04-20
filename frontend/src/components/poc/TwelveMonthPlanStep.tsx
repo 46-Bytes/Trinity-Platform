@@ -10,6 +10,16 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -59,6 +69,7 @@ export function TwelveMonthPlanStep({ projectId, onComplete, onBack, className, 
   const [openItems, setOpenItems] = useState<number[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('auth_token');
@@ -212,13 +223,26 @@ export function TwelveMonthPlanStep({ projectId, onComplete, onBack, className, 
   };
 
   const deleteRecommendation = (index: number) => {
-    if (!plan?.recommendations?.length || !window.confirm('Remove this recommendation from the 12-month plan?')) return;
-    setPlan((p) => {
-      if (!p?.recommendations) return p;
-      const next = p.recommendations.filter((_, i) => i !== index);
-      return { ...p, recommendations: renumberRecommendations(next) };
-    });
+    setPendingDeleteIndex(index);
+  };
+
+  const confirmDeleteRecommendation = () => {
+    if (pendingDeleteIndex === null || !plan?.recommendations?.length) return;
+    const index = pendingDeleteIndex;
+    const updatedRecs = renumberRecommendations(plan.recommendations.filter((_, i) => i !== index));
+    const updatedPlan = { ...plan, recommendations: updatedRecs };
+    setPlan(updatedPlan);
     setOpenItems((prev) => prev.filter((i) => i !== index).map((i) => (i > index ? i - 1 : i)));
+    setPendingDeleteIndex(null);
+    // Persist immediately so deletion survives navigation
+    fetch(`${API_BASE_URL}/api/poc/${projectId}/step6/plan`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      credentials: 'include',
+      body: JSON.stringify({ plan_notes: updatedPlan.plan_notes ?? '', recommendations: updatedRecs }),
+    })
+      .then(() => onDataChange?.())
+      .catch((err) => console.error('Failed to persist recommendation deletion:', err));
   };
 
   const savePlan = async () => {
@@ -529,6 +553,23 @@ export function TwelveMonthPlanStep({ projectId, onComplete, onBack, className, 
           </>
         )}
       </CardContent>
+
+      <AlertDialog open={pendingDeleteIndex !== null} onOpenChange={(open) => { if (!open) setPendingDeleteIndex(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove recommendation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove this recommendation from the 12-month plan. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteRecommendation} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

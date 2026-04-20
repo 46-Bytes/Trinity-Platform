@@ -16,6 +16,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -48,6 +58,7 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<Finding | null>(null);
   const [analysisNotes, setAnalysisNotes] = useState<string>('');
+  const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
   
   // Use ref to store the callback to avoid infinite loops
   const onLoadingStateChangeRef = useRef(onLoadingStateChange);
@@ -280,10 +291,16 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
 
   // Delete finding
   const deleteFinding = (index: number) => {
-    const updated = findings.filter((_, i) => i !== index);
+    setPendingDeleteIndex(index);
+  };
+
+  const confirmDeleteFinding = () => {
+    if (pendingDeleteIndex === null) return;
+    const updated = findings.filter((_, i) => i !== pendingDeleteIndex);
     updated.forEach((f, i) => (f.rank = i + 1));
     setFindings(updated);
     persistFindings(updated);
+    setPendingDeleteIndex(null);
   };
 
   // Add a new blank finding
@@ -587,6 +604,23 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
           </>
         )}
       </CardContent>
+
+      <AlertDialog open={pendingDeleteIndex !== null} onOpenChange={(open) => { if (!open) setPendingDeleteIndex(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete finding?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove this finding. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteFinding} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

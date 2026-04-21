@@ -37,8 +37,10 @@ class StrategyWorkbook(Base):
                                 comment="Array of Media IDs for uploaded documents")
     template_path = Column(Text, nullable=True, 
                           comment="Path to the template file used")
-    generated_workbook_path = Column(Text, nullable=True, 
+    generated_workbook_path = Column(Text, nullable=True,
                                     comment="Path to the generated workbook file")
+    drive_file_id = Column(Text, nullable=True,
+                          comment="Google Drive file ID for the generated workbook")
     
     # Extracted data
     extracted_data = Column(JSONB, nullable=True, 

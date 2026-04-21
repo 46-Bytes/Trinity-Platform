@@ -58,6 +58,11 @@ class Settings(BaseSettings):
     # File Uploads
     UPLOAD_DIR: str = "uploads"
 
+    # Google Drive
+    GOOGLE_DRIVE_ENABLED: bool = False
+    GOOGLE_DRIVE_FOLDER_ID: str = ""
+    GOOGLE_DRIVE_CREDENTIALS_FILE: str = "trinity-platform-b690f5c862c7.json"
+
     # Email (Gmail SMTP)
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587

@@ -189,15 +189,16 @@ class StrategyWorkbookService:
             filtered_files: List[str] = []
 
             for media in media_records:
-                if not media.openai_file_id:
-                    logger.warning(f"Media {media.id} does not have OpenAI file ID (file_name={media.file_name})")
+                file_id = media.llm_file_id or media.openai_file_id
+                if not file_id:
+                    logger.warning(f"Media {media.id} has no LLM file ID (file_name={media.file_name})")
                     continue
 
                 ext = (media.file_extension or "").lower()
                 if ext in pdf_ext:
-                    pdf_file_ids.append(media.openai_file_id)
+                    pdf_file_ids.append(file_id)
                 elif ext in ci_ext:
-                    ci_file_ids.append(media.openai_file_id)
+                    ci_file_ids.append(file_id)
                 elif ext in image_or_archive_ext:
                     filtered_files.append(f"{media.file_name} ({ext or 'no ext'})")
                 else:
@@ -205,7 +206,7 @@ class StrategyWorkbookService:
                     logger.warning(
                         f"Unknown file extension '{ext}' for {media.file_name}; treating as Code Interpreter file"
                     )
-                    ci_file_ids.append(media.openai_file_id)
+                    ci_file_ids.append(file_id)
 
             if filtered_files:
                 logger.info(
@@ -213,7 +214,7 @@ class StrategyWorkbookService:
                 )
 
             if not pdf_file_ids and not ci_file_ids:
-                raise ValueError(f"No usable OpenAI file IDs found for workbook {workbook_id}")
+                raise ValueError(f"No usable file IDs found for workbook {workbook_id}")
             
             # ===== STEP 1: Raw extraction from documents =====
             step1_user_message = (
@@ -363,22 +364,23 @@ class StrategyWorkbookService:
         filtered_files: List[str] = []
 
         for media in media_records:
-            if not media.openai_file_id:
-                logger.warning(f"[Precheck] Media {media.id} does not have OpenAI file ID (file_name={media.file_name})")
+            file_id = media.llm_file_id or media.openai_file_id
+            if not file_id:
+                logger.warning(f"[Precheck] Media {media.id} has no LLM file ID (file_name={media.file_name})")
                 continue
 
             ext = (media.file_extension or "").lower()
             if ext in pdf_ext:
-                pdf_file_ids.append(media.openai_file_id)
+                pdf_file_ids.append(file_id)
             elif ext in ci_ext:
-                ci_file_ids.append(media.openai_file_id)
+                ci_file_ids.append(file_id)
             elif ext in image_or_archive_ext:
                 filtered_files.append(f"{media.file_name} ({ext or 'no ext'})")
             else:
                 logger.warning(
                     f"[Precheck] Unknown file extension '{ext}' for {media.file_name}; treating as Code Interpreter file"
                 )
-                ci_file_ids.append(media.openai_file_id)
+                ci_file_ids.append(file_id)
 
         if filtered_files:
             logger.info(

@@ -375,50 +375,37 @@ async def generate_workbook(
             workbook.notes = request.review_notes
             db.commit()
         
-        # Generate workbook
-        exporter = get_strategy_workbook_exporter()
-        
-        # Create output directory
-        base_dir = Path(__file__).resolve().parents[2]  # Go up to backend/
-        output_dir = base_dir / "files" / "uploads" / "strategy-workbook" / str(workbook.id)
-        output_dir.mkdir(parents=True, exist_ok=True)
-        
-        output_path = output_dir / "Strategy_Workshop_Workbook.xlsx"
-        
-        # Generate workbook bytes
-        workbook_bytes = exporter.generate_workbook(
-            extracted_data=workbook.extracted_data,
-            output_path=output_path
-        )
-        
-        # Update workbook record
-        workbook.generated_workbook_path = str(output_path)
+        # Verify the workbook can be generated (template exists, data is valid)
+        try:
+            get_strategy_workbook_exporter()
+        except FileNotFoundError as e:
+            error_trace = traceback.format_exc()
+            logger.error(f"Template file not found for workbook {request.workbook_id}: {e}\n{error_trace}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Template file not found. Please contact support."
+            )
+
+        # Mark as completed — file is regenerated on every download from extracted_data in DB
         workbook.status = "completed"
         from datetime import datetime, timezone
         workbook.completed_at = datetime.now(timezone.utc)
         db.commit()
-        
+
         # Generate download URL
         download_url = f"/api/strategy-workbook/{workbook.id}/download"
-        
-        logger.info(f"Workbook {workbook.id} generated successfully. Download URL: {download_url}")
-        
+
+        logger.info(f"Workbook {workbook.id} marked ready. Download URL: {download_url}")
+
         return StrategyWorkbookGenerateResponse(
             workbook_id=workbook.id,
             status=workbook.status,
             download_url=download_url,
             message="Workbook generated successfully"
         )
-        
+
     except HTTPException:
         raise
-    except FileNotFoundError as e:
-        error_trace = traceback.format_exc()
-        logger.error(f"Template file not found for workbook {request.workbook_id}: {e}\n{error_trace}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Template file not found. Please contact support."
-        )
     except Exception as e:
         error_trace = traceback.format_exc()
         logger.error(f"Workbook generation failed for workbook {request.workbook_id}: {str(e)}\n{error_trace}")
@@ -479,22 +466,25 @@ async def download_workbook(
             detail="Workbook not found"
         )
     
-    if not workbook.generated_workbook_path:
+    if workbook.status != "completed":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Workbook has not been generated yet"
         )
-    
-    file_path = Path(workbook.generated_workbook_path)
-    if not file_path.exists():
+
+    if not workbook.extracted_data:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Workbook file not found"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Workbook has no extracted data to generate from"
         )
-    
-    return FileResponse(
-        path=str(file_path),
-        filename="Strategy_Workshop_Workbook.xlsx",
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+    from fastapi.responses import Response
+    exporter = get_strategy_workbook_exporter()
+    file_bytes = exporter.generate_workbook(extracted_data=workbook.extracted_data)
+
+    return Response(
+        content=file_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="Strategy_Workshop_Workbook.xlsx"'},
     )
 

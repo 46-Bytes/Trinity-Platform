@@ -50,3 +50,7 @@ openpyxl==3.1.5
 
 # PowerPoint generation (Phase 3 – Presentation Generator)
 python-pptx==1.0.2
+
+# Google Drive integration
+google-api-python-client==2.166.0
+google-auth==2.38.0

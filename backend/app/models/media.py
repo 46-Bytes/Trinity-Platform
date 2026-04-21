@@ -53,6 +53,10 @@ class Media(Base):
                          comment="LLM provider name (claude, openai)")
     llm_uploaded_at = Column(DateTime, nullable=True,
                             comment="When uploaded to current LLM provider")
+
+    # Google Drive integration
+    google_drive_file_id = Column(String(255), nullable=True, index=True,
+                                  comment="Google Drive file ID for cloud backup")
     
     # Metadata
     description = Column(Text, nullable=True, comment="User-provided description")
@@ -85,6 +89,7 @@ class Media(Base):
             "openai_file_id": self.openai_file_id,
             "llm_file_id": self.llm_file_id,
             "llm_provider": self.llm_provider,
+            "google_drive_file_id": self.google_drive_file_id,
             "description": self.description,
             "question_field_name": self.question_field_name,
             "tag": self.tag,

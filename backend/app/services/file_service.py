@@ -18,6 +18,7 @@ from app.models.media import Media
 from app.models.user import User
 # from app.services.openai_service import openai_service  # Preserved for rollback
 from app.services.claude_service import claude_service
+from app.services.google_drive_service import google_drive_service
 from app.config import settings
 
 
@@ -164,6 +165,26 @@ class FileService:
             except Exception as e:
                 print(f"  Failed to upload file to LLM provider: {str(e)}")
                 # Continue even if LLM upload fails
+
+        # Upload to Google Drive for cloud backup
+        try:
+            if diagnostic_id:
+                drive_subfolder = f"diagnostic/{diagnostic_id}"
+            else:
+                drive_subfolder = f"users/{user_id}"
+
+            drive_file_id = google_drive_service.upload_file_from_path(
+                local_path=str(file_path),
+                drive_filename=file.filename,
+                subfolder=drive_subfolder,
+                content_type=file.content_type,
+            )
+            if drive_file_id:
+                media.google_drive_file_id = drive_file_id
+                logger.info(f"File backed up to Google Drive: {drive_file_id}")
+        except Exception as e:
+            logger.warning(f"Google Drive upload failed (non-blocking): {e}")
+            # Continue even if Drive upload fails
         
         self.db.commit()
         self.db.refresh(media)
@@ -273,7 +294,14 @@ class FileService:
                     os.remove(media.file_path)
             except Exception as e:
                 print(f"  Failed to delete physical file: {str(e)}")
-            
+
+            # Delete from Google Drive
+            if media.google_drive_file_id:
+                try:
+                    google_drive_service.delete_file(media.google_drive_file_id)
+                except Exception as e:
+                    logger.warning(f"Failed to delete Drive file: {e}")
+
             # Delete from database
             self.db.delete(media)
         else:

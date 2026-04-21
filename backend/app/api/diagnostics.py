@@ -1272,7 +1272,18 @@ async def generate_document_from_template(
         template_display_name = request.template_name.replace(".docx", "").replace("_", " ").replace("-", " ")
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         filename = f"{timestamp}-{template_display_name}.docx"
-        
+
+        # Upload generated document to Google Drive
+        try:
+            from app.services.google_drive_service import google_drive_service
+            google_drive_service.upload_file_from_bytes(
+                file_bytes=document_bytes,
+                filename=filename,
+                subfolder=f"diagnostic/{diagnostic_id}/exports",
+            )
+        except Exception as drive_err:
+            logger.warning(f"Google Drive upload failed for template document: {drive_err}")
+
         return Response(
             content=document_bytes,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",

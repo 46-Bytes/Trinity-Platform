@@ -282,6 +282,19 @@ async def upload_files_poc(
                 except Exception as store_err:
                     logger.warning(f"Failed to persist file {filename} to disk: {store_err}")
 
+                # Upload to Google Drive for cloud backup
+                try:
+                    from app.services.google_drive_service import google_drive_service
+                    drive_file_id = google_drive_service.upload_file_from_bytes(
+                        file_bytes=file_content,
+                        filename=safe_name,
+                        subfolder=f"bba/{project_id}",
+                    )
+                    if drive_file_id:
+                        logger.info(f"BBA file '{filename}' backed up to Drive: {drive_file_id}")
+                except Exception as drive_err:
+                    logger.warning(f"Google Drive upload failed for BBA file '{filename}': {drive_err}")
+
                 logger.info(f"Successfully uploaded {filename}. File ID: {file_id}")
                 return {
                     "result": {
@@ -1321,7 +1334,18 @@ async def export_to_word(
         # Create filename
         client_name = bba.client_name or "Client"
         filename = f"{client_name.replace(' ', '_')} - Diagnostic Findings and Recommendations Report.docx"
-        
+
+        # Upload generated report to Google Drive
+        try:
+            from app.services.google_drive_service import google_drive_service
+            google_drive_service.upload_file_from_bytes(
+                file_bytes=doc_bytes,
+                filename=filename,
+                subfolder=f"bba/{project_id}/exports",
+            )
+        except Exception as drive_err:
+            logger.warning(f"Google Drive upload failed for docx export: {drive_err}")
+
         # Return as streaming response
         return StreamingResponse(
             io.BytesIO(doc_bytes),
@@ -1643,6 +1667,17 @@ async def export_task_planner_excel(
     ).strip() or "Client"
     safe_client_name = safe_client_name.replace(" ", "_")
     file_name = f"{safe_client_name}_Advisor_Task_List.xlsx"
+
+    # Upload task list to Google Drive
+    try:
+        from app.services.google_drive_service import google_drive_service
+        google_drive_service.upload_file_from_bytes(
+            file_bytes=excel_bytes,
+            filename=file_name,
+            subfolder=f"bba/{project_id}/exports",
+        )
+    except Exception as drive_err:
+        logger.warning(f"Google Drive upload failed for task list export: {drive_err}")
 
     return StreamingResponse(
         io.BytesIO(excel_bytes),
@@ -2045,6 +2080,17 @@ async def export_presentation_pptx(
     ).strip() or "Client"
     safe_name = safe_name.replace(" ", "_")
     file_name = f"{safe_name}_Diagnostic_Presentation.pptx"
+
+    # Upload presentation to Google Drive
+    try:
+        from app.services.google_drive_service import google_drive_service
+        google_drive_service.upload_file_from_bytes(
+            file_bytes=pptx_bytes,
+            filename=file_name,
+            subfolder=f"bba/{project_id}/exports",
+        )
+    except Exception as drive_err:
+        logger.warning(f"Google Drive upload failed for pptx export: {drive_err}")
 
     return StreamingResponse(
         io.BytesIO(pptx_bytes),

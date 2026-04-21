@@ -379,6 +379,19 @@ async def generate_workbook(
             output_path=output_path
         )
         
+        # Upload generated workbook to Google Drive
+        try:
+            from app.services.google_drive_service import google_drive_service
+            drive_file_id = google_drive_service.upload_file_from_path(
+                local_path=str(output_path),
+                drive_filename=f"Strategy_Workshop_Workbook_{workbook.id}.xlsx",
+                subfolder=f"strategy-workbook/{workbook.id}",
+            )
+            if drive_file_id:
+                logger.info(f"Strategy workbook backed up to Drive: {drive_file_id}")
+        except Exception as drive_err:
+            logger.warning(f"Google Drive upload failed for strategy workbook: {drive_err}")
+
         # Update workbook record
         workbook.generated_workbook_path = str(output_path)
         workbook.status = "completed"

@@ -126,6 +126,18 @@ async def update_profile(
         finally:
             await profile_picture.close()
 
+        # Upload profile picture to Google Drive
+        try:
+            from app.services.google_drive_service import google_drive_service
+            google_drive_service.upload_file_from_path(
+                local_path=str(destination),
+                drive_filename=filename,
+                subfolder=f"users/{current_user.id}/profilepicture",
+            )
+        except Exception as drive_err:
+            import logging
+            logging.getLogger(__name__).warning(f"Google Drive upload failed for profile picture: {drive_err}")
+
         # Store relative URL/path in picture field
         rel_path = destination.relative_to(base_dir).as_posix()
         user.picture = f"/files/{rel_path}"

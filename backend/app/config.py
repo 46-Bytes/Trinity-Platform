@@ -54,6 +54,12 @@ class Settings(BaseSettings):
     # File Uploads
     UPLOAD_DIR: str = "uploads"
 
+    # Google Drive integration
+    GOOGLE_DRIVE_ENABLED: bool = False
+    GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE: Optional[str] = None  # legacy — kept for compat
+    GOOGLE_DRIVE_OAUTH_CREDENTIALS_FILE: Optional[str] = None
+    GOOGLE_DRIVE_FOLDER_ID: Optional[str] = None
+
     # Email (Gmail SMTP)
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587

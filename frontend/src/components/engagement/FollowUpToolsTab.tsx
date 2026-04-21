@@ -511,6 +511,7 @@ export function FollowUpToolsTab({
             <AlertDialogAction
               onClick={() => {
                 setShowSwDialog(false);
+                dispatch(clearWorkbook());
                 if (existingSwWorkbookId) {
                   navigate(`/dashboard/engagements/${engagementId}/strategy-workbook`, {
                     state: { workbookId: existingSwWorkbookId },

@@ -127,7 +127,8 @@ export default function StrategyWorkbookPage() {
     }
     if (currentWorkbook.status === 'draft' && uploadedFiles.length > 0) {
       // Active upload session: files were just uploaded, follow the precheck flow
-      if (currentStep === 'clarify' || currentStep === 'upload') {
+      // Only show clarify if the user explicitly reached that step via precheckWorkbook
+      if (currentStep === 'clarify') {
         return 'clarify';
       }
       return 'extract';

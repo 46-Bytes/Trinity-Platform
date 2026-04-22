@@ -262,8 +262,16 @@ class ClaudeService:
                 "messages": claude_messages,
             }
 
+            # Structure system prompt as a cacheable content block so the Anthropic
+            # prompt caching beta can reuse it across repeated calls in the same session.
             if system_prompt:
-                params["system"] = system_prompt
+                params["system"] = [
+                    {
+                        "type": "text",
+                        "text": system_prompt,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ]
 
             # Enable adaptive thinking with effort control via output_config
             if reasoning_effort and reasoning_effort.lower() in ("low", "medium", "high"):
@@ -276,18 +284,18 @@ class ClaudeService:
             if claude_tools:
                 params["tools"] = claude_tools
 
-            # Use beta endpoint when files are attached (Files API requires it)
+            # Always use the beta endpoint: required for Files API and prompt caching.
             has_files = bool(file_ids or ci_file_ids)
 
             start_time = time.time()
             try:
                 if has_files:
                     logger.info("[Claude API] Making API call to Claude Messages API (beta - files attached)...")
-                    params["betas"] = ["files-api-2025-04-14"]
-                    response = await self.client.beta.messages.create(**params)
+                    params["betas"] = ["files-api-2025-04-14", "prompt-caching-2024-07-31"]
                 else:
                     logger.info("[Claude API] Making API call to Claude Messages API...")
-                    response = await self.client.messages.create(**params)
+                    params["betas"] = ["prompt-caching-2024-07-31"]
+                response = await self.client.beta.messages.create(**params)
 
                 elapsed_time = time.time() - start_time
                 logger.info(f"[Claude API] API call succeeded in {elapsed_time:.2f} seconds")
@@ -349,13 +357,18 @@ class ClaudeService:
                     content = "\n".join(ci_chunks).strip()
                     logger.info(f"[Claude API] Recovered content from code execution results ({len(ci_chunks)} chunks)")
 
-            # Extract token usage
-            input_tokens = getattr(response.usage, "input_tokens", 0) if hasattr(response, "usage") else 0
-            output_tokens = getattr(response.usage, "output_tokens", 0) if hasattr(response, "usage") else 0
+            # Extract token usage (including prompt cache stats when available)
+            usage = response.usage if hasattr(response, "usage") else None
+            input_tokens = getattr(usage, "input_tokens", 0) if usage else 0
+            output_tokens = getattr(usage, "output_tokens", 0) if usage else 0
+            cache_creation_tokens = getattr(usage, "cache_creation_input_tokens", 0) if usage else 0
+            cache_read_tokens = getattr(usage, "cache_read_input_tokens", 0) if usage else 0
             tokens_used = input_tokens + output_tokens
             stop_reason = getattr(response, "stop_reason", "end_turn")
 
             logger.info(f"[Claude API] Token usage - Total: {tokens_used}, Input: {input_tokens}, Output: {output_tokens}")
+            if cache_creation_tokens or cache_read_tokens:
+                logger.info(f"[Claude API] Prompt cache - Created: {cache_creation_tokens}, Read: {cache_read_tokens}")
             logger.info(f"[Claude API] Stop reason: {stop_reason}")
 
             if not content:

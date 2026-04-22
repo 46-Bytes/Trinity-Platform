@@ -213,7 +213,6 @@ Return ONLY a JSON object with a "tasks" key containing the array of task rows.
             logger.info("[BBA Task Planner] Calling OpenAI for task generation...")
             result = await self.openai_service.generate_json_completion(
                 messages=messages,
-                reasoning_effort="medium",
             )
 
             parsed = result.get("parsed_content", {})

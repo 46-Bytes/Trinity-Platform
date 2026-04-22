@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     SMTP_FROM_EMAIL: str = ""
 
+    # Google Drive
+    GOOGLE_DRIVE_ENABLED: bool = False
+    GOOGLE_DRIVE_CREDENTIALS_FILE: Optional[str] = None
+    GOOGLE_DRIVE_FOLDER_ID: Optional[str] = None
+
     @field_validator("OPENAI_TEMPERATURE")
     @classmethod
     def validate_temperature(cls, v: float) -> float:

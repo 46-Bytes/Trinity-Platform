@@ -124,6 +124,16 @@ class BBA(Base):
     diagnostic = relationship("Diagnostic", backref="bba_projects", foreign_keys=[diagnostic_id])
     created_by_user = relationship("User", foreign_keys=[created_by_user_id])
     
+    def _resolve_engagement_client_name(self) -> str | None:
+        """Return the name of the client user linked to this BBA's engagement."""
+        if not self.engagement:
+            return None
+        client = self.engagement.client
+        if not client:
+            return None
+        name = f"{client.first_name or ''} {client.last_name or ''}".strip()
+        return name or client.name or None
+
     def __repr__(self):
         return f"<BBA(id={self.id}, status='{self.status}', client_name='{self.client_name}')>"
     
@@ -132,7 +142,7 @@ class BBA(Base):
         return {
             "id": str(self.id),
             "engagement_id": str(self.engagement_id) if self.engagement_id else None,
-            "engagement_business_name": (self.engagement.business_name or self.engagement.engagement_name) if self.engagement else None,
+            "engagement_client_name": self._resolve_engagement_client_name(),
             "diagnostic_id": str(self.diagnostic_id) if self.diagnostic_id else None,
             "diagnostic_context": self.diagnostic_context,
             "created_by_user_id": str(self.created_by_user_id),

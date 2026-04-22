@@ -45,7 +45,7 @@ interface ContextCaptureQuestionnaireProps {
   files: UploadedFile[];
   successCount: number;
   isSubmitting: boolean;
-  engagementBusinessName?: string | null;
+  engagementClientName?: string | null;
 }
 
 export function ContextCaptureQuestionnaire({
@@ -56,7 +56,7 @@ export function ContextCaptureQuestionnaire({
   files,
   successCount,
   isSubmitting,
-  engagementBusinessName,
+  engagementClientName,
 }: ContextCaptureQuestionnaireProps) {
   const isFormValid =
     questionnaireData.clientName &&
@@ -76,7 +76,7 @@ export function ContextCaptureQuestionnaire({
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Label htmlFor="clientName">Client Name *</Label>
-            {engagementBusinessName && (
+            {engagementClientName && (
               <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                 From engagement
               </span>
@@ -88,8 +88,8 @@ export function ContextCaptureQuestionnaire({
             onChange={(e) => onQuestionnaireChange('clientName', e.target.value)}
             placeholder="Enter client name"
             required
-            disabled={!!engagementBusinessName}
-            className={engagementBusinessName ? 'bg-muted cursor-not-allowed' : ''}
+            disabled={!!engagementClientName}
+            className={engagementClientName ? 'bg-muted cursor-not-allowed' : ''}
           />
         </div>
 

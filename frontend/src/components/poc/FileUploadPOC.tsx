@@ -75,7 +75,7 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
   const [maxStepReached, setMaxStepReached] = useState<number>(1);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
-  const [engagementBusinessName, setEngagementBusinessName] = useState<string | null>(null);
+  const [engagementClientName, setEngagementBusinessName] = useState<string | null>(null);
   const [questionnaireData, setQuestionnaireData] = useState<QuestionnaireData>({
     clientName: '',
     industry: '',
@@ -168,8 +168,8 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
                     }))
                   );
                 }
-                if (project.engagement_business_name || project.client_name || project.industry || project.company_size) {
-                  const engName = project.engagement_business_name || null;
+                if (project.engagement_client_name || project.client_name || project.industry || project.company_size) {
+                  const engName = project.engagement_client_name || null;
                   setEngagementBusinessName(engName);
                   setQuestionnaireData({
                     clientName: engName || project.client_name || '',
@@ -252,8 +252,8 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
               }
 
               // Restore questionnaire data from backend if available
-              if (project.engagement_business_name || project.client_name || project.industry || project.company_size) {
-                const engName = project.engagement_business_name || null;
+              if (project.engagement_client_name || project.client_name || project.industry || project.company_size) {
+                const engName = project.engagement_client_name || null;
                 setEngagementBusinessName(engName);
                 setQuestionnaireData({
                   clientName: engName || project.client_name || '',
@@ -375,8 +375,8 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
               }
 
               // Restore questionnaire data
-              if (project.engagement_business_name || project.client_name || project.industry || project.company_size) {
-                const engName = project.engagement_business_name || null;
+              if (project.engagement_client_name || project.client_name || project.industry || project.company_size) {
+                const engName = project.engagement_client_name || null;
                 setEngagementBusinessName(engName);
                 setQuestionnaireData({
                   clientName: engName || project.client_name || '',
@@ -1312,7 +1312,7 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
               files={files}
               successCount={successCount}
               isSubmitting={isQuestionnaireSubmitting}
-              engagementBusinessName={engagementBusinessName}
+              engagementClientName={engagementClientName}
             />
           </>
         )}

@@ -77,7 +77,6 @@ class BBAPresentationService:
             logger.info("[BBA Presentation] Calling OpenAI for slide generation...")
             result = await self.openai_service.generate_json_completion(
                 messages=messages,
-                reasoning_effort="medium",
             )
 
             parsed = result.get("parsed_content", {})

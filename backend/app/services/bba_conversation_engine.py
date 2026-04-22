@@ -6,6 +6,7 @@ from typing import Dict, Any, List, Optional, Tuple
 from uuid import UUID
 import json
 import logging
+import re
 from pathlib import Path
 
 # from app.services.openai_service import OpenAIService  # Preserved for rollback
@@ -150,20 +151,23 @@ class BBAConversationEngine:
         # Build the full system message
         system_content = f"{system_prompt}\n\n{step_prompt}"
         
-        # Build optional prior diagnostic section when BBA was created from a diagnostic
+        # Build optional prior diagnostic section when BBA was created from a diagnostic.
+        # Capped at MAX_DIAGNOSTIC_CHARS to prevent full HTML reports (50–500 KB) from
+        # consuming 12K–125K extra input tokens on every Step 3 call.
+        MAX_DIAGNOSTIC_CHARS = 6000
         diagnostic_section = ""
         if context.get("diagnostic_context"):
             dc = context["diagnostic_context"]
             report_html = dc.get("report_html") if isinstance(dc, dict) else None
             ai_analysis = dc.get("ai_analysis") if isinstance(dc, dict) else None
             if report_html:
-                diagnostic_section = f"\n\n## Prior Diagnostic Report (use as context)\n{report_html}\n"
+                plain = re.sub(r'<[^>]+>', ' ', report_html)
+                plain = re.sub(r'\s+', ' ', plain).strip()
+                diagnostic_section = f"\n\n## Prior Diagnostic Report (use as context)\n{plain[:MAX_DIAGNOSTIC_CHARS]}\n"
             elif ai_analysis:
                 advisor_report = ai_analysis.get("advisorReport", "") if isinstance(ai_analysis, dict) else ""
-                if advisor_report:
-                    diagnostic_section = f"\n\n## Prior Diagnostic Report (use as context)\n{advisor_report}\n"
-                else:
-                    diagnostic_section = f"\n\n## Prior Diagnostic Analysis (use as context)\n{json.dumps(ai_analysis, indent=2)}\n"
+                text = advisor_report or json.dumps(ai_analysis)
+                diagnostic_section = f"\n\n## Prior Diagnostic Report (use as context)\n{text[:MAX_DIAGNOSTIC_CHARS]}\n"
 
         # Build user message with context
         user_content = f"""
@@ -301,7 +305,7 @@ Return your response as a JSON object.
             result = await self.openai_service.generate_json_completion(
                 messages=messages,
                 reasoning_effort="low",
-                max_output_tokens=32768,
+                max_output_tokens=12288,
             )
 
             logger.info(f"[BBA Engine] Findings expanded successfully")
@@ -485,8 +489,35 @@ Return your response as a JSON object.
             logger.error(f"[BBA Engine] Failed to generate 12-month plan: {e}", exc_info=True)
             raise
     
+    def _select_edit_sections(self, bba: BBA, edits: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Return only the report sections relevant to the requested edits to avoid
+        sending all 4 sections (~20-40K tokens) on every single edit call.
+        draft_findings is always included as a lightweight anchor.
+        Falls back to all sections if no keywords match.
+        """
+        edit_text = json.dumps(edits).lower()
+        sections: Dict[str, Any] = {"draft_findings": bba.draft_findings}
+
+        if any(kw in edit_text for kw in ("expanded", "findings", "paragraph", "finding")):
+            sections["expanded_findings"] = bba.expanded_findings
+        if any(kw in edit_text for kw in ("snapshot", "table", "priority area")):
+            sections["snapshot_table"] = bba.snapshot_table
+        if any(kw in edit_text for kw in ("plan", "recommendation", "action", "month", "timing", "objective", "outcome")):
+            sections["twelve_month_plan"] = bba.twelve_month_plan
+
+        # Fallback: include all sections if no specific keywords matched
+        if len(sections) == 1:
+            sections["expanded_findings"] = bba.expanded_findings
+            sections["snapshot_table"] = bba.snapshot_table
+            sections["twelve_month_plan"] = bba.twelve_month_plan
+
+        included = [k for k in sections if k != "draft_findings"]
+        logger.info(f"[BBA Engine] Step 7 context sections: {included or ['fallback: all']}")
+        return sections
+
     async def apply_edits(
-        self, 
+        self,
         bba: BBA,
         edits: Dict[str, Any]
     ) -> Dict[str, Any]:
@@ -520,14 +551,10 @@ Return your response as a JSON object.
         
         system_content = f"{system_prompt}\n\n{step_prompt}"
         
-        # Build current report state
-        current_report = {
-            "draft_findings": bba.draft_findings,
-            "expanded_findings": bba.expanded_findings,
-            "snapshot_table": bba.snapshot_table,
-            "twelve_month_plan": bba.twelve_month_plan,
-        }
-        
+        # Only pass sections relevant to the edit to avoid sending 20-40K tokens of
+        # unrelated report data on every single advisor edit call.
+        current_report = self._select_edit_sections(bba, edits)
+
         user_content = f"""
 Apply the following edits to the report.
 
@@ -535,7 +562,7 @@ Apply the following edits to the report.
 - Client Name: {context['client_name']}
 - Industry: {context['industry']}
 
-## Current Report State
+## Current Report State (sections relevant to this edit)
 {json.dumps(current_report, indent=2)}
 
 ## Requested Edits

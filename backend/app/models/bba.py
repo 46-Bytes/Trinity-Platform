@@ -132,6 +132,7 @@ class BBA(Base):
         return {
             "id": str(self.id),
             "engagement_id": str(self.engagement_id) if self.engagement_id else None,
+            "engagement_business_name": (self.engagement.business_name or self.engagement.engagement_name) if self.engagement else None,
             "diagnostic_id": str(self.diagnostic_id) if self.diagnostic_id else None,
             "diagnostic_context": self.diagnostic_context,
             "created_by_user_id": str(self.created_by_user_id),

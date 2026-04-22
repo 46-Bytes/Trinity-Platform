@@ -298,7 +298,6 @@ class StrategyWorkbookService:
 
             step2_response = await self.claude_service.generate_json_completion(
                 messages=step2_messages,
-                reasoning_effort="medium",
                 model=settings.ANTHROPIC_MODEL,
                 max_output_tokens=128000,
             )

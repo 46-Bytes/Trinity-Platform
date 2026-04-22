@@ -479,8 +479,25 @@ async def download_workbook(
         )
 
     from fastapi.responses import Response
+    from app.config import settings
     exporter = get_strategy_workbook_exporter()
     file_bytes = exporter.generate_workbook(extracted_data=workbook.extracted_data)
+
+    if settings.GOOGLE_DRIVE_ENABLED and not workbook.drive_file_id:
+        try:
+            from app.services.google_drive_service import get_google_drive_service
+            drive = get_google_drive_service()
+            filename = f"Strategy_Workbook_{workbook.id}.xlsx"
+            drive_id = drive.upload_bytes(
+                filename=filename,
+                content=file_bytes,
+                mime_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+            workbook.drive_file_id = drive_id
+            db.commit()
+            logger.info(f"Workbook {workbook.id} uploaded to Google Drive: {drive_id}")
+        except Exception as e:
+            logger.error(f"Google Drive upload failed for workbook {workbook.id}: {e}")
 
     return Response(
         content=file_bytes,

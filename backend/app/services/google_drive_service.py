@@ -21,7 +21,7 @@ class GoogleDriveService:
         file_meta = {"name": filename, "parents": [self._folder_id]}
         result = (
             self._service.files()
-            .create(body=file_meta, media_body=media, fields="id")
+            .create(body=file_meta, media_body=media, fields="id", supportsAllDrives=True)
             .execute()
         )
         return result["id"]
@@ -38,7 +38,7 @@ class GoogleDriveService:
 
     def delete_file(self, file_id: str) -> None:
         """Permanently delete a Drive file by file_id."""
-        self._service.files().delete(fileId=file_id).execute()
+        self._service.files().delete(fileId=file_id, supportsAllDrives=True).execute()
 
 
 def get_google_drive_service() -> GoogleDriveService:

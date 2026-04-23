@@ -2848,6 +2848,27 @@
           "title": "In terms of technology, rate your business out of 10 compared to your competitors",
           "choicesMin": 1,
           "choicesMax": 10
+        },
+        {
+          "type": "radiogroup",
+          "name": "scalability_capacity",
+          "title": "Could your business double its revenue without doubling its headcount?",
+          "choices": [
+            "Yes, easily",
+            "Yes, with some investment",
+            "No",
+            "I'm not sure"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "documents_well_organised",
+          "title": "Are your important business documents (contracts, financials, HR, insurance) well organised and easy to find?",
+          "choices": [
+            "Yes, well-organised",
+            "Somewhat, but could be better",
+            "No, they are scattered"
+          ]
         }
       ]
     },
@@ -3807,6 +3828,28 @@
           "visibleIf": "{sales_marketing_satisfaction} < 6",
           "title": "Is there a specific reason why you gave the previous question such a low score?",
           "maxLength": 500
+        },
+        {
+          "type": "radiogroup",
+          "name": "recurring_revenue_percentage",
+          "title": "What percentage of your revenue is recurring or contracted (i.e. you can predict it will come in next month)?",
+          "choices": [
+            "0-20%",
+            "21-40%",
+            "41-60%",
+            "61-80%",
+            "81-100%"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "regular_price_increases",
+          "title": "Do you regularly increase your prices?",
+          "choices": [
+            "Yes, annually",
+            "Yes, but irregularly",
+            "No, prices haven't changed in years"
+          ]
         }
       ]
     },
@@ -4069,6 +4112,17 @@
           "name": "list_the_threats_within_your_business",
           "title": "List the threats within your business.",
           "maxLength": 500
+        },
+        {
+          "type": "radiogroup",
+          "name": "competitor_replication_difficulty",
+          "title": "How easy would it be for a competitor to replicate what you do?",
+          "choices": [
+            "Very easy",
+            "Somewhat easy",
+            "Difficult",
+            "Very difficult"
+          ]
         }
       ]
     },

@@ -42,6 +42,13 @@ class Engagement(Base):
     
     # Relationships
     firm = relationship("Firm", back_populates="engagements")
+    client = relationship(
+        "User",
+        primaryjoin="foreign(Engagement.client_id) == User.id",
+        uselist=False,
+        lazy="select",
+        viewonly=True,
+    )
     diagnostics = relationship("Diagnostic", back_populates="engagement", cascade="all, delete-orphan")
     tasks = relationship("Task", back_populates="engagement", cascade="all, delete-orphan")
     notes = relationship("Note", back_populates="engagement", cascade="all, delete-orphan")

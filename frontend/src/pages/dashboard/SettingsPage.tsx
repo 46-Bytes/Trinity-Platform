@@ -18,7 +18,6 @@ export default function SettingsPage() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
-  const [bio, setBio] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -34,10 +33,7 @@ export default function SettingsPage() {
       setFirstName(nameParts[0] || '');
       setLastName(nameParts.slice(1).join(' ') || '');
       setEmail(user.email || '');
-      // bio is optional and may not exist on the typed User object
-      const anyUser: any = user;
-      setBio(anyUser.bio || '');
-      
+
       // Only update previewUrl if we don't have a blob URL (user-selected file)
       // AND we didn't just save a picture (to prevent overwriting the fresh preview)
       if (!previewBlobUrl && !justSavedPictureRef.current) {
@@ -122,8 +118,6 @@ export default function SettingsPage() {
       if (!user?.auth0Id) {
         formData.append('email', email);
       }
-      formData.append('bio', bio);
-
       const file = fileInputRef.current?.files?.[0];
       if (file) {
         // Validate file type again before sending
@@ -387,16 +381,6 @@ export default function SettingsPage() {
                       Email is managed by Auth0 and will be synced from your Auth0 account on login.
                     </p>
                   )}
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-sm font-medium">Bio</label>
-                  <textarea 
-                    rows={3}
-                    placeholder="Tell us about yourself..."
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    className="input-trinity resize-none"
-                  />
                 </div>
               </div>
 

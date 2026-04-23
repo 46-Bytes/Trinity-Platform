@@ -46,6 +46,8 @@ class Settings(BaseSettings):
     # Anthropic / Claude
     ANTHROPIC_API_KEY: str
     ANTHROPIC_MODEL: str = "claude-opus-4-6"
+    ANTHROPIC_MODEL_STRATEGY_WORKBOOK_STEP2: Optional[str] = None
+    ANTHROPIC_MAX_TOKENS_STRATEGY_WORKBOOK_STEP2: Optional[int] = None
     ANTHROPIC_TEMPERATURE: float = 0.5
     ANTHROPIC_TIMEOUT: Optional[float] = 1800.0
     ANTHROPIC_MAX_TOKENS: int = 128000  # Claude Opus 4.6 max output tokens

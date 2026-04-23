@@ -65,7 +65,7 @@
         {
           "type": "text",
           "name": "primary_contact_person_name",
-          "title": "Primary Contact Person Name"
+          "title": "Primary Contact Person Name  (the primary person completing this form)"
         },
         {
           "type": "text",

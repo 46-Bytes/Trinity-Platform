@@ -65,7 +65,7 @@
         {
           "type": "text",
           "name": "primary_contact_person_name",
-          "title": "Primary Contact Person Name"
+          "title": "Primary Contact Person Name (the primary person completing this form)"
         },
         {
           "type": "text",
@@ -203,7 +203,7 @@
         {
           "type": "radiogroup",
           "name": "owner_hours_per_week",
-          "title": "How many hours per week do you personally work IN the business?",
+          "title": "How many hours per week do you personally work IN the business?  (the primary person completing this form)",
           "choices": [
             "Under 20",
             "20-40",

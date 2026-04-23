@@ -3210,7 +3210,7 @@
           "visibleIf": "{has_crm} == 'Yes'",
           "title": "Does the business use this CRM system proactively and effectively? Please rate out of 10",
           "choicesMin": 1,
-          "choicesMax": 5
+          "choicesMax": 10
         },
         {
           "type": "radiogroup",

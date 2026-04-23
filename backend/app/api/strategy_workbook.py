@@ -47,10 +47,11 @@ async def list_strategy_workbooks(
     """
     List strategy workbooks for the current user, optionally filtered by engagement.
     """
-    if not engagement_id:
-        return {"workbooks": [], "count": 0}
     service = get_strategy_workbook_service(db)
-    workbooks = service.get_workbooks_by_engagement(engagement_id, current_user.id)
+    if engagement_id:
+        workbooks = service.get_workbooks_by_engagement(engagement_id, current_user.id)
+    else:
+        workbooks = service.get_workbooks_for_user(current_user.id)
     return {"workbooks": [w.to_dict() for w in workbooks], "count": len(workbooks)}
 
 

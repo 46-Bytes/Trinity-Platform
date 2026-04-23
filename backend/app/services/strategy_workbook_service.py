@@ -295,11 +295,23 @@ class StrategyWorkbookService:
                 },
             ]
 
+            step2_model = settings.ANTHROPIC_MODEL_STRATEGY_WORKBOOK_STEP2 or settings.ANTHROPIC_MODEL
+            configured_step2_max_tokens = settings.ANTHROPIC_MAX_TOKENS_STRATEGY_WORKBOOK_STEP2
+            step2_max_output_tokens = configured_step2_max_tokens or settings.ANTHROPIC_MAX_TOKENS
+
+            # Haiku variants support smaller output ceilings, so cap by default unless explicitly overridden.
+            if configured_step2_max_tokens is None and "haiku" in step2_model.lower():
+                step2_max_output_tokens = min(step2_max_output_tokens, 8192)
+
+            logger.info(
+                f"[StrategyWorkbook] STEP 2 using model={step2_model}, max_output_tokens={step2_max_output_tokens}"
+            )
+
             step2_response = await self.claude_service.generate_json_completion(
                 messages=step2_messages,
                 reasoning_effort="medium",
-                model=settings.ANTHROPIC_MODEL,
-                max_output_tokens=128000,
+                model=step2_model,
+                max_output_tokens=step2_max_output_tokens,
             )
 
             extracted_data = step2_response.get("parsed_content")
@@ -513,6 +525,17 @@ class StrategyWorkbookService:
                 StrategyWorkbook.engagement_id == engagement_id,
                 StrategyWorkbook.created_by_user_id == user_id,
             )
+            .order_by(StrategyWorkbook.updated_at.desc())
+            .all()
+        )
+
+    def get_workbooks_for_user(self, user_id: UUID) -> List[StrategyWorkbook]:
+        """
+        Return all strategy workbooks created by a user, ordered most-recent first.
+        """
+        return (
+            self.db.query(StrategyWorkbook)
+            .filter(StrategyWorkbook.created_by_user_id == user_id)
             .order_by(StrategyWorkbook.updated_at.desc())
             .all()
         )

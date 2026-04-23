@@ -47,10 +47,7 @@ const navItems: NavItem[] = [
   { label: 'Advisors', href: '/dashboard/advisors', icon: Users, roles: ['firm_admin'] },
   { label: 'Engagements', href: '/dashboard/engagements', icon: FolderOpen, roles: ['super_admin','admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
   { label: 'Tasks', href: '/dashboard/tasks', icon: CheckSquare, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
-  // { label: 'Documents', href: '/dashboard/documents', icon: FileText, roles: ['super_admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
-  // { label: 'AI Tools', href: '/dashboard/ai-tools', icon: Brain, roles: ['super_admin', 'admin', 'advisor', 'firm_admin', 'firm_advisor'] },
-  // { label: 'Trinity Chat', href: '/dashboard/chat', icon: MessageSquare, roles: ['client'] },
-  // { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, roles: ['super_admin', 'firm_admin'] },
+  { label: 'AI Tools', href: '/dashboard/ai-tools', icon: Brain, roles: ['super_admin', 'admin', 'advisor', 'firm_admin', 'firm_advisor'] },
   { label: 'Firm Management', href: '/dashboard/firm', icon: Building2, roles: ['firm_admin'] },
   { label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
 ];
@@ -59,6 +56,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { user } = useAuth();
   const location = useLocation();
   const [firmsExpanded, setFirmsExpanded] = useState(false);
+  const [aiToolsExpanded, setAiToolsExpanded] = useState(false);
 
   const filteredItems = navItems.filter(item => 
     user && item.roles.includes(user.role) && item.href !== '/dashboard/firm' // Remove firm admin dashboard from superadmin
@@ -76,6 +74,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       setFirmsExpanded(true);
     }
   }, [isOnFirmDetails, isOnFirmsList, user?.role]);
+
+  const isOnAiTools = location.pathname.startsWith('/dashboard/ai-tools');
+  useEffect(() => {
+    if (isOnAiTools) setAiToolsExpanded(true);
+  }, [isOnAiTools]);
 
   // Nested navigation items for firm details
   const firmDetailsNavItems: NavItem[] = firmId ? [
@@ -186,10 +189,79 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             );
           }
           
+          // AI Tools collapsible section
+          if (item.href === '/dashboard/ai-tools') {
+            const isAiActive = isOnAiTools;
+            const aiSubItems = [
+              { label: 'Report Builder', href: '/dashboard/ai-tools/bba', icon: FileText },
+              { label: 'Strategy Workbook', href: '/dashboard/ai-tools/strategy-workbook', icon: BookOpen },
+              { label: 'Strategic Business Plan', href: '/dashboard/ai-tools/strategic-business-plan', icon: BarChart3 },
+            ];
+
+            return (
+              <div key={item.href} className="space-y-1">
+                <div className="flex items-center">
+                  <NavLink
+                    to={item.href}
+                    className={cn(
+                      "sidebar-item flex-1",
+                      isAiActive && "sidebar-item-active",
+                      collapsed && "justify-center px-0"
+                    )}
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
+                    <item.icon className={cn("w-5 h-5 flex-shrink-0", isAiActive && "text-sidebar-primary")} />
+                    {!collapsed && <span className="flex-1">{item.label}</span>}
+                  </NavLink>
+                  {!collapsed && (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setAiToolsExpanded(!aiToolsExpanded);
+                      }}
+                      className="p-1.5 ml-1 rounded hover:bg-sidebar-accent transition-colors flex-shrink-0"
+                      aria-label={aiToolsExpanded ? "Collapse" : "Expand"}
+                    >
+                      {aiToolsExpanded ? (
+                        <ChevronDown className="w-4 h-4 text-sidebar-foreground/60 transition-transform" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-sidebar-foreground/60 transition-transform" />
+                      )}
+                    </button>
+                  )}
+                </div>
+
+                {!collapsed && aiToolsExpanded && (
+                  <div className="ml-4 mt-1 space-y-0.5 border-l-2 border-sidebar-border/40 pl-3 transition-all duration-200">
+                    {aiSubItems.map((sub, subIndex) => {
+                      const isSubActive = location.pathname === sub.href;
+                      return (
+                        <NavLink
+                          key={sub.href}
+                          to={sub.href}
+                          className={cn(
+                            "sidebar-item pl-4 text-sm py-2 min-h-[36px]",
+                            isSubActive && "sidebar-item-active bg-sidebar-accent/50"
+                          )}
+                          style={{ animationDelay: `${(index + subIndex + 1) * 30}ms` }}
+                        >
+                          <sub.icon className={cn("w-4 h-4 flex-shrink-0", isSubActive && "text-sidebar-primary")} />
+                          <span>{sub.label}</span>
+                        </NavLink>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           // Regular navigation items
-          const isActive = location.pathname === item.href || 
-            (item.href !== '/dashboard' && location.pathname.startsWith(item.href) && 
-             !location.pathname.startsWith('/dashboard/firms/'));
+          const isActive = location.pathname === item.href ||
+            (item.href !== '/dashboard' && location.pathname.startsWith(item.href) &&
+             !location.pathname.startsWith('/dashboard/firms/') &&
+             !location.pathname.startsWith('/dashboard/ai-tools/'));
           
           return (
             <NavLink

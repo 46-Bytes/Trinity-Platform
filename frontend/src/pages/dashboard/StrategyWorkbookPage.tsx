@@ -17,8 +17,12 @@ import { GenerateStep } from '@/components/strategy-workbook/GenerateStep';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, BookOpen, CheckCircle2, Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+type LaunchState = 'checking' | 'choose' | 'ready';
 
 export default function StrategyWorkbookPage() {
   const dispatch = useAppDispatch();
@@ -29,18 +33,59 @@ export default function StrategyWorkbookPage() {
     (state) => state.strategyWorkbook
   );
 
+  const stateWorkbookId = (location.state as { workbookId?: string } | null)?.workbookId;
+
   const [currentStep, setCurrentStep] = useState<'upload' | 'clarify' | 'extract' | 'generate'>('upload');
   const [reviewNotes, setReviewNotes] = useState('');
   const lastLoadedId = useRef<string | null>(null);
 
+  const [launchState, setLaunchState] = useState<LaunchState>(
+    !engagementId && !stateWorkbookId ? 'checking' : 'ready'
+  );
+  const [existingWorkbook, setExistingWorkbook] = useState<{ id: string; status: string } | null>(null);
+
   // Load workbook from navigation state (when coming from FollowUpToolsTab)
   useEffect(() => {
-    const stateWorkbookId = (location.state as { workbookId?: string } | null)?.workbookId;
     if (stateWorkbookId && lastLoadedId.current !== stateWorkbookId) {
       lastLoadedId.current = stateWorkbookId;
       dispatch(getWorkbook(stateWorkbookId));
     }
-  }, [location.state, dispatch]);
+  }, [stateWorkbookId, dispatch]);
+
+  // Standalone pre-flight: check for an existing workbook session
+  useEffect(() => {
+    if (launchState !== 'checking') return;
+    const token = localStorage.getItem('auth_token');
+    if (!token) { setLaunchState('ready'); return; }
+    fetch(`${API_BASE_URL}/api/strategy-workbook/`, {
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: 'include',
+    })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => {
+        const workbooks: Array<{ id: string; status: string }> = data.workbooks || [];
+        if (workbooks.length > 0) {
+          setExistingWorkbook(workbooks[0]);
+          setLaunchState('choose');
+        } else {
+          setLaunchState('ready');
+        }
+      })
+      .catch(() => setLaunchState('ready'));
+  }, [launchState]);
+
+  const handleLaunchContinue = () => {
+    if (existingWorkbook) {
+      dispatch(clearWorkbook());
+      dispatch(getWorkbook(existingWorkbook.id));
+      setLaunchState('ready');
+    }
+  };
+
+  const handleLaunchStartNew = () => {
+    dispatch(clearWorkbook());
+    setLaunchState('ready');
+  };
 
   const handleUploadComplete = async () => {
     if (currentWorkbook) {
@@ -173,19 +218,54 @@ export default function StrategyWorkbookPage() {
   const extractActive = currentStepIndex === 1;
   const generateActive = currentStepIndex === 2 && !generateDone;
 
+  if (launchState === 'checking') {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (launchState === 'choose') {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-3 w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
+              <BookOpen className="w-6 h-6 text-accent" />
+            </div>
+            <CardTitle>Strategy Workbook Creator</CardTitle>
+            <CardDescription>
+              You have an existing workbook (Status:{' '}
+              {existingWorkbook?.status.charAt(0).toUpperCase()}{existingWorkbook?.status.slice(1)}).
+              Would you like to continue or start fresh?
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <Button onClick={handleLaunchContinue} className="w-full">
+              Continue Existing
+            </Button>
+            <Button variant="outline" onClick={handleLaunchStartNew} className="w-full">
+              <Plus className="w-4 h-4 mr-2" />
+              Start New
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-6 space-y-6">
-      {engagementId && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(`/dashboard/engagements/${engagementId}`)}
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Engagement
-        </Button>
-      )}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => navigate(engagementId ? `/dashboard/engagements/${engagementId}` : '/dashboard/ai-tools')}
+        className="flex items-center gap-2"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        {engagementId ? 'Back to Engagement' : 'Back to AI Tools'}
+      </Button>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Strategy Workbook Generator</h1>

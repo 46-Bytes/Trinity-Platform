@@ -79,6 +79,9 @@ function AppRoutes() {
         <Route path="engagements/:engagementId/bba" element={<FileUploadPOCPage />} />
         <Route path="engagements/:engagementId/strategy-workbook" element={<StrategyWorkbookPage />} />
         <Route path="engagements/:engagementId/strategic-business-plan" element={<StrategicBusinessPlanPage />} />
+        <Route path="ai-tools/bba" element={<FileUploadPOCPage />} />
+        <Route path="ai-tools/strategy-workbook" element={<StrategyWorkbookPage />} />
+        <Route path="ai-tools/strategic-business-plan" element={<StrategicBusinessPlanPage />} />
         <Route path="tasks" element={<TasksPage />} />
         <Route path="documents" element={<DocumentsPage />} />
         <Route path="ai-tools" element={<AIToolsPage />} />

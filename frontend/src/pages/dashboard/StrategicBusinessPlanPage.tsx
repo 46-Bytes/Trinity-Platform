@@ -11,8 +11,12 @@ import { PresentationStep } from '@/components/strategic-business-plan/Presentat
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle2, ClipboardList, Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+type LaunchState = 'checking' | 'choose' | 'ready';
 
 const STEP_LABELS = [
   'Setup & Upload',
@@ -30,12 +34,18 @@ export default function StrategicBusinessPlanPage() {
   const { engagementId } = useParams<{ engagementId: string }>();
   const { currentPlan, isLoading, error } = useAppSelector((s) => s.strategicBusinessPlan);
 
+  const statePlanId = (location.state as { sbpPlanId?: string } | null)?.sbpPlanId;
+
   const [currentStep, setCurrentStep] = useState(1);
   const lastLoadedId = useRef<string | null>(null);
 
+  const [launchState, setLaunchState] = useState<LaunchState>(
+    !engagementId && !statePlanId ? 'checking' : 'ready'
+  );
+  const [existingPlan, setExistingPlan] = useState<{ id: string; status?: string } | null>(null);
+
   // Load plan from navigation state, or fall back to fetching by engagement ID
   useEffect(() => {
-    const statePlanId = (location.state as { sbpPlanId?: string } | null)?.sbpPlanId;
     if (statePlanId && lastLoadedId.current !== statePlanId) {
       lastLoadedId.current = statePlanId;
       dispatch(getPlan(statePlanId));
@@ -46,7 +56,6 @@ export default function StrategicBusinessPlanPage() {
       lastLoadedId.current = `engagement-${engagementId}`;
       const token = localStorage.getItem('auth_token');
       if (!token) return;
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
       fetch(`${API_BASE_URL}/api/strategic-business-plan/?engagement_id=${engagementId}`, {
         headers: { Authorization: `Bearer ${token}` },
         credentials: 'include',
@@ -59,7 +68,41 @@ export default function StrategicBusinessPlanPage() {
         })
         .catch(() => {/* no existing plan, stay on blank step 1 */});
     }
-  }, [location.state, engagementId, dispatch]);
+  }, [statePlanId, engagementId, dispatch]);
+
+  // Standalone pre-flight: check for an existing plan session
+  useEffect(() => {
+    if (launchState !== 'checking') return;
+    const token = localStorage.getItem('auth_token');
+    if (!token) { setLaunchState('ready'); return; }
+    fetch(`${API_BASE_URL}/api/strategic-business-plan/`, {
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: 'include',
+    })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then((plans: Array<{ id: string; status?: string }>) => {
+        if (plans.length > 0) {
+          setExistingPlan(plans[0]);
+          setLaunchState('choose');
+        } else {
+          setLaunchState('ready');
+        }
+      })
+      .catch(() => setLaunchState('ready'));
+  }, [launchState]);
+
+  const handleLaunchContinue = () => {
+    if (existingPlan) {
+      dispatch(clearPlan());
+      dispatch(getPlan(existingPlan.id));
+      setLaunchState('ready');
+    }
+  };
+
+  const handleLaunchStartNew = () => {
+    dispatch(clearPlan());
+    setLaunchState('ready');
+  };
 
   // Restore step from loaded plan
   useEffect(() => {
@@ -94,19 +137,56 @@ export default function StrategicBusinessPlanPage() {
     toast.info('Starting new plan session');
   };
 
+  if (launchState === 'checking') {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (launchState === 'choose') {
+    const statusLabel = existingPlan?.status
+      ? existingPlan.status.charAt(0).toUpperCase() + existingPlan.status.slice(1).replace(/_/g, ' ')
+      : 'In Progress';
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-3 w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
+              <ClipboardList className="w-6 h-6 text-accent" />
+            </div>
+            <CardTitle>Strategic Business Plan</CardTitle>
+            <CardDescription>
+              You have an existing plan (Status: {statusLabel}).
+              Would you like to continue or start fresh?
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <Button onClick={handleLaunchContinue} className="w-full">
+              Continue Existing
+            </Button>
+            <Button variant="outline" onClick={handleLaunchStartNew} className="w-full">
+              <Plus className="w-4 h-4 mr-2" />
+              Start New
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-6 space-y-6">
-      {engagementId && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(`/dashboard/engagements/${engagementId}`)}
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Engagement
-        </Button>
-      )}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => navigate(engagementId ? `/dashboard/engagements/${engagementId}` : '/dashboard/ai-tools')}
+        className="flex items-center gap-2"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        {engagementId ? 'Back to Engagement' : 'Back to AI Tools'}
+      </Button>
 
       <div className="flex items-center justify-between">
         <div>

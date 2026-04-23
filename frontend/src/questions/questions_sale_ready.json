@@ -1994,6 +1994,48 @@
           ],
           "cellType": "text",
           "keyName": "id"
+        },
+        {
+          "type": "radiogroup",
+          "name": "revenue_trend_3years",
+          "title": "Has your revenue grown, stayed flat, or declined over the past 3 years?",
+          "choices": [
+            "Grown significantly (20%+)",
+            "Grown moderately (5-20%)",
+            "Stayed flat",
+            "Declined"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "gross_margin_by_line",
+          "title": "Do you know your gross margin by product or service line?",
+          "choices": [
+            "Yes, for all",
+            "Yes, for some",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "cash_flow_forecast",
+          "title": "Do you have a cash flow forecast for the next 6-12 months?",
+          "choices": [
+            "Yes, updated regularly",
+            "Yes, but outdated",
+            "No"
+          ]
+        },
+        {
+          "type": "radiogroup",
+          "name": "tracks_kpis",
+          "title": "Do you track and measure KPIs (Key Performance Indicators) for the business?",
+          "choices": [
+            "Yes, regularly reviewed",
+            "Yes, but not consistently",
+            "No",
+            "I don't know what KPIs are"
+          ]
         }
       ]
     },

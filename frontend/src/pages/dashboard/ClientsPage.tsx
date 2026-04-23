@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, Building2, Loader2, Eye, Plus, Mail, Phone, Trash2 } from 'lucide-react';
 import { cn, getUniqueClientIds } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -50,6 +51,7 @@ interface Client {
 
 export default function ClientsPage() {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { engagements, isLoading: engagementsLoading } = useAppSelector((state) => state.engagement);
   const { firm, clients: firmClients, advisors, isLoading: firmClientsLoading, error: firmError } = useAppSelector((state) => state.firm);
@@ -146,6 +148,13 @@ export default function ClientsPage() {
     }
   }, [dispatch, user?.id, user?.role, shouldUseAssociations]);
 
+  // Fetch engagements for the firm when superadmin is viewing a firm
+  useEffect(() => {
+    if (isSuperAdminViewingFirm && firm?.id) {
+      dispatch(fetchEngagements({ firm_id: firm.id }));
+    }
+  }, [dispatch, isSuperAdminViewingFirm, firm?.id]);
+
   // Track if we've already fetched clients to prevent infinite loops
   const hasFetchedClientsRef = useRef(false);
   
@@ -202,8 +211,8 @@ export default function ClientsPage() {
   }, [shouldUseFirmClients, strategy.shouldUseAdminClients, firmClients, adminClients, clients]);
 
   const clientsWithEngagements = useMemo<Client[]>(() => {
-    // For admin-wide clients, just return base clients without engagement aggregation
-    if (strategy.shouldUseAdminClients) {
+    // For admin-wide clients (but not superadmin viewing a specific firm), skip engagement aggregation
+    if (strategy.shouldUseAdminClients && !isSuperAdminViewingFirm) {
       return baseClients;
     }
 
@@ -619,76 +628,119 @@ export default function ClientsPage() {
               View detailed information about the client
             </DialogDescription>
           </DialogHeader>
-          {selectedClient && (
-            <div className="space-y-4 mt-4">
-              <div className="flex items-center gap-3 pb-4 border-b">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Building2 className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-lg">{selectedClient.name}</h3>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Status</Label>
-                  <div className="flex items-center gap-2">
-                    <span className={cn(
-                      "status-badge text-xs",
-                      selectedClient.status === 'Active' ? "status-success" : "status-warning"
-                    )}>
-                      {selectedClient.status}
-                    </span>
-                    {!selectedClient.email_verified && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800">
-                        Unverified
-                      </span>
-                    )}
+          {selectedClient && (() => {
+            const clientEngagements = engagements.filter(
+              e => !e.is_deleted && (e.clientId === selectedClient.id || e.clientIds?.includes(selectedClient.id))
+            );
+            return (
+              <div className="space-y-4 mt-4">
+                <div className="flex items-center gap-3 pb-4 border-b">
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Building2 className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg">{selectedClient.name}</h3>
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Engagements</Label>
-                  <p className="text-sm font-medium">
-                    {selectedClient.engagements} {selectedClient.engagements === 1 ? 'engagement' : 'engagements'}
-                  </p>
-                </div>
-
-                {selectedClient.industry && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Industry</Label>
-                    <p className="text-sm font-medium">{selectedClient.industry}</p>
-                  </div>
-                )}
-
-                {selectedClient.phone && (
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Phone</Label>
+                    <Label className="text-xs text-muted-foreground">Status</Label>
                     <div className="flex items-center gap-2">
-                      <Phone className="w-4 h-4 text-muted-foreground" />
-                      <p className="text-sm font-medium">{selectedClient.phone}</p>
+                      <span className={cn(
+                        "status-badge text-xs",
+                        selectedClient.status === 'Active' ? "status-success" : "status-warning"
+                      )}>
+                        {selectedClient.status}
+                      </span>
+                      {!selectedClient.email_verified && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800">
+                          Unverified
+                        </span>
+                      )}
                     </div>
                   </div>
-                )}
 
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Email</Label>
-                  <div className="flex items-center gap-2">
-                    <Mail className="w-4 h-4 text-muted-foreground" />
-                    <p className="text-sm font-medium">{selectedClient.email}</p>
+                  {selectedClient.industry && (
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Industry</Label>
+                      <p className="text-sm font-medium">{selectedClient.industry}</p>
+                    </div>
+                  )}
+
+                  {selectedClient.phone && (
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Phone</Label>
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-4 h-4 text-muted-foreground" />
+                        <p className="text-sm font-medium">{selectedClient.phone}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Email</Label>
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-muted-foreground" />
+                      <p className="text-sm font-medium">{selectedClient.email}</p>
+                    </div>
                   </div>
+
+                  {selectedClient.role && (
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Role</Label>
+                      <p className="text-sm font-medium capitalize">{selectedClient.role}</p>
+                    </div>
+                  )}
                 </div>
 
-                {selectedClient.role && (
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Role</Label>
-                    <p className="text-sm font-medium capitalize">{selectedClient.role}</p>
-                  </div>
-                )}
+                <div className="space-y-2 pt-2">
+                  <Label className="text-xs text-muted-foreground">
+                    Engagements ({clientEngagements.length})
+                  </Label>
+                  {clientEngagements.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No engagements</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {clientEngagements.map(eng => (
+                        <div
+                          key={eng.id}
+                          className="rounded-lg border border-border p-3 space-y-1 cursor-pointer hover:bg-accent/5 hover:border-accent/40 transition-colors"
+                          onClick={() => {
+                            setIsDetailDialogOpen(false);
+                            navigate(`/dashboard/engagements/${eng.id}`);
+                          }}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-medium truncate">{eng.title || eng.businessName}</p>
+                            <span className={cn(
+                              "status-badge text-xs flex-shrink-0",
+                              eng.status === 'active' ? "status-success" :
+                              eng.status === 'completed' ? "status-info" :
+                              eng.status === 'on-hold' ? "status-warning" :
+                              eng.status === 'cancelled' ? "status-error" :
+                              "status-warning"
+                            )}>
+                              {eng.status}
+                            </span>
+                          </div>
+                          {eng.industryName && (
+                            <p className="text-xs text-muted-foreground">{eng.industryName}</p>
+                          )}
+                          {eng.startDate && (
+                            <p className="text-xs text-muted-foreground">
+                              Started {new Date(eng.startDate).toLocaleDateString()}
+                              {eng.endDate ? ` · Ends ${new Date(eng.endDate).toLocaleDateString()}` : ''}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
 

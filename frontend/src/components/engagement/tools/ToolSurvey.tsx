@@ -816,7 +816,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
       )}
 
       {/* Document Generation Section */}
-      {hasResponses && diagnostic?.id && (
+      {false && hasResponses && diagnostic?.id && (
         <div className="mb-6 sm:mb-8 rounded-lg border border-blue-200 bg-blue-50 p-3 sm:p-4" style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
           <p className="font-semibold text-blue-800 break-words" style={{ maxWidth: '100%' }}>
             Generate Document from Template

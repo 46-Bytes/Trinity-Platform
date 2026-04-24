@@ -165,7 +165,13 @@ class User(Base):
         nullable=True,
         comment="User's nickname"
     )
-    
+
+    business_name = Column(
+        String(255),
+        nullable=True,
+        comment="Client's business name"
+    )
+
     picture = Column(
         Text,
         nullable=True,
@@ -257,6 +263,7 @@ class User(Base):
             "first_name": self.first_name,
             "last_name": self.last_name,
             "nickname": self.nickname,
+            "business_name": self.business_name,
             "picture": self.picture,
             "bio": self.bio,
             "email_verified": self.email_verified,

@@ -68,6 +68,7 @@ export default function UsersPage() {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState<UserRole>('client');
+  const [newUserBusinessName, setNewUserBusinessName] = useState('');
 
   // Fetch users when page/filters change (debounced for search)
   useEffect(() => {
@@ -108,13 +109,15 @@ export default function UsersPage() {
         email: newUserEmail,
         name: newUserName,
         role: newUserRole,
+        business_name: newUserRole === 'client' ? newUserBusinessName || undefined : undefined,
       })).unwrap();
-      
+
       toast.success('User created successfully');
       setIsDialogOpen(false);
       setNewUserEmail('');
       setNewUserName('');
       setNewUserRole('client');
+      setNewUserBusinessName('');
       // Navigate to first page to show newly created user at the top
       setCurrentPage(1);
       // Refresh users list for first page
@@ -130,6 +133,7 @@ export default function UsersPage() {
     setNewUserName(user.name);
     setNewUserRole(user.role);
     setNewUserEmail(user.email);
+    setNewUserBusinessName(user.business_name || '');
     setIsDialogOpen(true);
   };
 
@@ -152,6 +156,7 @@ export default function UsersPage() {
       setNewUserEmail('');
       setNewUserName('');
       setNewUserRole('client');
+      setNewUserBusinessName('');
       // Navigate to first page to show newly edited user at the top
       setCurrentPage(1);
       // Refresh users list for first page
@@ -169,6 +174,7 @@ export default function UsersPage() {
       setNewUserEmail('');
       setNewUserName('');
       setNewUserRole('client');
+      setNewUserBusinessName('');
     }
   };
 
@@ -583,6 +589,18 @@ export default function UsersPage() {
                 </SelectContent>
               </Select>
             </div>
+            {newUserRole === 'client' && (
+              <div className="space-y-2">
+                <Label htmlFor="business_name">Business Name</Label>
+                <Input
+                  id="business_name"
+                  type="text"
+                  placeholder="Acme Corp"
+                  value={newUserBusinessName}
+                  onChange={(e) => setNewUserBusinessName(e.target.value)}
+                />
+              </div>
+            )}
           </div>
           <div className="flex justify-end gap-2 pt-4 border-t">
             <Button

@@ -22,21 +22,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { createEngagement, updateEngagement, fetchUserRoleData, fetchEngagements } from "@/store/slices/engagementReducer";
+import { updateEngagement, fetchUserRoleData, fetchEngagements } from "@/store/slices/engagementReducer";
 import type { Engagement } from "@/store/slices/engagementReducer";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
+import { sortAdvisorsBySurname } from "@/lib/userSortUtils";
 
-// Base schema fields (common fields for all roles)
-const baseSchemaFields = {
-  businessName: z.string().min(2, {
-    message: "Business name must be at least 2 characters.",
-  }),
-  industryName: z.string().min(2, {
-    message: "Industry name must be at least 2 characters.",
-  }),
+const baseCreateSchemaFields = {
   engagementName: z.string().min(3, {
     message: "Engagement name must be at least 3 characters.",
   }),
@@ -46,11 +39,24 @@ const baseSchemaFields = {
   }),
 };
 
+const baseEditOnlySchemaFields = {
+  businessName: z.string().min(2, {
+    message: "Business name must be at least 2 characters.",
+  }),
+  industryName: z.string().min(2, {
+    message: "Industry name must be at least 2 characters.",
+  }),
+};
+
 // Create schema based on user role
-const createSchema = (userRole?: string) => {
+const createSchema = (userRole?: string, isEditMode = false) => {
+  const commonFields = isEditMode
+    ? { ...baseCreateSchemaFields, ...baseEditOnlySchemaFields }
+    : baseCreateSchemaFields;
+
   if (userRole === 'admin' || userRole === 'super_admin') {
     return z.object({
-      ...baseSchemaFields,
+      ...commonFields,
       clientId: z.string().min(1, {
         message: "Please select a client.",
       }),
@@ -60,7 +66,7 @@ const createSchema = (userRole?: string) => {
     });
   } else if (userRole === 'firm_admin' || userRole === 'firm_advisor') {
     return z.object({
-      ...baseSchemaFields,
+      ...commonFields,
       clientId: z.string().min(1, {
         message: "Please select a client.",
       }),
@@ -68,7 +74,7 @@ const createSchema = (userRole?: string) => {
   } else {
     // For advisor/client roles, use clientOrAdvisorId instead of clientId
     return z.object({
-      ...baseSchemaFields,
+      ...commonFields,
       clientOrAdvisorId: z.string().min(1, {
         message: "Please select a client or advisor.",
       }),
@@ -99,7 +105,6 @@ export function EngagementForm({
   const { isLoading, userRoleData } = useAppSelector((state) => state.engagement);
   const { user } = useAuth();
   const { toast } = useToast();
-  const navigate = useNavigate();
   
   console.log('Redux state:', { isLoading, hasUserRoleData: !!userRoleData });
   
@@ -108,6 +113,8 @@ export function EngagementForm({
   const isAdmin = userRole === 'admin' || (userRole as string) === 'super_admin';
   const isFirmAdmin = userRole === 'firm_admin';
   const isFirmAdvisor = userRole === 'firm_advisor';
+  const isAdvisorRole = userRole === 'advisor';
+  const isClientRole = userRole === 'client';
   const isFirmContext = isFirmAdmin || isFirmAdvisor;
   
   // State to track associated advisor for selected client
@@ -119,37 +126,73 @@ export function EngagementForm({
   console.log('User role detection:', { userRole, isAdmin, isFirmAdmin, isFirmAdvisor });
   
   // Create dynamic schema based on user role
-  const schema = useMemo(() => createSchema(userRoleData?.user_role), [userRoleData?.user_role]);
+  const schema = useMemo(() => createSchema(userRoleData?.user_role, isEditMode), [userRoleData?.user_role, isEditMode]);
+
+  const sortedAdvisors = useMemo(
+    () => sortAdvisorsBySurname(userRoleData?.advisors || []),
+    [userRoleData?.advisors]
+  );
+
+  const currentAdvisorName = user?.name || user?.email || "Current advisor";
+  const associatedAdvisorName = useMemo(() => {
+    if (!associatedAdvisorId) {
+      return "";
+    }
+    const advisor = sortedAdvisors.find((item) => item.id === associatedAdvisorId);
+    return advisor?.name || "Associated advisor";
+  }, [associatedAdvisorId, sortedAdvisors]);
   
   const form = useForm<EngagementFormValues>({
     resolver: zodResolver(schema),
     defaultValues: (isAdmin 
-      ? {
-          businessName: "",
-          industryName: "",
-          engagementName: "",
-          description: "",
-          clientId: "",
-          advisorId: "",
-          tool: "value_builder" as const,
-        }
+      ? (isEditMode
+        ? {
+            businessName: "",
+            industryName: "",
+            engagementName: "",
+            description: "",
+            clientId: "",
+            advisorId: "",
+            tool: "value_builder" as const,
+          }
+        : {
+            engagementName: "",
+            description: "",
+            clientId: "",
+            advisorId: "",
+            tool: "value_builder" as const,
+          })
       : isFirmContext
-      ? {
-          businessName: "",
-          industryName: "",
-          engagementName: "",
-          description: "",
-          clientId: "",
-          tool: "value_builder" as const,
-        }
-      : {
-          businessName: "",
-          industryName: "",
-          engagementName: "",
-          description: "",
-          clientOrAdvisorId: "",
-          tool: "value_builder" as const,
-        }) as any,
+      ? (isEditMode
+        ? {
+            businessName: "",
+            industryName: "",
+            engagementName: "",
+            description: "",
+            clientId: "",
+            tool: "value_builder" as const,
+          }
+        : {
+            engagementName: "",
+            description: "",
+            clientId: "",
+            tool: "value_builder" as const,
+          })
+      : (isEditMode
+        ? {
+            businessName: "",
+            industryName: "",
+            engagementName: "",
+            description: "",
+            clientOrAdvisorId: "",
+            tool: "value_builder" as const,
+          }
+        : {
+            engagementName: "",
+            description: "",
+            clientOrAdvisorId: "",
+            tool: "value_builder" as const,
+          })) as any,
   });
 
   // Fetch user role data on mount or when refreshUserData is true
@@ -230,23 +273,37 @@ export function EngagementForm({
           
           const associations = await response.json();
           if (Array.isArray(associations) && associations.length > 0) {
-            // Find active association
-            const activeAssociation = associations.find((a: any) => a.status === 'active');
+            const activeAssociation = isFirmAdvisor
+              ? associations.find((a: any) => a.status === 'active' && a.advisor_id === user?.id)
+              : associations.find((a: any) => a.status === 'active');
+
             if (activeAssociation) {
-              setAssociatedAdvisorId(activeAssociation.advisor_id);
+              setAssociatedAdvisorId(isFirmAdvisor ? (user?.id || null) : activeAssociation.advisor_id);
             } else {
-              setAssociationError('Client has no active advisor association');
+              const message = isFirmAdvisor
+                ? 'Client must be actively associated with you'
+                : 'Client has no active advisor association';
+
+              setAssociationError(message);
               toast({
                 title: 'Error',
-                description: 'Associate advisor to client first',
+                description: isFirmAdvisor
+                  ? 'Client must be actively associated with you before creating an engagement'
+                  : 'Associate advisor to client first',
                 variant: 'destructive',
               });
             }
           } else {
-            setAssociationError('Client has no associated advisor');
+            const message = isFirmAdvisor
+              ? 'Client must be actively associated with you'
+              : 'Client has no associated advisor';
+
+            setAssociationError(message);
             toast({
               title: 'Error',
-              description: 'Associate advisor to client first',
+              description: isFirmAdvisor
+                ? 'Client must be actively associated with you before creating an engagement'
+                : 'Associate advisor to client first',
               variant: 'destructive',
             });
           }
@@ -268,7 +325,7 @@ export function EngagementForm({
       setAssociatedAdvisorId(null);
       setAssociationError(null);
     }
-  }, [watchedClientId, isFirmContext, isEditMode, toast]);
+  }, [watchedClientId, isFirmContext, isEditMode, isFirmAdvisor, user?.id, toast]);
 
   // Add click handler to button to debug
   const handleButtonClick = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -344,15 +401,23 @@ export function EngagementForm({
         
         // Check if client has associated advisor
         if (!associatedAdvisorId) {
+          const associationMessage = isFirmAdvisor
+            ? 'Client must be actively associated with you before creating an engagement'
+            : 'Associate advisor to client first';
+
           toast({
             title: 'Error',
-            description: 'Associate advisor to client first',
+            description: associationMessage,
             variant: 'destructive',
           });
-          throw new Error('Associate advisor to client first');
+          throw new Error(associationMessage);
         }
         
-        advisorId = associatedAdvisorId;
+        advisorId = isFirmAdvisor ? user?.id : associatedAdvisorId;
+        if (!advisorId) {
+          throw new Error('Unable to determine primary advisor for this engagement');
+        }
+
         console.log('Firm Context - Client ID:', clientId, 'Associated Advisor ID:', advisorId);
         
         if (userRoleData?.clients) {
@@ -408,24 +473,27 @@ export function EngagementForm({
       console.log('Final Advisor ID:', advisorId);
       console.log('Final Advisor Name:', advisorName);
 
+      const businessName = 'businessName' in values ? values.businessName : "";
+      const industryName = 'industryName' in values ? values.industryName : "";
+
       if (isEditMode && engagement) {
         console.log('=== UPDATE MODE ===');
         console.log('Engagement ID:', engagement.id);
         console.log('Update payload:', {
-          businessName: values.businessName,
+          businessName,
           title: values.engagementName,
           description: values.description,
-          industryName: values.industryName,
+          industryName,
           clientId: clientId,
           clientName: clientName,
         });
         await dispatch(updateEngagement({
           id: engagement.id,
           updates: {
-            businessName: values.businessName,
+            businessName,
             title: values.engagementName,
             description: values.description,
-            industryName: values.industryName,
+            industryName,
             clientId: clientId,
             clientName: clientName,
           }
@@ -462,8 +530,6 @@ export function EngagementForm({
           
           const requestPayload = {
             engagement_name: values.engagementName,
-            business_name: values.businessName,
-            industry: values.industryName,
             description: values.description,
             tool: values.tool,
             status: 'draft',
@@ -477,8 +543,6 @@ export function EngagementForm({
           // Validate all required fields
           const missingFields = [];
           if (!requestPayload.engagement_name) missingFields.push('engagement_name');
-          if (!requestPayload.business_name) missingFields.push('business_name');
-          if (!requestPayload.industry) missingFields.push('industry');
           if (!requestPayload.tool) missingFields.push('tool');
           if (!requestPayload.client_id) missingFields.push('client_id');
           if (!requestPayload.primary_advisor_id) missingFields.push('primary_advisor_id');
@@ -537,8 +601,6 @@ export function EngagementForm({
           
           const requestPayload = {
             engagement_name: values.engagementName,
-            business_name: values.businessName,
-            industry: values.industryName,
             description: values.description,
             tool: values.tool,
             status: 'draft',
@@ -552,8 +614,6 @@ export function EngagementForm({
           // Validate all required fields
           const missingFields = [];
           if (!requestPayload.engagement_name) missingFields.push('engagement_name');
-          if (!requestPayload.business_name) missingFields.push('business_name');
-          if (!requestPayload.industry) missingFields.push('industry');
           if (!requestPayload.tool) missingFields.push('tool');
           if (!requestPayload.client_id) missingFields.push('client_id');
           if (!requestPayload.primary_advisor_id) missingFields.push('primary_advisor_id');
@@ -658,165 +718,241 @@ export function EngagementForm({
         className="space-y-6"
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="businessName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Business Name</FormLabel>
-                <FormControl>
-                  <Input 
-                    placeholder="e.g., Acme Corporation" 
-                    {...field} 
-                  />
-                </FormControl>
-                <FormDescription>
-                  Enter the business name.
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="industryName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Industry Name</FormLabel>
-                <FormControl>
-                  <Input 
-                    placeholder="e.g., Technology, Healthcare" 
-                    {...field} 
-                  />
-                </FormControl>
-                <FormDescription>
-                  Enter the industry sector.
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {/* Admin or Firm Admin: Show Client dropdown */}
-          {(isAdmin || isFirmContext) && userRoleData && (
-            <>
-              <FormField
-                control={form.control}
-                name="clientId"
-                render={({ field }) => (
-                  <FormItem className="md:col-span-2">
-                    <FormLabel>Select Client</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a client" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {userRoleData.clients && userRoleData.clients.length > 0 ? (
-                          userRoleData.clients.map((client) => (
-                            <SelectItem key={client.id} value={client.id}>
-                              {client.name}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem value="none" disabled>No clients available</SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      Choose the client for this engagement.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Only show advisor dropdown for super_admin/admin, not firm_admin */}
-              {isAdmin && (
-                <FormField
-                  control={form.control}
-                  name={"advisorId" as any}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Select Advisor</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select an advisor" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {userRoleData.advisors && userRoleData.advisors.length > 0 ? (
-                            userRoleData.advisors.map((advisor) => (
-                              <SelectItem key={advisor.id} value={advisor.id}>
-                                {advisor.name}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <SelectItem value="none" disabled>No advisors available</SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        Choose the primary advisor for this engagement.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-            </>
-          )}
-
-          {/* Non-admin and non-firm-admin: Show single dropdown (for advisor/client roles) */}
-          {!isAdmin && !isFirmAdmin && userRoleData && (
+          {isEditMode && (
             <FormField
               control={form.control}
-              name="clientOrAdvisorId"
-              render={({ field }) => {
-                // For advisors: show clients dropdown
-                // For clients: show advisors dropdown
-                const isClientRole = userRoleData.user_role === 'client';
-                const items = isClientRole ? (userRoleData.advisors || []) : (userRoleData.clients || []);
-                const label = isClientRole ? 'Select Advisor' : 'Select Client';
-                const placeholder = isClientRole ? 'Select an advisor' : 'Select a client';
-                const description = isClientRole 
-                  ? 'Choose the advisor for this engagement.' 
-                  : 'Choose the client for this engagement.';
-                
-                return (
-                  <FormItem>
-                    <FormLabel>{label}</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder={placeholder} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {items.length > 0 ? (
-                          items.map((item) => (
-                            <SelectItem key={item.id} value={item.id}>
-                              {item.name}
+              name={"businessName" as any}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Business Name</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder="e.g., Acme Corporation" 
+                      {...field} 
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Enter the business name.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          {isEditMode && (
+            <FormField
+              control={form.control}
+              name={"industryName" as any}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Industry Name</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder="e.g., Technology, Healthcare" 
+                      {...field} 
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Enter the industry sector.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          {(isAdmin || isFirmContext) && userRoleData && (
+            <FormField
+              control={form.control}
+              name={"clientId" as any}
+              render={({ field }) => (
+                <FormItem className="md:col-span-2">
+                  <FormLabel>Select Client</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a client" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {userRoleData.clients && userRoleData.clients.length > 0 ? (
+                        [...userRoleData.clients]
+                          .sort((a, b) => (a.business_name || a.name || '').localeCompare(b.business_name || b.name || ''))
+                          .map((client) => (
+                            <SelectItem key={client.id} value={client.id}>
+                              {client.business_name || client.name}
                             </SelectItem>
                           ))
-                        ) : (
-                          <SelectItem value="none" disabled>
-                            {isClientRole ? 'No advisors available' : 'No clients available'}
-                          </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      {description}
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                );
-              }}
+                      ) : (
+                        <SelectItem value="none" disabled>No clients available</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    Choose the client for this engagement.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
+          )}
+
+          {isAdvisorRole && userRoleData && (
+            <FormField
+              control={form.control}
+              name={"clientOrAdvisorId" as any}
+              render={({ field }) => (
+                <FormItem className="md:col-span-2">
+                  <FormLabel>Select Client</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a client" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {userRoleData.clients && userRoleData.clients.length > 0 ? (
+                        [...userRoleData.clients]
+                          .sort((a, b) => (a.business_name || a.name || '').localeCompare(b.business_name || b.name || ''))
+                          .map((client) => (
+                            <SelectItem key={client.id} value={client.id}>
+                              {client.business_name || client.name}
+                            </SelectItem>
+                          ))
+                      ) : (
+                        <SelectItem value="none" disabled>No clients available</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    Choose the client for this engagement.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          {isClientRole && userRoleData && (
+            <FormField
+              control={form.control}
+              name={"clientOrAdvisorId" as any}
+              render={({ field }) => (
+                <FormItem className="md:col-span-2">
+                  <FormLabel>Select Advisor</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an advisor" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {sortedAdvisors.length > 0 ? (
+                        sortedAdvisors.map((advisor) => (
+                          <SelectItem key={advisor.id} value={advisor.id}>
+                            {advisor.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="none" disabled>No advisors available</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    Choose the advisor for this engagement.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          {isAdmin && (
+            <FormField
+              control={form.control}
+              name={"advisorId" as any}
+              render={({ field }) => (
+                <FormItem className="md:col-span-2">
+                  <FormLabel>Select Advisor</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an advisor" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {sortedAdvisors.length > 0 ? (
+                        sortedAdvisors.map((advisor) => (
+                          <SelectItem key={advisor.id} value={advisor.id}>
+                            {advisor.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="none" disabled>No advisors available</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    Choose the primary advisor for this engagement.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          {!isEditMode && isFirmAdmin && (
+            <FormItem className="md:col-span-2">
+              <FormLabel>Select Advisor</FormLabel>
+              <FormControl>
+                <Input
+                  value={
+                    !watchedClientId
+                      ? ""
+                      : isLoadingAssociation
+                      ? "Loading associated advisor..."
+                      : associatedAdvisorName
+                  }
+                  placeholder="Select a client first"
+                  readOnly
+                  disabled
+                />
+              </FormControl>
+              <FormDescription>
+                {!watchedClientId
+                  ? "Select a client to auto-assign the associated advisor."
+                  : isLoadingAssociation
+                  ? "Loading associated advisor..."
+                  : associationError
+                  ? "Client must have an active advisor association before engagement creation."
+                  : "Primary advisor is auto-assigned from the selected client."}
+              </FormDescription>
+              {associationError && watchedClientId && (
+                <p className="text-sm text-destructive">{associationError}</p>
+              )}
+            </FormItem>
+          )}
+
+          {!isEditMode && (isFirmAdvisor || isAdvisorRole) && (
+            <FormItem className="md:col-span-2">
+              <FormLabel>Select Advisor</FormLabel>
+              <FormControl>
+                <Input
+                  value={currentAdvisorName}
+                  readOnly
+                  disabled
+                />
+              </FormControl>
+              <FormDescription>
+                {isFirmAdvisor
+                  ? "Primary advisor is auto-selected as your account."
+                  : "You are the primary advisor for this engagement."}
+              </FormDescription>
+              {isFirmAdvisor && associationError && watchedClientId && (
+                <p className="text-sm text-destructive">{associationError}</p>
+              )}
+            </FormItem>
           )}
 
 

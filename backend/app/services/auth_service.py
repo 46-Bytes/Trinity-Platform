@@ -265,7 +265,8 @@ class AuthService:
         email: str,
         role: UserRole,
         first_name: Optional[str] = None,
-        last_name: Optional[str] = None
+        last_name: Optional[str] = None,
+        business_name: Optional[str] = None
     ) -> User:
         """
         Create a new user via Admin invitation (Flow 2).
@@ -329,6 +330,7 @@ class AuthService:
             'name': display_name,
             'first_name': first_name,
             'last_name': last_name,
+            'business_name': business_name,
             'email_verified': False,  # Will be verified after password setup
             'role': role,
             'is_active': True,

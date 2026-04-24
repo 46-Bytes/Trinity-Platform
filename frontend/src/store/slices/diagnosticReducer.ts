@@ -367,10 +367,10 @@ const diagnosticSlice = createSlice({
       .addCase(fetchDiagnosticByEngagement.fulfilled, (state, action) => {
         state.isLoading = false;
         state.diagnostic = action.payload;
-        // Start polling if status is processing
+        // Start polling if status is processing; clear it for any other status
         if (action.payload.status === 'processing') {
           state.isPolling = true;
-          
+
           // Store in localStorage for global polling
           try {
             const stored = localStorage.getItem('processing_diagnostics');
@@ -387,6 +387,8 @@ const diagnosticSlice = createSlice({
           } catch (e) {
             console.error('Error storing processing diagnostic:', e);
           }
+        } else {
+          state.isPolling = false;
         }
       })
       .addCase(fetchDiagnosticByEngagement.rejected, (state, action) => {

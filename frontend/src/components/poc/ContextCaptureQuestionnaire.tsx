@@ -118,6 +118,7 @@ export function ContextCaptureQuestionnaire({
             <SelectContent>
               <SelectItem value="startup">1-10</SelectItem>
               <SelectItem value="medium">11-15</SelectItem>
+              <SelectItem value="large">16-50</SelectItem>
               <SelectItem value="large">51+</SelectItem>
             </SelectContent>
           </Select>

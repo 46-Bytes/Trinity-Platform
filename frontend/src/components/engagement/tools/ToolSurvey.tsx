@@ -162,7 +162,10 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
       toast.success('✅ Diagnostic processing completed! PDF report is ready for download.', {
         duration: 10000,
       });
-      dispatch(fetchDiagnosticByEngagement(engagementId));
+      // Do NOT re-fetch here: checkDiagnosticStatus already updated state with the full
+      // diagnostic detail. Re-fetching races with that update and can overwrite
+      // diagnostic.status back to 'processing', restarting the loading screen.
+      // The useEffect below re-fetches if reportHtml is still missing after completion.
     };
 
     const handleFailed = () => {
@@ -209,6 +212,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
       pollInterval = setInterval(async () => {
         try {
           const result = await dispatch(checkDiagnosticStatus(diagnostic.id)).unwrap();
+          if (cancelled) return;
           if (result.status === 'completed') handleCompleted();
           else if (result.status === 'failed') handleFailed();
         } catch (error) {

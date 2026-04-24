@@ -155,6 +155,7 @@ class UserCreateRequest(BaseModel):
     email: str
     name: str
     role: str = "client"
+    business_name: Optional[str] = None
 
 
 @router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -221,7 +222,8 @@ async def create_user(
             email=user_data.email,
             role=role_enum,
             first_name=first_name,
-            last_name=last_name
+            last_name=last_name,
+            business_name=user_data.business_name if role_enum == UserRole.CLIENT else None
         )
         
     except Exception as e:

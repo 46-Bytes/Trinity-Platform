@@ -499,11 +499,12 @@ export const fetchFirmClientsById = createAsyncThunk(
 export const addClientToFirm = createAsyncThunk(
   'firm/addClientToFirm',
   async (
-    { firmId, email, first_name, last_name, primaryAdvisorId }: { firmId: string; email: string; first_name?: string; last_name?: string; primaryAdvisorId?: string },
+    { firmId, email, first_name, last_name, business_name, primaryAdvisorId }: { firmId: string; email: string; first_name?: string; last_name?: string; business_name?: string; primaryAdvisorId?: string },
     { rejectWithValue }
   ) => {
     try {
       const body: any = { email, first_name, last_name };
+      if (business_name) body.business_name = business_name;
       if (primaryAdvisorId) {
         body.primary_advisor_id = primaryAdvisorId;
       }

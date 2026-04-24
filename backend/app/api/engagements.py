@@ -431,7 +431,7 @@ async def get_user_role_data(
         return {
             "user_role": "advisor",
             "clients": [
-                {"id": str(client.id), "name": client.name or client.email}
+                {"id": str(client.id), "name": client.name or client.email, "business_name": client.business_name}
                 for client in clients
             ]
         }
@@ -466,6 +466,7 @@ async def get_user_role_data(
                 {
                     "id": str(client.id),
                     "name": client.name or client.email,
+                    "business_name": client.business_name,
                     "email": client.email or "",
                     "given_name": client.first_name,
                     "family_name": client.last_name,
@@ -474,7 +475,12 @@ async def get_user_role_data(
                 for client in clients
             ],
             "advisors": [
-                {"id": str(advisor.id), "name": advisor.name or advisor.email}
+                {
+                    "id": str(advisor.id),
+                    "name": advisor.name or advisor.email,
+                    "given_name": advisor.first_name,
+                    "family_name": advisor.last_name,
+                }
                 for advisor in advisors
             ]
         }
@@ -509,6 +515,7 @@ async def get_user_role_data(
                 {
                     "id": str(client.id),
                     "name": client.name or client.email,
+                    "business_name": client.business_name,
                     "email": client.email or "",
                     "given_name": client.first_name,
                     "family_name": client.last_name,
@@ -517,7 +524,12 @@ async def get_user_role_data(
                 for client in clients
             ],
             "advisors": [
-                {"id": str(advisor.id), "name": advisor.name or advisor.email}
+                {
+                    "id": str(advisor.id),
+                    "name": advisor.name or advisor.email,
+                    "given_name": advisor.first_name,
+                    "family_name": advisor.last_name,
+                }
                 for advisor in advisors
             ]
         }
@@ -554,7 +566,12 @@ async def get_user_role_data(
         return {
             "user_role": "client",
             "advisors": [
-                {"id": str(advisor.id), "name": advisor.name or advisor.email}
+                {
+                    "id": str(advisor.id),
+                    "name": advisor.name or advisor.email,
+                    "given_name": advisor.first_name,
+                    "family_name": advisor.last_name,
+                }
                 for advisor in advisors
             ]
         }
@@ -566,15 +583,20 @@ async def get_user_role_data(
         return {
             "user_role": "admin",
             "clients": [
-                {"id": str(client.id), "name": client.name or client.email}
+                {"id": str(client.id), "name": client.name or client.email, "business_name": client.business_name}
                 for client in clients
             ],
             "advisors": [
-                {"id": str(advisor.id), "name": advisor.name or advisor.email}
+                {
+                    "id": str(advisor.id),
+                    "name": advisor.name or advisor.email,
+                    "given_name": advisor.first_name,
+                    "family_name": advisor.last_name,
+                }
                 for advisor in advisors
             ]
         }
-    
+
     else:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

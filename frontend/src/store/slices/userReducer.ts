@@ -13,6 +13,7 @@ export interface User {
   created_at: string;
   updated_at?: string;
   nickname?: string;
+  business_name?: string;
   firm_id?: string;
 }
 
@@ -72,12 +73,19 @@ export const fetchUsers = createAsyncThunk(
 
 export const createUser = createAsyncThunk(
   'user/createUser',
-  async (userData: { email: string; name: string; role: UserRole }, { rejectWithValue }) => {
+  async (userData: { email: string; name: string; role: UserRole; business_name?: string }, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem('auth_token');
       if (!token) {
         throw new Error('No authentication token found');
       }
+
+      const body: Record<string, any> = {
+        email: userData.email,
+        name: userData.name,
+        role: userData.role,
+      };
+      if (userData.business_name) body.business_name = userData.business_name;
 
       const response = await fetch(`${API_BASE_URL}/api/users`, {
         method: 'POST',
@@ -85,11 +93,7 @@ export const createUser = createAsyncThunk(
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          email: userData.email,
-          name: userData.name,
-          role: userData.role,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {

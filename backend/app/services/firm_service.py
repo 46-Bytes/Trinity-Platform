@@ -549,6 +549,7 @@ class FirmService:
         email: str,
         first_name: Optional[str] = None,
         last_name: Optional[str] = None,
+        business_name: Optional[str] = None,
         added_by: UUID = None,
         primary_advisor_id: Optional[UUID] = None
     ) -> User:
@@ -623,6 +624,8 @@ class FirmService:
                 client.last_name = last_name
             if derived_name:
                 client.name = derived_name
+            if business_name:
+                client.business_name = business_name
             
             # If client has a temp auth0_id, create them in Auth0 and update it
             if client.auth0_id and client.auth0_id.startswith("temp_client_"):
@@ -667,6 +670,7 @@ class FirmService:
                 name=derived_name,
                 first_name=first_name,
                 last_name=last_name,
+                business_name=business_name,
                 role=UserRole.CLIENT,
                 firm_id=firm_id,
                 email_verified=False,

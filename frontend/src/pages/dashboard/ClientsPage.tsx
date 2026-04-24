@@ -71,6 +71,7 @@ export default function ClientsPage() {
     email: '',
     first_name: '',
     last_name: '',
+    business_name: '',
     primary_advisor_id: '',
   });
 
@@ -320,6 +321,7 @@ export default function ClientsPage() {
         email: formData.email,
         first_name: formData.first_name || undefined,
         last_name: formData.last_name || undefined,
+        business_name: formData.business_name || undefined,
         primaryAdvisorId: formData.primary_advisor_id || undefined,
       }));
 
@@ -329,7 +331,7 @@ export default function ClientsPage() {
           description: 'Client added successfully',
         });
         setIsAddDialogOpen(false);
-        setFormData({ email: '', first_name: '', last_name: '', primary_advisor_id: '' });
+        setFormData({ email: '', first_name: '', last_name: '', business_name: '', primary_advisor_id: '' });
         // Refresh clients list - use appropriate fetch based on user role
         if (isSuperAdminViewingFirm) {
           dispatch(fetchFirmClientsById(firmId));
@@ -457,6 +459,15 @@ export default function ClientsPage() {
                     />
                   </div>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="business_name">Business Name</Label>
+                  <Input
+                    id="business_name"
+                    value={formData.business_name}
+                    onChange={(e) => setFormData({ ...formData, business_name: e.target.value })}
+                    placeholder="Acme Corp"
+                  />
+                </div>
                 {shouldUseFirmClients && (
                   <div className="space-y-2">
                     <Label htmlFor="primary_advisor">Primary Advisor (Optional)</Label>
@@ -490,7 +501,7 @@ export default function ClientsPage() {
                     variant="outline"
                     onClick={() => {
                       setIsAddDialogOpen(false);
-                      setFormData({ email: '', first_name: '', last_name: '', primary_advisor_id: '' });
+                      setFormData({ email: '', first_name: '', last_name: '', business_name: '', primary_advisor_id: '' });
                     }}
                   >
                     Cancel

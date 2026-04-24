@@ -14,6 +14,7 @@ class UserBase(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     nickname: Optional[str] = None
+    business_name: Optional[str] = None
     picture: Optional[str] = None
 
 

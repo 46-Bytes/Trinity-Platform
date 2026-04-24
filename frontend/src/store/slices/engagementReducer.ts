@@ -32,6 +32,8 @@ export interface Engagement {
 export interface Advisor {
   id: string;
   name: string;
+  given_name?: string;
+  family_name?: string;
 }
 
 export interface SecondaryAdvisorCandidate {
@@ -43,6 +45,7 @@ export interface SecondaryAdvisorCandidate {
 export interface Client {
   id: string;
   name: string;
+  business_name?: string;
 }
 
 export interface UserRoleData {

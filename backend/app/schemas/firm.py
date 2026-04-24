@@ -68,18 +68,20 @@ class FirmClientAdd(BaseModel):
     email: EmailStr = Field(..., description="Email address of the client")
     first_name: Optional[str] = Field(None, max_length=255, description="First name of the client")
     last_name: Optional[str] = Field(None, max_length=255, description="Last name of the client")
+    business_name: Optional[str] = Field(None, max_length=255, description="Client's business name")
     primary_advisor_id: Optional[UUID] = Field(None, description="Optional primary advisor ID to associate with the client")
 
 
 class FirmClientResponse(BaseModel):
     """Schema for client response."""
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: UUID
     email: str
     name: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    business_name: Optional[str] = None
     role: str
     is_active: bool
     firm_id: Optional[UUID] = None

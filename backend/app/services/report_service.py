@@ -365,56 +365,6 @@ class ReportService:
             flags=re.IGNORECASE,
         )
 
-        # Fix Pre-Listing Readiness Checklist table formatting.
-        # The LLM generates a 2-column table (Done | Readiness Item) where the
-        # "Done" column has empty cells.  With table-layout:auto, xhtml2pdf
-        # collapses the empty column to ~0 width.  We locate that specific table
-        # and inject explicit column widths + a checkbox glyph into empty Done cells.
-        checklist_match = re.search(
-            r'Pre-Listing\s+Readiness\s+Checklist',
-            advisor_html,
-            re.IGNORECASE,
-        )
-        if checklist_match:
-            after_heading = advisor_html[checklist_match.start():]
-            table_m = re.search(r'<table\b([^>]*)>(.*?)</table>', after_heading, re.IGNORECASE | re.DOTALL)
-            if table_m:
-                orig_table = table_m.group(0)
-                fixed_table = orig_table
-
-                # Give the "Done" <th> an explicit narrow width and centre-align it
-                fixed_table = re.sub(
-                    r'<th(\s[^>]*)?>(\s*(?:Done|&#9744;|&#x2610;|☐|)\s*)</th>',
-                    r'<th style="width:55px;text-align:center;min-width:55px;">\2</th>',
-                    fixed_table,
-                    count=1,
-                    flags=re.IGNORECASE,
-                )
-
-                # Replace empty first-column <td> cells with a centred checkbox glyph
-                def _add_checkbox(row_m):
-                    row = row_m.group(0)
-                    # Replace the first (empty or whitespace-only) <td>
-                    return re.sub(
-                        r'<td(\s[^>]*)?>(\s*)</td>',
-                        r'<td\1 style="width:55px;text-align:center;min-width:55px;">&#9744;</td>',
-                        row,
-                        count=1,
-                        flags=re.IGNORECASE,
-                    )
-
-                fixed_table = re.sub(
-                    r'<tr\b[^>]*>.*?</tr>',
-                    _add_checkbox,
-                    fixed_table,
-                    flags=re.IGNORECASE | re.DOTALL,
-                )
-
-                # Replace the original table in advisor_html
-                abs_start = checklist_match.start() + table_m.start()
-                abs_end = checklist_match.start() + table_m.end()
-                advisor_html = advisor_html[:abs_start] + fixed_table + advisor_html[abs_end:]
-
         # Inject subtitle text after the "3. Module Assessments" heading
         advisor_html = re.sub(
             r'(<h2[^>]*>\s*3\.\s*Module\s+Assessments?\s*</h2>)',
@@ -442,6 +392,18 @@ class ReportService:
                         result_parts.append('<div class="page-break"></div>')
                 result_parts.append(part)
             advisor_html = ''.join(result_parts)
+
+        # Insert a page break before "External Professional Engagement Plan"
+        # so the heading and its table rows start together on a fresh page.
+        # Uses a zero-width lookahead so the heading itself is not consumed/duplicated.
+        # The tempered greedy token allows for inline tags (e.g. <span>, <strong>)
+        # inside the block element before the target text.
+        advisor_html = re.sub(
+            r'(?=<(?:h[2-6]|p|div)\b[^>]*>(?:(?!<(?:h[2-6]|p|div)\b).)*?External\s+Professional\s+Engagement\s+Plan)',
+            r'<div class="page-break"></div>',
+            advisor_html,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
 
         # Colorize module headings and RAG status lines based on RAG color.
         # The structure is: <h3>M1 Module Name</h3> followed by
@@ -506,6 +468,95 @@ class ReportService:
         # content (e.g. "Underperforming staff, recruitment need...") can
         # overflow cell boundaries.  This injects <br/> at word boundaries.
         advisor_html = ReportService._pre_wrap_advisor_table_cells(advisor_html)
+
+        # Fix Pre-Listing Readiness Checklist table formatting.
+        # This runs AFTER _pre_wrap_advisor_table_cells so that the <br/> tags
+        # injected by that step into the Readiness Item column can be stripped out
+        # (the column is wide enough to not need forced wrapping).
+        checklist_match = re.search(
+            r'Pre-Listing\s+Readiness\s+Checklist',
+            advisor_html,
+            re.IGNORECASE,
+        )
+        if checklist_match:
+            after_heading = advisor_html[checklist_match.start():]
+            table_m = re.search(r'<table\b([^>]*)>(.*?)</table>', after_heading, re.IGNORECASE | re.DOTALL)
+            if table_m:
+                orig_table = table_m.group(0)
+                fixed_table = orig_table
+
+                # Replace the table tag wholesale — strip any existing style, set
+                # full width + fixed layout so xhtml2pdf respects the colgroup widths.
+                fixed_table = re.sub(
+                    r'<table\b[^>]*>',
+                    '<table style="width:100%;table-layout:fixed;border-collapse:collapse;">',
+                    fixed_table,
+                    count=1,
+                    flags=re.IGNORECASE,
+                )
+
+                # Inject <colgroup> so xhtml2pdf distributes width predictably.
+                fixed_table = re.sub(
+                    r'(<table\b[^>]*>)',
+                    r'\1<colgroup><col style="width:8%"><col style="width:92%"></colgroup>',
+                    fixed_table,
+                    count=1,
+                    flags=re.IGNORECASE,
+                )
+
+                # Strip existing style from "Done" <th> and re-apply clean styles.
+                fixed_table = re.sub(
+                    r'<th(\s[^>]*)?>(\s*(?:Done|&#9744;|&#x2610;|☐|)\s*)</th>',
+                    r'<th style="width:8%;text-align:center;">\2</th>',
+                    fixed_table,
+                    count=1,
+                    flags=re.IGNORECASE,
+                )
+
+                # Strip existing style from "Readiness Item" <th>.
+                fixed_table = re.sub(
+                    r'<th(\s[^>]*)?>(\s*Readiness\s+Item\s*)</th>',
+                    r'<th style="width:92%;text-align:left;">\2</th>',
+                    fixed_table,
+                    count=1,
+                    flags=re.IGNORECASE,
+                )
+
+                def _fix_checklist_row(row_m):
+                    row = row_m.group(0)
+                    # First td: empty → checkbox
+                    row = re.sub(
+                        r'<td(\s[^>]*)?>(\s*(?:<br\s*/?>)*\s*)</td>',
+                        r'<td style="width:8%;text-align:center;vertical-align:middle;">&#9744;</td>',
+                        row,
+                        count=1,
+                        flags=re.IGNORECASE,
+                    )
+                    # Second td: replace opening tag, strip <br/> injected by
+                    # _pre_wrap_advisor_table_cells (the column is wide enough).
+                    tds = list(re.finditer(r'<td(\s[^>]*)?>.*?</td>', row, re.IGNORECASE | re.DOTALL))
+                    if len(tds) >= 2:
+                        second = tds[1]
+                        inner = second.group(0)
+                        # Replace opening tag
+                        inner = re.sub(r'<td\b[^>]*>', '<td style="width:92%;vertical-align:top;">', inner, count=1, flags=re.IGNORECASE)
+                        # Remove <br/> tags that _pre_wrap_advisor_table_cells added
+                        inner = re.sub(r'<br\s*/?>', ' ', inner, flags=re.IGNORECASE)
+                        # Collapse any double spaces left behind
+                        inner = re.sub(r'  +', ' ', inner)
+                        row = row[:second.start()] + inner + row[second.end():]
+                    return row
+
+                fixed_table = re.sub(
+                    r'<tr\b[^>]*>.*?</tr>',
+                    _fix_checklist_row,
+                    fixed_table,
+                    flags=re.IGNORECASE | re.DOTALL,
+                )
+
+                abs_start = checklist_match.start() + table_m.start()
+                abs_end = checklist_match.start() + table_m.end()
+                advisor_html = advisor_html[:abs_start] + fixed_table + advisor_html[abs_end:]
 
         return f"""
     <div class="section advisor-report-section">
@@ -893,9 +944,17 @@ class ReportService:
                 if canonical_key:
                     struct_info = structured_question_map.get(canonical_key)
             if struct_info:
-                response_html = ReportService._render_structured_response(
-                    answer, struct_info["fields"], struct_info["type"]
-                )
+                if (struct_info["type"] == "multipletext"
+                        and re.match(r'business_property_\d+', key, re.IGNORECASE)):
+                    response_html = ReportService._render_multipletext_as_vertical_table(
+                        answer if isinstance(answer, dict)
+                        else (answer[0] if isinstance(answer, list) and answer else {}),
+                        struct_info["fields"],
+                    )
+                else:
+                    response_html = ReportService._render_structured_response(
+                        answer, struct_info["fields"], struct_info["type"]
+                    )
                 if not response_html:
                     response_html = "&nbsp;"
                 response_html = ReportService._break_long_words_in_html(str(response_html))
@@ -1406,6 +1465,59 @@ class ReportService:
             f'border-collapse: collapse; margin: 4px 0;">'
             f'<thead><tr>{header_cells}</tr></thead>'
             f'<tbody>{body_rows}</tbody>'
+            f'</table>'
+        )
+
+    @staticmethod
+    def _render_multipletext_as_vertical_table(
+        data: dict,
+        field_map: Optional[Dict[str, str]] = None,
+    ) -> str:
+        """Render a wide multipletext answer (e.g. business_property_N) as a
+        vertical two-column key/value table: label (35%) | value (65%).
+        One row per non-empty field. Skips blank values.
+        """
+        if not data or not isinstance(data, dict):
+            return "&nbsp;"
+
+        field_map = field_map or {}
+        rows_html = ""
+
+        for k, val in data.items():
+            if val is None:
+                continue
+            str_val = str(val)
+            if not str_val.strip():
+                continue
+
+            label = ReportService._escape_html(
+                field_map.get(k, ReportService._humanize_label(str(k)))
+            )
+            if isinstance(val, (dict, list)):
+                display = ReportService._wrap_cell_text(
+                    ReportService._escape_html(ReportService._format_value_readable(val)), 35
+                )
+            else:
+                display = ReportService._wrap_cell_text(
+                    ReportService._escape_html(str_val), 35
+                )
+
+            rows_html += (
+                f'<tr>'
+                f'<td style="font-size:11px;font-weight:bold;width:35%;'
+                f'vertical-align:top;padding:3px 6px;">{label}</td>'
+                f'<td style="font-size:11px;width:65%;'
+                f'vertical-align:top;padding:3px 6px;">{display}</td>'
+                f'</tr>'
+            )
+
+        if not rows_html:
+            return "&nbsp;"
+
+        return (
+            f'<table class="sub-table" style="table-layout:fixed;width:100%;'
+            f'border-collapse:collapse;margin:4px 0;">'
+            f'<tbody>{rows_html}</tbody>'
             f'</table>'
         )
 

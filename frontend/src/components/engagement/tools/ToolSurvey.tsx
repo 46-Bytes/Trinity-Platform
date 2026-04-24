@@ -245,17 +245,20 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
 
   // Re-fetch full diagnostic data when status flips to completed but the detail fetch inside
   // checkDiagnosticStatus failed (leaving reportHtml / aiAnalysis empty).
-  // This is a no-op when the full data is already present (the normal success path).
+  // Only fires when completedAt is absent — meaning the detail fetch didn't return full data.
+  // If completedAt is present, checkDiagnosticStatus already fetched the full diagnostic;
+  // a re-fetch here risks getting stale 'processing' data and resetting the loading screen.
   useEffect(() => {
     if (
       diagnostic?.status === 'completed' &&
       engagementId &&
+      !diagnostic.completedAt &&
       !diagnostic.reportHtml &&
       !diagnostic.aiAnalysis?.advisorReport
     ) {
       dispatch(fetchDiagnosticByEngagement(engagementId));
     }
-  }, [diagnostic?.status, !!diagnostic?.reportHtml, !!diagnostic?.aiAnalysis?.advisorReport, engagementId, dispatch]);
+  }, [diagnostic?.status, !!diagnostic?.completedAt, !!diagnostic?.reportHtml, !!diagnostic?.aiAnalysis?.advisorReport, engagementId, dispatch]);
 
   // Merge Redux responses (source of truth) with local unsaved changes
   const responses = useMemo(() => {

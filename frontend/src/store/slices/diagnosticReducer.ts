@@ -366,6 +366,18 @@ const diagnosticSlice = createSlice({
       })
       .addCase(fetchDiagnosticByEngagement.fulfilled, (state, action) => {
         state.isLoading = false;
+
+        // Guard: never let a stale 'processing' response overwrite a diagnostic that we already
+        // know is completed (e.g. from a prior checkDiagnosticStatus poll). This prevents a
+        // re-fetch racing with the background task from resetting the loading screen.
+        const currentIsCompleted =
+          state.diagnostic?.id === action.payload.id &&
+          (state.diagnostic?.status === 'completed' || state.diagnostic?.status === 'failed');
+        if (currentIsCompleted && action.payload.status === 'processing') {
+          // The re-fetch is stale — ignore it so the loading screen stays cleared.
+          return;
+        }
+
         state.diagnostic = action.payload;
         // Start polling if status is processing; clear it for any other status
         if (action.payload.status === 'processing') {
@@ -493,22 +505,21 @@ const diagnosticSlice = createSlice({
       .addCase(checkDiagnosticStatus.fulfilled, (state, action) => {
         const isTerminal = action.payload.status === 'completed' || action.payload.status === 'failed';
 
-        if (action.payload.diagnostic && state.diagnostic) {
-          // Full update: detail fetch succeeded and IDs match
-          if (state.diagnostic.id === action.payload.diagnostic.id) {
-            state.diagnostic = action.payload.diagnostic;
-            if (isTerminal) state.isPolling = false;
-          }
-        } else if (
-          !action.payload.diagnostic &&
-          state.diagnostic &&
-          state.diagnostic.id === action.payload.diagnosticId &&
-          isTerminal
-        ) {
-          // Detail fetch failed but status is terminal — update the minimum fields
-          // so the loading screen clears immediately without waiting for the next poll tick
-          state.diagnostic.status = action.payload.status;
-          if (action.payload.completedAt) {
+        // Only process if this result is for the currently-loaded diagnostic
+        if (!state.diagnostic || state.diagnostic.id !== action.payload.diagnosticId) return;
+
+        // If full detail was fetched successfully, apply it
+        if (action.payload.diagnostic) {
+          state.diagnostic = action.payload.diagnostic;
+        }
+
+        // Always apply the authoritative status from the status endpoint.
+        // The detail endpoint may return stale 'processing' data while the status
+        // endpoint already says 'completed', which would leave the loading screen
+        // permanently stuck. The status endpoint is the source of truth here.
+        if (isTerminal) {
+          state.diagnostic.status = action.payload.status as Diagnostic['status'];
+          if (action.payload.completedAt && !state.diagnostic.completedAt) {
             state.diagnostic.completedAt = action.payload.completedAt;
           }
           state.isPolling = false;

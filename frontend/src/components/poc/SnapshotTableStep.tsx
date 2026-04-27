@@ -37,6 +37,7 @@ interface SnapshotTableStepProps {
 
 export function SnapshotTableStep({ projectId, onComplete, onBack, className, onLoadingStateChange, initialData, onDataChange }: SnapshotTableStepProps) {
   const [snapshotTable, setSnapshotTable] = useState<SnapshotTable | null>(null);
+  const [planRecs, setPlanRecs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -69,6 +70,11 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
 
     if (initialData?.snapshot_table) {
       applyProject(initialData);
+      const rawPlan = initialData.twelve_month_plan;
+      const actualPlan = rawPlan?.twelve_month_plan ?? rawPlan;
+      if (Array.isArray(actualPlan?.recommendations) && actualPlan.recommendations.length > 0) {
+        setPlanRecs(actualPlan.recommendations);
+      }
       setIsInitialLoading(false);
       hasInitialized.current = true;
       return;
@@ -175,6 +181,25 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
       .catch((err) => console.error('Failed to auto-save snapshot table:', err));
   };
 
+  // Mirror a recommendation reorder to Step 6 (non-blocking)
+  const persistPlanRecommendations = (recs: any[]) => {
+    const token = localStorage.getItem('auth_token');
+    const rawPlan = initialData?.twelve_month_plan;
+    const actualPlan = rawPlan?.twelve_month_plan ?? rawPlan ?? {};
+    fetch(`${API_BASE_URL}/api/poc/${projectId}/step6/plan`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        plan_notes: actualPlan.plan_notes ?? '',
+        recommendations: recs,
+      }),
+    }).catch((err) => console.error('Failed to sync plan order:', err));
+  };
+
   // Save edit
   const saveEdit = () => {
     if (editingIndex !== null && editForm && snapshotTable) {
@@ -205,6 +230,13 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
     if (editingIndex === index) setEditingIndex(index - 1);
     else if (editingIndex === index - 1) setEditingIndex(index);
     persistSnapshotTable(reordered);
+    if (planRecs.length > index) {
+      const newRecs = [...planRecs];
+      [newRecs[index - 1], newRecs[index]] = [newRecs[index], newRecs[index - 1]];
+      const renumbered = newRecs.map((r, i) => ({ ...r, number: i + 1 }));
+      setPlanRecs(renumbered);
+      persistPlanRecommendations(renumbered);
+    }
   };
 
   const moveRowDown = (index: number) => {
@@ -216,6 +248,13 @@ export function SnapshotTableStep({ projectId, onComplete, onBack, className, on
     if (editingIndex === index) setEditingIndex(index + 1);
     else if (editingIndex === index + 1) setEditingIndex(index);
     persistSnapshotTable(reordered);
+    if (planRecs.length > index + 1) {
+      const newRecs = [...planRecs];
+      [newRecs[index], newRecs[index + 1]] = [newRecs[index + 1], newRecs[index]];
+      const renumbered = newRecs.map((r, i) => ({ ...r, number: i + 1 }));
+      setPlanRecs(renumbered);
+      persistPlanRecommendations(renumbered);
+    }
   };
 
   const addRow = () => {

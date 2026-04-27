@@ -51,6 +51,9 @@ interface DraftFindingsStepProps {
 
 export function DraftFindingsStep({ projectId, onComplete, onBack, className, onLoadingStateChange, initialData, onDataChange }: DraftFindingsStepProps) {
   const [findings, setFindings] = useState<Finding[]>([]);
+  const [downstreamExpanded, setDownstreamExpanded] = useState<any[]>([]);
+  const [downstreamSnapshotRows, setDownstreamSnapshotRows] = useState<any[]>([]);
+  const [downstreamPlanRecs, setDownstreamPlanRecs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -86,6 +89,14 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
 
     if (initialData?.draft_findings) {
       applyProject(initialData);
+      const rawExpanded = initialData.expanded_findings;
+      const expanded = rawExpanded?.expanded_findings ?? (Array.isArray(rawExpanded) ? rawExpanded : []);
+      if (Array.isArray(expanded) && expanded.length > 0) setDownstreamExpanded(expanded);
+      const snapshotRows = (initialData.snapshot_table?.snapshot_table ?? initialData.snapshot_table)?.rows ?? [];
+      if (snapshotRows.length > 0) setDownstreamSnapshotRows(snapshotRows);
+      const rawPlan = initialData.twelve_month_plan;
+      const planRecs = (rawPlan?.twelve_month_plan ?? rawPlan)?.recommendations ?? [];
+      if (planRecs.length > 0) setDownstreamPlanRecs(planRecs);
       setIsInitialLoading(false);
       hasInitialized.current = true;
       return;
@@ -276,6 +287,38 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
       .catch((err) => console.error('Failed to auto-save findings:', err));
   };
 
+  const persistDownstreamExpanded = (recs: any[]) => {
+    const token = localStorage.getItem('auth_token');
+    fetch(`${API_BASE_URL}/api/poc/${projectId}/step4/save`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      credentials: 'include',
+      body: JSON.stringify({ expanded_findings: recs }),
+    }).catch((err) => console.error('Failed to sync expanded findings order:', err));
+  };
+
+  const persistDownstreamSnapshot = (rows: any[]) => {
+    const token = localStorage.getItem('auth_token');
+    fetch(`${API_BASE_URL}/api/poc/${projectId}/step5/save`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      credentials: 'include',
+      body: JSON.stringify({ rows }),
+    }).catch((err) => console.error('Failed to sync snapshot table order:', err));
+  };
+
+  const persistDownstreamPlan = (recs: any[]) => {
+    const token = localStorage.getItem('auth_token');
+    const rawPlan = initialData?.twelve_month_plan;
+    const actualPlan = rawPlan?.twelve_month_plan ?? rawPlan ?? {};
+    fetch(`${API_BASE_URL}/api/poc/${projectId}/step6/plan`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      credentials: 'include',
+      body: JSON.stringify({ plan_notes: actualPlan.plan_notes ?? '', recommendations: recs }),
+    }).catch((err) => console.error('Failed to sync plan order:', err));
+  };
+
   // Move finding up/down
   const moveFinding = (index: number, direction: 'up' | 'down') => {
     const newIndex = direction === 'up' ? index - 1 : index + 1;
@@ -283,10 +326,32 @@ export function DraftFindingsStep({ projectId, onComplete, onBack, className, on
 
     const updated = [...findings];
     [updated[index], updated[newIndex]] = [updated[newIndex], updated[index]];
-    // Update ranks
     updated.forEach((f, i) => (f.rank = i + 1));
     setFindings(updated);
     persistFindings(updated);
+
+    // Cascade the same positional swap to all downstream steps
+    if (downstreamExpanded.length > Math.max(index, newIndex)) {
+      const newExp = [...downstreamExpanded];
+      [newExp[index], newExp[newIndex]] = [newExp[newIndex], newExp[index]];
+      newExp.forEach((f: any, i: number) => (f.rank = i + 1));
+      setDownstreamExpanded(newExp);
+      persistDownstreamExpanded(newExp);
+    }
+    if (downstreamSnapshotRows.length > Math.max(index, newIndex)) {
+      const newRows = [...downstreamSnapshotRows];
+      [newRows[index], newRows[newIndex]] = [newRows[newIndex], newRows[index]];
+      newRows.forEach((r: any, i: number) => (r.rank = i + 1));
+      setDownstreamSnapshotRows(newRows);
+      persistDownstreamSnapshot(newRows);
+    }
+    if (downstreamPlanRecs.length > Math.max(index, newIndex)) {
+      const newRecs = [...downstreamPlanRecs];
+      [newRecs[index], newRecs[newIndex]] = [newRecs[newIndex], newRecs[index]];
+      newRecs.forEach((r: any, i: number) => (r.number = i + 1));
+      setDownstreamPlanRecs(newRecs);
+      persistDownstreamPlan(newRecs);
+    }
   };
 
   // Delete finding

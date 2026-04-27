@@ -34,6 +34,8 @@ interface ExpandedFindingsStepProps {
 
 export function ExpandedFindingsStep({ projectId, onComplete, onBack, className, onLoadingStateChange, initialData, onDataChange }: ExpandedFindingsStepProps) {
   const [expandedFindings, setExpandedFindings] = useState<ExpandedFinding[]>([]);
+  const [downstreamSnapshotRows, setDownstreamSnapshotRows] = useState<any[]>([]);
+  const [downstreamPlanRecs, setDownstreamPlanRecs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -70,6 +72,11 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
 
     if (initialData?.expanded_findings) {
       applyProject(initialData);
+      const snapshotRows = (initialData.snapshot_table?.snapshot_table ?? initialData.snapshot_table)?.rows ?? [];
+      if (snapshotRows.length > 0) setDownstreamSnapshotRows(snapshotRows);
+      const rawPlan = initialData.twelve_month_plan;
+      const planRecs = (rawPlan?.twelve_month_plan ?? rawPlan)?.recommendations ?? [];
+      if (planRecs.length > 0) setDownstreamPlanRecs(planRecs);
       setIsInitialLoading(false);
       hasInitialized.current = true;
       return;
@@ -217,6 +224,55 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
     }
   };
 
+  const persistDownstreamSnapshot = (rows: any[]) => {
+    const token = localStorage.getItem('auth_token');
+    fetch(`${API_BASE_URL}/api/poc/${projectId}/step5/save`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      credentials: 'include',
+      body: JSON.stringify({ rows }),
+    }).catch((err) => console.error('Failed to sync snapshot table order:', err));
+  };
+
+  const persistDownstreamPlan = (recs: any[]) => {
+    const token = localStorage.getItem('auth_token');
+    const rawPlan = initialData?.twelve_month_plan;
+    const actualPlan = rawPlan?.twelve_month_plan ?? rawPlan ?? {};
+    fetch(`${API_BASE_URL}/api/poc/${projectId}/step6/plan`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      credentials: 'include',
+      body: JSON.stringify({ plan_notes: actualPlan.plan_notes ?? '', recommendations: recs }),
+    }).catch((err) => console.error('Failed to sync plan order:', err));
+  };
+
+  const moveExpanded = (index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= expandedFindings.length) return;
+
+    const updated = [...expandedFindings];
+    [updated[index], updated[newIndex]] = [updated[newIndex], updated[index]];
+    updated.forEach((f, i) => (f.rank = i + 1));
+    setExpandedFindings(updated);
+    setOpenItems((prev) => prev.map((i) => (i === index ? newIndex : i === newIndex ? index : i)));
+    persistExpandedFindings(updated);
+
+    if (downstreamSnapshotRows.length > Math.max(index, newIndex)) {
+      const newRows = [...downstreamSnapshotRows];
+      [newRows[index], newRows[newIndex]] = [newRows[newIndex], newRows[index]];
+      newRows.forEach((r: any, i: number) => (r.rank = i + 1));
+      setDownstreamSnapshotRows(newRows);
+      persistDownstreamSnapshot(newRows);
+    }
+    if (downstreamPlanRecs.length > Math.max(index, newIndex)) {
+      const newRecs = [...downstreamPlanRecs];
+      [newRecs[index], newRecs[newIndex]] = [newRecs[newIndex], newRecs[index]];
+      newRecs.forEach((r: any, i: number) => (r.number = i + 1));
+      setDownstreamPlanRecs(newRecs);
+      persistDownstreamPlan(newRecs);
+    }
+  };
+
   // Delete finding — opens confirmation dialog
   const deleteFinding = (index: number) => {
     setPendingDeleteIndex(index);
@@ -323,6 +379,28 @@ export function ExpandedFindingsStep({ projectId, onComplete, onBack, className,
                         <div className="flex items-center gap-2">
                           {editingIndex !== index && (
                             <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={index === 0}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  moveExpanded(index, 'up');
+                                }}
+                              >
+                                <ChevronUp className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={index === expandedFindings.length - 1}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  moveExpanded(index, 'down');
+                                }}
+                              >
+                                <ChevronDown className="w-4 h-4" />
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"

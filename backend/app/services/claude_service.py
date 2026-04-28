@@ -254,6 +254,8 @@ class ClaudeService:
 
             # Prepare parameters
             max_tokens = max_output_tokens or settings.ANTHROPIC_MAX_TOKENS
+            if "haiku" in use_model.lower():
+                max_tokens = min(max_tokens, 64000)
             temp = temperature if temperature is not None else self.temperature
 
             params: Dict[str, Any] = {
@@ -274,7 +276,9 @@ class ClaudeService:
                 ]
 
             # Enable adaptive thinking with effort control via output_config
-            if reasoning_effort and reasoning_effort.lower() in ("low", "medium", "high"):
+            # Haiku does not support adaptive thinking — only apply for Opus/Sonnet
+            thinking_supported = "haiku" not in use_model.lower()
+            if thinking_supported and reasoning_effort and reasoning_effort.lower() in ("low", "medium", "high"):
                 params["thinking"] = {"type": "adaptive"}
                 params["output_config"] = {"effort": reasoning_effort.lower()}
                 params["temperature"] = 1.0

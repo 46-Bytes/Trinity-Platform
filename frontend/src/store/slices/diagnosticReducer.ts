@@ -6,7 +6,7 @@ export interface Diagnostic {
   engagementId: string;
   createdByUserId: string;
   completedByUserId?: string;
-  status: 'draft' | 'in_progress' | 'processing' | 'completed' | 'archived';
+  status: 'draft' | 'in_progress' | 'processing' | 'completed' | 'failed' | 'archived';
   diagnosticType: string;
   diagnosticVersion: string;
   questions?: Record<string, any>;
@@ -355,6 +355,16 @@ const diagnosticSlice = createSlice({
     stopPolling: (state) => {
       state.isPolling = false;
     },
+    // Directly mark the current diagnostic as completed. Called from the polling
+    // component when it detects completion, as a belt-and-suspenders guarantee
+    // that the loading screen clears even if checkDiagnosticStatus.fulfilled's
+    // guard skips the update for any reason.
+    setDiagnosticCompleted: (state) => {
+      if (state.diagnostic) {
+        state.diagnostic.status = 'completed';
+      }
+      state.isPolling = false;
+    },
     // Update local responses without API call (for optimistic updates)
     updateLocalResponses: (state, action: PayloadAction<Record<string, any>>) => {
       if (state.diagnostic) {
@@ -506,7 +516,7 @@ const diagnosticSlice = createSlice({
         state.error = action.payload as string;
       })
       // Check diagnostic status
-      .addCase(checkDiagnosticStatus.pending, (state) => {
+      .addCase(checkDiagnosticStatus.pending, () => {
         // Don't set isPolling here - it's managed by the component/hook
         // This allows global polling to work independently
       })
@@ -540,6 +550,6 @@ const diagnosticSlice = createSlice({
   },
 });
 
-export const { clearDiagnostic, clearError, updateLocalResponses, stopPolling } = diagnosticSlice.actions;
+export const { clearDiagnostic, clearError, updateLocalResponses, stopPolling, setDiagnosticCompleted } = diagnosticSlice.actions;
 export default diagnosticSlice.reducer;
 

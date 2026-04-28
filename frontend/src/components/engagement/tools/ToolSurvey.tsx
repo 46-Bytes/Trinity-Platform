@@ -28,6 +28,7 @@ import {
   submitDiagnostic,
   checkDiagnosticStatus,
   stopPolling,
+  setDiagnosticCompleted,
   clearDiagnostic,
   cancelDiagnosticProcessing,
 } from '@/store/slices/diagnosticReducer';
@@ -157,15 +158,17 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
       if (pollInterval) clearInterval(pollInterval);
       if (timeout) clearTimeout(timeout);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      // Directly force the Redux status to 'completed'. This is the definitive
+      // guarantee that the loading screen clears — even if checkDiagnosticStatus
+      // .fulfilled's guard skipped the update (e.g. ID mismatch, detail fetch error).
+      dispatch(setDiagnosticCompleted());
       dispatch(stopPolling());
       removeFromLocalStorage();
       toast.success('✅ Diagnostic processing completed! PDF report is ready for download.', {
         duration: 10000,
       });
-      // Do NOT re-fetch here: checkDiagnosticStatus already updated state with the full
-      // diagnostic detail. Re-fetching races with that update and can overwrite
-      // diagnostic.status back to 'processing', restarting the loading screen.
-      // The useEffect below re-fetches if reportHtml is still missing after completion.
+      // Do NOT re-fetch here: the useEffect below handles loading report content
+      // when reportHtml is still absent after the status flips to 'completed'.
     };
 
     const handleFailed = () => {

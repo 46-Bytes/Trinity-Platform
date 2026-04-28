@@ -224,13 +224,13 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
         }
       }, 10000); // Poll every 10 seconds
 
-      // Safety timeout: stop polling after 20 minutes
+      // Safety timeout: stop polling after 90 minutes
       timeout = setTimeout(() => {
         if (pollInterval) clearInterval(pollInterval);
         document.removeEventListener('visibilitychange', handleVisibilityChange);
         dispatch(stopPolling());
-        toast.warning('Processing is taking longer than expected. Please check back later.');
-      }, 20 * 60 * 1000); // 20 minutes
+        toast.warning('Processing is taking longer than expected (90+ minutes). Please check back later or contact support.');
+      }, 90 * 60 * 1000); // 90 minutes — backend auto-fails at 60 min; this gives a 30-min buffer
 
       document.addEventListener('visibilitychange', handleVisibilityChange);
     };
@@ -988,7 +988,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
       )}
 
       {/* Show loading screen when submitting OR when status is processing */}
-      {isSubmitting || diagnostic.status === 'processing' ? (
+      {isSubmitting || (diagnostic.status === 'processing' && isPolling) ? (
         // Loading screen shown while submitting or processing (replaces questions + buttons)
         <div className="flex flex-col items-center justify-center py-24 gap-4">
           <Loader2 className="h-12 w-12 text-accent animate-spin" />

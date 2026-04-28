@@ -291,21 +291,29 @@ export const checkDiagnosticStatus = createAsyncThunk(
 
       // If completed, fetch full diagnostic data
       if (statusData.status === 'completed' || statusData.status === 'failed') {
-        const detailResponse = await fetch(`${API_BASE_URL}/api/diagnostics/${diagnosticId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
+        // Isolated try/catch: a network error on the detail fetch must NOT reject
+        // this thunk, because that would swallow the 'completed' status from the
+        // status endpoint and leave the loading screen permanently stuck.
+        try {
+          const detailResponse = await fetch(`${API_BASE_URL}/api/diagnostics/${diagnosticId}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
 
-        if (detailResponse.ok) {
-          const detailData = await detailResponse.json();
-          return {
-            status: statusData.status,
-            completedAt: statusData.completed_at,
-            diagnostic: mapBackendDiagnosticToFrontend(detailData),
-            diagnosticId,
-          };
+          if (detailResponse.ok) {
+            const detailData = await detailResponse.json();
+            return {
+              status: statusData.status,
+              completedAt: statusData.completed_at,
+              diagnostic: mapBackendDiagnosticToFrontend(detailData),
+              diagnosticId,
+            };
+          }
+        } catch (detailError) {
+          // Fall through — return status-only so the reducer can still clear
+          // the loading screen using the authoritative status endpoint value.
         }
       }
 

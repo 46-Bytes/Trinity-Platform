@@ -243,22 +243,23 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
     };
   }, [diagnostic?.id, diagnostic?.status, isPolling, dispatch, engagementId]);
 
-  // Re-fetch full diagnostic data when status flips to completed but the detail fetch inside
-  // checkDiagnosticStatus failed (leaving reportHtml / aiAnalysis empty).
-  // Only fires when completedAt is absent — meaning the detail fetch didn't return full data.
-  // If completedAt is present, checkDiagnosticStatus already fetched the full diagnostic;
-  // a re-fetch here risks getting stale 'processing' data and resetting the loading screen.
+  // Re-fetch full diagnostic data when status flips to completed but report content is missing.
+  // This fires when the detail fetch inside checkDiagnosticStatus failed (e.g. network timeout
+  // on deployed), leaving reportHtml / aiAnalysis empty while status is already 'completed'.
+  // Note: completedAt is no longer used as the gate because it can now be set from the status
+  // endpoint even when the detail fetch failed (see checkDiagnosticStatus thunk).
+  // The guard in fetchDiagnosticByEngagement.fulfilled prevents stale 'processing' responses
+  // from overwriting the completed status, so this refetch is safe.
   useEffect(() => {
     if (
       diagnostic?.status === 'completed' &&
       engagementId &&
-      !diagnostic.completedAt &&
       !diagnostic.reportHtml &&
       !diagnostic.aiAnalysis?.advisorReport
     ) {
       dispatch(fetchDiagnosticByEngagement(engagementId));
     }
-  }, [diagnostic?.status, !!diagnostic?.completedAt, !!diagnostic?.reportHtml, !!diagnostic?.aiAnalysis?.advisorReport, engagementId, dispatch]);
+  }, [diagnostic?.status, !!diagnostic?.reportHtml, !!diagnostic?.aiAnalysis?.advisorReport, engagementId, dispatch]);
 
   // Merge Redux responses (source of truth) with local unsaved changes
   const responses = useMemo(() => {

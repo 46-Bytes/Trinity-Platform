@@ -96,3 +96,5 @@ If a mandatory field is missing, return:
 When responding with json, respond using pure json. When responding with html, respond using pure html. No comments, explanations, or markdown wrappers.
 
 CRITICAL — JSON SAFETY: The advisorReport field is an HTML string embedded inside a JSON value. You MUST use single quotes for ALL HTML attributes (e.g. border='1', style='color:red', class='foo'). Never use double quotes inside HTML attribute values — they break JSON string encoding. This applies to every HTML tag throughout the entire advisorReport string.
+
+Every <table> you generate MUST include a class attribute: <table class='advisor-table' ...>. This is required for correct PDF rendering.

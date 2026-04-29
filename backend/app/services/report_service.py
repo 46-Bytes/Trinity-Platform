@@ -2186,8 +2186,14 @@ class ReportService:
             lines: list[str] = []
             for row_html in rows:
                 cells = re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", row_html, re.S)
-                # Strip any remaining HTML tags inside cells
-                clean = [re.sub(r"<[^>]+>", "", c).strip() for c in cells]
+                # Replace <br/> with a space BEFORE stripping other tags so that
+                # words hard-wrapped by _wrap_cell_text don't collide (e.g.
+                # "such<br/>as" must become "such as", not "suchas").
+                def _strip_cell(c: str) -> str:
+                    c = re.sub(r"<br\s*/?>", " ", c, flags=re.IGNORECASE)
+                    c = re.sub(r"<[^>]+>", "", c)
+                    return re.sub(r" {2,}", " ", c).strip()
+                clean = [_strip_cell(c) for c in cells]
                 lines.append(" | ".join(clean))
             text = "<br/>".join(lines)
             return f"<p>{text}</p>"

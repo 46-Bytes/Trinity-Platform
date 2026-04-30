@@ -481,28 +481,46 @@ async def extract_context_capture(
     # Get uploaded file mappings if available
     file_mappings = bba.file_mappings or {}
 
-    # Return empty if neither diagnostic text nor uploaded files exist
+    # No diagnostic text and no uploaded files — fall back to engagement data directly
     if not diagnostic_text.strip() and not file_mappings:
-        return {"extracted": {}}
+        extracted: Dict[str, Any] = {}
+        if bba.engagement_id:
+            eng = db.query(Engagement).filter(Engagement.id == bba.engagement_id).first()
+            if eng:
+                if eng.business_name:
+                    extracted["clientName"] = eng.business_name
+                if eng.industry:
+                    extracted["industry"] = eng.industry
+        return {"extracted": extracted}
 
+    # Attempt LLM extraction; if it fails, fall through gracefully to engagement fallback
+    extracted: Dict[str, Any] = {}
     try:
         engine = get_bba_conversation_engine()
         extracted = await engine.extract_context_capture_from_diagnostic_text(
             diagnostic_text,
             file_mappings=file_mappings if file_mappings else None,
         )
-        # Fall back to the stored business_name if LLM didn't extract clientName
-        if "clientName" not in extracted and isinstance(dc, dict):
-            business_name = dc.get("business_name")
-            if isinstance(business_name, str) and business_name.strip():
-                extracted["clientName"] = business_name
-        return {"extracted": extracted}
     except Exception as e:
-        logger.exception("extract_context_capture failed: %s", e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to extract context from diagnostic",
-        )
+        logger.warning("LLM context extraction failed, falling back to engagement data: %s", e)
+
+    # Always fill any fields still missing from engagement data
+    if bba.engagement_id and ("clientName" not in extracted or "industry" not in extracted):
+        try:
+            eng = db.query(Engagement).filter(Engagement.id == bba.engagement_id).first()
+            if eng:
+                if "clientName" not in extracted and eng.business_name:
+                    extracted["clientName"] = eng.business_name
+                if "industry" not in extracted and eng.industry:
+                    extracted["industry"] = eng.industry
+        except Exception as e:
+            logger.warning("Failed to get engagement fallback data: %s", e)
+    elif "clientName" not in extracted and isinstance(dc, dict):
+        business_name = dc.get("business_name")
+        if isinstance(business_name, str) and business_name.strip():
+            extracted["clientName"] = business_name
+
+    return {"extracted": extracted}
 
 
 @router.get("/{project_id}", status_code=status.HTTP_200_OK)

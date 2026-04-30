@@ -1398,6 +1398,7 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
         {currentStep === 8 && projectId && (
           <TaskPlannerStep
             projectId={projectId}
+            engagementId={engagementId}
             initialData={projectCache}
             onDataChange={refreshProjectCache}
             onBack={() => goToStep(7)}

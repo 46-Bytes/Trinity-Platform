@@ -14,6 +14,7 @@ import {
   TableProperties,
   CheckCircle2,
   ArrowRight,
+  ListChecks,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,6 +23,9 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
+import { useAppDispatch } from '@/store/hooks';
+import { createTask } from '@/store/slices/tasksReducer';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -50,6 +54,7 @@ interface TaskPlannerSettings {
 
 interface TaskPlannerStepProps {
   projectId: string;
+  engagementId?: string;
   onBack: () => void;
   onContinueToPhase3?: () => void;
   className?: string;
@@ -96,7 +101,10 @@ const STATUS_COLOURS: Record<string, string> = {
 
 // ---------- Component ----------
 
-export function TaskPlannerStep({ projectId, onBack, onContinueToPhase3, className, onLoadingStateChange, initialData, onDataChange }: TaskPlannerStepProps) {
+export function TaskPlannerStep({ projectId, engagementId, onBack, onContinueToPhase3, className, onLoadingStateChange, initialData, onDataChange }: TaskPlannerStepProps) {
+  const dispatch = useAppDispatch();
+  const { user } = useAuth();
+
   // --- settings form state ---
   const [settings, setSettings] = useState<TaskPlannerSettings>({
     lead_advisor: '',
@@ -115,6 +123,8 @@ export function TaskPlannerStep({ projectId, onBack, onContinueToPhase3, classNa
   const [isLoadingProject, setIsLoadingProject] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingToTasks, setIsExportingToTasks] = useState(false);
+  const [exportToTasksSuccess, setExportToTasksSuccess] = useState<number | null>(null);
   const [isSavingTasks, setIsSavingTasks] = useState(false);
   const [tasksDirty, setTasksDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -337,6 +347,51 @@ export function TaskPlannerStep({ projectId, onBack, onContinueToPhase3, classNa
     }
   };
 
+  // --- Export to Trinity Tasks ---
+  const handleExportToTasks = async () => {
+    const resolvedEngagementId = engagementId || localStorage.getItem('bba_engagement_id') || null;
+    if (!resolvedEngagementId) {
+      setError('No engagement linked to this project. Cannot export to Tasks.');
+      return;
+    }
+    if (!user?.id) {
+      setError('You must be logged in to export tasks.');
+      return;
+    }
+    if (!tasks.length) return;
+
+    setIsExportingToTasks(true);
+    setError(null);
+    setExportToTasksSuccess(null);
+
+    const results = await Promise.allSettled(
+      tasks.map((task) =>
+        dispatch(
+          createTask({
+            engagementId: resolvedEngagementId,
+            createdByUserId: user.id,
+            title: task.task,
+            description: [
+              `[Rec ${task.rec_number}] ${task.recommendation}`,
+              task.timing ? `Timing: ${task.timing}` : null,
+              task.notes ? `Notes: ${task.notes}` : null,
+            ]
+              .filter(Boolean)
+              .join('\n'),
+            status: 'pending',
+            priority: 'medium',
+            moduleReference: 'BBA',
+            taskType: 'manual',
+          })
+        ).unwrap()
+      )
+    );
+
+    const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+    setIsExportingToTasks(false);
+    setExportToTasksSuccess(succeeded);
+  };
+
   // --- Loading state ---
   if (isLoadingProject) {
     return (
@@ -366,19 +421,34 @@ export function TaskPlannerStep({ projectId, onBack, onContinueToPhase3, classNa
               </CardDescription>
             </div>
             {hasPreview && (
-              <Button onClick={handleExportExcel} disabled={isExporting}>
-                {isExporting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Exporting...
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4 mr-2" />
-                    Export to Excel (.xlsx)
-                  </>
-                )}
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={handleExportToTasks} disabled={isExportingToTasks}>
+                  {isExportingToTasks ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Exporting...
+                    </>
+                  ) : (
+                    <>
+                      <ListChecks className="w-4 h-4 mr-2" />
+                      Export to Tasks
+                    </>
+                  )}
+                </Button>
+                <Button onClick={handleExportExcel} disabled={isExporting}>
+                  {isExporting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Exporting...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 mr-2" />
+                      Export to Excel (.xlsx)
+                    </>
+                  )}
+                </Button>
+              </div>
             )}
           </div>
         </CardHeader>
@@ -392,6 +462,14 @@ export function TaskPlannerStep({ projectId, onBack, onContinueToPhase3, classNa
           <button onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-600">
             &times;
           </button>
+        </div>
+      )}
+
+      {/* Export to Tasks Success */}
+      {exportToTasksSuccess !== null && (
+        <div className="flex items-center gap-2 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
+          <span className="text-green-700">{exportToTasksSuccess} task{exportToTasksSuccess !== 1 ? 's' : ''} exported to Trinity Tasks. Redirecting…</span>
         </div>
       )}
 
@@ -612,6 +690,19 @@ export function TaskPlannerStep({ projectId, onBack, onContinueToPhase3, classNa
                   >
                     <Settings2 className="w-4 h-4 mr-2" />
                     Edit Settings
+                  </Button>
+                  <Button variant="outline" onClick={handleExportToTasks} disabled={isExportingToTasks}>
+                    {isExportingToTasks ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Exporting...
+                      </>
+                    ) : (
+                      <>
+                        <ListChecks className="w-4 h-4 mr-2" />
+                        Export to Tasks
+                      </>
+                    )}
                   </Button>
                   <Button onClick={handleExportExcel} disabled={isExporting}>
                     {isExporting ? (
@@ -911,19 +1002,34 @@ export function TaskPlannerStep({ projectId, onBack, onContinueToPhase3, classNa
         </Button>
         <div className="flex gap-3">
           {hasPreview && (
-            <Button onClick={handleExportExcel} disabled={isExporting} size="lg">
-              {isExporting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Exporting...
-                </>
-              ) : (
-                <>
-                  <Download className="w-4 h-4 mr-2" />
-                  Export to Excel (.xlsx)
-                </>
-              )}
-            </Button>
+            <>
+              <Button variant="outline" onClick={handleExportToTasks} disabled={isExportingToTasks} size="lg">
+                {isExportingToTasks ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <ListChecks className="w-4 h-4 mr-2" />
+                    Export to Tasks
+                  </>
+                )}
+              </Button>
+              <Button onClick={handleExportExcel} disabled={isExporting} size="lg">
+                {isExporting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    Export to Excel (.xlsx)
+                  </>
+                )}
+              </Button>
+            </>
           )}
           {onContinueToPhase3 && (
             <Button onClick={onContinueToPhase3} variant="default" size="lg" className="bg-success text-success-foreground hover:bg-success/90">

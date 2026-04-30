@@ -38,6 +38,7 @@ function mapTaskToDisplay(task: Task) {
     status: task.status as TaskStatus,
     priority: task.priority,
     taskType: task.taskType,
+    moduleReference: task.moduleReference,
   };
 }
 
@@ -220,9 +221,12 @@ export default function TasksPage() {
                         }}
                       >
                         <div className="flex items-start justify-between mb-2">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             {task.taskType === 'diagnostic_generated' && (
                               <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-accent/10 text-accent">AI</span>
+                            )}
+                            {task.moduleReference === 'BBA' && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">BBA</span>
                             )}
                             <Badge className={cn("text-[10px] font-medium", getPriorityBadgeClassName(task.priority))}>
                               {capitalizeFirstLetter(task.priority)}

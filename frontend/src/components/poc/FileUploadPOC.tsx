@@ -168,11 +168,11 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
                     }))
                   );
                 }
-                if (project.engagement_client_name || project.client_name || project.industry || project.company_size) {
-                  const engName = project.engagement_client_name || null;
-                  setEngagementBusinessName(engName);
+                if (project.engagement_client_name) setEngagementBusinessName(project.engagement_client_name);
+                if (project.client_name || project.industry || project.company_size || project.locations ||
+                    project.exclusions || project.constraints || project.preferred_ranking || project.strategic_priorities) {
                   setQuestionnaireData({
-                    clientName: engName || project.client_name || '',
+                    clientName: project.client_name || '',
                     industry: project.industry || '',
                     companySize: project.company_size || '',
                     locations: project.locations || '',
@@ -252,11 +252,11 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
               }
 
               // Restore questionnaire data from backend if available
-              if (project.engagement_client_name || project.client_name || project.industry || project.company_size) {
-                const engName = project.engagement_client_name || null;
-                setEngagementBusinessName(engName);
+              if (project.engagement_client_name) setEngagementBusinessName(project.engagement_client_name);
+              if (project.client_name || project.industry || project.company_size || project.locations ||
+                  project.exclusions || project.constraints || project.preferred_ranking || project.strategic_priorities) {
                 setQuestionnaireData({
-                  clientName: engName || project.client_name || '',
+                  clientName: project.client_name || '',
                   industry: project.industry || '',
                   companySize: project.company_size || '',
                   locations: project.locations || '',
@@ -375,11 +375,11 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
               }
 
               // Restore questionnaire data
-              if (project.engagement_client_name || project.client_name || project.industry || project.company_size) {
-                const engName = project.engagement_client_name || null;
-                setEngagementBusinessName(engName);
+              if (project.engagement_client_name) setEngagementBusinessName(project.engagement_client_name);
+              if (project.client_name || project.industry || project.company_size || project.locations ||
+                  project.exclusions || project.constraints || project.preferred_ranking || project.strategic_priorities) {
                 setQuestionnaireData({
-                  clientName: engName || project.client_name || '',
+                  clientName: project.client_name || '',
                   industry: project.industry || '',
                   companySize: project.company_size || '',
                   locations: project.locations || '',
@@ -527,29 +527,43 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
     }
   }, [maxStepReached, projectId, isRestoring]);
 
-  // Reset extracted-context flag when project changes so we can extract again for a new project
+  // Reset extracted-context flag when project changes or when user leaves step 2,
+  // so re-entering the step always triggers a fresh extraction attempt.
   useEffect(() => {
     extractedContextCaptureRef.current = false;
   }, [projectId]);
 
-  // When entering Context Capture (step 2), try to extract and pre-fill from diagnostic if present
-  // Skip if questionnaire already has data (context was already captured previously)
   useEffect(() => {
-    const alreadyHasData = !!(questionnaireData.clientName || questionnaireData.industry || questionnaireData.companySize);
-    if (currentStep !== 2 || !projectId || extractedContextCaptureRef.current || isRestoring || alreadyHasData) return;
+    if (currentStep !== 2) {
+      extractedContextCaptureRef.current = false;
+    }
+  }, [currentStep]);
+
+  // When entering Context Capture (step 2), extract and pre-fill from uploaded files / engagement.
+  // The ref prevents duplicate calls within the same step visit; re-entering the step always retries.
+  // Empty fields are filled; non-empty fields are never overwritten.
+  useEffect(() => {
+    if (currentStep !== 2 || !projectId || extractedContextCaptureRef.current || isRestoring) return;
 
     const runExtract = async () => {
       extractedContextCaptureRef.current = true;
       updateStepLoadingState(2, true);
+      console.log('[BBA] Starting context extraction for project', projectId);
       try {
         const token = localStorage.getItem('auth_token');
         const res = await fetch(
           `${API_BASE_URL}/api/poc/${projectId}/extract-context-capture`,
           { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: 'include' }
         );
-        if (!res.ok) return;
+        console.log('[BBA] Extraction response status:', res.status);
+        // On any HTTP error, reset the flag so the user can retry
+        if (!res.ok) {
+          extractedContextCaptureRef.current = false;
+          return;
+        }
         const data = await res.json();
         const extracted = data?.extracted;
+        console.log('[BBA] Extracted data:', extracted);
         if (!extracted || typeof extracted !== 'object') return;
 
         setQuestionnaireData((prev) => {
@@ -569,7 +583,8 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
           });
           return next;
         });
-      } catch (_) {
+      } catch (err) {
+        console.error('[BBA] Extraction failed:', err);
         extractedContextCaptureRef.current = false;
       } finally {
         updateStepLoadingState(2, false);
@@ -1301,7 +1316,7 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
             {stepLoadingStates[2] && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Extracting context from diagnostic…
+                Extracting context from uploaded files…
               </div>
             )}
             <ContextCaptureQuestionnaire

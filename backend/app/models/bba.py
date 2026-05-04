@@ -70,6 +70,12 @@ class BBA(Base):
     report_version = Column(Integer, nullable=False, server_default='1', comment="Report version number")
 
     # Phase 2 – Excel Task Planner (Engagement Planner)
+    tasks_exported_to_trinity = Column(
+        Boolean,
+        nullable=False,
+        server_default='false',
+        comment="Whether task planner tasks have been exported to Trinity Tasks at least once",
+    )
     task_planner_settings = Column(
         JSONB,
         nullable=True,
@@ -173,6 +179,7 @@ class BBA(Base):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "questionnaire_completed_at": self.questionnaire_completed_at.isoformat() if self.questionnaire_completed_at else None,
+            "tasks_exported_to_trinity": self.tasks_exported_to_trinity,
             "task_planner_settings": self.task_planner_settings,
             "task_planner_tasks": self.task_planner_tasks,
             "task_planner_summary": self.task_planner_summary,

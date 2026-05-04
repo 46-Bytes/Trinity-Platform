@@ -33,7 +33,7 @@ function mapTaskToDisplay(task: Task) {
     description: task.description || '',
     engagementName: task.engagementName || 'Unknown Engagement',
     clientNames: task.clientNames || [],
-    assignedToName: task.assignedToName || task.createdByName || 'Unassigned',
+    assignedToName: task.assignedToName || 'Unassigned',
     dueDate: task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No due date',
     status: task.status as TaskStatus,
     priority: task.priority,

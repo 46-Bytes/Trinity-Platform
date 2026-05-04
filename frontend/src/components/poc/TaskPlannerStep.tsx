@@ -25,7 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useAppDispatch } from '@/store/hooks';
-import { createTask } from '@/store/slices/tasksReducer';
+import { createTask, deleteTask } from '@/store/slices/tasksReducer';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -127,6 +127,8 @@ export function TaskPlannerStep({ projectId, engagementId, onBack, onContinueToP
   const [exportToTasksSuccess, setExportToTasksSuccess] = useState<number | null>(null);
   const [isSavingTasks, setIsSavingTasks] = useState(false);
   const [tasksDirty, setTasksDirty] = useState(false);
+  const [tasksExportedToTrinity, setTasksExportedToTrinity] = useState(false);
+  const [modifiedSinceExport, setModifiedSinceExport] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [activeSection, setActiveSection] = useState<'settings' | 'preview'>('settings');
@@ -169,6 +171,9 @@ export function TaskPlannerStep({ projectId, engagementId, onBack, onContinueToP
         setActiveSection('preview');
         setTasksDirty(false);
       }
+
+      // Restore export state from DB
+      setTasksExportedToTrinity(project.tasks_exported_to_trinity === true);
     };
 
     if (initialData?.task_planner_settings || initialData?.task_planner_tasks) {
@@ -274,6 +279,7 @@ export function TaskPlannerStep({ projectId, engagementId, onBack, onContinueToP
       )
     );
     setTasksDirty(true);
+    setModifiedSinceExport(true);
   };
 
   // --- Save edited tasks to server ---
@@ -364,12 +370,48 @@ export function TaskPlannerStep({ projectId, engagementId, onBack, onContinueToP
     setError(null);
     setExportToTasksSuccess(null);
 
+    // Fetch the engagement to get the primary advisor ID for auto-assignment
+    let advisorIds: string[] | undefined;
+    try {
+      const engagementResponse = await fetch(`${API_BASE_URL}/api/engagements/${resolvedEngagementId}`, {
+        headers: { ...getAuthHeaders() },
+        credentials: 'include',
+      });
+      if (engagementResponse.ok) {
+        const engagementData = await engagementResponse.json();
+        const primaryAdvisorId = engagementData.primary_advisor_id;
+        if (primaryAdvisorId) {
+          advisorIds = [primaryAdvisorId];
+        }
+      }
+    } catch {
+      // If fetch fails, tasks will be created unassigned
+    }
+
+    // If previously exported, delete existing BBA tasks for this engagement first
+    if (tasksExportedToTrinity) {
+      try {
+        const existingResponse = await fetch(
+          `${API_BASE_URL}/api/tasks?engagement_id=${resolvedEngagementId}&limit=1000`,
+          { headers: { ...getAuthHeaders() }, credentials: 'include' }
+        );
+        if (existingResponse.ok) {
+          const existingTasks: any[] = await existingResponse.json();
+          const bbaTasks = existingTasks.filter((t) => t.module_reference === 'BBA');
+          await Promise.allSettled(bbaTasks.map((t) => dispatch(deleteTask(t.id)).unwrap()));
+        }
+      } catch {
+        // If deletion fails, proceed with creation anyway
+      }
+    }
+
     const results = await Promise.allSettled(
       tasks.map((task) =>
         dispatch(
           createTask({
             engagementId: resolvedEngagementId,
             createdByUserId: user.id,
+            assignedToUserIds: advisorIds,
             title: task.task,
             description: [
               `[Rec ${task.rec_number}] ${task.recommendation}`,
@@ -390,6 +432,16 @@ export function TaskPlannerStep({ projectId, engagementId, onBack, onContinueToP
     const succeeded = results.filter((r) => r.status === 'fulfilled').length;
     setIsExportingToTasks(false);
     setExportToTasksSuccess(succeeded);
+    if (succeeded > 0) {
+      setTasksExportedToTrinity(true);
+      setModifiedSinceExport(false);
+      // Persist export state to DB
+      fetch(`${API_BASE_URL}/api/poc/${projectId}/tasks/export-status?exported=true`, {
+        method: 'PATCH',
+        headers: { ...getAuthHeaders() },
+        credentials: 'include',
+      }).catch(() => {/* non-critical */});
+    }
   };
 
   // --- Loading state ---
@@ -422,7 +474,12 @@ export function TaskPlannerStep({ projectId, engagementId, onBack, onContinueToP
             </div>
             {hasPreview && (
               <div className="flex gap-2">
-                <Button variant="outline" onClick={handleExportToTasks} disabled={isExportingToTasks}>
+                <Button
+                  variant="outline"
+                  onClick={handleExportToTasks}
+                  disabled={isExportingToTasks || (tasksExportedToTrinity && !modifiedSinceExport)}
+                  title={tasksExportedToTrinity && !modifiedSinceExport ? 'Already exported. Edit tasks to re-export.' : undefined}
+                >
                   {isExportingToTasks ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -431,7 +488,7 @@ export function TaskPlannerStep({ projectId, engagementId, onBack, onContinueToP
                   ) : (
                     <>
                       <ListChecks className="w-4 h-4 mr-2" />
-                      Export to Tasks
+                      {tasksExportedToTrinity && modifiedSinceExport ? 'Update Tasks' : 'Export to Tasks'}
                     </>
                   )}
                 </Button>
@@ -691,7 +748,12 @@ export function TaskPlannerStep({ projectId, engagementId, onBack, onContinueToP
                     <Settings2 className="w-4 h-4 mr-2" />
                     Edit Settings
                   </Button>
-                  <Button variant="outline" onClick={handleExportToTasks} disabled={isExportingToTasks}>
+                  <Button
+                    variant="outline"
+                    onClick={handleExportToTasks}
+                    disabled={isExportingToTasks || (tasksExportedToTrinity && !modifiedSinceExport)}
+                    title={tasksExportedToTrinity && !modifiedSinceExport ? 'Already exported. Edit tasks to re-export.' : undefined}
+                  >
                     {isExportingToTasks ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -700,7 +762,7 @@ export function TaskPlannerStep({ projectId, engagementId, onBack, onContinueToP
                     ) : (
                       <>
                         <ListChecks className="w-4 h-4 mr-2" />
-                        Export to Tasks
+                        {tasksExportedToTrinity && modifiedSinceExport ? 'Update Tasks' : 'Export to Tasks'}
                       </>
                     )}
                   </Button>
@@ -1003,7 +1065,13 @@ export function TaskPlannerStep({ projectId, engagementId, onBack, onContinueToP
         <div className="flex gap-3">
           {hasPreview && (
             <>
-              <Button variant="outline" onClick={handleExportToTasks} disabled={isExportingToTasks} size="lg">
+              <Button
+                variant="outline"
+                onClick={handleExportToTasks}
+                disabled={isExportingToTasks || (tasksExportedToTrinity && !modifiedSinceExport)}
+                title={tasksExportedToTrinity && !modifiedSinceExport ? 'Already exported. Edit tasks to re-export.' : undefined}
+                size="lg"
+              >
                 {isExportingToTasks ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -1012,7 +1080,7 @@ export function TaskPlannerStep({ projectId, engagementId, onBack, onContinueToP
                 ) : (
                   <>
                     <ListChecks className="w-4 h-4 mr-2" />
-                    Export to Tasks
+                    {tasksExportedToTrinity && modifiedSinceExport ? 'Update Tasks' : 'Export to Tasks'}
                   </>
                 )}
               </Button>

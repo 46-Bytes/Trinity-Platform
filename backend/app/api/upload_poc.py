@@ -1618,6 +1618,30 @@ async def update_task_planner_tasks(
     }
 
 
+@router.patch("/{project_id}/tasks/export-status", status_code=status.HTTP_200_OK)
+async def set_task_export_status(
+    project_id: UUID,
+    exported: bool,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Mark whether BBA task planner tasks have been exported to Trinity Tasks."""
+    bba_service = get_bba_service(db)
+    bba = bba_service.get_bba(project_id)
+
+    if not bba:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="BBA project not found")
+
+    if bba.created_by_user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this project")
+
+    bba.tasks_exported_to_trinity = exported
+    db.commit()
+    db.refresh(bba)
+
+    return {"success": True, "tasks_exported_to_trinity": bba.tasks_exported_to_trinity}
+
+
 @router.post("/{project_id}/tasks/export/excel")
 async def export_task_planner_excel(
     project_id: UUID,

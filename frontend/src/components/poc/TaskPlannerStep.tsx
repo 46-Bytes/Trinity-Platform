@@ -411,7 +411,7 @@ export function TaskPlannerStep({ projectId, engagementId, onBack, onContinueToP
           createTask({
             engagementId: resolvedEngagementId,
             createdByUserId: user.id,
-            assignedToUserIds: advisorIds,
+            assignedToUserIds: task.owner === 'Client' ? undefined : advisorIds,
             title: task.task,
             description: [
               `[Rec ${task.rec_number}] ${task.recommendation}`,

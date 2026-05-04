@@ -148,9 +148,13 @@ class BBAConversationEngine:
             logger.error(f"[BBA Engine] Failed to load prompts: {e}")
             raise
         
-        # Build the full system message
-        system_content = f"{system_prompt}\n\n{step_prompt}"
-        
+        # Two separately-cached blocks: base prompt hits cache across all steps;
+        # step prompt hits cache on repeated Step 3 calls within the same session.
+        system_blocks = [
+            {"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}},
+            {"type": "text", "text": step_prompt, "cache_control": {"type": "ephemeral"}},
+        ]
+
         # Build optional prior diagnostic section when BBA was created from a diagnostic.
         # Capped at MAX_DIAGNOSTIC_CHARS to prevent full HTML reports (50–500 KB) from
         # consuming 12K–125K extra input tokens on every Step 3 call.
@@ -186,16 +190,15 @@ Analyse the uploaded files and generate draft findings for this client.
 - Preferred Ranking: {context['preferred_ranking']}
 
 ## Uploaded Files
-{json.dumps(context['file_mappings'], indent=2)}
+{json.dumps(context['file_mappings'], separators=(',', ':'))}
 
 {f"## Additional Instructions from Advisor{chr(10)}{custom_instructions}" if custom_instructions else ""}
 
 Please analyse all uploaded files and generate a ranked list of Top 10 findings.
 Return your response as a JSON object.
 """
-        
+
         messages = [
-            {"role": "system", "content": system_content},
             {"role": "user", "content": user_content}
         ]
         
@@ -219,6 +222,7 @@ Return your response as a JSON object.
         try:
             result = await self.openai_service.generate_json_completion(
                 messages=messages,
+                system_blocks=system_blocks,
                 file_ids=pdf_file_ids if pdf_file_ids else None,  # Only PDFs as input_file
                 tools=tools,  # CSV/TXT/XLSX go to Code Interpreter
                 reasoning_effort="medium",
@@ -273,8 +277,11 @@ Return your response as a JSON object.
             logger.error(f"[BBA Engine] Failed to load prompts: {e}")
             raise
         
-        system_content = f"{system_prompt}\n\n{step_prompt}"
-        
+        system_blocks = [
+            {"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}},
+            {"type": "text", "text": step_prompt, "cache_control": {"type": "ephemeral"}},
+        ]
+
         user_content = f"""
 Expand the following draft findings into full paragraphs.
 
@@ -284,26 +291,21 @@ Expand the following draft findings into full paragraphs.
 - Strategic Priorities: {context['strategic_priorities']}
 
 ## Draft Findings to Expand
-{json.dumps(findings, indent=2)}
-
-For each finding, write 1-3 paragraphs explaining:
-1. The issue and its current state
-2. The business impact
-3. Why it matters for future goals
+{json.dumps(findings, separators=(',', ':'))}
 
 Return your response as a JSON object.
 """
-        
+
         messages = [
-            {"role": "system", "content": system_content},
             {"role": "user", "content": user_content}
         ]
-        
+
         # No file attachments needed — draft findings already contain all extracted insights.
         # Re-attaching files would force the model to re-read every PDF/CSV, adding 30-120s.
         try:
             result = await self.openai_service.generate_json_completion(
                 messages=messages,
+                system_blocks=system_blocks,
                 reasoning_effort="low",
                 max_output_tokens=12288,
             )
@@ -354,8 +356,11 @@ Return your response as a JSON object.
             logger.error(f"[BBA Engine] Failed to load prompts: {e}")
             raise
         
-        system_content = f"{system_prompt}\n\n{step_prompt}"
-        
+        system_blocks = [
+            {"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}},
+            {"type": "text", "text": step_prompt, "cache_control": {"type": "ephemeral"}},
+        ]
+
         user_content = f"""
 Generate the Key Findings & Recommendations Snapshot table.
 
@@ -364,20 +369,19 @@ Generate the Key Findings & Recommendations Snapshot table.
 - Industry: {context['industry']}
 
 ## Expanded Findings
-{json.dumps(expanded_findings, indent=2)}
+{json.dumps(expanded_findings, separators=(',', ':'))}
 
-Create a concise three-column table that fits on one Word page.
 Return your response as a JSON object.
 """
-        
+
         messages = [
-            {"role": "system", "content": system_content},
             {"role": "user", "content": user_content}
         ]
-        
+
         try:
             result = await self.openai_service.generate_json_completion(
                 messages=messages,
+                system_blocks=system_blocks,
                 reasoning_effort="low",
                 max_output_tokens=8192,
             )
@@ -434,8 +438,11 @@ Return your response as a JSON object.
             logger.error(f"[BBA Engine] Failed to load prompts: {e}")
             raise
         
-        system_content = f"{system_prompt}\n\n{step_prompt}"
-        
+        system_blocks = [
+            {"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}},
+            {"type": "text", "text": step_prompt, "cache_control": {"type": "ephemeral"}},
+        ]
+
         user_content = f"""
 Generate the 12-Month Recommendations Plan.
 
@@ -445,35 +452,26 @@ Generate the 12-Month Recommendations Plan.
 - Strategic Priorities: {context['strategic_priorities']}
 
 ## Expanded Findings
-{json.dumps(expanded_findings, indent=2)}
+{json.dumps(expanded_findings, separators=(',', ':'))}
 
 ## Snapshot Table
-{json.dumps(snapshot_table, indent=2) if snapshot_table else "Not yet generated"}
-
-For each finding, create a detailed recommendation with:
-- Purpose
-- Key Objectives (3-5 bullets)
-- Actions to Complete (5-10 points)
-- BBA Support Outline
-- Expected Outcomes
-
-Also include the "Notes on the 12-Month Recommendations Plan" disclaimer.
+{json.dumps(snapshot_table, separators=(',', ':')) if snapshot_table else "Not yet generated"}
 
 Return your response as a JSON object.
 """
-        
+
         messages = [
-            {"role": "system", "content": system_content},
             {"role": "user", "content": user_content}
         ]
-        
+
         # No file attachments needed — expanded findings and snapshot table
         # already contain all detail. Re-attaching files adds 30-120s of re-processing.
         try:
             result = await self.openai_service.generate_json_completion(
                 messages=messages,
-                reasoning_effort="medium",
-                max_output_tokens=65536,
+                system_blocks=system_blocks,
+                reasoning_effort="low",
+                max_output_tokens=32768,
             )
 
             logger.info(f"[BBA Engine] 12-month plan generated successfully")
@@ -549,8 +547,11 @@ Return your response as a JSON object.
             logger.error(f"[BBA Engine] Failed to load prompts: {e}")
             raise
         
-        system_content = f"{system_prompt}\n\n{step_prompt}"
-        
+        system_blocks = [
+            {"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}},
+            {"type": "text", "text": step_prompt, "cache_control": {"type": "ephemeral"}},
+        ]
+
         # Only pass sections relevant to the edit to avoid sending 20-40K tokens of
         # unrelated report data on every single advisor edit call.
         current_report = self._select_edit_sections(bba, edits)
@@ -563,30 +564,24 @@ Apply the following edits to the report.
 - Industry: {context['industry']}
 
 ## Current Report State (sections relevant to this edit)
-{json.dumps(current_report, indent=2)}
+{json.dumps(current_report, separators=(',', ':'))}
 
 ## Requested Edits
-{json.dumps(edits, indent=2)}
-
-Apply all requested changes while maintaining:
-- Consistent formatting
-- Section order
-- Professional tone
-- British English spelling
+{json.dumps(edits, separators=(',', ':'))}
 
 Return the updated sections as a JSON object.
 """
-        
+
         messages = [
-            {"role": "system", "content": system_content},
             {"role": "user", "content": user_content}
         ]
-        
+
         try:
             result = await self.openai_service.generate_json_completion(
                 messages=messages,
+                system_blocks=system_blocks,
                 reasoning_effort="low",
-                max_output_tokens=65536,
+                max_output_tokens=24576,
             )
 
             logger.info(f"[BBA Engine] Edits applied successfully")
@@ -648,7 +643,7 @@ Generate an Executive Summary for the diagnostic report.
 - Strategic Priorities: {context['strategic_priorities']}
 
 ## Report Data
-{json.dumps(report_data, indent=2)}
+{json.dumps(report_data, separators=(',', ':'))}
 
 Write 2-4 short paragraphs covering:
 1. Current position
@@ -658,7 +653,7 @@ Write 2-4 short paragraphs covering:
 
 Return your response as a JSON object with an "executive_summary" key containing the text.
 """
-        
+
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_content}

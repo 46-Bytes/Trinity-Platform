@@ -185,6 +185,7 @@ class ClaudeService:
         tools: Optional[List[Dict[str, Any]]] = None,
         model: Optional[str] = None,
         max_output_tokens: Optional[int] = None,
+        system_blocks: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         """
         Generate completion from Claude using Messages API.
@@ -243,14 +244,11 @@ class ClaudeService:
                 ci_file_ids=ci_file_ids if ci_file_ids else None,
             )
 
-            # If json_mode, append instruction to system prompt for JSON enforcement
-            if json_mode:
-                json_instruction = (
-                    "\n\nCRITICAL OUTPUT RULE: Your response MUST start immediately with `{` and end with `}`. "
-                    "Output raw JSON only — no preamble, no summary, no markdown fences, no text of any kind before or after the JSON object. "
-                    "Do not say what you are about to do. Do not explain your reasoning. Just output the JSON."
-                )
-                system_prompt = (system_prompt + json_instruction) if system_prompt else json_instruction.strip()
+            json_instruction = (
+                "\n\nCRITICAL OUTPUT RULE: Your response MUST start immediately with `{` and end with `}`. "
+                "Output raw JSON only — no preamble, no summary, no markdown fences, no text of any kind before or after the JSON object. "
+                "Do not say what you are about to do. Do not explain your reasoning. Just output the JSON."
+            )
 
             # Prepare parameters
             max_tokens = max_output_tokens or settings.ANTHROPIC_MAX_TOKENS
@@ -262,16 +260,27 @@ class ClaudeService:
                 "messages": claude_messages,
             }
 
-            # Structure system prompt as a cacheable content block so the Anthropic
-            # prompt caching beta can reuse it across repeated calls in the same session.
-            if system_prompt:
-                params["system"] = [
-                    {
-                        "type": "text",
-                        "text": system_prompt,
-                        "cache_control": {"type": "ephemeral"},
-                    }
-                ]
+            if system_blocks is not None:
+                # Caller supplied pre-built cached blocks (e.g. base prompt + step prompt).
+                # Append JSON instruction to the last block's text when in json_mode.
+                blocks = [dict(b) for b in system_blocks]
+                if json_mode and blocks:
+                    last = dict(blocks[-1])
+                    last["text"] = last["text"] + json_instruction
+                    blocks[-1] = last
+                params["system"] = blocks
+            else:
+                # Legacy path: extract system from messages, wrap in a single cached block.
+                if json_mode:
+                    system_prompt = (system_prompt + json_instruction) if system_prompt else json_instruction.strip()
+                if system_prompt:
+                    params["system"] = [
+                        {
+                            "type": "text",
+                            "text": system_prompt,
+                            "cache_control": {"type": "ephemeral"},
+                        }
+                    ]
 
             # Enable adaptive thinking with effort control via output_config
             if reasoning_effort and reasoning_effort.lower() in ("low", "medium", "high"):
@@ -495,6 +504,7 @@ class ClaudeService:
         tools: Optional[List[Dict[str, Any]]] = None,
         model: Optional[str] = None,
         max_output_tokens: Optional[int] = None,
+        system_blocks: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         """
         Generate JSON completion from Claude.
@@ -510,6 +520,7 @@ class ClaudeService:
             tools=tools,
             model=model or settings.ANTHROPIC_MODEL,
             max_output_tokens=max_output_tokens,
+            system_blocks=system_blocks,
         )
 
         # Parse JSON content

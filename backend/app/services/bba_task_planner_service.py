@@ -191,7 +191,7 @@ class BBATaskPlannerService:
 
 ## Recommendations (from 12-Month Plan)
 
-{json.dumps(rec_context, indent=2)}
+{json.dumps(rec_context, separators=(',', ':'))}
 
 ## Instructions
 

@@ -16,6 +16,7 @@ DIAGNOSTIC CONTEXT: {diagnostic_context}
 CUSTOM INSTRUCTIONS: {custom_instructions}
 
 TASK:
+LENGTH TARGET: 380 words maximum excluding table content. The Ansoff Matrix and Named Growth Plays are tables — they replace prose, not supplement it.
 Draft the following:
 
 1. Growth Direction Summary
@@ -23,7 +24,13 @@ Draft the following:
    - What is the strategic logic behind this direction?
    - Reference the diagnostic findings that support this direction.
 
-2. Named Growth Plays
+2. Ansoff Matrix
+   - Map the identified growth options against the Ansoff Matrix quadrants.
+   - Present as a table:
+     | Quadrant | Growth Option | Rationale | Risk Level |
+   - This is a framing tool — not the conclusion. Use it to show the strategic range considered.
+
+3. Named Growth Plays
    For each identified growth opportunity, explicitly articulate:
    - Play name (a clear, descriptive label)
    - Scope (what it includes and excludes)
@@ -31,24 +38,24 @@ Draft the following:
    - Ownership (who is accountable)
    - Constraints and guardrails (what could limit this play, what must be true for it to work)
 
-   Present as a table where possible:
+   Present as a table:
    | Growth Play | Scope | Sequence | Owner | Key Constraint |
 
-3. Strategic Direction Choices
+4. Strategic Direction Choices
    - What the business is choosing TO DO
    - What the business is choosing NOT to do (equally important)
    - The reasoning behind these choices
 
 CRITICAL RULES:
-- Do NOT just present an Ansoff matrix or framework and stop. Frameworks are inputs, not outputs.
-- Clients value clarity and decision context over named tools. Translate frameworks into explicit decisions.
+- The Ansoff Matrix is an input, not an output. Always follow it with the Named Growth Plays that translate it into decisions.
+- Clients value clarity and decision context over named tools. Translate frameworks into explicit choices.
 - Growth plays must be specific to this business — not generic strategies that could apply to anyone.
 - If the source materials describe growth ambitions without clear scope, note this as a gap.
 
-This section MUST end with a "Strategic Implications" subsection.
+This section MUST end with a "Strategic Implications" subsection covering growth play prioritisation and sequencing logic — not the Lean/Protect/Fix/Deprioritise framework.
 
 Return a JSON object:
 {{
-  "content": "<HTML content with growth plays table and strategic direction>",
-  "strategic_implications": "<HTML stating what to lean into, protect, fix, deprioritise based on the growth analysis>"
+  "content": "<HTML content with Ansoff Matrix table, growth plays table, and strategic direction>",
+  "strategic_implications": "<HTML stating: which growth plays carry the strongest strategic logic and should be sequenced first; what conditions must hold for each play to succeed; and what the sequencing implies for resource allocation and risk. Do NOT use Lean/Protect/Fix/Deprioritise framing — that appears only in External and Internal Analysis.>"
 }}

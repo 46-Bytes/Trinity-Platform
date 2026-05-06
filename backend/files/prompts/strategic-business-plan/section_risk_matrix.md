@@ -1,6 +1,6 @@
-Draft the Risk Matrix and Mitigation section of the Strategic Business Plan for {client_name} ({industry}).
+Draft the Risk Matrix and Analysis section of the Strategic Business Plan for {client_name} ({industry}).
 
-This section identifies the key risks to successful strategy execution and provides practical mitigation strategies. It must be grounded in the realities of this specific business, not generic risk categories.
+This section identifies the key risks to successful strategy execution. It must be grounded in the realities of this specific business, not generic risk categories.
 
 CONTEXT:
 - Planning horizon: {planning_horizon}
@@ -16,39 +16,25 @@ DIAGNOSTIC CONTEXT: {diagnostic_context}
 CUSTOM INSTRUCTIONS: {custom_instructions}
 
 TASK:
-Draft the following:
 
 1. Risk Assessment Matrix
-   Identify 8-12 risks drawn from:
-   - Threats identified in the SWOT analysis
-   - External pressures from PESTLE
-   - Capacity constraints from the resources assessment
-   - Financial risks
-   - Implementation risks from the roadmap
+   Identify 8–12 risks drawn from threats in the SWOT, PESTLE pressures, capacity constraints,
+   financial risks, and execution risks from the growth plays.
 
    Present as a table:
    | Risk | Category | Likelihood (H/M/L) | Impact (H/M/L) | Risk Rating | Mitigation Strategy | Owner |
 
-   Risk Rating = Likelihood x Impact (High-High = Critical, High-Medium = High, etc.)
+   Risk Rating = Likelihood × Impact (H/H = Critical, H/M or M/H = High, M/M = Medium, etc.)
 
-2. Top 3-5 Critical Risks
-   For each critical risk, provide:
-   - Detailed description of the risk scenario
-   - Early warning indicators
-   - Mitigation actions (preventive and reactive)
-   - Contingency plan if the risk materialises
-
-3. Risk Monitoring
-   How should risks be monitored? Suggest:
-   - Review frequency
-   - Who is responsible for risk oversight
-   - Escalation triggers
+2. Mitigation Themes
+   Identify 4–6 cross-cutting themes that describe how the business should manage its risk
+   profile across the planning horizon. Present as a bullet list — not per-risk essays.
 
 CRITICAL RULES:
 - Risks must be specific to this business and this strategy — not generic industry risks.
-- Link each risk back to a specific section of the plan (e.g. "Risk to Growth Play 2" or "Risk from PESTLE: regulatory change").
-- Mitigation strategies must be practical and actionable, not theoretical.
-- Use the table format for the risk matrix.
+- Link each risk back to a specific section of the plan or growth play where relevant.
+- No narrative assessments per risk. If a risk needs elaboration, it belongs in the relevant functional chapter.
+- The risk matrix table plus the mitigation themes bullet list is the complete chapter.
 
 Return a JSON object:
 {{

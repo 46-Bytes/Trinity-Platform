@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { assemblePlan } from '@/store/slices/strategicBusinessPlanReducer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,16 +15,16 @@ interface PlanAssemblyStepProps {
 export function PlanAssemblyStep({ planId, onComplete }: PlanAssemblyStepProps) {
   const dispatch = useAppDispatch();
   const { currentPlan, isLoading } = useAppSelector((s) => s.strategicBusinessPlan);
-  const [hasAssembled, setHasAssembled] = useState(false);
 
   const finalPlan = currentPlan?.final_plan;
 
+  // Always re-assemble on mount so any section reordering from step 3 is reflected.
+  // Assembly is fast (no AI calls) — passing the current section order ensures the
+  // backend uses the latest order even if the user navigated back and reordered.
   useEffect(() => {
-    if (!finalPlan && !hasAssembled && !isLoading) {
-      setHasAssembled(true);
-      dispatch(assemblePlan({ planId }));
-    }
-  }, [finalPlan, hasAssembled, isLoading, planId, dispatch]);
+    const sectionOrder = currentPlan?.sections?.map((s) => s.key);
+    dispatch(assemblePlan({ planId, sectionOrder }));
+  }, [planId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (isLoading && !finalPlan) {
     return (
@@ -42,7 +42,7 @@ export function PlanAssemblyStep({ planId, onComplete }: PlanAssemblyStepProps) 
       <Card>
         <CardContent className="py-12 text-center">
           <p className="text-muted-foreground">Waiting for plan assembly...</p>
-          <Button className="mt-4" onClick={() => dispatch(assemblePlan({ planId }))}>
+          <Button className="mt-4" onClick={() => dispatch(assemblePlan({ planId, sectionOrder: currentPlan?.sections?.map((s) => s.key) }))}>
             Assemble Plan
           </Button>
         </CardContent>

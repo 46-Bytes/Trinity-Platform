@@ -11,7 +11,7 @@ import { PresentationStep } from '@/components/strategic-business-plan/Presentat
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, ArrowLeft, CheckCircle2, ClipboardList, Loader2, Plus } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, ClipboardList, Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -125,9 +125,11 @@ export default function StrategicBusinessPlanPage() {
 
   const handleStepComplete = () => {
     const nextStep = currentStep + 1;
-    if (nextStep <= 6) {
-      goToStep(nextStep);
-      toast.success(`Step ${currentStep} complete!`);
+    if (nextStep > 6) return;
+
+    setCurrentStep(nextStep);
+    if (planId) {
+      dispatch(updateStepProgress({ planId, currentStep: nextStep, maxStepReached: Math.max(nextStep, maxStep) }));
     }
   };
 
@@ -223,10 +225,12 @@ export default function StrategicBusinessPlanPage() {
                   <button
                     onClick={() => isClickable && goToStep(stepNum)}
                     disabled={!isClickable}
-                    className="flex items-center space-x-2 disabled:cursor-default"
+                    className={`flex items-center space-x-2 transition-opacity ${
+                      isClickable ? 'cursor-pointer hover:opacity-70' : 'cursor-default opacity-40'
+                    }`}
                   >
                     <div
-                      className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-medium ${
+                      className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-medium transition-colors ${
                         isDone
                           ? 'bg-green-500 text-white'
                           : isActive
@@ -242,7 +246,7 @@ export default function StrategicBusinessPlanPage() {
                         stepNum
                       )}
                     </div>
-                    <span className={`text-xs hidden md:inline ${isActive ? 'font-semibold' : ''}`}>
+                    <span className={`text-xs hidden md:inline ${isActive ? 'font-semibold' : 'text-muted-foreground'}`}>
                       {label}
                     </span>
                   </button>
@@ -282,6 +286,35 @@ export default function StrategicBusinessPlanPage() {
 
       {currentStep === 6 && planId && (
         <PresentationStep planId={planId} />
+      )}
+
+      {/* Step Navigation */}
+      {(currentStep > 1 || currentStep < maxStep) && (
+        <div className="flex items-center justify-between pt-2 border-t">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => goToStep(currentStep - 1)}
+            disabled={currentStep === 1}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Previous Step
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            Step {currentStep} of {STEP_LABELS.length}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => goToStep(currentStep + 1)}
+            disabled={currentStep >= maxStep}
+            className="flex items-center gap-2"
+          >
+            Next Step
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
       )}
     </div>
   );

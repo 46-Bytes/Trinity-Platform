@@ -7,7 +7,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 export interface SBPSection {
   key: string;
   title: string;
-  status: 'pending' | 'drafting' | 'drafted' | 'revision_requested' | 'approved';
+  status: 'pending' | 'drafting' | 'drafted' | 'revision_requested' | 'approved' | 'skipped';
   content: string | null;
   strategic_implications: string | null;
   revision_notes: string | null;
@@ -314,6 +314,39 @@ export const assemblePlan = createAsyncThunk(
   },
 );
 
+export const skipSection = createAsyncThunk(
+  'sbp/skipSection',
+  async ({ planId, sectionKey }: { planId: string; sectionKey: string }, { rejectWithValue }) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/strategic-business-plan/${planId}/skip-section/${sectionKey}`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Skip failed');
+      return await res.json();
+    } catch (e) {
+      return rejectWithValue(e instanceof Error ? e.message : 'Skip failed');
+    }
+  },
+);
+
+export const reorderSections = createAsyncThunk(
+  'sbp/reorderSections',
+  async ({ planId, sectionOrder }: { planId: string; sectionOrder: string[] }, { rejectWithValue }) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/strategic-business-plan/${planId}/reorder-sections`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ section_order: sectionOrder }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Reorder failed');
+      return await res.json();
+    } catch (e) {
+      return rejectWithValue(e instanceof Error ? e.message : 'Reorder failed');
+    }
+  },
+);
+
 export const resetPlanData = createAsyncThunk(
   'sbp/resetPlanData',
   async (planId: string, { rejectWithValue }) => {
@@ -322,6 +355,22 @@ export const resetPlanData = createAsyncThunk(
         method: 'POST',
         headers: getAuthHeaders(),
       });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Reset failed');
+      return await res.json();
+    } catch (e) {
+      return rejectWithValue(e instanceof Error ? e.message : 'Reset failed');
+    }
+  },
+);
+
+export const resetFromStep = createAsyncThunk(
+  'sbp/resetFromStep',
+  async ({ planId, completedStep }: { planId: string; completedStep: number }, { rejectWithValue }) => {
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/strategic-business-plan/${planId}/reset-from-step/${completedStep}`,
+        { method: 'POST', headers: getAuthHeaders() },
+      );
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Reset failed');
       return await res.json();
     } catch (e) {
@@ -513,6 +562,22 @@ const sbpSlice = createSlice({
         }
       });
 
+    // skipSection
+    builder
+      .addCase(skipSection.fulfilled, (state, action) => {
+        if (state.currentPlan && action.payload.sections) {
+          state.currentPlan.sections = action.payload.sections;
+        }
+      });
+
+    // reorderSections
+    builder
+      .addCase(reorderSections.fulfilled, (state, action) => {
+        if (state.currentPlan && action.payload.sections) {
+          state.currentPlan.sections = action.payload.sections;
+        }
+      });
+
     // surfaceThemes
     builder
       .addCase(surfaceThemes.fulfilled, (state, action) => {
@@ -530,6 +595,15 @@ const sbpSlice = createSlice({
         if (action.payload.plan) state.currentPlan = action.payload.plan;
       })
       .addCase(resetPlanData.rejected, (state, action) => { state.isLoading = false; state.error = action.payload as string; });
+
+    // resetFromStep
+    builder
+      .addCase(resetFromStep.pending, (state) => { state.isLoading = true; state.error = null; })
+      .addCase(resetFromStep.fulfilled, (state, action) => {
+        state.isLoading = false;
+        if (action.payload.plan) state.currentPlan = action.payload.plan;
+      })
+      .addCase(resetFromStep.rejected, (state, action) => { state.isLoading = false; state.error = action.payload as string; });
 
     // assemblePlan
     builder

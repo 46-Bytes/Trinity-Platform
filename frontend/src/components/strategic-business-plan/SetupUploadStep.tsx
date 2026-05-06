@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Upload, FileText, X, Loader2, Sparkles, Info } from 'lucide-react';
+import { Upload, FileText, X, Loader2, Sparkles, Info, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -28,6 +28,8 @@ export function SetupUploadStep({ planId, engagementId, onComplete, isLoading }:
   const [isDragOver, setIsDragOver] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [extractionDone, setExtractionDone] = useState(false);
+  const [uploadComplete, setUploadComplete] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form fields — pre-populated from saved plan when navigating back
@@ -81,6 +83,7 @@ export function SetupUploadStep({ planId, engagementId, onComplete, isLoading }:
       }
 
       await dispatch(uploadFiles({ planId: activePlanId!, files })).unwrap();
+      setUploadComplete(true);
 
       const token = localStorage.getItem('auth_token');
       const res = await fetch(
@@ -97,6 +100,7 @@ export function SetupUploadStep({ planId, engagementId, onComplete, isLoading }:
         if (ex.targetAudience) setTargetAudience(ex.targetAudience);
         if (ex.additionalContext) setAdditionalContext(ex.additionalContext);
         toast.success('Information extracted — review and confirm below');
+        setExtractionDone(true);
       } else {
         toast.warning('Upload complete. Please fill in the background information manually.');
       }
@@ -108,6 +112,7 @@ export function SetupUploadStep({ planId, engagementId, onComplete, isLoading }:
   };
 
   const hasServerFiles = (currentPlan?.file_ids?.length ?? 0) > 0;
+  const fieldsEnabled = hasServerFiles || uploadComplete;
   const formValid =
     clientName.trim() &&
     industry.trim() &&
@@ -215,7 +220,7 @@ export function SetupUploadStep({ planId, engagementId, onComplete, isLoading }:
           {files.length > 0 && (
             <Button
               onClick={handleUploadAndExtract}
-              disabled={isExtracting}
+              disabled={isExtracting || extractionDone}
               className="w-full"
               size="lg"
             >
@@ -223,6 +228,11 @@ export function SetupUploadStep({ planId, engagementId, onComplete, isLoading }:
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Uploading & extracting information…
+                </>
+              ) : extractionDone ? (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  Extraction Complete
                 </>
               ) : (
                 <>
@@ -244,6 +254,12 @@ export function SetupUploadStep({ planId, engagementId, onComplete, isLoading }:
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {!fieldsEnabled && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 text-amber-800 text-sm border border-amber-200">
+              <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <p>Upload your source materials above first — fields will be enabled after extraction.</p>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="clientName">Client Name *</Label>
@@ -252,7 +268,7 @@ export function SetupUploadStep({ planId, engagementId, onComplete, isLoading }:
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
                 placeholder="e.g. ABC Corporation"
-                disabled={isExtracting}
+                disabled={isExtracting || !fieldsEnabled}
               />
             </div>
             <div className="space-y-2">
@@ -262,12 +278,12 @@ export function SetupUploadStep({ planId, engagementId, onComplete, isLoading }:
                 value={industry}
                 onChange={(e) => setIndustry(e.target.value)}
                 placeholder="e.g. Manufacturing, Professional Services"
-                disabled={isExtracting}
+                disabled={isExtracting || !fieldsEnabled}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="planningHorizon">Planning Horizon *</Label>
-              <Select value={planningHorizon} onValueChange={setPlanningHorizon} disabled={isExtracting}>
+              <Select value={planningHorizon} onValueChange={setPlanningHorizon} disabled={isExtracting || !fieldsEnabled}>
                 <SelectTrigger id="planningHorizon">
                   <SelectValue placeholder="Select planning horizon" />
                 </SelectTrigger>
@@ -285,7 +301,7 @@ export function SetupUploadStep({ planId, engagementId, onComplete, isLoading }:
                 value={targetAudience}
                 onChange={(e) => setTargetAudience(e.target.value)}
                 placeholder="e.g. Owners, Management Team, Bank"
-                disabled={isExtracting}
+                disabled={isExtracting || !fieldsEnabled}
               />
             </div>
           </div>
@@ -297,7 +313,7 @@ export function SetupUploadStep({ planId, engagementId, onComplete, isLoading }:
               onChange={(e) => setAdditionalContext(e.target.value)}
               placeholder="Any additional context, priorities, or notes for the plan…"
               rows={3}
-              disabled={isExtracting}
+              disabled={isExtracting || !fieldsEnabled}
             />
           </div>
 

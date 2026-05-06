@@ -37,6 +37,7 @@ export default function StrategicBusinessPlanPage() {
   const statePlanId = (location.state as { sbpPlanId?: string } | null)?.sbpPlanId;
 
   const [currentStep, setCurrentStep] = useState(1);
+  const [formResetKey, setFormResetKey] = useState(0);
   const lastLoadedId = useRef<string | null>(null);
 
   const [launchState, setLaunchState] = useState<LaunchState>(
@@ -48,6 +49,7 @@ export default function StrategicBusinessPlanPage() {
   useEffect(() => {
     if (statePlanId && lastLoadedId.current !== statePlanId) {
       lastLoadedId.current = statePlanId;
+      dispatch(clearPlan());
       dispatch(getPlan(statePlanId));
       return;
     }
@@ -64,9 +66,11 @@ export default function StrategicBusinessPlanPage() {
         .then((plans: Array<{ id: string }>) => {
           if (plans.length > 0) {
             dispatch(getPlan(plans[0].id));
+          } else {
+            dispatch(clearPlan());
           }
         })
-        .catch(() => {/* no existing plan, stay on blank step 1 */});
+        .catch(() => dispatch(clearPlan()));
     }
   }, [statePlanId, engagementId, dispatch]);
 
@@ -85,10 +89,11 @@ export default function StrategicBusinessPlanPage() {
           setExistingPlan(plans[0]);
           setLaunchState('choose');
         } else {
+          dispatch(clearPlan());
           setLaunchState('ready');
         }
       })
-      .catch(() => setLaunchState('ready'));
+      .catch(() => { dispatch(clearPlan()); setLaunchState('ready'); });
   }, [launchState]);
 
   const handleLaunchContinue = () => {
@@ -101,6 +106,7 @@ export default function StrategicBusinessPlanPage() {
 
   const handleLaunchStartNew = () => {
     dispatch(clearPlan());
+    setFormResetKey((k) => k + 1);
     setLaunchState('ready');
   };
 
@@ -261,6 +267,7 @@ export default function StrategicBusinessPlanPage() {
       {/* Step Content */}
       {currentStep === 1 && (
         <SetupUploadStep
+          key={planId ?? `new-${formResetKey}`}
           planId={planId}
           engagementId={engagementId}
           onComplete={handleStepComplete}

@@ -1,7 +1,6 @@
-Perform a comprehensive cross-pattern analysis across all provided materials for {client_name} operating in the {industry} sector.
+Perform a cross-pattern analysis across all provided materials for {client_name} ({industry}, {planning_horizon} horizon).
 
 CONTEXT:
-- Planning horizon: {planning_horizon}
 - Target audience: {target_audience}
 - Additional context: {additional_context}
 
@@ -14,41 +13,31 @@ DIAGNOSTIC CONTEXT:
 ADVISOR INSTRUCTIONS: {custom_instructions}
 
 TASK:
-Review all provided inputs in full and perform a cross-pattern analysis, identifying:
-1. Recurring themes and priorities across all documents
-2. Repeated constraints or bottlenecks
-3. Correlations between issues (e.g. people → operations → margin)
-4. Tensions or contradictions (e.g. ambition vs capacity)
-5. Frequency of issues appearing across multiple documents
-6. Relationships between internal factors and external pressures
-7. Data gaps — information that appears missing or unclear
+Identify the most important patterns across all documents. Be concise — each value is a short phrase, not a sentence.
 
-Return a JSON object with the following structure:
+Return ONLY a JSON object:
 {{
   "recurring_themes": [
     {{
-      "theme": "Theme name",
-      "description": "Clear description of the theme",
-      "sources": ["Strategy Workbook", "Diagnostic Report"],
+      "theme": "Short theme label (5–8 words max)",
       "signal_strength": "very_strong|strong|moderate"
     }}
   ],
   "tensions": [
     {{
-      "tension": "Brief title",
-      "description": "Description of the contradiction or tension"
+      "tension": "Short contradiction label (5–8 words max)"
     }}
   ],
   "correlations": [
     {{
-      "correlation": "Brief title",
-      "description": "How these issues are linked"
+      "correlation": "Short linkage label (5–8 words max)"
     }}
   ],
-  "data_gaps": ["Description of missing information"],
-  "preliminary_observations": ["Strategic observation based on the synthesis"]
+  "data_gaps": ["Short gap label"],
+  "preliminary_observations": ["One crisp strategic observation per item"]
 }}
 
-All string values must be plain text only — do not use HTML tags, markdown, or any special formatting inside JSON strings.
-
-Treat these findings as strategic signals, not commentary. Focus on what will be most useful for building a coherent, integrated Strategic Business Plan.
+Rules:
+- Max 5 items per section. Omit sections with nothing significant.
+- No descriptions, no sources, no elaboration — labels only.
+- Plain text only, no markdown or HTML inside strings.

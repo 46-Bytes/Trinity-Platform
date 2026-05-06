@@ -5,6 +5,7 @@ import {
   reviseSection,
   editSection,
   approveSection,
+  skipSection,
 } from '@/store/slices/strategicBusinessPlanReducer';
 import type { SBPSection } from '@/store/slices/strategicBusinessPlanReducer';
 import { PLAN_SECTIONS } from './sectionConfig';
@@ -21,6 +22,7 @@ import {
   ArrowRight,
   SkipForward,
   Save,
+  RotateCcw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -84,6 +86,39 @@ export function SectionEditor({
     onNext();
   };
 
+  const handleSkip = async () => {
+    await dispatch(skipSection({ planId, sectionKey: section.key }));
+    toast.info(`${section.title} skipped`);
+    onNext();
+  };
+
+
+  // Skipped
+  if (section.status === 'skipped') {
+    return (
+      <Card className="flex-1 border-dashed opacity-75">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-muted-foreground">
+              <SkipForward className="w-5 h-5" />
+              {sectionIndex + 1}. {section.title}
+            </CardTitle>
+            <Badge variant="outline" className="text-muted-foreground">Skipped</Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center justify-center py-10 space-y-4">
+          <p className="text-muted-foreground text-center max-w-md text-sm">
+            This section has been skipped and will not appear in the final plan.
+          </p>
+          <Button variant="outline" onClick={handleDraft} disabled={isDraftingSection}>
+            <RotateCcw className="w-4 h-4 mr-2" />
+            Draft Anyway
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   // Not yet drafted
   if (section.status === 'pending') {
     return (
@@ -106,12 +141,10 @@ export function SectionEditor({
                 <PenLine className="w-4 h-4 mr-2" />
                 Draft This Section
               </Button>
-              {!config?.required && (
-                <Button variant="ghost" size="sm" onClick={onSkip}>
-                  <SkipForward className="w-4 h-4 mr-2" />
-                  Skip (Optional)
-                </Button>
-              )}
+              <Button variant="ghost" size="sm" onClick={handleSkip}>
+                <SkipForward className="w-4 h-4 mr-2" />
+                Skip Section{config?.required ? '' : ' (optional)'}
+              </Button>
             </>
           )}
         </CardContent>

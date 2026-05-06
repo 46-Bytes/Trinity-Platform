@@ -16,6 +16,7 @@ DIAGNOSTIC CONTEXT: {diagnostic_context}
 CUSTOM INSTRUCTIONS: {custom_instructions}
 
 TASK:
+LENGTH TARGET: 280 words maximum excluding tables. Financial data goes in tables — not prose.
 Draft the following subsections using ONLY financial data from the provided source materials:
 
 1. Current Financial Position

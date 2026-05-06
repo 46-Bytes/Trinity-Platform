@@ -30,6 +30,7 @@ from app.schemas.strategic_business_plan import (
     SBPDraftSectionRequest,
     SBPRevisionRequest,
     SBPSectionEdit,
+    SBPReorderSections,
     SBPAssembleRequest,
     SBPExportRequest,
     SBPStepProgressUpdate,
@@ -263,6 +264,29 @@ async def upload_files(
 
 
 # ---------------------------------------------------------------------------
+# Step 1: Extract setup fields from uploaded documents
+# ---------------------------------------------------------------------------
+
+@router.get("/{plan_id}/extract-setup")
+async def extract_setup(
+    plan_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    plan = _get_plan_or_404(plan_id, db)
+    _check_plan_access(plan, current_user, db)
+
+    try:
+        from app.services.sbp_conversation_engine import get_sbp_conversation_engine
+        engine = get_sbp_conversation_engine(db)
+        extracted = await engine.extract_setup(plan_id)
+        return {"extracted": extracted}
+    except Exception as e:
+        logger.warning(f"[SBP] extract-setup failed for {plan_id}: {e}")
+        return {"extracted": {}}
+
+
+# ---------------------------------------------------------------------------
 # Step 1: Save setup / background info
 # ---------------------------------------------------------------------------
 
@@ -451,6 +475,37 @@ async def approve_section(
     return {"success": True, "sections": plan.sections}
 
 
+@router.post("/{plan_id}/skip-section/{section_key}")
+async def skip_section(
+    plan_id: UUID,
+    section_key: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    plan = _get_plan_or_404(plan_id, db)
+    _check_plan_access(plan, current_user, db)
+
+    service = get_sbp_service(db)
+    plan = service.skip_section(plan_id, section_key)
+    section = next((s for s in plan.sections if s["key"] == section_key), None)
+    return {"success": True, "section": section, "sections": plan.sections}
+
+
+@router.patch("/{plan_id}/reorder-sections")
+async def reorder_sections(
+    plan_id: UUID,
+    data: SBPReorderSections,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    plan = _get_plan_or_404(plan_id, db)
+    _check_plan_access(plan, current_user, db)
+
+    service = get_sbp_service(db)
+    plan = service.reorder_sections(plan_id, data.section_order)
+    return {"success": True, "sections": plan.sections}
+
+
 @router.post("/{plan_id}/surface-themes")
 async def surface_themes(
     plan_id: UUID,
@@ -586,6 +641,24 @@ async def update_step_progress(
         "current_step": plan.current_step,
         "max_step_reached": plan.max_step_reached,
     }
+
+
+# ---------------------------------------------------------------------------
+# Step reset (backward navigation with downstream invalidation)
+# ---------------------------------------------------------------------------
+
+@router.post("/{plan_id}/reset-from-step/{completed_step}")
+async def reset_from_step(
+    plan_id: UUID,
+    completed_step: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    plan = _get_plan_or_404(plan_id, db)
+    _check_plan_access(plan, current_user, db)
+    service = get_sbp_service(db)
+    plan = service.reset_from_step(plan_id, completed_step)
+    return {"success": True, "plan": plan.to_dict()}
 
 
 # ---------------------------------------------------------------------------

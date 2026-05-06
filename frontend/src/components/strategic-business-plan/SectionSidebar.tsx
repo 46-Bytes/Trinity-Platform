@@ -1,32 +1,35 @@
 import { PLAN_SECTIONS } from './sectionConfig';
 import type { SBPSection } from '@/store/slices/strategicBusinessPlanReducer';
 import { cn } from '@/lib/utils';
-import { CheckCircle2, Circle, Loader2, PenLine, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Circle, Loader2, PenLine, AlertCircle, SkipForward, ChevronUp, ChevronDown } from 'lucide-react';
 
 interface SectionSidebarProps {
   sections: SBPSection[];
   currentIndex: number;
   onSelect: (index: number) => void;
+  onReorder: (fromIndex: number, toIndex: number) => void;
   isDisabled?: boolean;
 }
 
 const STATUS_ICON: Record<string, React.ReactNode> = {
-  pending: <Circle className="w-4 h-4 text-muted-foreground" />,
-  drafting: <Loader2 className="w-4 h-4 text-primary animate-spin" />,
-  drafted: <PenLine className="w-4 h-4 text-blue-600" />,
-  revision_requested: <AlertCircle className="w-4 h-4 text-orange-500" />,
-  approved: <CheckCircle2 className="w-4 h-4 text-green-600" />,
+  pending:            <Circle       className="w-4 h-4 text-muted-foreground" />,
+  drafting:           <Loader2      className="w-4 h-4 text-primary animate-spin" />,
+  drafted:            <PenLine      className="w-4 h-4 text-blue-600" />,
+  revision_requested: <AlertCircle  className="w-4 h-4 text-orange-500" />,
+  approved:           <CheckCircle2 className="w-4 h-4 text-green-600" />,
+  skipped:            <SkipForward  className="w-4 h-4 text-muted-foreground" />,
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  pending: 'Pending',
-  drafting: 'Drafting...',
-  drafted: 'Ready for review',
+  pending:            'Pending',
+  drafting:           'Drafting...',
+  drafted:            'Ready for review',
   revision_requested: 'Revision requested',
-  approved: 'Approved',
+  approved:           'Approved',
+  skipped:            'Skipped',
 };
 
-export function SectionSidebar({ sections, currentIndex, onSelect, isDisabled }: SectionSidebarProps) {
+export function SectionSidebar({ sections, currentIndex, onSelect, onReorder, isDisabled }: SectionSidebarProps) {
   const approvedCount = sections.filter((s) => s.status === 'approved').length;
   const requiredCount = PLAN_SECTIONS.filter((s) => s.required).length;
 
@@ -48,28 +51,53 @@ export function SectionSidebar({ sections, currentIndex, onSelect, isDisabled }:
         {sections.map((section, index) => {
           const config = PLAN_SECTIONS.find((c) => c.key === section.key);
           const isActive = index === currentIndex;
+          const isSkipped = section.status === 'skipped';
+
           return (
-            <button
-              key={section.key}
-              onClick={() => onSelect(index)}
-              className={cn(
-                'w-full text-left px-3 py-2.5 rounded-md flex items-start gap-2 transition-colors text-sm',
-                isActive ? 'bg-primary/10 text-primary' : 'hover:bg-muted',
-              )}
-            >
-              <span className="mt-0.5 flex-shrink-0">
-                {STATUS_ICON[section.status] || STATUS_ICON.pending}
-              </span>
-              <span className="flex-1 min-w-0">
-                <span className={cn('block truncate', isActive && 'font-medium')}>
-                  {index + 1}. {section.title}
+            <div key={section.key} className="flex items-stretch gap-1 mb-0.5">
+              {/* Reorder buttons */}
+              <div className="flex flex-col justify-center gap-0.5 py-1">
+                <button
+                  onClick={() => onReorder(index, index - 1)}
+                  disabled={index === 0}
+                  className="p-0.5 rounded hover:bg-muted disabled:opacity-20 disabled:cursor-not-allowed"
+                  title="Move up"
+                >
+                  <ChevronUp className="w-3 h-3 text-muted-foreground" />
+                </button>
+                <button
+                  onClick={() => onReorder(index, index + 1)}
+                  disabled={index === sections.length - 1}
+                  className="p-0.5 rounded hover:bg-muted disabled:opacity-20 disabled:cursor-not-allowed"
+                  title="Move down"
+                >
+                  <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                </button>
+              </div>
+
+              {/* Section row */}
+              <button
+                onClick={() => onSelect(index)}
+                className={cn(
+                  'flex-1 text-left px-3 py-2.5 rounded-md flex items-start gap-2 transition-colors text-sm',
+                  isActive ? 'bg-primary/10 text-primary' : 'hover:bg-muted',
+                  isSkipped && 'opacity-50',
+                )}
+              >
+                <span className="mt-0.5 flex-shrink-0">
+                  {STATUS_ICON[section.status] || STATUS_ICON.pending}
                 </span>
-                <span className="block text-xs text-muted-foreground mt-0.5">
-                  {STATUS_LABEL[section.status] || 'Pending'}
-                  {!config?.required && ' (optional)'}
+                <span className="flex-1 min-w-0">
+                  <span className={cn('block truncate', isActive && 'font-medium')}>
+                    {index + 1}. {section.title}
+                  </span>
+                  <span className="block text-xs text-muted-foreground mt-0.5">
+                    {STATUS_LABEL[section.status] || 'Pending'}
+                    {!config?.required && section.status !== 'skipped' && ' · optional'}
+                  </span>
                 </span>
-              </span>
-            </button>
+              </button>
+            </div>
           );
         })}
       </nav>

@@ -121,6 +121,11 @@ class SBPEmergingThemesResponse(BaseModel):
 # Step 4: Plan Assembly
 # ---------------------------------------------------------------------------
 
+class SBPReorderSections(BaseModel):
+    """Request schema for reordering sections in the drafting step"""
+    section_order: List[str] = Field(..., description="Ordered list of section keys")
+
+
 class SBPAssembleRequest(BaseModel):
     """Request schema for assembling the final plan"""
     section_order: Optional[List[str]] = Field(None, description="Custom section ordering by key (optional)")

@@ -16,19 +16,20 @@ logger = logging.getLogger(__name__)
 
 # Default section structure initialised when drafting begins
 DEFAULT_SECTIONS = [
-    {"key": "executive_summary", "title": "Executive Summary"},
-    {"key": "strategic_intent", "title": "Strategic Intent Overview"},
-    {"key": "business_context", "title": "Business and Context Overview"},
+    {"key": "executive_summary",          "title": "Executive Summary"},
+    {"key": "strategic_intent",           "title": "Strategic Intent Overview"},
+    {"key": "business_context",           "title": "Business and Context Overview"},
     {"key": "external_internal_analysis", "title": "External and Internal Analysis"},
-    {"key": "growth_opportunities", "title": "Growth Opportunities and Strategic Direction"},
-    {"key": "functional_strategies", "title": "Functional and Thematic Strategies"},
-    {"key": "financial_overview", "title": "Financial Overview"},
-    {"key": "strategic_priorities", "title": "Strategic Priorities and Key Initiatives"},
-    {"key": "implementation_roadmap", "title": "Implementation Roadmap"},
-    {"key": "risk_matrix", "title": "Risk Matrix and Mitigation"},
-    {"key": "actions_next_steps", "title": "Actions List and Next Steps"},
-    {"key": "strategic_alignment", "title": "Integrated Strategic Implications & Alignment"},
-    {"key": "appendices", "title": "Appendices"},
+    {"key": "key_resources_capabilities", "title": "Key Resources and Capabilities"},
+    {"key": "customer_dynamics",          "title": "Customer Dynamics"},
+    {"key": "growth_opportunities",       "title": "Growth Opportunities and Strategic Direction"},
+    {"key": "operations_strategy",        "title": "Operational Strategy and Key Recommendations"},
+    {"key": "hr_strategy",               "title": "Human Resource Strategy and Key Recommendations"},
+    {"key": "marketing_sales_strategy",   "title": "Marketing and Sales Strategy"},
+    {"key": "financial_overview",         "title": "Financial Overview"},
+    {"key": "risk_matrix",               "title": "Risk Matrix and Analysis"},
+    {"key": "actions_next_steps",         "title": "Actions List (Implementation Plan)"},
+    {"key": "strategic_alignment",        "title": "Integrated Strategic Implications and Alignment"},
 ]
 
 
@@ -284,6 +285,34 @@ class SBPService:
             "revision_notes": None,
         })
 
+    def skip_section(self, plan_id: UUID, section_key: str) -> StrategicBusinessPlan:
+        """Mark a section as skipped — it will be excluded from the final plan."""
+        return self.update_section(plan_id, section_key, {"status": "skipped"})
+
+    def reorder_sections(self, plan_id: UUID, section_order: List[str]) -> StrategicBusinessPlan:
+        """Reorder the sections array by the given key list."""
+        plan = self.get_plan(plan_id)
+        if not plan:
+            raise ValueError(f"Plan {plan_id} not found")
+        if not plan.sections:
+            raise ValueError("Sections not initialised")
+
+        sections = list(plan.sections)
+        key_map = {s["key"]: s for s in sections}
+        ordered_keys = set(section_order)
+
+        reordered = [key_map[k] for k in section_order if k in key_map]
+        # Append any sections not present in the provided order (safety net)
+        reordered += [s for s in sections if s["key"] not in ordered_keys]
+
+        plan.sections = reordered
+        plan.updated_at = datetime.now(timezone.utc)
+        flag_modified(plan, "sections")
+
+        self.db.commit()
+        self.db.refresh(plan)
+        return plan
+
     def save_emerging_themes(self, plan_id: UUID, themes: dict) -> StrategicBusinessPlan:
         plan = self.get_plan(plan_id)
         if not plan:
@@ -322,16 +351,13 @@ class SBPService:
 
         sections = list(plan.sections)
         if section_order:
-            ordered = []
             key_map = {s["key"]: s for s in sections}
-            for key in section_order:
-                if key in key_map:
-                    ordered.append(key_map[key])
-            # Append any remaining sections not in the custom order
-            for s in sections:
-                if s["key"] not in section_order:
-                    ordered.append(s)
+            ordered = [key_map[k] for k in section_order if k in key_map]
+            ordered += [s for s in sections if s["key"] not in set(section_order)]
             sections = ordered
+
+        # Exclude skipped sections from the final plan
+        sections = [s for s in sections if s.get("status") != "skipped"]
 
         plan.final_plan = {
             "sections": sections,
@@ -344,6 +370,75 @@ class SBPService:
         plan.status = "reviewing"
         plan.updated_at = datetime.now(timezone.utc)
         flag_modified(plan, "final_plan")
+
+        self.db.commit()
+        self.db.refresh(plan)
+        return plan
+
+    # ------------------------------------------------------------------
+    # Step reset (backward navigation with downstream invalidation)
+    # ------------------------------------------------------------------
+
+    def _reset_sections(self, plan: StrategicBusinessPlan) -> None:
+        """Reset all section content back to pending."""
+        if plan.sections:
+            sections = list(plan.sections)
+            for s in sections:
+                s['status'] = 'pending'
+                s['content'] = None
+                s['strategic_implications'] = None
+                s['revision_notes'] = None
+                s['revision_history'] = []
+                s['approved_at'] = None
+                s['draft_count'] = 0
+            plan.sections = sections
+            flag_modified(plan, 'sections')
+        plan.current_section_index = None
+
+    def reset_from_step(self, plan_id: UUID, completed_step: int) -> StrategicBusinessPlan:
+        """
+        Clear all data produced by steps after completed_step and cap
+        max_step_reached at completed_step+1 so the user must redo those steps.
+
+        completed_step=1 → clear cross_analysis, sections, final_plan, themes
+        completed_step=2 → clear sections, final_plan, themes
+        completed_step=3 → clear final_plan
+        completed_step=4 → clear generated_report_path, presentation_slides
+        """
+        plan = self.get_plan(plan_id)
+        if not plan:
+            raise ValueError(f"Plan {plan_id} not found")
+
+        if completed_step <= 1:
+            plan.cross_analysis = None
+            plan.cross_analysis_advisor_notes = None
+            self._reset_sections(plan)
+            plan.final_plan = None
+            plan.emerging_themes = None
+            plan.generated_report_path = None
+            plan.presentation_slides = None
+
+        elif completed_step == 2:
+            self._reset_sections(plan)
+            plan.final_plan = None
+            plan.emerging_themes = None
+            plan.generated_report_path = None
+            plan.presentation_slides = None
+
+        elif completed_step == 3:
+            plan.final_plan = None
+            plan.generated_report_path = None
+            plan.presentation_slides = None
+            plan.status = "drafting"
+
+        elif completed_step == 4:
+            plan.generated_report_path = None
+            plan.presentation_slides = None
+
+        next_step = completed_step + 1
+        plan.current_step = next_step
+        plan.max_step_reached = next_step
+        plan.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(plan)

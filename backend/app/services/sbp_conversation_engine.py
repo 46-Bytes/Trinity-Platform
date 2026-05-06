@@ -267,6 +267,54 @@ class SBPConversationEngine:
         raise last_error  # Should not reach here, but just in case
 
     # ------------------------------------------------------------------
+    # Step 1b: Setup Extraction
+    # ------------------------------------------------------------------
+
+    async def extract_setup(self, plan_id: UUID) -> Dict[str, Any]:
+        """
+        Extract background information fields from uploaded documents.
+        Returns camelCase keys; ALL five fields are always returned (assumes if not explicit).
+        """
+        plan = self._get_plan(plan_id)
+        file_mappings = plan.file_mappings or {}
+        if not file_mappings:
+            return {}
+
+        system_prompt = (
+            "You are extracting background information for a Strategic Business Plan from uploaded documents.\n\n"
+            "Extract and return JSON with EXACTLY these five keys:\n"
+            '- clientName: The business or client name\n'
+            '- industry: The industry sector (e.g. "Manufacturing", "Construction", "Professional Services", "Technology", "Retail")\n'
+            '- planningHorizon: Must be exactly one of: "1-year", "3-year", "5-year". Infer from any time horizon mentioned; default to "3-year".\n'
+            '- targetAudience: Who the plan is for (e.g. "Owner, Management Team", "Board, Investors", "Bank")\n'
+            '- additionalContext: 2-3 sentences summarising the strategic context, key challenges, or priorities from the documents\n\n'
+            "CRITICAL: You MUST return a non-empty value for ALL five fields. "
+            "If information is not explicitly stated, make a reasonable inference or assumption based on available context. "
+            'Return only valid JSON: {"clientName": "...", "industry": "...", "planningHorizon": "3-year", "targetAudience": "...", "additionalContext": "..."}'
+        )
+
+        user_prompt = "Extract the five background information fields from the uploaded documents."
+
+        result = await self._call_claude(system_prompt, user_prompt, plan)
+
+        known = {"clientName", "industry", "planningHorizon", "targetAudience", "additionalContext"}
+        extracted = {k: v for k, v in result.items() if k in known and v and str(v).strip()}
+
+        # Normalise planningHorizon to one of the three allowed values
+        if "planningHorizon" in extracted:
+            ph = str(extracted["planningHorizon"]).lower()
+            if "1" in ph:
+                extracted["planningHorizon"] = "1-year"
+            elif "5" in ph:
+                extracted["planningHorizon"] = "5-year"
+            else:
+                extracted["planningHorizon"] = "3-year"
+        else:
+            extracted["planningHorizon"] = "3-year"
+
+        return extracted
+
+    # ------------------------------------------------------------------
     # Step 2: Cross-Pattern Analysis
     # ------------------------------------------------------------------
 

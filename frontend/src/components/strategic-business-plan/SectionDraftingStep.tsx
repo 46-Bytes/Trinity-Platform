@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { initialiseSections, surfaceThemes, getPlan } from '@/store/slices/strategicBusinessPlanReducer';
+import {
+  initialiseSections,
+  surfaceThemes,
+  reorderSections,
+} from '@/store/slices/strategicBusinessPlanReducer';
 import { SectionSidebar } from './SectionSidebar';
 import { SectionEditor } from './SectionEditor';
 import { PLAN_SECTIONS } from './sectionConfig';
@@ -39,7 +43,7 @@ export function SectionDraftingStep({ planId, onComplete }: SectionDraftingStepP
 
   const currentSection = sections[currentIndex];
 
-  // Check if we should surface emerging themes (after section 4 - external_internal_analysis)
+  // Surface emerging themes after external_internal_analysis is approved
   useEffect(() => {
     if (!themesShown && sections.length > 0) {
       const externalAnalysis = sections.find((s) => s.key === 'external_internal_analysis');
@@ -56,31 +60,44 @@ export function SectionDraftingStep({ planId, onComplete }: SectionDraftingStepP
     }
   };
 
-  const handleSkip = () => {
-    const config = PLAN_SECTIONS.find((c) => c.key === sections[currentIndex]?.key);
-    if (!config?.required) {
-      if (currentIndex < sections.length - 1) {
-        handleNext();
-      } else {
-        toast.info('All sections complete — click "Proceed to Plan Assembly" to continue.');
-      }
-    }
-  };
-
   const handleSelect = (index: number) => {
     setCurrentIndex(index);
   };
 
-  // Check if all required sections are approved
+  const handleReorder = async (fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= sections.length) return;
+
+    const newOrder = [...sections];
+    const [moved] = newOrder.splice(fromIndex, 1);
+    newOrder.splice(toIndex, 0, moved);
+
+    // Optimistically update the displayed index
+    if (currentIndex === fromIndex) {
+      setCurrentIndex(toIndex);
+    } else if (fromIndex < currentIndex && toIndex >= currentIndex) {
+      setCurrentIndex(currentIndex - 1);
+    } else if (fromIndex > currentIndex && toIndex <= currentIndex) {
+      setCurrentIndex(currentIndex + 1);
+    }
+
+    await dispatch(reorderSections({ planId, sectionOrder: newOrder.map((s) => s.key) }));
+  };
+
+  // A required section is "done" if it's approved or skipped
   const requiredSections = PLAN_SECTIONS.filter((s) => s.required);
-  const allRequiredApproved = requiredSections.every((config) => {
+  const allRequiredDone = requiredSections.every((config) => {
     const section = sections.find((s) => s.key === config.key);
-    return section?.status === 'approved';
+    return section?.status === 'approved' || section?.status === 'skipped';
   });
 
+  const approvedRequiredCount = requiredSections.filter((config) => {
+    const section = sections.find((s) => s.key === config.key);
+    return section?.status === 'approved';
+  }).length;
+
   const handleProceed = () => {
-    if (!allRequiredApproved) {
-      toast.error('All required sections must be approved before proceeding.');
+    if (!allRequiredDone) {
+      toast.error('All required sections must be approved or skipped before proceeding.');
       return;
     }
     onComplete();
@@ -97,15 +114,9 @@ export function SectionDraftingStep({ planId, onComplete }: SectionDraftingStepP
     );
   }
 
-  // Show emerging themes card between section 4 and 5
-  const showThemesCard =
-    currentPlan?.emerging_themes &&
-    currentIndex >= 4 && // After external_internal_analysis
-    !themesShown;
-
   return (
     <div className="space-y-4">
-      {/* Emerging Themes (shown after section 4 is approved) */}
+      {/* Emerging Themes (shown after external_internal_analysis is approved) */}
       {currentPlan?.emerging_themes && currentIndex >= 4 && (
         <Card className="border-blue-200 bg-blue-50/50">
           <CardHeader className="pb-3">
@@ -138,6 +149,7 @@ export function SectionDraftingStep({ planId, onComplete }: SectionDraftingStepP
           sections={sections}
           currentIndex={currentIndex}
           onSelect={handleSelect}
+          onReorder={handleReorder}
           isDisabled={isDraftingSection}
         />
         <div className="flex-1 p-6 overflow-y-auto">
@@ -148,7 +160,7 @@ export function SectionDraftingStep({ planId, onComplete }: SectionDraftingStepP
               sectionIndex={currentIndex}
               totalSections={sections.length}
               onNext={handleNext}
-              onSkip={handleSkip}
+              onSkip={handleNext}
             />
           )}
         </div>
@@ -156,12 +168,12 @@ export function SectionDraftingStep({ planId, onComplete }: SectionDraftingStepP
 
       {/* Proceed button */}
       <div className="flex justify-end">
-        <Button onClick={handleProceed} disabled={!allRequiredApproved} size="lg">
+        <Button onClick={handleProceed} disabled={!allRequiredDone} size="lg">
           <ArrowRight className="w-4 h-4 mr-2" />
           Proceed to Plan Assembly
-          {!allRequiredApproved && (
+          {!allRequiredDone && (
             <span className="ml-2 text-xs opacity-70">
-              ({requiredSections.filter((c) => sections.find((s) => s.key === c.key)?.status === 'approved').length}/{requiredSections.length} approved)
+              ({approvedRequiredCount}/{requiredSections.length} required approved)
             </span>
           )}
         </Button>

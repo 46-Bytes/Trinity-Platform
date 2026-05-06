@@ -16,31 +16,38 @@ DIAGNOSTIC CONTEXT: {diagnostic_context}
 CUSTOM INSTRUCTIONS: {custom_instructions}
 
 TASK:
-Draft the following subsections using ONLY content from the provided source materials:
+Draft the following subsections using ONLY content from the provided source materials.
+LENGTH TARGET: 250 words maximum for the entire section. Be surgical.
 
 1. Vision Statement
-   - A clear, aspirational statement of what the business aims to become.
+   - One sentence only — maximum 20 words.
    - Must be specific to this business — not a generic corporate vision.
 
 2. Mission Statement
+   - One to two sentences — maximum 30 words total.
    - What the business does, for whom, and how it creates value.
-   - Must be grounded in the current reality of the business.
 
 3. Core Values
-   - 3-6 values that genuinely drive behaviour and decision-making in this business.
-   - Each value should have a brief explanation of what it means in practice.
+   - 4–6 values. Present as a bullet list — NOT a table.
+   - Format: "• [Value] — [one-sentence explanation, max 12 words]"
+   - No additional prose.
 
-4. Sustainable Competitive Advantage
-   - What gives this business a durable edge over competitors?
-   - Must be specific, evidence-based, and defensible.
+4. Business Goals (Planning Horizon)
+   - 3–5 goals. One tight bullet per goal — specific and measurable where possible.
+   - No sub-bullets, no explanatory paragraphs.
+
+5. Sustainable Competitive Advantage
+   - 3–5 points. One line each — maximum 15 words per point.
+   - Present as a bullet list — NOT a table.
+   - Must be specific and defensible, not generic.
 
 CRITICAL RULE:
-The Vision, Mission, Values, and Sustainable Competitive Advantage stated here must be treated as the definitive versions throughout the plan. If an employee-facing strategy document is later produced, these MUST appear word-for-word — no paraphrasing or dilution.
+The Vision, Mission, Values, and SCA stated here are the definitive versions for the entire plan — no paraphrasing elsewhere.
 
-If the source materials do not contain explicit vision/mission/values statements, synthesise them from the strategic intent and priorities expressed in the workbook, but mark them as "[DRAFT — confirm with client]".
+If source materials do not contain explicit statements, synthesise from the workbook and mark as "[DRAFT — confirm with client]".
 
 Return a JSON object:
 {{
-  "content": "<HTML content covering Vision, Mission, Values, and SCA>",
+  "content": "<HTML content covering Vision, Mission, Values (bullet list), Business Goals (bullet list), and SCA (bullet list)>",
   "strategic_implications": null
 }}

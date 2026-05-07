@@ -8,7 +8,7 @@ import {
 import { SectionSidebar } from './SectionSidebar';
 import { SectionEditor } from './SectionEditor';
 import { PLAN_SECTIONS } from './sectionConfig';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowRight, Lightbulb, Loader2 } from 'lucide-react';
@@ -119,26 +119,18 @@ export function SectionDraftingStep({ planId, onComplete }: SectionDraftingStepP
       {/* Emerging Themes (shown after external_internal_analysis is approved) */}
       {currentPlan?.emerging_themes && currentIndex >= 4 && (
         <Card className="border-blue-200 bg-blue-50/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Lightbulb className="w-4 h-4 text-blue-600" />
-              Emerging Strategic Themes
-            </CardTitle>
-            <CardDescription>
-              Themes surfaced from the core diagnostic sections — these will inform the remaining sections.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
+          <CardContent className="py-3 px-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="flex items-center gap-1.5 text-sm font-medium text-blue-700 shrink-0">
+                <Lightbulb className="w-4 h-4" />
+                Governing Themes:
+              </span>
               {(currentPlan.emerging_themes.themes || []).map((theme: any, i: number) => (
-                <Badge key={i} variant="secondary" className="py-1 px-3">
+                <Badge key={i} variant="secondary" className="py-0.5 px-2.5 text-xs">
                   {theme.theme}
                 </Badge>
               ))}
             </div>
-            {currentPlan.emerging_themes.summary && (
-              <p className="text-sm text-muted-foreground mt-3">{currentPlan.emerging_themes.summary}</p>
-            )}
           </CardContent>
         </Card>
       )}

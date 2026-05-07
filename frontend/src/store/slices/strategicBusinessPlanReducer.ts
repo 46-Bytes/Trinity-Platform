@@ -54,8 +54,8 @@ export interface StrategicBusinessPlan {
 export interface UploadedFileInfo {
   filename: string;
   file_id: string;
-  tag: string;
-  size: number;
+  tag?: string;
+  size?: number;
 }
 
 interface SBPState {
@@ -464,6 +464,14 @@ const sbpSlice = createSlice({
       .addCase(getPlan.fulfilled, (state, action) => {
         state.isLoading = false;
         state.currentPlan = action.payload;
+        const fileMappings: Record<string, string> = action.payload.file_mappings || {};
+        if (Object.keys(fileMappings).length > 0) {
+          state.uploadedFiles = Object.entries(fileMappings).map(([filename, fileId]) => ({
+            filename,
+            file_id: fileId,
+            tag: (action.payload.file_tags || {})[filename] || '',
+          }));
+        }
       })
       .addCase(getPlan.rejected, (state, action) => { state.isLoading = false; state.error = action.payload as string; });
 

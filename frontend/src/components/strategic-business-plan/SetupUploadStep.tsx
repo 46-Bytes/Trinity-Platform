@@ -23,6 +23,7 @@ interface SetupUploadStepProps {
 export function SetupUploadStep({ planId, engagementId, onComplete, isLoading }: SetupUploadStepProps) {
   const dispatch = useAppDispatch();
   const currentPlan = useAppSelector((s) => s.strategicBusinessPlan.currentPlan);
+  const uploadedFiles = useAppSelector((s) => s.strategicBusinessPlan.uploadedFiles);
 
   const [files, setFiles] = useState<File[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -210,7 +211,25 @@ export function SetupUploadStep({ planId, engagementId, onComplete, isLoading }:
             </div>
           )}
 
-          {hasServerFiles && files.length === 0 && (
+          {hasServerFiles && files.length === 0 && uploadedFiles.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Uploaded files ({uploadedFiles.length})</p>
+              <div className="space-y-1.5 max-h-52 overflow-y-auto">
+                {uploadedFiles.map((f) => (
+                  <div key={f.file_id} className="flex items-center gap-3 p-2.5 bg-muted rounded-lg">
+                    <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{f.filename}</p>
+                      <p className="text-xs text-muted-foreground">Uploaded</p>
+                    </div>
+                    <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">Select new files above to replace them.</p>
+            </div>
+          )}
+          {hasServerFiles && files.length === 0 && uploadedFiles.length === 0 && (
             <p className="text-sm text-muted-foreground">
               {currentPlan!.file_ids!.length} file{currentPlan!.file_ids!.length !== 1 ? 's' : ''} already uploaded.
               Select new files above to replace them.

@@ -181,11 +181,11 @@ export function SectionEditor({
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="prose prose-sm max-w-none sbp-content" dangerouslySetInnerHTML={{ __html: section.content || '' }} />
+          <div className="prose max-w-none sbp-content" dangerouslySetInnerHTML={{ __html: section.content || '' }} />
           {section.strategic_implications && (
             <div className="border-t pt-4 mt-4">
-              <h4 className="font-semibold text-sm mb-2">Strategic Implications</h4>
-              <div className="prose prose-sm max-w-none sbp-content" dangerouslySetInnerHTML={{ __html: section.strategic_implications }} />
+              <h4 className="font-semibold mb-2">Strategic Implications</h4>
+              <div className="prose max-w-none sbp-content" dangerouslySetInnerHTML={{ __html: section.strategic_implications }} />
             </div>
           )}
           {sectionIndex < totalSections - 1 && (
@@ -248,11 +248,11 @@ export function SectionEditor({
           </div>
         ) : (
           <div>
-            <div className="prose prose-sm max-w-none sbp-content border rounded-lg p-4 bg-muted/30" dangerouslySetInnerHTML={{ __html: section.content || '' }} />
+            <div className="prose max-w-none sbp-content border rounded-lg p-4 bg-muted/30" dangerouslySetInnerHTML={{ __html: section.content || '' }} />
             {section.strategic_implications && (
               <div className="border rounded-lg p-4 bg-muted/30 mt-3">
-                <h4 className="font-semibold text-sm mb-2">Strategic Implications</h4>
-                <div className="prose prose-sm max-w-none sbp-content" dangerouslySetInnerHTML={{ __html: section.strategic_implications }} />
+                <h4 className="font-semibold mb-2">Strategic Implications</h4>
+                <div className="prose max-w-none sbp-content" dangerouslySetInnerHTML={{ __html: section.strategic_implications }} />
               </div>
             )}
           </div>

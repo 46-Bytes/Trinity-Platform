@@ -12,12 +12,12 @@ interface SectionSidebarProps {
 }
 
 const STATUS_ICON: Record<string, React.ReactNode> = {
-  pending:            <Circle       className="w-4 h-4 text-muted-foreground" />,
-  drafting:           <Loader2      className="w-4 h-4 text-primary animate-spin" />,
-  drafted:            <PenLine      className="w-4 h-4 text-blue-600" />,
-  revision_requested: <AlertCircle  className="w-4 h-4 text-orange-500" />,
-  approved:           <CheckCircle2 className="w-4 h-4 text-green-600" />,
-  skipped:            <SkipForward  className="w-4 h-4 text-muted-foreground" />,
+  pending:            <Circle       className="w-2 h-2 text-muted-foreground" />,
+  drafting:           <Loader2      className="w-2 h-2 text-primary animate-spin" />,
+  drafted:            <PenLine      className="w-2 h-2 text-blue-600" />,
+  revision_requested: <AlertCircle  className="w-2 h-2 text-orange-500" />,
+  approved:           <CheckCircle2 className="w-2 h-2 text-green-600" />,
+  skipped:            <SkipForward  className="w-2 h-2 text-muted-foreground" />,
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -79,7 +79,7 @@ export function SectionSidebar({ sections, currentIndex, onSelect, onReorder, is
               <button
                 onClick={() => onSelect(index)}
                 className={cn(
-                  'flex-1 text-left px-3 py-2.5 rounded-md flex items-start gap-2 transition-colors text-sm',
+                  'flex-1 text-left px-2.5 py-2 rounded-md flex items-start gap-2 transition-colors text-xs',
                   isActive ? 'bg-primary/10 text-primary' : 'hover:bg-muted',
                   isSkipped && 'opacity-50',
                 )}

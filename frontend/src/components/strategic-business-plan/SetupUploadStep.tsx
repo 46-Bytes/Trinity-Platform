@@ -331,7 +331,7 @@ export function SetupUploadStep({ planId, engagementId, onComplete, isLoading }:
               value={additionalContext}
               onChange={(e) => setAdditionalContext(e.target.value)}
               placeholder="Any additional context, priorities, or notes for the plan…"
-              rows={3}
+              rows={7}
               disabled={isExtracting || !fieldsEnabled}
             />
           </div>

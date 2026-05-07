@@ -4,6 +4,7 @@ import {
   initialiseSections,
   surfaceThemes,
   reorderSections,
+  skipAllPendingSections,
 } from '@/store/slices/strategicBusinessPlanReducer';
 import { SectionSidebar } from './SectionSidebar';
 import { SectionEditor } from './SectionEditor';
@@ -24,6 +25,7 @@ export function SectionDraftingStep({ planId, onComplete }: SectionDraftingStepP
   const { currentPlan, isLoading, isDraftingSection } = useAppSelector((s) => s.strategicBusinessPlan);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [themesShown, setThemesShown] = useState(false);
+  const [isSkippingAll, setIsSkippingAll] = useState(false);
 
   const sections = currentPlan?.sections || [];
 
@@ -95,6 +97,23 @@ export function SectionDraftingStep({ planId, onComplete }: SectionDraftingStepP
     return section?.status === 'approved';
   }).length;
 
+  const pendingRequiredCount = requiredSections.filter((config) => {
+    const section = sections.find((s) => s.key === config.key);
+    return section?.status === 'pending';
+  }).length;
+
+  const handleSkipAllPending = async () => {
+    setIsSkippingAll(true);
+    try {
+      await dispatch(skipAllPendingSections(planId)).unwrap();
+      toast.success('All remaining sections skipped.');
+    } catch {
+      toast.error('Failed to skip remaining sections.');
+    } finally {
+      setIsSkippingAll(false);
+    }
+  };
+
   const handleProceed = () => {
     if (!allRequiredDone) {
       toast.error('All required sections must be approved or skipped before proceeding.');
@@ -159,7 +178,16 @@ export function SectionDraftingStep({ planId, onComplete }: SectionDraftingStepP
       </div>
 
       {/* Proceed button */}
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end gap-3">
+        {!allRequiredDone && pendingRequiredCount > 0 && (
+          <Button variant="outline" size="lg" onClick={handleSkipAllPending} disabled={isSkippingAll}>
+            {isSkippingAll ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Skipping…</>
+            ) : (
+              <>Skip all remaining ({pendingRequiredCount})</>
+            )}
+          </Button>
+        )}
         <Button onClick={handleProceed} disabled={!allRequiredDone} size="lg">
           <ArrowRight className="w-4 h-4 mr-2" />
           Proceed to Plan Assembly

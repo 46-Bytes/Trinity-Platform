@@ -491,6 +491,19 @@ async def skip_section(
     return {"success": True, "section": section, "sections": plan.sections}
 
 
+@router.post("/{plan_id}/skip-pending-sections")
+async def skip_pending_sections(
+    plan_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    plan = _get_plan_or_404(plan_id, db)
+    _check_plan_access(plan, current_user, db)
+    service = get_sbp_service(db)
+    plan = service.skip_pending_sections(plan_id)
+    return {"success": True, "sections": plan.sections}
+
+
 @router.patch("/{plan_id}/reorder-sections")
 async def reorder_sections(
     plan_id: UUID,

@@ -289,6 +289,20 @@ class SBPService:
         """Mark a section as skipped — it will be excluded from the final plan."""
         return self.update_section(plan_id, section_key, {"status": "skipped"})
 
+    def skip_pending_sections(self, plan_id: UUID) -> StrategicBusinessPlan:
+        """Mark all pending sections as skipped in one operation."""
+        plan = self.get_plan(plan_id)
+        if not plan or not plan.sections:
+            raise ValueError(f"Plan {plan_id} not found")
+        for section in plan.sections:
+            if section.get("status") == "pending":
+                section["status"] = "skipped"
+        plan.updated_at = datetime.now(timezone.utc)
+        flag_modified(plan, "sections")
+        self.db.commit()
+        self.db.refresh(plan)
+        return plan
+
     def reorder_sections(self, plan_id: UUID, section_order: List[str]) -> StrategicBusinessPlan:
         """Reorder the sections array by the given key list."""
         plan = self.get_plan(plan_id)

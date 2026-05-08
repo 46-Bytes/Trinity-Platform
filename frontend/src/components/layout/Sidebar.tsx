@@ -200,37 +200,27 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
             return (
               <div key={item.href} className="space-y-1">
-                <div className="flex items-center">
-                  <NavLink
-                    to={item.href}
-                    className={cn(
-                      "sidebar-item flex-1",
-                      isAiActive && "sidebar-item-active",
-                      collapsed && "justify-center px-0"
-                    )}
-                    style={{ animationDelay: `${index * 50}ms` }}
-                  >
-                    <item.icon className={cn("w-5 h-5 flex-shrink-0", isAiActive && "text-sidebar-primary")} />
-                    {!collapsed && <span className="flex-1">{item.label}</span>}
-                  </NavLink>
-                  {!collapsed && (
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setAiToolsExpanded(!aiToolsExpanded);
-                      }}
-                      className="p-1.5 ml-1 rounded hover:bg-sidebar-accent transition-colors flex-shrink-0"
-                      aria-label={aiToolsExpanded ? "Collapse" : "Expand"}
-                    >
-                      {aiToolsExpanded ? (
-                        <ChevronDown className="w-4 h-4 text-sidebar-foreground/60 transition-transform" />
-                      ) : (
-                        <ChevronRight className="w-4 h-4 text-sidebar-foreground/60 transition-transform" />
-                      )}
-                    </button>
+                <button
+                  onClick={() => setAiToolsExpanded(!aiToolsExpanded)}
+                  className={cn(
+                    "sidebar-item w-full",
+                    isAiActive && "sidebar-item-active",
+                    collapsed && "justify-center px-0"
                   )}
-                </div>
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <item.icon className={cn("w-5 h-5 flex-shrink-0", isAiActive && "text-sidebar-primary")} />
+                  {!collapsed && (
+                    <>
+                      <span className="flex-1 text-left">{item.label}</span>
+                      {aiToolsExpanded ? (
+                        <ChevronDown className="w-4 h-4 text-sidebar-foreground/60" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-sidebar-foreground/60" />
+                      )}
+                    </>
+                  )}
+                </button>
 
                 {!collapsed && aiToolsExpanded && (
                   <div className="ml-4 mt-1 space-y-0.5 border-l-2 border-sidebar-border/40 pl-3 transition-all duration-200">

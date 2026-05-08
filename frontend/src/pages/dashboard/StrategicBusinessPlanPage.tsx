@@ -118,7 +118,7 @@ export default function StrategicBusinessPlanPage() {
   }, [currentPlan?.current_step]);
 
   const planId = currentPlan?.id || null;
-  const maxStep = currentPlan?.max_step_reached || currentStep;
+  const maxStep = Math.max(currentPlan?.max_step_reached ?? 1, currentStep);
 
   const goToStep = (step: number) => {
     if (step <= maxStep || step === currentStep + 1) {

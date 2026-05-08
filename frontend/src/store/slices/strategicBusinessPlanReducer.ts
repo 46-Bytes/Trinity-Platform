@@ -330,6 +330,22 @@ export const skipSection = createAsyncThunk(
   },
 );
 
+export const skipAllPendingSections = createAsyncThunk(
+  'sbp/skipAllPendingSections',
+  async (planId: string, { rejectWithValue }) => {
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/strategic-business-plan/${planId}/skip-pending-sections`,
+        { method: 'POST', headers: getAuthHeaders() },
+      );
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Skip all failed');
+      return await res.json();
+    } catch (e) {
+      return rejectWithValue(e instanceof Error ? e.message : 'Skip all failed');
+    }
+  },
+);
+
 export const reorderSections = createAsyncThunk(
   'sbp/reorderSections',
   async ({ planId, sectionOrder }: { planId: string; sectionOrder: string[] }, { rejectWithValue }) => {
@@ -573,6 +589,14 @@ const sbpSlice = createSlice({
     // skipSection
     builder
       .addCase(skipSection.fulfilled, (state, action) => {
+        if (state.currentPlan && action.payload.sections) {
+          state.currentPlan.sections = action.payload.sections;
+        }
+      });
+
+    // skipAllPendingSections
+    builder
+      .addCase(skipAllPendingSections.fulfilled, (state, action) => {
         if (state.currentPlan && action.payload.sections) {
           state.currentPlan.sections = action.payload.sections;
         }

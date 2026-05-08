@@ -23,40 +23,36 @@ DIAGNOSTIC CONTEXT:
 CUSTOM INSTRUCTIONS: {custom_instructions}
 
 TASK:
-LENGTH TARGET: 350 words maximum excluding table content. Tables replace prose — do not add narrative rows of text to describe what the table already shows.
+LENGTH TARGET: 200 words maximum excluding table content. Tables replace prose — do not add narrative rows of text to describe what the table already shows.
 
 This section must include both the analysis AND its strategic interpretation. Structure as follows:
 
 1. Industry Environment
    - Summarise the competitive dynamics of the industry using a Porter's Five Forces lens.
-   - Present as a structured table:
-     | Force | Intensity (High/Med/Low) | Key Observations |
-   - Focus only on forces that are materially relevant to the strategic choices facing this business.
+   - Present as a structured table — exactly 5 rows, one per force:
+     | Force | Intensity (High/Med/Low) | Key Observation |
+   - Focus only on the observation most relevant to the strategic choices facing this business.
 
 2. PESTLE Analysis
-   - Present the key external factors in a table format.
-   - Cover Political, Economic, Social, Technological, Legal, Environmental factors.
-   - Focus on factors most relevant to this specific business and industry.
-   - Each factor: one row, one clear observation, one implication.
+   - Present the key external factors in a table — exactly 6 rows, one per factor:
+     | Factor | Observation | Implication |
+   - One clear observation and one implication per factor. No prose.
 
 3. SWOT Analysis
    - Present as a structured matrix/table.
-   - Ensure strengths and weaknesses are genuinely internal.
-   - Ensure opportunities and threats are genuinely external.
+   - Ensure strengths and weaknesses are genuinely internal; opportunities and threats genuinely external.
    - Be specific — no generic SWOT entries that could apply to any business.
-   - Each SWOT cell uses compact bullets: 6 bullets at approximately 8 words each. The reader scans — do not write full sentences.
+   - Each SWOT cell: exactly 4 compact bullets at approximately 8 words each. The reader scans — do not write full sentences.
 
 IMPORTANT RULES:
-- Default to tables where comparison or prioritisation exists.
-- Do NOT assume owner dependency equals operational fragility — distinguish between day-to-day operations and concentration of strategic value.
-- Each framework must be BOTH presented AND interpreted strategically.
 - Do NOT include Resources & Capabilities or Customer Dynamics here — those are covered in their own standalone sections.
+- Do NOT assume owner dependency equals operational fragility.
 
-End with a clearly labelled "Strategic Implications" subsection that states what the business should:
-- Lean into
-- Protect
-- Fix
-- Deprioritise or avoid
+End with a clearly labelled "Strategic Implications" subsection — exactly 4 bullets, one per category, max 15 words each:
+- Lean into: [one bullet]
+- Protect: [one bullet]
+- Fix: [one bullet]
+- Deprioritise: [one bullet]
 
 Return a JSON object:
 {{

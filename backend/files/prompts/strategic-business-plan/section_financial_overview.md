@@ -16,32 +16,27 @@ DIAGNOSTIC CONTEXT: {diagnostic_context}
 CUSTOM INSTRUCTIONS: {custom_instructions}
 
 TASK:
-LENGTH TARGET: 280 words maximum excluding tables. Financial data goes in tables — not prose.
+LENGTH TARGET: 150 words maximum excluding tables. Financial data goes in tables — not prose.
 Draft the following subsections using ONLY financial data from the provided source materials:
 
 1. Current Financial Position
    - Key financial metrics (revenue, profit, margins, cash position)
-   - Trends over recent periods
-   - Present as a table where data is available
+   - Present as a table where data is available — maximum 5 rows
 
 2. Financial Targets
    - Revenue, profit, and margin targets for the planning horizon
-   - Growth rate assumptions
-   - Present as a table:
+   - Present as a table — maximum 5 metrics:
    | Metric | Current | Year 1 Target | Year 2 Target | Year 3 Target |
+   - For a 1-year planning horizon, omit Year 2 and Year 3 columns.
 
 3. Investment Requirements
-   - Capital expenditure needed to execute the strategy
-   - Operating cost changes anticipated
-   - Funding sources (retained earnings, debt, equity)
+   - 3–4 bullets only: capex, operating cost changes, funding sources
 
 4. Key Financial Assumptions
-   - What assumptions underpin the targets?
-   - What external factors could affect financial performance?
+   - 3–4 bullets only: assumptions underpinning the targets and key external risk factors
 
 CRITICAL RULES:
 - NEVER invent financial figures. If a number is not in the source materials, do not include it.
-- If financial data is sparse, state clearly what data is available and what is missing.
 - Mark any gaps as "[Financial data not provided — confirm with client]".
 - Use tables for all financial data presentation.
 - Keep commentary factual — this is not the place for aspirational language.

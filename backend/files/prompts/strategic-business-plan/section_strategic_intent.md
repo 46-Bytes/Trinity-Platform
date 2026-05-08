@@ -17,7 +17,7 @@ CUSTOM INSTRUCTIONS: {custom_instructions}
 
 TASK:
 Draft the following subsections using ONLY content from the provided source materials.
-LENGTH TARGET: 250 words maximum for the entire section. Be surgical.
+LENGTH TARGET: 200 words maximum for the entire section. Be surgical.
 
 1. Vision Statement
    - One sentence only — maximum 20 words.
@@ -28,16 +28,16 @@ LENGTH TARGET: 250 words maximum for the entire section. Be surgical.
    - What the business does, for whom, and how it creates value.
 
 3. Core Values
-   - 4–6 values. Present as a bullet list — NOT a table.
+   - Exactly 4 values. Present as a bullet list — NOT a table.
    - Format: "• [Value] — [one-sentence explanation, max 12 words]"
    - No additional prose.
 
 4. Business Goals (Planning Horizon)
-   - 3–5 goals. One tight bullet per goal — specific and measurable where possible.
+   - 3–4 goals. One tight bullet per goal — specific and measurable where possible.
    - No sub-bullets, no explanatory paragraphs.
 
 5. Sustainable Competitive Advantage
-   - 3–5 points. One line each — maximum 15 words per point.
+   - 3–4 points. One line each — maximum 15 words per point.
    - Present as a bullet list — NOT a table.
    - Must be specific and defensible, not generic.
 

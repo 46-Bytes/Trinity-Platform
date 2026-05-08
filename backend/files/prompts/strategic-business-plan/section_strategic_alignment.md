@@ -23,28 +23,22 @@ DIAGNOSTIC CONTEXT:
 CUSTOM INSTRUCTIONS: {custom_instructions}
 
 TASK:
-LENGTH TARGET: 300 words maximum excluding the correlation table. This section integrates — it does not repeat. Name themes, do not re-explain them.
-This is the integration section that ties the entire plan together. You must:
+LENGTH TARGET: 150 words maximum excluding the correlation table. This section integrates — it does not repeat. Name themes, do not re-explain them.
 
 1. Cross-Section Correlation Matrix
-   - Present a table showing where strategic themes recur across sections.
+   - Present a table showing where strategic themes recur across sections — maximum 4 rows.
    | Theme | Sections Where It Appears | Signal Strength (Very Strong / Strong / Moderate) |
-   - Identify the 3-5 governing strategic truths that emerge from this integration.
 
 2. Integrated Implications
-   - Explain in plain language what the integrated picture means for the business.
-   - Resolve repeated themes into clear, governing strategic commitments.
-   - Clarify what is non-negotiable versus optional.
-   - Demonstrate coherence across the entire plan — not a collection of independent sections.
+   - 3–4 bullets only: what the integrated picture means for the business.
+   - Resolve repeated themes into clear commitments. Name what is non-negotiable.
 
 3. What Must Remain True
-   - The conditions, assets, and behaviours the business must protect for the strategy to succeed.
-   - State these as clear commitments, not analysis.
+   - 3–4 bullets only: conditions, assets, and behaviours the business must protect.
 
 4. Way Forward
-   - A single closing paragraph (not a second commitment statement — the plan's commitment has already been made in the Actions List).
-   - Name the one or two most important strategic decisions made in this plan and state what the business must do first to honour them.
-   - Keep it directional and specific — not aspirational.
+   - 2–3 sentences only. Name the one or two most important strategic decisions and what the business must do first.
+   - This is not a second commitment statement — keep it directional, not aspirational.
 
 Return a JSON object:
 {{

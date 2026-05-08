@@ -17,28 +17,19 @@ CUSTOM INSTRUCTIONS: {custom_instructions}
 
 TASK:
 Draft the following subsections using ONLY content from the provided source materials.
-LENGTH TARGET: 350 words maximum for the entire section. This is context-setting, not analysis.
+LENGTH TARGET: 200 words maximum for the entire section. This is context-setting, not analysis.
 
 1. Business Overview
-   - 4–6 bullet points covering: what it does, ownership structure, year established, headcount, locations.
+   - 4–5 bullet points covering: what it does, ownership structure, year established, headcount, locations, and one bullet for market position.
    - No prose paragraphs.
 
-2. Current Market Position
-   - 2–3 sentences only: where the business sits, its competitive positioning, key customer segments.
+2. Operating Environment
+   - 3–4 bullet points: the most relevant market trends, competitive pressures, regulatory conditions, and key strategic constraints.
+   - Include any non-negotiable decisions already made as the last bullet.
 
-3. Operating Environment
-   - 3–4 bullet points: the most relevant market trends, competitive pressures, or regulatory conditions.
-   - Do not write a paragraph per point.
-
-4. Recent Performance Summary
-   - One table where data is available: metric | current value | trend.
+3. Recent Performance
+   - One table only — maximum 5 rows: | Metric | Current Value | Trend |
    - If no data in source materials, write one sentence noting the gap.
-
-5. Key Stakeholders
-   - Bullet list only — name, role, relevance. 3–8 lines maximum.
-
-6. Strategic Context and Constraints
-   - 2–3 sentences: the most important constraints and any non-negotiable decisions already made.
 
 Do NOT invent any financial figures, employee counts, or historical facts. If information is not in the source materials, omit the subsection or mark as "[Data not provided — confirm with client]".
 

@@ -19,7 +19,8 @@ LANGUAGE AND FORMATTING:
 - Use British English throughout.
 - Only use bold for headings and table headings. Do not bold words or phrases inside normal paragraphs.
 - Write concisely and for an executive audience. Favour short sentences and tight paragraphs over comprehensive but verbose prose.
-- Each section should be 200–400 words maximum. This is a directive document, not a research report — every sentence must earn its place.
+- Each section should be 150–300 words maximum, including any prose introduction. This is a directive document, not a research report — every sentence must earn its place.
+- Tables are not exempt from brevity — keep rows to the minimum needed to convey the decision. A shorter table with precise rows outperforms a long table with padding.
 - Do not pad, repeat, or over-explain. One sharp sentence beats three vague ones.
 - Where content involves prioritisation, comparison, correlation, sequencing, or ownership, default to tables or structured bullet lists rather than long prose.
 - For values, competitive advantages, and capability lists: use bullet lists, NOT tables.

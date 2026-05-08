@@ -16,23 +16,22 @@ DIAGNOSTIC CONTEXT: {diagnostic_context}
 CUSTOM INSTRUCTIONS: {custom_instructions}
 
 TASK:
+LENGTH TARGET: 100 words maximum for the mitigation themes prose. The risk table is the substance — keep it tight.
 
 1. Risk Assessment Matrix
-   Identify 8–12 risks drawn from threats in the SWOT, PESTLE pressures, capacity constraints,
-   financial risks, and execution risks from the growth plays.
+   Identify 5–7 risks drawn from threats in the SWOT, PESTLE pressures, capacity constraints,
+   financial risks, and execution risks from the growth plays. Prioritise the highest-impact risks — do not list everything.
 
    Present as a table:
-   | Risk | Category | Likelihood (H/M/L) | Impact (H/M/L) | Risk Rating | Mitigation Strategy | Owner |
+   | Risk | Likelihood (H/M/L) | Impact (H/M/L) | Risk Rating | Mitigation | Owner |
 
    Risk Rating = Likelihood × Impact (H/H = Critical, H/M or M/H = High, M/M = Medium, etc.)
 
 2. Mitigation Themes
-   Identify 4–6 cross-cutting themes that describe how the business should manage its risk
-   profile across the planning horizon. Present as a bullet list — not per-risk essays.
+   3–4 cross-cutting themes only, max 15 words each. Present as a bullet list — not per-risk essays.
 
 CRITICAL RULES:
 - Risks must be specific to this business and this strategy — not generic industry risks.
-- Link each risk back to a specific section of the plan or growth play where relevant.
 - No narrative assessments per risk. If a risk needs elaboration, it belongs in the relevant functional chapter.
 - The risk matrix table plus the mitigation themes bullet list is the complete chapter.
 

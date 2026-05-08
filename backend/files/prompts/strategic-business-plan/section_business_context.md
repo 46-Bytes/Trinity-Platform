@@ -42,8 +42,6 @@ LENGTH TARGET: 350 words maximum for the entire section. This is context-setting
 
 Do NOT invent any financial figures, employee counts, or historical facts. If information is not in the source materials, omit the subsection or mark as "[Data not provided — confirm with client]".
 
-Do NOT invent any financial figures, employee counts, or historical facts. If information is not in the source materials, omit the subsection or mark as "[Data not provided — confirm with client]".
-
 Return a JSON object:
 {{
   "content": "<HTML content covering the business context>",

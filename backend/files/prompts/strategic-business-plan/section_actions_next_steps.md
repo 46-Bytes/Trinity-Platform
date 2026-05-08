@@ -1,6 +1,6 @@
 Draft the Actions List (Implementation Plan) section of the Strategic Business Plan for {client_name} ({industry}).
 
-This section is the bridge between strategy and execution. It must provide a prioritised action plan, an implementation roadmap across the planning horizon, and close the substantive plan with a Strategic Commitment statement.
+This section is the bridge between strategy and execution. It must provide a prioritised, assignable action plan and close the substantive plan with a Strategic Commitment statement.
 
 CONTEXT:
 - Planning horizon: {planning_horizon}

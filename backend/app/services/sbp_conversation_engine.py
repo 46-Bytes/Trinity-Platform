@@ -75,7 +75,7 @@ class SBPConversationEngine:
         local_extract_filenames: List[str] = []
 
         for filename, file_id in file_mappings.items():
-            if not file_id:
+            if not file_id or not str(file_id).startswith("file_"):
                 continue
             ext = Path(filename).suffix.lower().lstrip(".")
             if ext in pdf_ext:

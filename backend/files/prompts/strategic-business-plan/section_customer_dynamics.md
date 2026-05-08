@@ -16,33 +16,25 @@ DIAGNOSTIC CONTEXT: {diagnostic_context}
 CUSTOM INSTRUCTIONS: {custom_instructions}
 
 TASK:
-LENGTH TARGET: 280 words maximum for the entire section. Tables count towards the target — keep rows tight.
+LENGTH TARGET: 180 words maximum for the entire section including tables.
 Draft the following subsections using ONLY content from the provided source materials:
 
-1. Target Audience Analysis
-   - Primary and secondary customer segments
-   - Who they are, what they value, and what problem they are solving by choosing this business
-   - Present as a structured table:
-     | Segment | Profile | Core Need | Value Driver | Revenue Importance |
+1. Target Audience
+   - Primary and secondary customer segments — maximum 3 rows:
+     | Segment | Core Need | Value Driver |
+   - Do not add profile columns or revenue importance unless directly evidenced.
 
-2. Buying Behaviour and Purchase Journey
-   - How customers discover, evaluate, and commit to this business
-   - Key decision-making factors (price, trust, convenience, relationship, quality)
-   - Any notable shifts in buying behaviour relevant to the planning horizon
+2. Buying Behaviour
+   - 2–3 sentences only: how customers discover, evaluate, and commit to this business.
+   - State one key decision-making factor and any notable shift relevant to the planning horizon.
 
-3. Customer Retention and Loyalty Drivers
-   - What keeps customers returning
-   - Net Promoter context or satisfaction signals (if available in source materials)
-   - Key risks to customer retention over the planning period
-
-4. Customer Concentration Risk
-   - Is revenue concentrated in a small number of customers?
-   - What is the dependency risk if any major customer or segment is lost?
-   - Mitigation approach (if articulated in source materials)
+3. Retention and Concentration
+   - 3–4 bullets only: what keeps customers returning, key retention risks, and (if applicable) concentration risk with mitigation.
+   - Fold Customer Concentration Risk into this subsection — do not create a separate subsection.
 
 IMPORTANT RULES:
 - Only use data and observations explicitly stated in source materials
-- If customer data is sparse, note the gap clearly and recommend what data the business should collect
+- If customer data is sparse, note the gap clearly
 - Avoid generic marketing language — every observation must be grounded in this specific business
 
 Return a JSON object:

@@ -16,33 +16,19 @@ DIAGNOSTIC CONTEXT: {diagnostic_context}
 CUSTOM INSTRUCTIONS: {custom_instructions}
 
 TASK:
-LENGTH TARGET: 280 words maximum excluding the initiatives table. Each prose subsection is 2–3 sentences only.
+LENGTH TARGET: 150 words maximum excluding the initiatives table. 3–4 sentences for the prose section only.
 Draft the following subsections using ONLY content from the provided source materials:
 
-1. Current Operational Position
-   - How the business currently delivers its products/services
-   - Key processes, systems, and operational strengths
-   - Capacity constraints or bottlenecks identified in diagnostics
+1. Operational Position
+   - 3–4 sentences covering: how the business currently delivers, key operational strengths, critical bottlenecks, and what needs to change by end of the planning horizon.
+   - Fold future-state direction into the last 1–2 sentences — do not create a separate "Target Operating Model" subsection.
+   - If technology is a material issue, include 1 sentence on it here.
 
-2. Operational Moats and Flywheels
-   - Which operational capabilities give this business a durable advantage?
-   - What would take a competitor years to replicate?
-   - What operational habits or systems reinforce growth rather than constrain it?
+2. Key Operational Initiatives
+   Present as a table — maximum 5 rows:
+   | Initiative | Purpose | Owner | Timeline | Link to Strategy |
 
-3. Target Operating Model
-   - What does the business need to look like operationally at the end of the planning horizon?
-   - Key changes to structure, process, or systems required to support strategic growth
-
-4. Key Operational Initiatives
-   Present as a table:
-   | Initiative | Purpose | Owner | Timeline | Link to Strategic Priority |
-
-   Cover efficiency improvements, technology investments, process redesign, supply chain optimisation (only where supported by source materials).
-
-5. Technology and Systems
-   - Current technology stack and any material gaps
-   - Digital transformation or automation priorities
-   - Only if relevant and evidenced in source materials
+   Cover efficiency improvements, technology investments, process redesign (only where supported by source materials).
 
 IMPORTANT RULES:
 - Link every initiative back to a specific strategic priority or growth play from approved sections

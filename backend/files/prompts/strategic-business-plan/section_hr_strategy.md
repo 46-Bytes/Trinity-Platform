@@ -16,34 +16,21 @@ DIAGNOSTIC CONTEXT: {diagnostic_context}
 CUSTOM INSTRUCTIONS: {custom_instructions}
 
 TASK:
-LENGTH TARGET: 280 words maximum excluding the metrics table. Each prose subsection is 2–3 sentences only — cap bullet lists at 5 items.
+LENGTH TARGET: 150 words maximum excluding the metrics table.
 Draft the following subsections using ONLY content from the provided source materials:
 
 1. Current People Position
-   - Team structure, headcount, key roles
-   - Current capability strengths and gaps
-   - Culture and engagement observations from diagnostics
+   - 3–4 sentences covering: team structure, headcount, key capability strengths and gaps, and owner/leadership dependency.
+   - On owner dependency, distinguish between day-to-day operational coverage and concentration of strategic value, client relationships, or decision authority. Language must reflect strength being professionalised, not weakness being patched.
 
-2. Owner and Leadership Dependency
-   - Apply the owner dependency nuance rule:
-     - Distinguish between day-to-day operational coverage without the owner vs. concentration of strategic value, client relationships, or decision authority
-   - Language must reflect strength being professionalised, not weakness being patched
+2. People Strategy
+   - 3–4 bullets covering: recruitment priorities (roles critical to executing the strategy), capability development focus, succession/retention approach, and one bullet on culture (what must be preserved or strengthened).
 
-3. People Strategy for the Planning Horizon
-   - Recruitment priorities (roles critical to executing the strategy)
-   - Capability development and training focus areas
-   - Succession and retention approach for key people
-
-4. People Metrics Scoreboard
-   Present as a table — only include metrics evidenced in source materials or identified as targets.
-   Include no more than 5–6 rows. Tag each metric as Leading (predictive) or Lagging (outcome-based):
+3. People Metrics Scoreboard
+   Present as a table — maximum 5 rows only. Tag each metric as Leading (predictive) or Lagging (outcome-based):
    | Metric | Type (Leading / Lagging) | Current | Target (End of Horizon) | Owner |
 
    Examples (only if relevant): headcount, retention rate, time-to-hire, training investment, engagement score.
-
-5. Culture and Leadership Development
-   - What cultural attributes must be preserved or strengthened?
-   - Leadership development priorities for the planning period
 
 IMPORTANT RULES:
 - Do NOT assume owner dependency equals operational fragility

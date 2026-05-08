@@ -16,37 +16,23 @@ DIAGNOSTIC CONTEXT: {diagnostic_context}
 CUSTOM INSTRUCTIONS: {custom_instructions}
 
 TASK:
-LENGTH TARGET: 280 words maximum excluding the acquisition table. Each prose subsection is 2–3 sentences only — reference Customer Dynamics and Growth Opportunities, do not repeat them.
+LENGTH TARGET: 150 words maximum excluding the acquisition table. Reference Customer Dynamics and Growth Opportunities — do not repeat them.
 Draft the following subsections using ONLY content from the provided source materials:
 
-1. Target Audience and Segmentation
-   - Which customer segments will this strategy prioritise?
-   - What is the rationale for prioritisation (revenue potential, strategic fit, ease of acquisition)?
-   - Reference the Customer Dynamics section — do not repeat; build forward.
+1. Positioning and Channel Strategy
+   - 4–5 bullets covering: brand position (what the business wants to be known for), core value proposition, channels to prioritise, and channels to deprioritise or exit.
+   - Reference the priority segments from Customer Dynamics in one bullet — do not repeat that section's analysis.
 
-2. Brand Positioning and Messaging
-   - How does the business want to be perceived in its market?
-   - What is the core value proposition for each priority segment?
-   - What is the brand promise — and is it differentiated?
-
-3. Channel Strategy
-   - How does the business currently reach customers? (direct, referral, digital, trade, etc.)
-   - Which channels will be prioritised or expanded over the planning horizon?
-   - Which channels should be deprioritised or exited?
-
-4. Customer Acquisition Strategy
-   - Key initiatives to attract new customers in priority segments
-   - Present as a table:
+2. Customer Acquisition
+   - Key initiatives to attract new customers — maximum 4 rows:
      | Initiative | Target Segment | Channel | Owner | Timeline |
 
-5. Customer Retention and Lifetime Value
-   - How will the business deepen relationships with existing customers?
-   - Loyalty, repeat purchase, or cross-sell strategies (only where evidenced in source materials)
+3. Retention
+   - 2–3 bullets only: how the business will deepen relationships with existing customers and any cross-sell or loyalty priorities (only where evidenced in source materials).
 
 IMPORTANT RULES:
 - Every marketing initiative must link to a named growth play or strategic priority from earlier approved sections
 - Do not invent campaign ideas or channel strategies not supported by source materials
-- Use bullet lists for brand and positioning content — reserve tables for initiative plans
 
 Return a JSON object:
 {{

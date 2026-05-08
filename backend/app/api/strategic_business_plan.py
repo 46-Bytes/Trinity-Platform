@@ -244,17 +244,21 @@ async def upload_files(
             except Exception:
                 pass
 
-        # 3. Store Claude file_id (falls back to local UUID if upload failed)
-        effective_id = claude_file_id or local_id
+        # 3. Store Claude file_id only if upload succeeded; store None otherwise.
+        # Never use the local UUID as a file_id — Claude's API requires file_ prefixed IDs.
         filename = upload_file.filename or safe_name
-        file_ids.append(effective_id)
-        file_mappings[filename] = effective_id
+        if claude_file_id:
+            file_ids.append(claude_file_id)
+            file_mappings[filename] = claude_file_id
+        else:
+            file_mappings[filename] = None
         stored_files[filename] = f"{plan_id}/{safe_name}"
 
         uploaded.append({
             "filename": filename,
-            "file_id": effective_id,
+            "file_id": claude_file_id,
             "size": len(content),
+            "claude_upload_failed": claude_file_id is None,
         })
 
     service = get_sbp_service(db)

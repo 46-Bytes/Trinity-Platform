@@ -31,6 +31,7 @@ export function SetupUploadStep({ planId, engagementId, onComplete, isLoading }:
   const [isSaving, setIsSaving] = useState(false);
   const [extractionDone, setExtractionDone] = useState(false);
   const [uploadComplete, setUploadComplete] = useState(false);
+  const [createdPlanId, setCreatedPlanId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form fields — pre-populated from saved plan when navigating back
@@ -81,6 +82,7 @@ export function SetupUploadStep({ planId, engagementId, onComplete, isLoading }:
       } else {
         const result = await dispatch(createPlan({ engagementId })).unwrap();
         activePlanId = result.plan_id;
+        setCreatedPlanId(activePlanId);
       }
 
       await dispatch(uploadFiles({ planId: activePlanId!, files })).unwrap();
@@ -125,7 +127,7 @@ export function SetupUploadStep({ planId, engagementId, onComplete, isLoading }:
     if (!formValid) return;
     setIsSaving(true);
     try {
-      let activePlanId = planId;
+      const activePlanId = planId || createdPlanId || currentPlan?.id;
 
       if (!activePlanId) {
         toast.error('Please upload your documents first.');

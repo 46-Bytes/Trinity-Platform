@@ -1,4 +1,4 @@
-Draft the Human Resource Strategy and Key Recommendations section of the Strategic Business Plan for {client_name} ({industry}).
+Draft the HR Strategy section of the Strategic Business Plan for {client_name} ({industry}).
 
 This section defines the people, leadership, and culture strategy required to execute the plan. It must be honest about current state, clear on what needs to change, and realistic about what the business can achieve within the planning horizon.
 
@@ -35,8 +35,9 @@ Draft the following subsections using ONLY content from the provided source mate
    - Succession and retention approach for key people
 
 4. People Metrics Scoreboard
-   Present as a table — only include metrics evidenced in source materials or identified as targets:
-   | Metric | Current | Target (End of Horizon) | Owner |
+   Present as a table — only include metrics evidenced in source materials or identified as targets.
+   Include no more than 5–6 rows. Tag each metric as Leading (predictive) or Lagging (outcome-based):
+   | Metric | Type (Leading / Lagging) | Current | Target (End of Horizon) | Owner |
 
    Examples (only if relevant): headcount, retention rate, time-to-hire, training investment, engagement score.
 

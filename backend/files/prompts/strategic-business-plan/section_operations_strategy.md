@@ -1,4 +1,4 @@
-Draft the Operational Strategy and Key Recommendations section of the Strategic Business Plan for {client_name} ({industry}).
+Draft the Operational Strategy section of the Strategic Business Plan for {client_name} ({industry}).
 
 This section defines how the business must operate to deliver its strategy efficiently, consistently, and at scale. It should identify operational moats worth protecting and the most critical process improvements required over the planning horizon.
 

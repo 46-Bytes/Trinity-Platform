@@ -41,12 +41,10 @@ This is the integration section that ties the entire plan together. You must:
    - The conditions, assets, and behaviours the business must protect for the strategy to succeed.
    - State these as clear commitments, not analysis.
 
-4. Strategic Commitment and Way Forward
-   - A closing subsection (2-3 paragraphs) that:
-     - Names the most important strategic decision(s) made in this plan
-     - States the collective commitment of the leadership team to execution
-     - Ends on a forward-looking note — momentum, confidence, and accountability
-   - This is the final word of the plan. It must feel definitive and energising.
+4. Way Forward
+   - A single closing paragraph (not a second commitment statement — the plan's commitment has already been made in the Actions List).
+   - Name the one or two most important strategic decisions made in this plan and state what the business must do first to honour them.
+   - Keep it directional and specific — not aspirational.
 
 Return a JSON object:
 {{

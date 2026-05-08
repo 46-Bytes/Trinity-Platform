@@ -46,6 +46,7 @@ NO META-COMMENTARY:
 - Do not narrate what the plan is doing, explain a section's purpose, or add preamble about what a section will cover.
 - Begin every section directly with its first substantive subsection.
 - Banned phrases: "This section converts…", "What this enables…", "The coherence is not incidental."
+- If a section genuinely requires introductory context before its first subsection heading, write it as a single italicised sentence of no more than 15 words. Most sections require no preamble.
 
 DO NOT RE-HOME DELETED CONTENT:
 - If content feels like it belongs in a "Strategic Priorities", "Implementation Roadmap", or "Functional and Thematic Strategies" section, it does not belong in this plan. Do not move it into other sections.

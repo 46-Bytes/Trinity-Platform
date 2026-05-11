@@ -299,9 +299,12 @@ class StrategyWorkbookService:
             configured_step2_max_tokens = settings.ANTHROPIC_MAX_TOKENS_STRATEGY_WORKBOOK_STEP2
             step2_max_output_tokens = configured_step2_max_tokens or settings.ANTHROPIC_MAX_TOKENS
 
-            # Haiku variants support smaller output ceilings, so cap by default unless explicitly overridden.
-            if configured_step2_max_tokens is None and "haiku" in step2_model.lower():
-                step2_max_output_tokens = min(step2_max_output_tokens, 8192)
+            # Cap output tokens by model family unless explicitly overridden.
+            if configured_step2_max_tokens is None:
+                if "haiku" in step2_model.lower():
+                    step2_max_output_tokens = min(step2_max_output_tokens, 8192)
+                elif "sonnet" in step2_model.lower():
+                    step2_max_output_tokens = min(step2_max_output_tokens, 16000)
 
             logger.info(
                 f"[StrategyWorkbook] STEP 2 using model={step2_model}, max_output_tokens={step2_max_output_tokens}"
@@ -309,7 +312,7 @@ class StrategyWorkbookService:
 
             step2_response = await self.claude_service.generate_json_completion(
                 messages=step2_messages,
-                reasoning_effort="medium",
+                reasoning_effort="low",
                 model=step2_model,
                 max_output_tokens=step2_max_output_tokens,
             )

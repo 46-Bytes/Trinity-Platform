@@ -558,6 +558,67 @@ class ReportService:
                 abs_end = checklist_match.start() + table_m.end()
                 advisor_html = advisor_html[:abs_start] + fixed_table + advisor_html[abs_end:]
 
+        # Fix Diagnostic Triggers table formatting (one table per module, all occurrences).
+        # Runs AFTER _pre_wrap_advisor_table_cells so we can clean up over-wrapping
+        # in the wide columns.
+        for dt_match in list(re.finditer(r'Diagnostic\s+Triggers', advisor_html, re.IGNORECASE)):
+            after_heading = advisor_html[dt_match.start():]
+            table_m = re.search(r'<table\b([^>]*)>(.*?)</table>', after_heading, re.IGNORECASE | re.DOTALL)
+            if not table_m:
+                continue
+
+            orig_table = table_m.group(0)
+            fixed_table = orig_table
+
+            # Force fixed layout so xhtml2pdf respects colgroup widths.
+            fixed_table = re.sub(
+                r'<table\b[^>]*>',
+                '<table style="width:100%;table-layout:fixed;border-collapse:collapse;">',
+                fixed_table,
+                count=1,
+                flags=re.IGNORECASE,
+            )
+
+            # Inject colgroup: Question 35%, Answer 20%, Score 8%, Why It Matters 37%.
+            fixed_table = re.sub(
+                r'(<table\b[^>]*>)',
+                (
+                    r'\1<colgroup>'
+                    r'<col style="width:35%">'
+                    r'<col style="width:20%">'
+                    r'<col style="width:8%">'
+                    r'<col style="width:37%">'
+                    r'</colgroup>'
+                ),
+                fixed_table,
+                count=1,
+                flags=re.IGNORECASE,
+            )
+
+            # Remove <br/> over-wrapping from Score (col 3) and Why It Matters (col 4).
+            def _fix_dt_row(row_m):
+                row = row_m.group(0)
+                tds = list(re.finditer(r'<td(\s[^>]*)?>.*?</td>', row, re.IGNORECASE | re.DOTALL))
+                for idx in (2, 3):
+                    if idx < len(tds):
+                        td = tds[idx]
+                        inner = re.sub(r'<br\s*/?>', ' ', td.group(0), flags=re.IGNORECASE)
+                        inner = re.sub(r'  +', ' ', inner)
+                        row = row[:td.start()] + inner + row[td.end():]
+                        tds = list(re.finditer(r'<td(\s[^>]*)?>.*?</td>', row, re.IGNORECASE | re.DOTALL))
+                return row
+
+            fixed_table = re.sub(
+                r'<tr\b[^>]*>.*?</tr>',
+                _fix_dt_row,
+                fixed_table,
+                flags=re.IGNORECASE | re.DOTALL,
+            )
+
+            abs_start = dt_match.start() + table_m.start()
+            abs_end = dt_match.start() + table_m.end()
+            advisor_html = advisor_html[:abs_start] + fixed_table + advisor_html[abs_end:]
+
         return f"""
     <div class="section advisor-report-section">
         <div class="advisor-report">{advisor_html}</div>

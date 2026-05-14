@@ -65,17 +65,22 @@ class SBPPptxExporter:
         if slide.placeholders[0]:
             slide.placeholders[0].text = data.get("title", "")
 
-        bullets = data.get("bullets", [])
-        if bullets and len(slide.placeholders) > 1:
-            tf = slide.placeholders[1].text_frame
-            tf.clear()
-            for i, bullet in enumerate(bullets):
-                if i == 0:
-                    tf.paragraphs[0].text = bullet
-                else:
-                    p = tf.add_paragraph()
-                    p.text = bullet
-                    p.level = 0
+        bullets = data.get("bullets") or []
+        if len(slide.placeholders) > 1:
+            content_ph = slide.placeholders[1]
+            if bullets:
+                tf = content_ph.text_frame
+                tf.clear()
+                for i, bullet in enumerate(bullets):
+                    if i == 0:
+                        tf.paragraphs[0].text = bullet
+                    else:
+                        p = tf.add_paragraph()
+                        p.text = bullet
+                        p.level = 0
+            else:
+                sp = content_ph._element
+                sp.getparent().remove(sp)
 
 
 def get_sbp_pptx_exporter() -> SBPPptxExporter:

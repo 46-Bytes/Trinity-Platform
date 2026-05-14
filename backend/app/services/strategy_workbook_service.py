@@ -247,8 +247,10 @@ class StrategyWorkbookService:
                     }
                 )
             
+            step1_model = settings.ANTHROPIC_MODEL_STRATEGY_WORKBOOK_STEP1 or settings.ANTHROPIC_MODEL
             logger.info(
-                f"[StrategyWorkbook] STEP 1: Extracting raw data for workbook {workbook_id}: "
+                f"[StrategyWorkbook] STEP 1: Extracting raw data for workbook {workbook_id} "
+                f"using model={step1_model}: "
                 f"{len(pdf_file_ids)} PDF(s) as input_file, {len(ci_file_ids)} file(s) via Code Interpreter"
             )
 
@@ -257,13 +259,11 @@ class StrategyWorkbookService:
                 if ci_file_ids
                 else None
             )
-
             step1_response = await self.claude_service.generate_completion(
                 messages=step1_messages,
                 file_ids=pdf_file_ids if pdf_file_ids else None,
                 tools=step1_tools,
-                reasoning_effort="medium",
-                model=settings.ANTHROPIC_MODEL,
+                model=step1_model,
                 max_output_tokens=32000,
             )
 

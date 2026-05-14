@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     # Anthropic / Claude
     ANTHROPIC_API_KEY: str
     ANTHROPIC_MODEL: str = "claude-opus-4-6"
+    ANTHROPIC_MODEL_STRATEGY_WORKBOOK_STEP1: Optional[str] = "claude-sonnet-4-6"
     ANTHROPIC_MODEL_STRATEGY_WORKBOOK_STEP2: Optional[str] = "claude-sonnet-4-6"
     ANTHROPIC_MAX_TOKENS_STRATEGY_WORKBOOK_STEP2: Optional[int] = None
     ANTHROPIC_TEMPERATURE: float = 0.5

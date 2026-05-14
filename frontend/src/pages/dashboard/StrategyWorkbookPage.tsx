@@ -302,7 +302,7 @@ export default function StrategyWorkbookPage() {
               }`}>
                 {uploadDone ? (
                   <CheckCircle2 className="w-5 h-5" />
-                ) : uploadActive ? (
+                ) : uploadActive && isLoading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
                   '1'
@@ -318,7 +318,7 @@ export default function StrategyWorkbookPage() {
               }`}>
                 {extractDone ? (
                   <CheckCircle2 className="w-5 h-5" />
-                ) : extractActive ? (
+                ) : extractActive && isExtracting ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
                   '2'

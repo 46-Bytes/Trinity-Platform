@@ -264,7 +264,7 @@ class StrategyWorkbookService:
                 tools=step1_tools,
                 reasoning_effort="medium",
                 model=settings.ANTHROPIC_MODEL,
-                max_output_tokens=128000,
+                max_output_tokens=32000,
             )
 
             raw_content = step1_response.get("content", "")

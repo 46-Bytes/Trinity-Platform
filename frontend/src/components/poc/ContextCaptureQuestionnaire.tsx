@@ -88,8 +88,6 @@ export function ContextCaptureQuestionnaire({
             onChange={(e) => onQuestionnaireChange('clientName', e.target.value)}
             placeholder="Enter client name"
             required
-            disabled={!!engagementClientName}
-            className={engagementClientName ? 'bg-muted cursor-not-allowed' : ''}
           />
         </div>
 

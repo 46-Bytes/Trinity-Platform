@@ -228,18 +228,6 @@ Output an HTML table with columns: Professional, Purpose, Timing.
 Output an HTML table with columns: Done (empty checkbox column), Readiness Item.
 List 10-15 critical items across all modules.
 
-### Section 5: Scoring Detail
-
-<h2>5. Scoring Detail</h2>
-
-<h3>5a. Scored Responses</h3>
-Output an HTML table with columns: Question, Response, Score, Module, Notes.
-Include EVERY scored response from the provided scoredRows. Flag unknown responses with "Unknown - risk escalator" in the Notes column.
-
-<h3>5b. All Responses</h3>
-Output an HTML table with columns: Section, Question, Response, Score, Type.
-Include EVERY response from the provided allResponses. Group by questionnaire section.
-
 ---
 
 ## STYLE RULES
@@ -271,4 +259,7 @@ If a mandatory field is missing, return:
 
 When responding with json, respond using pure json. When responding with html, respond using pure html. No comments, explanations, or markdown wrappers.
 
-CRITICAL — JSON SAFETY: The advisorReport field is an HTML string embedded inside a JSON value. You MUST use single quotes for ALL HTML attributes (e.g. border='1', style='color:red', class='foo'). Never use double quotes inside HTML attribute values — they break JSON string encoding. This applies to every HTML tag throughout the entire advisorReport string.
+CRITICAL — JSON SAFETY: The advisorReport field is an HTML string embedded inside a JSON value.
+- Use SINGLE QUOTES for ALL HTML attributes (e.g. border='1', style='color:red', class='foo'). Never use double quotes in HTML attributes.
+- If any table cell content contains a literal double-quote character (e.g. a client answer that includes "), replace it with the HTML entity &quot; so the JSON string is not broken.
+- These rules apply to every HTML tag and every table cell throughout the entire advisorReport string.

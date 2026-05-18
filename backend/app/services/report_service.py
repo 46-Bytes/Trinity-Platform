@@ -489,7 +489,7 @@ class ReportService:
                 # full width + fixed layout so xhtml2pdf respects the colgroup widths.
                 fixed_table = re.sub(
                     r'<table\b[^>]*>',
-                    '<table style="width:100%;table-layout:fixed;border-collapse:collapse;">',
+                    '<table class="advisor-table" style="width:100%;table-layout:fixed;border-collapse:collapse;">',
                     fixed_table,
                     count=1,
                     flags=re.IGNORECASE,
@@ -573,7 +573,7 @@ class ReportService:
             # Force fixed layout so xhtml2pdf respects colgroup widths.
             fixed_table = re.sub(
                 r'<table\b[^>]*>',
-                '<table style="width:100%;table-layout:fixed;border-collapse:collapse;">',
+                '<table class="advisor-table" style="width:100%;table-layout:fixed;border-collapse:collapse;">',
                 fixed_table,
                 count=1,
                 flags=re.IGNORECASE,
@@ -618,6 +618,56 @@ class ReportService:
             abs_start = dt_match.start() + table_m.start()
             abs_end = dt_match.start() + table_m.end()
             advisor_html = advisor_html[:abs_start] + fixed_table + advisor_html[abs_end:]
+
+        # Fix Section 1 (Diagnostic Overview / Roadmap Summary) table.
+        # 5-column layout: Rank | Module | RAG/Priority | Score | Key Observations/Top Focus Areas.
+        # Explicit fixed layout + colgroup prevents the xhtml2pdf negative-availWidth crash.
+        section1_h2_m = re.search(
+            r'<h2[^>]*>\s*1\.\s*(?:Roadmap\s+Summary|Diagnostic\s+Overview)\s*</h2>',
+            advisor_html,
+            re.IGNORECASE,
+        )
+        if section1_h2_m:
+            after_h2 = advisor_html[section1_h2_m.end():]
+            s1_table_m = re.search(r'<table\b[^>]*>.*?</table>', after_h2, re.IGNORECASE | re.DOTALL)
+            if s1_table_m:
+                orig = s1_table_m.group(0)
+                fixed = re.sub(
+                    r'<table\b[^>]*>',
+                    '<table class="advisor-table" style="width:100%;table-layout:fixed;border-collapse:collapse;">',
+                    orig,
+                    count=1,
+                    flags=re.IGNORECASE,
+                )
+                fixed = re.sub(
+                    r'(<table\b[^>]*>)',
+                    (
+                        r'\1<colgroup>'
+                        r'<col style="width:8%">'
+                        r'<col style="width:25%">'
+                        r'<col style="width:15%">'
+                        r'<col style="width:10%">'
+                        r'<col style="width:42%">'
+                        r'</colgroup>'
+                    ),
+                    fixed,
+                    count=1,
+                    flags=re.IGNORECASE,
+                )
+                s1_abs_start = section1_h2_m.end() + s1_table_m.start()
+                s1_abs_end = section1_h2_m.end() + s1_table_m.end()
+                advisor_html = advisor_html[:s1_abs_start] + fixed + advisor_html[s1_abs_end:]
+
+        # Catch-all: protect any remaining LLM-generated tables from the
+        # _strip_markdown_tables fallback (which only strips class-less tables)
+        # and ensure a safe auto-layout so xhtml2pdf won't crash on them.
+        # Runs after all specific fixes so those tables already have class= and are skipped.
+        advisor_html = re.sub(
+            r'<table(?![^>]*\bclass=)\b[^>]*>',
+            '<table class="advisor-table" style="width:100%;table-layout:auto;border-collapse:collapse;">',
+            advisor_html,
+            flags=re.IGNORECASE,
+        )
 
         return f"""
     <div class="section advisor-report-section">
@@ -2178,17 +2228,22 @@ class ReportService:
         3. Cell-based: any remaining <td> containing raw JSON gets formatted
            using _format_response_block().
         """
-        # --- Pass 1: strip heading + table by heading text ---
+        # --- Pass 1: strip heading + all content up to the next heading ---
+        # Consuming to the next <hN> (not just the immediate table) ensures the
+        # section is fully removed even when the AI puts a subtitle paragraph
+        # between the heading and the table.
         html = re.sub(
             r'<h[1-6][^>]*>[^<]*?(?:All|User|Complete|Scored)\s+Responses[^<]*?</h[1-6]>'
-            r'(?:\s*<table[^>]*>.*?</table>)?',
+            r'.*?(?=<h[1-6]\b|$)',
             '',
             html,
             flags=re.S | re.I,
         )
-        # Also strip "Scoring Detail" heading (orphaned after table removal)
+        # Strip entire "Scoring Detail" section including all content after its
+        # heading up to the next <h2> or end of string (it is always the last
+        # major section the AI outputs).
         html = re.sub(
-            r'<h[1-6][^>]*>[^<]*?Scoring\s+Detail[^<]*?</h[1-6]>',
+            r'<h[1-6][^>]*>[^<]*?Scoring\s+Detail[^<]*?</h[1-6]>.*?(?=<h2\b|$)',
             '',
             html,
             flags=re.S | re.I,
@@ -2241,23 +2296,40 @@ class ReportService:
         with a plain-text fallback so xhtml2pdf doesn't crash on them."""
 
         def _table_to_text(match: re.Match) -> str:
-            """Convert an HTML table to a simple line-per-row representation."""
+            """Rebuild a problematic table with minimal safe inline styles.
+
+            Uses table-layout:auto (no colgroup) so xhtml2pdf distributes
+            column widths from content and never generates negative availWidth.
+            """
             table_html = match.group(0)
             rows = re.findall(r"<tr[^>]*>(.*?)</tr>", table_html, re.S)
-            lines: list[str] = []
-            for row_html in rows:
+
+            def _strip_cell(c: str) -> str:
+                c = re.sub(r"<br\s*/?>", " ", c, flags=re.IGNORECASE)
+                c = re.sub(r"<[^>]+>", "", c)
+                return re.sub(r" {2,}", " ", c).strip()
+
+            rebuilt: list[str] = []
+            for i, row_html in enumerate(rows):
                 cells = re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", row_html, re.S)
-                # Replace <br/> with a space BEFORE stripping other tags so that
-                # words hard-wrapped by _wrap_cell_text don't collide (e.g.
-                # "such<br/>as" must become "such as", not "suchas").
-                def _strip_cell(c: str) -> str:
-                    c = re.sub(r"<br\s*/?>", " ", c, flags=re.IGNORECASE)
-                    c = re.sub(r"<[^>]+>", "", c)
-                    return re.sub(r" {2,}", " ", c).strip()
                 clean = [_strip_cell(c) for c in cells]
-                lines.append(" | ".join(clean))
-            text = "<br/>".join(lines)
-            return f"<p>{text}</p>"
+                if i == 0:
+                    cells_html = "".join(
+                        f'<th style="border:1px solid #555;padding:3px;background:#f0f0f0;font-weight:bold;">{c}</th>'
+                        for c in clean
+                    )
+                else:
+                    cells_html = "".join(
+                        f'<td style="border:1px solid #555;padding:3px;">{c}</td>'
+                        for c in clean
+                    )
+                rebuilt.append(f"<tr>{cells_html}</tr>")
+
+            return (
+                '<table style="width:100%;table-layout:auto;border-collapse:collapse;">'
+                + "".join(rebuilt)
+                + "</table>"
+            )
 
         # Only target tables that do NOT carry class= (i.e. markdown-generated)
         return re.sub(

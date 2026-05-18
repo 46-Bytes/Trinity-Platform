@@ -698,10 +698,15 @@ Return your response as a JSON object with an "executive_summary" key containing
             logger.warning("[BBA Engine] extract_context_capture prompt not found, using inline prompt")
             prompt = (
                 "Extract context-capture form fields from the diagnostic report and/or uploaded documents. "
-                "Return JSON only with camelCase keys. Include only keys you can fill: "
-                "clientName, industry, companySize, locations, exclusions, constraints, "
-                "preferredRanking, strategicPriorities, excludeSaleReadiness (boolean). "
-                "companySize must be one of: startup, small, medium, large, enterprise."
+                "Return JSON only with camelCase keys. ALL 9 keys must appear in the output — infer or default any field not explicitly stated: "
+                "clientName (string), industry (string), "
+                "companySize (one of: startup, small, medium, large, enterprise — default 'small' if unclear), "
+                "locations (string — 'Not specified' if absent), "
+                "exclusions (string — 'None identified' if absent), "
+                "constraints (string — 'None identified' if absent), "
+                "preferredRanking (string — 'By business impact and urgency' if not stated), "
+                "strategicPriorities (string — synthesise from document goals/challenges), "
+                "excludeSaleReadiness (boolean — false unless explicitly excluded)."
             )
 
         # Build user message content

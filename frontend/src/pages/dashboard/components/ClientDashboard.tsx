@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { StatCard } from '@/components/ui/stat-card';
-import { 
-  CheckSquare, 
-  FileText, 
+import {
+  CheckSquare,
+  FileText,
   TrendingUp,
   Clock,
-  AlertCircle
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+const PAGE_SIZE = 5;
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -36,6 +40,8 @@ export function ClientDashboard() {
   const [stats, setStats] = useState<ClientDashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [taskPage, setTaskPage] = useState(0);
+  const [docPage, setDocPage] = useState(0);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -176,72 +182,164 @@ export function ClientDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Your Tasks */}
         <div className="card-trinity p-6">
           <h3 className="font-heading font-semibold text-lg mb-4">Your Tasks</h3>
-          <div className="space-y-3">
-            {stats.latest_tasks.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <CheckSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>No tasks found</p>
-              </div>
-            ) : (
-              stats.latest_tasks.map((task) => (
-                <div 
-                  key={task.id} 
-                  className="flex items-center gap-3 p-4 rounded-lg border border-border hover:border-accent/50 transition-colors cursor-pointer"
-                  onClick={() => navigate('/dashboard/tasks')}
-                >
-                  <input 
-                    type="checkbox" 
-                    checked={task.status === 'completed'}
-                    className="w-5 h-5 rounded border-input accent-accent"
-                    readOnly
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className={cn(
-                      "text-sm font-medium",
-                      task.status === 'completed' && "line-through text-muted-foreground"
-                    )}>{task.title}</p>
-                    {task.engagement_name && (
-                      <p className="text-xs text-muted-foreground mt-1">{task.engagement_name}</p>
-                    )}
-                  </div>
-                  <span className={cn("status-badge", getStatusBadgeClass(task.status))}>
-                    {formatTaskStatus(task.status)}
-                  </span>
+          {stats.latest_tasks.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <CheckSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>No tasks found</p>
+            </div>
+          ) : (() => {
+            const totalTaskPages = Math.ceil(stats.latest_tasks.length / PAGE_SIZE);
+            const pagedTasks = stats.latest_tasks.slice(taskPage * PAGE_SIZE, (taskPage + 1) * PAGE_SIZE);
+            return (
+              <>
+                <div className="space-y-3">
+                  {pagedTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="flex items-center gap-3 p-4 rounded-lg border border-border hover:border-accent/50 transition-colors cursor-pointer"
+                      onClick={() => navigate('/dashboard/tasks')}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={task.status === 'completed'}
+                        className="w-5 h-5 rounded border-input accent-accent"
+                        readOnly
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className={cn(
+                          "text-sm font-medium",
+                          task.status === 'completed' && "line-through text-muted-foreground"
+                        )}>{task.title}</p>
+                        {task.engagement_name && (
+                          <p className="text-xs text-muted-foreground mt-1">{task.engagement_name}</p>
+                        )}
+                      </div>
+                      <span className={cn("status-badge", getStatusBadgeClass(task.status))}>
+                        {formatTaskStatus(task.status)}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))
-            )}
-          </div>
+                {totalTaskPages > 1 && (
+                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
+                    <span className="text-xs text-muted-foreground">
+                      {taskPage * PAGE_SIZE + 1}–{Math.min((taskPage + 1) * PAGE_SIZE, stats.latest_tasks.length)} of {stats.latest_tasks.length}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setTaskPage(p => p - 1)}
+                        disabled={taskPage === 0}
+                        className="p-1 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        aria-label="Previous page"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      {Array.from({ length: totalTaskPages }, (_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setTaskPage(i)}
+                          className={cn(
+                            "w-7 h-7 rounded text-xs font-medium transition-colors",
+                            i === taskPage
+                              ? "bg-accent text-white"
+                              : "hover:bg-muted text-muted-foreground"
+                          )}
+                        >
+                          {i + 1}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => setTaskPage(p => p + 1)}
+                        disabled={taskPage === totalTaskPages - 1}
+                        className="p-1 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        aria-label="Next page"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
 
+        {/* Recent Documents */}
         <div className="card-trinity p-6">
           <h3 className="font-heading font-semibold text-lg mb-4">Recent Documents</h3>
-          <div className="space-y-3">
-            {stats.recent_documents.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>No documents uploaded yet</p>
-              </div>
-            ) : (
-              stats.recent_documents.map((doc) => (
-                <div 
-                  key={doc.id} 
-                  className="flex items-center gap-3 p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
-                >
-                  <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-accent" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{doc.file_name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDate(doc.created_at)} • {formatFileSize(doc.file_size)}
-                    </p>
-                  </div>
+          {stats.recent_documents.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>No documents uploaded yet</p>
+            </div>
+          ) : (() => {
+            const totalDocPages = Math.ceil(stats.recent_documents.length / PAGE_SIZE);
+            const pagedDocs = stats.recent_documents.slice(docPage * PAGE_SIZE, (docPage + 1) * PAGE_SIZE);
+            return (
+              <>
+                <div className="space-y-3">
+                  {pagedDocs.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className="flex items-center gap-3 p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                        <FileText className="w-5 h-5 text-accent" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{doc.file_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(doc.created_at)} • {formatFileSize(doc.file_size)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))
-            )}
-          </div>
+                {totalDocPages > 1 && (
+                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
+                    <span className="text-xs text-muted-foreground">
+                      {docPage * PAGE_SIZE + 1}–{Math.min((docPage + 1) * PAGE_SIZE, stats.recent_documents.length)} of {stats.recent_documents.length}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setDocPage(p => p - 1)}
+                        disabled={docPage === 0}
+                        className="p-1 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        aria-label="Previous page"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      {Array.from({ length: totalDocPages }, (_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setDocPage(i)}
+                          className={cn(
+                            "w-7 h-7 rounded text-xs font-medium transition-colors",
+                            i === docPage
+                              ? "bg-accent text-white"
+                              : "hover:bg-muted text-muted-foreground"
+                          )}
+                        >
+                          {i + 1}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => setDocPage(p => p + 1)}
+                        disabled={docPage === totalDocPages - 1}
+                        className="p-1 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        aria-label="Next page"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
       </div>
     </div>

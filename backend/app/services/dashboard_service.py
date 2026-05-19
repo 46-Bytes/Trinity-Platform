@@ -295,8 +295,8 @@ def get_client_dashboard_stats(db: Session, client_user_id: UUID) -> ClientDashb
     
     total_documents = documents_query.count()
     
-    # Get recent documents (ordered by created_at desc, limit 3)
-    recent_documents_query = documents_query.order_by(Media.created_at.desc()).limit(3).all()
+    # Get recent documents (ordered by created_at desc, limit 20 for frontend pagination)
+    recent_documents_query = documents_query.order_by(Media.created_at.desc()).limit(20).all()
     
     # Format recent documents
     recent_documents_list = []

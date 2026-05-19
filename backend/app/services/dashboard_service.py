@@ -252,22 +252,22 @@ def get_client_dashboard_stats(db: Session, client_user_id: UUID) -> ClientDashb
         - Latest tasks list
         - Recent documents list (first 3)
     """
-    # Get all engagements where client is the client_id
+    # Get all engagements where client is in client_id (legacy) or client_ids array
     client_engagements = db.query(Engagement).filter(
-        Engagement.client_id == client_user_id
+        or_(
+            Engagement.client_id == client_user_id,
+            text("client_ids @> ARRAY[:uid]::uuid[]").bindparams(uid=client_user_id),
+        )
     ).all()
     engagement_ids = [e.id for e in client_engagements]
-    
+
     # If no engagements, return empty stats
     if not engagement_ids:
         return ClientDashboardStatsResponse(total_tasks=0,total_documents=0,total_diagnostics=0,latest_tasks=[],recent_documents=[])
-    
+
+    # Show all tasks in the client's engagements (mirrors /api/tasks behaviour)
     tasks_query = db.query(Task).filter(
-        Task.engagement_id.in_(engagement_ids),
-        or_(
-            Task.assigned_to_user_id == client_user_id,
-            Task.created_by_user_id == client_user_id
-        )
+        Task.engagement_id.in_(engagement_ids)
     )
     
     total_tasks = tasks_query.count()

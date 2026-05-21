@@ -8,7 +8,6 @@ import {
   Users, 
   FolderOpen, 
   CheckSquare, 
-  FileText, 
   Brain,
   Settings,
   Building2,
@@ -16,11 +15,9 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  BarChart3,
   Shield,
   MessageSquare,
-  CreditCard,
-  BookOpen
+  CreditCard
 } from 'lucide-react';
 import { UserRole } from '@/types/auth';
 
@@ -56,7 +53,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { user } = useAuth();
   const location = useLocation();
   const [firmsExpanded, setFirmsExpanded] = useState(false);
-  const [aiToolsExpanded, setAiToolsExpanded] = useState(false);
 
   const filteredItems = navItems.filter(item => 
     user && item.roles.includes(user.role) && item.href !== '/dashboard/firm' // Remove firm admin dashboard from superadmin
@@ -75,12 +71,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     }
   }, [isOnFirmDetails, isOnFirmsList, user?.role]);
 
-  const isOnAiTools = location.pathname.startsWith('/dashboard/ai-tools');
-  useEffect(() => {
-    if (isOnAiTools) setAiToolsExpanded(true);
-  }, [isOnAiTools]);
-
-  // Nested navigation items for firm details
+// Nested navigation items for firm details
   const firmDetailsNavItems: NavItem[] = firmId ? [
     { label: 'Clients', href: `/dashboard/firms/${firmId}/clients`, icon: UserCircle, roles: ['super_admin'] },
     { label: 'Advisors', href: `/dashboard/firms/${firmId}/advisors`, icon: Users, roles: ['super_admin'] },
@@ -189,63 +180,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             );
           }
           
-          // AI Tools collapsible section
-          if (item.href === '/dashboard/ai-tools') {
-            const isAiActive = isOnAiTools;
-            const aiSubItems = [
-              { label: 'Report Builder', href: '/dashboard/ai-tools/bba', icon: FileText },
-              { label: 'Strategy Workbook', href: '/dashboard/ai-tools/strategy-workbook', icon: BookOpen },
-              { label: 'Strategic Business Plan', href: '/dashboard/ai-tools/strategic-business-plan', icon: BarChart3 },
-            ];
-
-            return (
-              <div key={item.href} className="space-y-1">
-                <button
-                  onClick={() => setAiToolsExpanded(!aiToolsExpanded)}
-                  className={cn(
-                    "sidebar-item w-full",
-                    isAiActive && "sidebar-item-active",
-                    collapsed && "justify-center px-0"
-                  )}
-                  style={{ animationDelay: `${index * 50}ms` }}
-                >
-                  <item.icon className={cn("w-5 h-5 flex-shrink-0", isAiActive && "text-sidebar-primary")} />
-                  {!collapsed && (
-                    <>
-                      <span className="flex-1 text-left">{item.label}</span>
-                      {aiToolsExpanded ? (
-                        <ChevronDown className="w-4 h-4 text-sidebar-foreground/60" />
-                      ) : (
-                        <ChevronRight className="w-4 h-4 text-sidebar-foreground/60" />
-                      )}
-                    </>
-                  )}
-                </button>
-
-                {!collapsed && aiToolsExpanded && (
-                  <div className="ml-4 mt-1 space-y-0.5 border-l-2 border-sidebar-border/40 pl-3 transition-all duration-200">
-                    {aiSubItems.map((sub, subIndex) => {
-                      const isSubActive = location.pathname === sub.href;
-                      return (
-                        <NavLink
-                          key={sub.href}
-                          to={sub.href}
-                          className={cn(
-                            "sidebar-item pl-4 text-sm py-2 min-h-[36px]",
-                            isSubActive && "sidebar-item-active bg-sidebar-accent/50"
-                          )}
-                          style={{ animationDelay: `${(index + subIndex + 1) * 30}ms` }}
-                        >
-                          <sub.icon className={cn("w-4 h-4 flex-shrink-0", isSubActive && "text-sidebar-primary")} />
-                          <span>{sub.label}</span>
-                        </NavLink>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          }
+          // AI Tools hidden for now
+          if (item.href === '/dashboard/ai-tools') return null;
 
           // Regular navigation items
           const isActive = location.pathname === item.href ||

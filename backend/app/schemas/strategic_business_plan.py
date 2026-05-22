@@ -132,6 +132,25 @@ class SBPAssembleRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Employee Plan (editable employee-facing document)
+# ---------------------------------------------------------------------------
+
+class EmployeePlanSection(BaseModel):
+    key: str
+    title: str
+    content: str
+    included: bool = True
+
+
+class EmployeePlanResponse(BaseModel):
+    sections: List[EmployeePlanSection]
+
+
+class EmployeePlanUpdateRequest(BaseModel):
+    sections: List[EmployeePlanSection]
+
+
+# ---------------------------------------------------------------------------
 # Step 5: Export
 # ---------------------------------------------------------------------------
 
@@ -207,6 +226,7 @@ class SBPResponse(BaseModel):
     generated_report_path: Optional[str] = None
     employee_variant_requested: bool = False
     generated_employee_report_path: Optional[str] = None
+    employee_plan: Optional[Dict[str, Any]] = None
     presentation_slides: Optional[Dict[str, Any]] = None
     ai_model_used: Optional[str] = None
     ai_tokens_used: Optional[int] = None

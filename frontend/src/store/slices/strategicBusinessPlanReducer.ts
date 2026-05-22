@@ -58,6 +58,13 @@ export interface UploadedFileInfo {
   size?: number;
 }
 
+export interface EmployeePlanSection {
+  key: string;
+  title: string;
+  content: string;
+  included: boolean;
+}
+
 interface SBPState {
   currentPlan: StrategicBusinessPlan | null;
   isLoading: boolean;
@@ -65,6 +72,8 @@ interface SBPState {
   isDraftingSection: boolean;
   isExporting: boolean;
   isGeneratingPresentation: boolean;
+  isSavingEmployeePlan: boolean;
+  employeePlan: EmployeePlanSection[] | null;
   error: string | null;
   uploadedFiles: UploadedFileInfo[];
 }
@@ -412,6 +421,38 @@ export const updateStepProgress = createAsyncThunk(
   },
 );
 
+export const fetchEmployeePlan = createAsyncThunk(
+  'sbp/fetchEmployeePlan',
+  async (planId: string, { rejectWithValue }) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/strategic-business-plan/${planId}/employee-plan`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Failed to fetch employee plan');
+      return await res.json();
+    } catch (e) {
+      return rejectWithValue(e instanceof Error ? e.message : 'Failed to fetch employee plan');
+    }
+  },
+);
+
+export const saveEmployeePlan = createAsyncThunk(
+  'sbp/saveEmployeePlan',
+  async ({ planId, sections }: { planId: string; sections: EmployeePlanSection[] }, { rejectWithValue }) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/strategic-business-plan/${planId}/employee-plan`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ sections }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Failed to save employee plan');
+      return await res.json();
+    } catch (e) {
+      return rejectWithValue(e instanceof Error ? e.message : 'Failed to save employee plan');
+    }
+  },
+);
+
 export const generatePresentation = createAsyncThunk(
   'sbp/generatePresentation',
   async (planId: string, { rejectWithValue }) => {
@@ -439,6 +480,8 @@ const initialState: SBPState = {
   isDraftingSection: false,
   isExporting: false,
   isGeneratingPresentation: false,
+  isSavingEmployeePlan: false,
+  employeePlan: null,
   error: null,
   uploadedFiles: [],
 };
@@ -450,12 +493,14 @@ const sbpSlice = createSlice({
     clearPlan: (state) => {
       state.currentPlan = null;
       state.uploadedFiles = [];
+      state.employeePlan = null;
       state.error = null;
       state.isLoading = false;
       state.isAnalysing = false;
       state.isDraftingSection = false;
       state.isExporting = false;
       state.isGeneratingPresentation = false;
+      state.isSavingEmployeePlan = false;
     },
     setError: (state, action: PayloadAction<string | null>) => {
       state.error = action.payload;
@@ -648,6 +693,24 @@ const sbpSlice = createSlice({
         }
       })
       .addCase(assemblePlan.rejected, (state, action) => { state.isLoading = false; state.error = action.payload as string; });
+
+    // fetchEmployeePlan
+    builder
+      .addCase(fetchEmployeePlan.pending, (state) => { state.isLoading = true; state.error = null; })
+      .addCase(fetchEmployeePlan.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.employeePlan = action.payload.sections ?? null;
+      })
+      .addCase(fetchEmployeePlan.rejected, (state, action) => { state.isLoading = false; state.error = action.payload as string; });
+
+    // saveEmployeePlan
+    builder
+      .addCase(saveEmployeePlan.pending, (state) => { state.isSavingEmployeePlan = true; state.error = null; })
+      .addCase(saveEmployeePlan.fulfilled, (state, action) => {
+        state.isSavingEmployeePlan = false;
+        state.employeePlan = action.payload.sections ?? null;
+      })
+      .addCase(saveEmployeePlan.rejected, (state, action) => { state.isSavingEmployeePlan = false; state.error = action.payload as string; });
 
     // generatePresentation
     builder

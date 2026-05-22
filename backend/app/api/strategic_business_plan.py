@@ -4,6 +4,8 @@ Strategic Business Plan API endpoints
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
+from sqlalchemy import update as sa_update
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 from pathlib import Path
@@ -35,6 +37,8 @@ from app.schemas.strategic_business_plan import (
     SBPExportRequest,
     SBPStepProgressUpdate,
     SBPPresentationSlideEdit,
+    EmployeePlanResponse,
+    EmployeePlanUpdateRequest,
     SBPResponse,
     SBPListItem,
 )
@@ -635,6 +639,82 @@ async def export_employee_docx(
         logger.error(f"Employee export failed for plan {plan_id}: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail=f"Employee export failed: {str(e)}")
+
+
+# ---------------------------------------------------------------------------
+# Employee Plan editing
+# ---------------------------------------------------------------------------
+
+EMPLOYEE_KEYS = [
+    "executive_summary",
+    "strategic_intent",
+    "growth_opportunities",
+    "operations_strategy",
+    "hr_strategy",
+    "marketing_sales_strategy",
+]
+
+
+@router.get("/{plan_id}/employee-plan", response_model=EmployeePlanResponse)
+async def get_employee_plan(
+    plan_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> EmployeePlanResponse:
+    plan = _get_plan_or_404(plan_id, db)
+    _check_plan_access(plan, current_user, db)
+
+    if not plan.final_plan:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Plan must be assembled before editing the employee document")
+
+    if plan.employee_plan:
+        return EmployeePlanResponse(**plan.employee_plan)
+
+    # Initialize from final_plan filtered to employee keys
+    final_sections = (plan.final_plan or {}).get("sections", [])
+    sections = [
+        {"key": s["key"], "title": s["title"], "content": s.get("content") or "", "included": True}
+        for s in final_sections
+        if s.get("key") in EMPLOYEE_KEYS and s.get("content")
+    ]
+
+    employee_plan_data = {"sections": sections}
+    db.execute(
+        sa_update(StrategicBusinessPlan)
+        .where(StrategicBusinessPlan.id == plan_id)
+        .values(employee_plan=employee_plan_data)
+    )
+    db.commit()
+    db.refresh(plan)
+
+    return EmployeePlanResponse(**plan.employee_plan)
+
+
+@router.post("/{plan_id}/employee-plan", response_model=EmployeePlanResponse)
+async def save_employee_plan(
+    plan_id: UUID,
+    data: EmployeePlanUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> EmployeePlanResponse:
+    plan = _get_plan_or_404(plan_id, db)
+    _check_plan_access(plan, current_user, db)
+
+    if not plan.final_plan:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Plan must be assembled before saving employee document")
+
+    new_employee_plan = {"sections": [s.model_dump() for s in data.sections]}
+    db.execute(
+        sa_update(StrategicBusinessPlan)
+        .where(StrategicBusinessPlan.id == plan_id)
+        .values(employee_plan=new_employee_plan)
+    )
+    db.commit()
+    db.refresh(plan)
+
+    return EmployeePlanResponse(**plan.employee_plan)
 
 
 # ---------------------------------------------------------------------------

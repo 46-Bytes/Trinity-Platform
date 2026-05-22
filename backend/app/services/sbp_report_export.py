@@ -366,23 +366,31 @@ class SBPEmployeeExporter(SBPReportExporter):
 
         doc.add_page_break()
 
-        final_plan = plan.final_plan or {}
-        sections = final_plan.get("sections", [])
-
-        employee_keys = [
-            "executive_summary",
-            "strategic_intent",
-            "growth_opportunities",
-            "operations_strategy",
-            "hr_strategy",
-            "marketing_sales_strategy",
-        ]
-
-        for section in sections:
-            if section.get("key") in employee_keys and section.get("content"):
-                self._add_heading(doc, section["title"], level=1)
-                self._html_to_docx(doc, section["content"])
-                doc.add_page_break()
+        if plan.employee_plan:
+            # Use advisor-edited employee plan
+            sections = plan.employee_plan.get("sections", [])
+            for section in sections:
+                if section.get("included", True) and section.get("content"):
+                    self._add_heading(doc, section["title"], level=1)
+                    self._html_to_docx(doc, section["content"])
+                    doc.add_page_break()
+        else:
+            # Fall back to filtering from final_plan
+            final_plan = plan.final_plan or {}
+            sections = final_plan.get("sections", [])
+            employee_keys = [
+                "executive_summary",
+                "strategic_intent",
+                "growth_opportunities",
+                "operations_strategy",
+                "hr_strategy",
+                "marketing_sales_strategy",
+            ]
+            for section in sections:
+                if section.get("key") in employee_keys and section.get("content"):
+                    self._add_heading(doc, section["title"], level=1)
+                    self._html_to_docx(doc, section["content"])
+                    doc.add_page_break()
 
         client_safe = (plan.client_name or "Client").replace(" ", "_")
         filename = f"Employee_Strategy_Document_{client_safe}_{datetime.now().year}.docx"

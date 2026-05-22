@@ -1,11 +1,14 @@
-import { useState } from 'react';
-import { useAppSelector } from '@/store/hooks';
+import { useEffect, useState } from 'react';
+import { useAppSelector, useAppDispatch } from '@/store/hooks';
+import { fetchEmployeePlan, saveEmployeePlan } from '@/store/slices/strategicBusinessPlanReducer';
+import type { EmployeePlanSection } from '@/store/slices/strategicBusinessPlanReducer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Download, FileText, Users, Loader2, CheckCircle2, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { EmployeeDocumentEditor } from './EmployeeDocumentEditor';
 
 interface ExportStepProps {
   planId: string;
@@ -15,14 +18,42 @@ interface ExportStepProps {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 export function ExportStep({ planId, onComplete }: ExportStepProps) {
-  const { currentPlan } = useAppSelector((s) => s.strategicBusinessPlan);
+  const dispatch = useAppDispatch();
+  const { currentPlan, employeePlan, isSavingEmployeePlan } = useAppSelector((s) => s.strategicBusinessPlan);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDownloadingEmployee, setIsDownloadingEmployee] = useState(false);
   const [includeEmployee, setIncludeEmployee] = useState(false);
   const [mainDownloaded, setMainDownloaded] = useState(false);
   const [employeeDownloaded, setEmployeeDownloaded] = useState(false);
+  const [localSections, setLocalSections] = useState<EmployeePlanSection[] | null>(null);
 
   const clientName = currentPlan?.client_name || 'Client';
+
+  // Sync local state from store on initial load only (not after saves)
+  useEffect(() => {
+    if (employeePlan) {
+      setLocalSections(prev => prev === null ? employeePlan : prev);
+    }
+  }, [employeePlan]);
+
+  // Fetch employee plan when toggle is turned on for the first time
+  const handleToggleEmployee = (checked: boolean) => {
+    setIncludeEmployee(checked);
+    if (checked && !employeePlan) {
+      dispatch(fetchEmployeePlan(planId));
+    }
+  };
+
+  const handleSave = async (sections?: EmployeePlanSection[]) => {
+    const toSave = sections ?? localSections;
+    if (!toSave) return;
+    const result = await dispatch(saveEmployeePlan({ planId, sections: toSave }));
+    if (saveEmployeePlan.fulfilled.match(result)) {
+      toast.success('Employee document saved');
+    } else {
+      toast.error('Failed to save employee document');
+    }
+  };
 
   const handleDownload = async (variant: 'main' | 'employee') => {
     const isEmployee = variant === 'employee';
@@ -112,7 +143,7 @@ export function ExportStep({ planId, onComplete }: ExportStepProps) {
         </CardContent>
       </Card>
 
-      {/* Employee Variant Toggle */}
+      {/* Employee Variant */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -120,8 +151,8 @@ export function ExportStep({ planId, onComplete }: ExportStepProps) {
             Employee Strategy Document (Optional)
           </CardTitle>
           <CardDescription>
-            Generate an employee-facing strategy document. Vision, Mission, Values, and Sustainable Competitive Advantage
-            will be identical to the main plan. Content will be simplified for an employee audience.
+            Generate an employee-facing strategy document. Edit content and reorder sections
+            before downloading.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -129,35 +160,61 @@ export function ExportStep({ planId, onComplete }: ExportStepProps) {
             <Switch
               id="employee-variant"
               checked={includeEmployee}
-              onCheckedChange={setIncludeEmployee}
+              onCheckedChange={handleToggleEmployee}
             />
             <Label htmlFor="employee-variant">Generate employee-facing variant</Label>
           </div>
+
           {includeEmployee && (
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <p className="font-medium text-sm">
-                  Employee_Strategy_Document_{clientName.replace(/\s+/g, '_')}_{new Date().getFullYear()}.docx
+            <>
+              {/* Editor */}
+              <div className="border rounded-lg p-4 space-y-3 bg-muted/20">
+                <p className="text-sm font-medium">Edit Employee Document</p>
+                <p className="text-xs text-muted-foreground">
+                  Toggle sections on/off, reorder with the arrows, or click the pencil icon to edit content.
+                  Save your changes before downloading.
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Simplified strategy document suitable for sharing with employees
-                </p>
-              </div>
-              <Button
-                onClick={() => handleDownload('employee')}
-                disabled={isDownloadingEmployee}
-                variant={employeeDownloaded ? 'outline' : 'default'}
-              >
-                {isDownloadingEmployee ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : employeeDownloaded ? (
-                  <CheckCircle2 className="w-4 h-4 mr-2 text-green-600" />
+                {localSections ? (
+                  <EmployeeDocumentEditor
+                    sections={localSections}
+                    onChange={setLocalSections}
+                    onSave={handleSave}
+                    isSaving={isSavingEmployeePlan}
+                  />
                 ) : (
-                  <Download className="w-4 h-4 mr-2" />
+                  <div className="flex items-center gap-2 py-4 text-muted-foreground text-sm">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading sections…
+                  </div>
                 )}
-                {employeeDownloaded ? 'Downloaded' : 'Download .docx'}
-              </Button>
-            </div>
+              </div>
+
+              {/* Download */}
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <p className="font-medium text-sm">
+                    Employee_Strategy_Document_{clientName.replace(/\s+/g, '_')}_{new Date().getFullYear()}.docx
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Simplified strategy document suitable for sharing with employees
+                  </p>
+                </div>
+                <Button
+                  onClick={() => handleDownload('employee')}
+                  disabled={isDownloadingEmployee}
+                  variant={employeeDownloaded ? 'outline' : 'default'}
+                >
+                  {isDownloadingEmployee ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : employeeDownloaded ? (
+                    <CheckCircle2 className="w-4 h-4 mr-2 text-green-600" />
+                  ) : (
+                    <Download className="w-4 h-4 mr-2" />
+                  )}
+                  {employeeDownloaded ? 'Downloaded' : 'Download .docx'}
+                </Button>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

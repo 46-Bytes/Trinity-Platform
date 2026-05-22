@@ -84,6 +84,8 @@ class StrategicBusinessPlan(Base):
     employee_variant_requested = Column(Boolean, nullable=False, server_default='false',
                                          comment="Whether employee-facing variant was requested")
     generated_employee_report_path = Column(Text, nullable=True, comment="Path to the generated employee .docx file")
+    employee_plan = Column(JSONB, nullable=True,
+                           comment="Advisor-edited employee document: {sections: [{key, title, content, included}]}")
 
     # Step 6: Presentation
     presentation_slides = Column(JSONB, nullable=True,
@@ -139,6 +141,7 @@ class StrategicBusinessPlan(Base):
             "generated_report_path": self.generated_report_path,
             "employee_variant_requested": self.employee_variant_requested,
             "generated_employee_report_path": self.generated_employee_report_path,
+            "employee_plan": self.employee_plan,
             "presentation_slides": self.presentation_slides,
             "ai_model_used": self.ai_model_used,
             "ai_tokens_used": self.ai_tokens_used,

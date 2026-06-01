@@ -479,7 +479,21 @@ async def download_workbook(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Workbook not found"
         )
-    
+
+    # Only the creator or a user with access to the linked engagement may download
+    if workbook.created_by_user_id != current_user.id:
+        engagement = None
+        if workbook.engagement_id:
+            engagement = db.query(Engagement).filter(
+                Engagement.id == workbook.engagement_id,
+                Engagement.is_deleted == False,
+            ).first()
+        if not engagement or not check_engagement_access(engagement, current_user, db=db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied"
+            )
+
     if not workbook.generated_workbook_path:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

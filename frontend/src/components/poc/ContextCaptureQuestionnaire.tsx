@@ -3,13 +3,14 @@
  * Step 2 of the file upload POC - collects client context and preferences
  */
 import React from 'react';
-import { ArrowLeft, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, Info, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 export interface QuestionnaireData {
   clientName: string;
@@ -115,9 +116,10 @@ export function ContextCaptureQuestionnaire({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="startup">1-10</SelectItem>
-              <SelectItem value="medium">11-15</SelectItem>
-              <SelectItem value="large">16-50</SelectItem>
-              <SelectItem value="large">51+</SelectItem>
+              <SelectItem value="small">11-50</SelectItem>
+              <SelectItem value="medium">51-200</SelectItem>
+              <SelectItem value="large">201-1000</SelectItem>
+              <SelectItem value="enterprise">1000+</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -197,6 +199,25 @@ export function ContextCaptureQuestionnaire({
         >
           Exclude sale-readiness from analysis
         </Label>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="text-muted-foreground hover:text-foreground"
+              aria-label="What is sale-readiness?"
+            >
+              <Info className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            <p>
+              Sale-readiness measures how prepared the business is for a sale or exit
+              (e.g. clean financials, transferable operations, reduced owner dependence).
+              Tick this to tell the AI to leave sale/exit-readiness topics out of the
+              findings and recommendations — useful when the client isn't planning to sell.
+            </p>
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Summary of Uploaded Files */}

@@ -100,6 +100,9 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
   });
   const [isRestoring, setIsRestoring] = useState(true);
   const extractedContextCaptureRef = useRef(false);
+  // Fields populated by auto-extraction (not hand-edited). A fresh extraction may
+  // overwrite these; a manual edit removes the field from the set so it is preserved.
+  const autoFilledFieldsRef = useRef<Set<keyof QuestionnaireData>>(new Set());
   const [stepTransition, setStepTransition] = useState(false);
 
   // Cache full project data so step components don't re-fetch on every navigation
@@ -539,6 +542,17 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
     }
   }, [currentStep]);
 
+  // Allow a fresh extraction whenever the set of successfully-uploaded files changes
+  // (e.g. the user uploads a new document), so the latest documents drive the form.
+  const uploadedSignature = files
+    .filter((f) => f.status === 'success' && f.fileId)
+    .map((f) => f.fileId)
+    .sort()
+    .join(',');
+  useEffect(() => {
+    extractedContextCaptureRef.current = false;
+  }, [uploadedSignature]);
+
   // When entering Context Capture (step 2), extract and pre-fill from uploaded files / engagement.
   // The ref prevents duplicate calls within the same step visit; re-entering the step always retries.
   // Empty fields are filled; non-empty fields are never overwritten.
@@ -575,11 +589,18 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
           keys.forEach((k) => {
             const v = extracted[k];
             if (v === undefined || v === null) return;
-            const isEmpty = prev[k] === '' || prev[k] === undefined;
-            const isBool = k === 'excludeSaleReadiness';
-            if (isEmpty || (isBool && typeof v === 'boolean')) {
-              (next as any)[k] = isBool ? !!v : String(v);
+            // The sale-readiness checkbox follows the extracted boolean directly.
+            if (k === 'excludeSaleReadiness') {
+              if (typeof v === 'boolean') (next as any)[k] = v;
+              return;
             }
+            const isEmpty = prev[k] === '' || prev[k] === undefined;
+            // Overwrite a text field only when it's empty or was previously auto-filled
+            // (never when the user hand-edited it) — "new document wins".
+            const overwritable = isEmpty || autoFilledFieldsRef.current.has(k);
+            if (!overwritable) return;
+            (next as any)[k] = String(v);
+            autoFilledFieldsRef.current.add(k);
           });
           return next;
         });
@@ -592,7 +613,7 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
     };
 
     runExtract();
-  }, [currentStep, projectId, isRestoring, updateStepLoadingState]);
+  }, [currentStep, projectId, isRestoring, updateStepLoadingState, uploadedSignature]);
 
   // Persist questionnaire data to localStorage
   useEffect(() => {
@@ -866,6 +887,8 @@ export function FileUploadPOC({ className, engagementId, initialProjectId }: Fil
 
   // Handle questionnaire form changes
   const handleQuestionnaireChange = (field: keyof QuestionnaireData, value: string | boolean) => {
+    // A manual edit takes ownership of the field — extraction must not overwrite it.
+    autoFilledFieldsRef.current.delete(field);
     setQuestionnaireData((prev) => ({
       ...prev,
       [field]: value,

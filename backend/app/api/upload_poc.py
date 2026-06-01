@@ -72,6 +72,28 @@ from app.schemas.bba import (
 
 logger = logging.getLogger(__name__)
 
+
+def _check_bba_access(bba, current_user: User, db: Session) -> None:
+    """
+    Authorize access to a BBA project for export/download.
+
+    Allowed for the BBA creator, or for any user with access to the BBA's linked
+    engagement (advisor or client). Raises 403 otherwise.
+    """
+    if bba.created_by_user_id == current_user.id:
+        return
+    engagement = None
+    if bba.engagement_id:
+        engagement = db.query(Engagement).filter(
+            Engagement.id == bba.engagement_id,
+            Engagement.is_deleted == False,
+        ).first()
+    if not engagement or not check_engagement_access(engagement, current_user, db=db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this project",
+        )
+
 router = APIRouter(prefix="/api/poc", tags=["bba"])
 
 # Base directory for persisting BBA uploaded files (under app UPLOAD_DIR)
@@ -1369,12 +1391,8 @@ async def export_to_word(
             detail="BBA project not found"
         )
     
-    if bba.created_by_user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You don't have access to this project"
-        )
-    
+    _check_bba_access(bba, current_user, db)
+
     # Check that we have enough data to export
     if not bba.expanded_findings:
         raise HTTPException(
@@ -1666,11 +1684,7 @@ async def export_task_planner_excel(
             detail="BBA project not found",
         )
 
-    if bba.created_by_user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You don't have access to this project",
-        )
+    _check_bba_access(bba, current_user, db)
 
     if not bba.twelve_month_plan:
         raise HTTPException(
@@ -2103,11 +2117,7 @@ async def export_presentation_pptx(
             detail="BBA project not found",
         )
 
-    if bba.created_by_user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You don't have access to this project",
-        )
+    _check_bba_access(bba, current_user, db)
 
     if not bba.presentation_slides or not bba.presentation_slides.get("slides"):
         raise HTTPException(

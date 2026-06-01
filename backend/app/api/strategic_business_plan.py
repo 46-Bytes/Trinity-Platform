@@ -103,6 +103,7 @@ async def create_plan(
 @router.post("/create-from-diagnostic", status_code=status.HTTP_201_CREATED)
 async def create_from_diagnostic(
     diagnostic_id: UUID = Query(..., description="Completed diagnostic ID"),
+    force_new: bool = Query(False, description="If true, resets any existing plan for this diagnostic to a fresh draft state"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Dict[str, Any]:
@@ -118,7 +119,7 @@ async def create_from_diagnostic(
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     service = get_sbp_service(db)
-    plan = service.create_plan_from_diagnostic(diagnostic_id=diagnostic_id, user_id=current_user.id)
+    plan = service.create_plan_from_diagnostic(diagnostic_id=diagnostic_id, user_id=current_user.id, force_new=force_new)
     return {
         "success": True,
         "plan_id": str(plan.id),
@@ -366,8 +367,8 @@ async def save_cross_analysis_notes(
     _check_plan_access(plan, current_user, db)
 
     service = get_sbp_service(db)
-    plan = service.save_cross_analysis_notes(plan_id, data.notes)
-    return {"success": True}
+    plan = service.save_cross_analysis_notes(plan_id, notes=data.notes, cross_analysis=data.cross_analysis)
+    return {"success": True, "cross_analysis": plan.cross_analysis}
 
 
 # ---------------------------------------------------------------------------

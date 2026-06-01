@@ -221,14 +221,18 @@ class BBAService:
             BBA.diagnostic_id == diagnostic_id
         ).order_by(BBA.created_at.desc()).first()
 
-    def get_bbas_by_engagement(self, engagement_id: UUID, user_id: UUID) -> List[BBA]:
+    def get_bbas_by_engagement(self, engagement_id: UUID, user_id: Optional[UUID] = None) -> List[BBA]:
         """
-        Get all BBA projects for an engagement (for the given user).
+        Get all BBA projects for an engagement.
+
+        When user_id is provided, only projects created by that user are returned.
+        When user_id is None, all projects for the engagement are returned (used by
+        the engagement-wide generated-documents view).
         """
-        return self.db.query(BBA).filter(
-            BBA.engagement_id == engagement_id,
-            BBA.created_by_user_id == user_id
-        ).order_by(BBA.created_at.desc()).all()
+        query = self.db.query(BBA).filter(BBA.engagement_id == engagement_id)
+        if user_id:
+            query = query.filter(BBA.created_by_user_id == user_id)
+        return query.order_by(BBA.created_at.desc()).all()
 
     def get_bba_by_engagement(self, engagement_id: UUID, user_id: UUID) -> Optional[BBA]:
         """

@@ -365,16 +365,6 @@ class ReportService:
             flags=re.IGNORECASE,
         )
 
-        # Inject subtitle text after the "3. Module Assessments" heading
-        advisor_html = re.sub(
-            r'(<h2[^>]*>\s*3\.\s*Module\s+Assessments?\s*</h2>)',
-            r'\1<p style="font-style: italic; color: #555; margin-top: 2px; margin-bottom: 8px;">'
-            r'Each module is presented in priority order. All Must-Do tasks in every module are '
-            r'compulsory for every client. This section identifies the current state, what may need '
-            r'the most attention, and what additional work is required beyond the standard program.</p>',
-            advisor_html,
-            flags=re.IGNORECASE,
-        )
 
         # Insert page breaks before each module <h3> heading (e.g. <h3>M1 – ...)
         # Skip the first module so it flows after the "3. Module Assessments" subtitle

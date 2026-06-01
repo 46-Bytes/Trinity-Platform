@@ -17,6 +17,9 @@ export interface GeneratedFileProps {
   relativePath?: string; // Path for downloading the file
   diagnosticId?: string; // Diagnostic ID for report downloads
   mediaId?: string; // Media ID for uploaded files
+  downloadUrl?: string; // Relative API path for tool-generated documents (BBA/workbook/plan)
+  downloadMethod?: 'GET' | 'POST'; // HTTP method for the downloadUrl request
+  taggable?: boolean; // Whether tagging is supported for this file (defaults to true)
   isProcessing?: boolean; // Whether the file is currently being processed
   tag?: string; // Document tag
   uploadedByAdmin?: boolean; 
@@ -53,6 +56,7 @@ export function GeneratedFile({
   isProcessing,
   tag,
   mediaId,
+  taggable,
   uploadedByAdmin,
   uploadedByRole,
   onDownload,
@@ -142,8 +146,8 @@ export function GeneratedFile({
                 Processing
               </span>
             )}
-            {/* Tag Display/Edit for Advisors */}
-            {isAdvisor && !isProcessing && (
+            {/* Tag Display/Edit for Advisors (not supported for tool-generated docs) */}
+            {isAdvisor && !isProcessing && taggable !== false && (
               <div className="flex items-center gap-1">
                 {isEditingTag ? (
                   <div className="flex items-center gap-1">

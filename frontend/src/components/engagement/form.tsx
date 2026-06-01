@@ -473,7 +473,10 @@ export function EngagementForm({
       console.log('Final Advisor ID:', advisorId);
       console.log('Final Advisor Name:', advisorName);
 
-      const businessName = 'businessName' in values ? values.businessName : "";
+      const selectedClientForBusiness = userRoleData?.clients?.find(c => c.id === clientId);
+      const businessName = 'businessName' in values && values.businessName
+        ? values.businessName
+        : (selectedClientForBusiness?.business_name || selectedClientForBusiness?.name || "");
       const industryName = 'industryName' in values ? values.industryName : "";
 
       if (isEditMode && engagement) {
@@ -530,6 +533,7 @@ export function EngagementForm({
           
           const requestPayload = {
             engagement_name: values.engagementName,
+            business_name: businessName || undefined,
             description: values.description,
             tool: values.tool,
             status: 'draft',
@@ -601,6 +605,7 @@ export function EngagementForm({
           
           const requestPayload = {
             engagement_name: values.engagementName,
+            business_name: businessName || undefined,
             description: values.description,
             tool: values.tool,
             status: 'draft',

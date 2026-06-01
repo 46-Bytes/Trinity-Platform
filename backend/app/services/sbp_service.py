@@ -72,7 +72,7 @@ class SBPService:
         logger.info(f"Created SBP {plan.id} for user {user_id}")
         return plan
 
-    def create_plan_from_diagnostic(self, diagnostic_id: UUID, user_id: UUID) -> StrategicBusinessPlan:
+    def create_plan_from_diagnostic(self, diagnostic_id: UUID, user_id: UUID, force_new: bool = False) -> StrategicBusinessPlan:
         diagnostic = self.db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
         if not diagnostic:
             raise ValueError(f"Diagnostic {diagnostic_id} not found")
@@ -82,6 +82,11 @@ class SBPService:
         # Check for existing plan linked to this diagnostic
         existing = self.get_plan_by_diagnostic(diagnostic_id)
         if existing:
+            if force_new:
+                # "Start Fresh": wipe the existing plan's data in place (same row),
+                # mirroring the BBA/Workbook reset behavior.
+                logger.info(f"Resetting existing SBP {existing.id} for fresh start from diagnostic {diagnostic_id}")
+                return self.reset_plan_data(existing.id)
             logger.info(f"SBP already exists for diagnostic {diagnostic_id}: {existing.id}")
             return existing
 
@@ -185,6 +190,11 @@ class SBPService:
         plan.final_plan = None
         plan.generated_report_path = None
         plan.presentation_slides = None
+        # Employee-facing deliverable must be cleared too, otherwise it would
+        # survive a "Start Fresh" and keep showing in the engagement's docs.
+        plan.employee_plan = None
+        plan.generated_employee_report_path = None
+        plan.employee_variant_requested = False
         plan.status = "draft"
         plan.current_step = 1
         plan.max_step_reached = 1
@@ -198,6 +208,7 @@ class SBPService:
         flag_modified(plan, "emerging_themes")
         flag_modified(plan, "final_plan")
         flag_modified(plan, "presentation_slides")
+        flag_modified(plan, "employee_plan")
 
         self.db.commit()
         self.db.refresh(plan)
@@ -222,12 +233,15 @@ class SBPService:
         self.db.refresh(plan)
         return plan
 
-    def save_cross_analysis_notes(self, plan_id: UUID, notes: str) -> StrategicBusinessPlan:
+    def save_cross_analysis_notes(self, plan_id: UUID, notes: str = None, cross_analysis: dict = None) -> StrategicBusinessPlan:
         plan = self.get_plan(plan_id)
         if not plan:
             raise ValueError(f"Plan {plan_id} not found")
 
-        plan.cross_analysis_advisor_notes = notes
+        if notes is not None:
+            plan.cross_analysis_advisor_notes = notes
+        if cross_analysis is not None:
+            plan.cross_analysis = cross_analysis
         plan.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()

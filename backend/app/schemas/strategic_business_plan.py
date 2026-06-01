@@ -64,8 +64,9 @@ class SBPCrossAnalysisResponse(BaseModel):
 
 
 class SBPCrossAnalysisNotes(BaseModel):
-    """Schema for saving advisor notes on cross-analysis"""
-    notes: str = Field(..., description="Advisor notes/corrections on the cross-analysis")
+    """Schema for saving advisor notes and/or edited cross-analysis data"""
+    notes: Optional[str] = Field(None, description="Advisor notes/corrections on the cross-analysis")
+    cross_analysis: Optional[Dict[str, Any]] = Field(None, description="Manually edited cross-analysis data")
 
 
 # ---------------------------------------------------------------------------

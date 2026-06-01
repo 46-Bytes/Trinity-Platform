@@ -722,11 +722,12 @@ Return your response as a JSON object with an "executive_summary" key containing
             {"role": "user", "content": user_content},
         ]
 
-        # Only attach files when diagnostic text is NOT available.
-        # When diagnostic text exists, it already contains all info needed for field extraction.
+        # Attach the uploaded documents whenever any exist — even when diagnostic
+        # text is also present. The diagnostic does NOT contain the uploaded file's
+        # contents, so the files must be sent for the model to extract from them.
         pdf_file_ids = None
         tools = None
-        if file_mappings and not has_text:
+        if file_mappings:
             pdf_ids, ci_ids = self._separate_files_by_type(file_mappings)
             pdf_file_ids = pdf_ids if pdf_ids else None
             if ci_ids:
@@ -749,6 +750,18 @@ Return your response as a JSON object with an "executive_summary" key containing
         parsed = result.get("parsed_content") or {}
         if not isinstance(parsed, dict):
             return {}
+
+        # Normalize companySize to the BBA enum so the frontend Select can render it.
+        # Maps variants like "Small", "small (11-50 employees)", "Medium-sized" -> the enum value.
+        if isinstance(parsed.get("companySize"), str):
+            raw = parsed["companySize"].strip().lower()
+            valid_sizes = ("startup", "small", "medium", "large", "enterprise")
+            matched = next((s for s in valid_sizes if raw == s or raw.startswith(s)), None)
+            if not matched:
+                words = re.findall(r"[a-z]+", raw)
+                matched = next((s for s in valid_sizes if s in words), None)
+            parsed["companySize"] = matched  # None when unmappable -> dropped by has_value below
+
         # Filter to known questionnaire keys; omit None and empty strings
         known = {
             "clientName", "industry", "companySize", "locations",

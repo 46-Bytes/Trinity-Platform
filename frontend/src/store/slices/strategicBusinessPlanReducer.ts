@@ -190,12 +190,12 @@ export const triggerCrossAnalysis = createAsyncThunk(
 
 export const saveCrossAnalysisNotes = createAsyncThunk(
   'sbp/saveCrossAnalysisNotes',
-  async ({ planId, notes }: { planId: string; notes: string }, { rejectWithValue }) => {
+  async ({ planId, notes, crossAnalysis }: { planId: string; notes?: string; crossAnalysis?: Record<string, any> }, { rejectWithValue }) => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/strategic-business-plan/${planId}/cross-analysis`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ notes }),
+        body: JSON.stringify({ notes, cross_analysis: crossAnalysis }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Failed to save notes');
       return await res.json();
@@ -566,6 +566,14 @@ const sbpSlice = createSlice({
         }
       })
       .addCase(triggerCrossAnalysis.rejected, (state, action) => { state.isAnalysing = false; state.error = action.payload as string; });
+
+    // saveCrossAnalysisNotes
+    builder
+      .addCase(saveCrossAnalysisNotes.fulfilled, (state, action) => {
+        if (state.currentPlan && action.payload.cross_analysis) {
+          state.currentPlan.cross_analysis = action.payload.cross_analysis;
+        }
+      });
 
     // initialiseSections
     builder

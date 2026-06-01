@@ -518,19 +518,20 @@ class StrategyWorkbookService:
         
         return normalized
     
-    def get_workbooks_by_engagement(self, engagement_id: UUID, user_id: UUID) -> List[StrategyWorkbook]:
+    def get_workbooks_by_engagement(self, engagement_id: UUID, user_id: Optional[UUID] = None) -> List[StrategyWorkbook]:
         """
-        Return all strategy workbooks for a given engagement, ordered most-recent first.
+        Return strategy workbooks for a given engagement, ordered most-recent first.
+
+        When user_id is provided, only workbooks created by that user are returned.
+        When user_id is None, all workbooks for the engagement are returned (used by
+        the engagement-wide generated-documents view).
         """
-        return (
-            self.db.query(StrategyWorkbook)
-            .filter(
-                StrategyWorkbook.engagement_id == engagement_id,
-                StrategyWorkbook.created_by_user_id == user_id,
-            )
-            .order_by(StrategyWorkbook.updated_at.desc())
-            .all()
+        query = self.db.query(StrategyWorkbook).filter(
+            StrategyWorkbook.engagement_id == engagement_id
         )
+        if user_id:
+            query = query.filter(StrategyWorkbook.created_by_user_id == user_id)
+        return query.order_by(StrategyWorkbook.updated_at.desc()).all()
 
     def get_workbooks_for_user(self, user_id: UUID) -> List[StrategyWorkbook]:
         """

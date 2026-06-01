@@ -34,6 +34,7 @@ export default function EngagementDetailPage() {
   const dispatch = useAppDispatch();
   const { user } = useAuth();
   const [diagnostics, setDiagnostics] = useState<any[]>([]);
+  const [toolDocuments, setToolDocuments] = useState<any[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [engagement, setEngagement] = useState<{ client_name?: string; tool?: string } | null>(null);
@@ -170,6 +171,30 @@ export default function EngagementDetailPage() {
     }
   }, [engagementId]);
 
+  // Fetch generated documents from the other engagement tools (BBA, Strategy
+  // Workbook, Strategic Business Plan). Visible to everyone on the engagement.
+  const fetchToolDocuments = useCallback(async () => {
+    if (!engagementId) return;
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+
+      const response = await fetch(`${API_BASE_URL}/api/engagements/${engagementId}/generated-documents`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const docs = await response.json();
+        setToolDocuments(Array.isArray(docs) ? docs : []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch tool-generated documents:', error);
+    }
+  }, [engagementId]);
+
   // Keep diagnosticsRef in sync with latest diagnostics state
   useEffect(() => {
     diagnosticsRef.current = diagnostics;
@@ -183,12 +208,13 @@ export default function EngagementDetailPage() {
     }
   }, [diagnostics, dispatch]);
 
-  // Refresh diagnostics when overview tab is selected
+  // Refresh diagnostics and tool-generated documents when overview tab is selected
   useEffect(() => {
     if (activeTab === 'overview') {
       fetchDiagnostics();
+      fetchToolDocuments();
     }
-  }, [activeTab, fetchDiagnostics]);
+  }, [activeTab, fetchDiagnostics, fetchToolDocuments]);
 
   // Listen for file upload events from diagnostic tab
   useEffect(() => {
@@ -380,6 +406,28 @@ export default function EngagementDetailPage() {
     return extractedFiles.sort((a, b) => b.generatedAt.getTime() - a.generatedAt.getTime());
   }, [diagnostics, isAdmin, user?.id, diagnosticTags]);
 
+  // Map tool-generated documents (BBA, Strategy Workbook, Strategic Business Plan)
+  // from the engagement generated-documents endpoint into GeneratedFileProps.
+  const toolGeneratedFiles: GeneratedFileProps[] = useMemo(() => {
+    return toolDocuments.map((doc: any) => ({
+      id: doc.id,
+      name: doc.name,
+      type: (doc.file_type || 'docx') as GeneratedFileProps['type'],
+      generatedAt: new Date(doc.generated_at || doc.generatedAt || Date.now()),
+      toolType: doc.tool,
+      downloadUrl: doc.download_url,
+      downloadMethod: (doc.download_method || 'GET') as 'GET' | 'POST',
+      taggable: false, // no tag backend for tool documents
+    }));
+  }, [toolDocuments]);
+
+  // Merge diagnostic reports with the other tools' documents for the Generated Files list
+  const allGeneratedFiles: GeneratedFileProps[] = useMemo(() => {
+    return [...generatedFiles, ...toolGeneratedFiles].sort(
+      (a, b) => b.generatedAt.getTime() - a.generatedAt.getTime()
+    );
+  }, [generatedFiles, toolGeneratedFiles]);
+
   // Extract uploaded files from diagnostic user_responses
   const uploadedFiles: GeneratedFileProps[] = useMemo(() => {
     const extractedFiles: GeneratedFileProps[] = [];
@@ -544,7 +592,7 @@ export default function EngagementDetailPage() {
 
   const handleDownload = async (fileId: string) => {
     // Find the file in either generated or uploaded files
-    const file = [...generatedFiles, ...uploadedFiles].find(f => f.id === fileId);
+    const file = [...allGeneratedFiles, ...uploadedFiles].find(f => f.id === fileId);
     if (!file) {
       toast.error('File not found');
       return;
@@ -590,6 +638,38 @@ export default function EngagementDetailPage() {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
         
+        toast.dismiss(loadingToast);
+        toast.success(`Downloaded ${file.name}`);
+      } else if (file.downloadUrl) {
+        // Download a tool-generated document (BBA / Strategy Workbook / Business Planner)
+        const response = await fetch(`${API_BASE_URL}${file.downloadUrl}`, {
+          method: file.downloadMethod || 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          toast.dismiss(loadingToast);
+          toast.error(`Failed to download ${file.name}: ${errorText || 'Unexpected error'}`);
+          return;
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const disposition = response.headers.get('Content-Disposition') || '';
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        const filename = match?.[1] || file.name;
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
         toast.dismiss(loadingToast);
         toast.success(`Downloaded ${file.name}`);
       } else if (file.relativePath) {
@@ -655,15 +735,15 @@ export default function EngagementDetailPage() {
                 <h2 className="text-xl font-semibold">Generated Files</h2>
                 {!isLoadingFiles && (
                   <span className="text-sm text-muted-foreground">
-                    {generatedFiles.length} file{generatedFiles.length !== 1 ? 's' : ''}
+                    {allGeneratedFiles.length} file{allGeneratedFiles.length !== 1 ? 's' : ''}
                   </span>
                 )}
               </div>
               {isLoadingFiles ? (
                 <div className="text-center py-8 text-muted-foreground">Loading files...</div>
               ) : (
-                <GeneratedFilesList 
-                  files={generatedFiles} 
+                <GeneratedFilesList
+                  files={allGeneratedFiles}
                   onDownload={handleDownload}
                   onTagUpdate={handleTagUpdate}
                 />

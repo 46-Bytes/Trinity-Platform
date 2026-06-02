@@ -68,7 +68,7 @@ async def create_association(
         if advisor.firm_id != client.firm_id:
             raise HTTPException( status_code=status.HTTP_400_BAD_REQUEST,detail="Client must belong to the same firm as the advisor.")
     
-    existing = db.query(AdvisorClient).filter(AdvisorClient.advisor_id == association_data.advisor_id,AdvisorClient.client_id == association_data.client_id).first()
+    existing = db.query(AdvisorClient).filter(AdvisorClient.advisor_id == association_data.advisor_id,AdvisorClient.client_id == association_data.client_id,AdvisorClient.is_deleted == False).first()
     
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,detail="Association already exists between this advisor and client.")
@@ -179,14 +179,14 @@ async def get_association(
     
     User must have permission to view this association.
     """
-    association = db.query(AdvisorClient).filter(AdvisorClient.id == association_id).first()
-    
+    association = db.query(AdvisorClient).filter(AdvisorClient.id == association_id,AdvisorClient.is_deleted == False).first()
+
     if not association:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Association not found."
         )
-    
+
     # Check permissions
     if current_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         # Admins can see all
@@ -247,14 +247,14 @@ async def update_association(
     Update an advisor-client association.
     Only admins, super_admins, and the advisor can update associations.
     """
-    association = db.query(AdvisorClient).filter(AdvisorClient.id == association_id).first()
-    
+    association = db.query(AdvisorClient).filter(AdvisorClient.id == association_id,AdvisorClient.is_deleted == False).first()
+
     if not association:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Association not found."
         )
-    
+
     # Check permissions
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         if current_user.role in [UserRole.ADVISOR, UserRole.FIRM_ADVISOR]:
@@ -291,14 +291,14 @@ async def delete_association(
     
     Only admins, super_admins, and the advisor can delete associations.
     """
-    association = db.query(AdvisorClient).filter(AdvisorClient.id == association_id).first()
-    
+    association = db.query(AdvisorClient).filter(AdvisorClient.id == association_id,AdvisorClient.is_deleted == False).first()
+
     if not association:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Association not found."
         )
-    
+
     # Check permissions
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.FIRM_ADMIN]:
         if current_user.role in [UserRole.ADVISOR, UserRole.FIRM_ADVISOR]:

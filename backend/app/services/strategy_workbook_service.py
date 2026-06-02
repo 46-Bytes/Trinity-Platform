@@ -62,7 +62,10 @@ class StrategyWorkbookService:
         if a workbook already exists for this diagnostic_id and force_new is False,
         returns that workbook unchanged. If force_new is True, resets it to draft state.
         """
-        diagnostic = self.db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
+        diagnostic = self.db.query(Diagnostic).filter(
+            Diagnostic.id == diagnostic_id,
+            Diagnostic.is_deleted == False,
+        ).first()
         if not diagnostic:
             raise ValueError(f"Diagnostic {diagnostic_id} not found")
         if diagnostic.status != "completed":
@@ -75,7 +78,8 @@ class StrategyWorkbookService:
             diagnostic_context["ai_analysis"] = diagnostic.ai_analysis
 
         existing = self.db.query(StrategyWorkbook).filter(
-            StrategyWorkbook.diagnostic_id == diagnostic_id
+            StrategyWorkbook.diagnostic_id == diagnostic_id,
+            StrategyWorkbook.is_deleted == False,
         ).first()
         if existing:
             if not force_new:
@@ -129,12 +133,13 @@ class StrategyWorkbookService:
             Updated StrategyWorkbook model
         """
         workbook = self.db.query(StrategyWorkbook).filter(
-            StrategyWorkbook.id == workbook_id
+            StrategyWorkbook.id == workbook_id,
+            StrategyWorkbook.is_deleted == False,
         ).first()
-        
+
         if not workbook:
             raise ValueError(f"Workbook {workbook_id} not found")
-        
+
         # Update uploaded_media_ids
         existing_ids = set(workbook.uploaded_media_ids or [])
         new_ids = set(media_ids)
@@ -157,15 +162,16 @@ class StrategyWorkbookService:
             Extracted data dictionary
         """
         workbook = self.db.query(StrategyWorkbook).filter(
-            StrategyWorkbook.id == workbook_id
+            StrategyWorkbook.id == workbook_id,
+            StrategyWorkbook.is_deleted == False,
         ).first()
-        
+
         if not workbook:
             raise ValueError(f"Workbook {workbook_id} not found")
-        
+
         if not workbook.uploaded_media_ids:
             raise ValueError(f"No files uploaded for workbook {workbook_id}")
-        
+
         # Update status to extracting
         workbook.status = "extracting"
         self.db.commit()
@@ -351,7 +357,8 @@ class StrategyWorkbookService:
         extraction, and surface any ambiguities or issues that should be clarified.
         """
         workbook = self.db.query(StrategyWorkbook).filter(
-            StrategyWorkbook.id == workbook_id
+            StrategyWorkbook.id == workbook_id,
+            StrategyWorkbook.is_deleted == False,
         ).first()
 
         if not workbook:
@@ -527,7 +534,8 @@ class StrategyWorkbookService:
         the engagement-wide generated-documents view).
         """
         query = self.db.query(StrategyWorkbook).filter(
-            StrategyWorkbook.engagement_id == engagement_id
+            StrategyWorkbook.engagement_id == engagement_id,
+            StrategyWorkbook.is_deleted == False,
         )
         if user_id:
             query = query.filter(StrategyWorkbook.created_by_user_id == user_id)
@@ -539,7 +547,10 @@ class StrategyWorkbookService:
         """
         return (
             self.db.query(StrategyWorkbook)
-            .filter(StrategyWorkbook.created_by_user_id == user_id)
+            .filter(
+                StrategyWorkbook.created_by_user_id == user_id,
+                StrategyWorkbook.is_deleted == False,
+            )
             .order_by(StrategyWorkbook.updated_at.desc())
             .all()
         )
@@ -555,9 +566,10 @@ class StrategyWorkbookService:
             StrategyWorkbook model or None if not found
         """
         workbook = self.db.query(StrategyWorkbook).filter(
-            StrategyWorkbook.id == workbook_id
+            StrategyWorkbook.id == workbook_id,
+            StrategyWorkbook.is_deleted == False,
         ).first()
-        
+
         return workbook
 
 

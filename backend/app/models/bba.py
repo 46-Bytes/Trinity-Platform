@@ -120,6 +120,9 @@ class BBA(Base):
     ai_model_used = Column(String(100), nullable=True, comment="AI model used for analysis")
     ai_tokens_used = Column(Integer, nullable=True, comment="Total tokens used in AI processing")
     
+    # Soft delete
+    is_deleted = Column(Boolean, nullable=False, server_default='false', comment="Whether this record has been soft deleted")
+
     # Timestamps
     created_at = Column(DateTime, nullable=False, server_default=func.current_timestamp())
     updated_at = Column(DateTime, nullable=False, server_default=func.current_timestamp(), onupdate=func.current_timestamp())

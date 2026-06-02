@@ -18,6 +18,9 @@ from ..models.adv_client import AdvisorClient
 from ..models.task import Task
 from ..models.note import Note
 from ..models.diagnostic import Diagnostic
+from ..models.bba import BBA
+from ..models.strategy_workbook import StrategyWorkbook
+from ..models.strategic_business_plan import StrategicBusinessPlan
 from ..schemas.engagement import (
     EngagementCreate,
     EngagementUpdate,
@@ -76,7 +79,7 @@ async def create_engagement(
     # the primary advisor should depend on *who is creating* the engagement.
     if current_user.role == UserRole.FIRM_ADMIN:
         # We keep using the associated advisor as primary advisor (existing behavior).
-        association = db.query(AdvisorClient).filter(AdvisorClient.client_id == engagement_data.client_id,AdvisorClient.status == 'active').first()
+        association = db.query(AdvisorClient).filter(AdvisorClient.client_id == engagement_data.client_id,AdvisorClient.status == 'active',AdvisorClient.is_deleted == False).first()
 
         if not association:
             raise HTTPException(
@@ -88,7 +91,7 @@ async def create_engagement(
 
     elif current_user.role == UserRole.FIRM_ADVISOR:
         # Firm advisor: the client must be actively associated *with this advisor*,
-        association = db.query(AdvisorClient).filter(AdvisorClient.client_id == engagement_data.client_id,AdvisorClient.advisor_id == current_user.id,AdvisorClient.status == 'active').first()
+        association = db.query(AdvisorClient).filter(AdvisorClient.client_id == engagement_data.client_id,AdvisorClient.advisor_id == current_user.id,AdvisorClient.status == 'active',AdvisorClient.is_deleted == False).first()
 
         if not association:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="This client must be actively associated with you before creating an engagement.")
@@ -308,20 +311,24 @@ async def list_engagements(
     result = []
     for engagement in engagements:
         diagnostics_count = db.query(func.count(Diagnostic.id)).filter(
-            Diagnostic.engagement_id == engagement.id
+            Diagnostic.engagement_id == engagement.id,
+            Diagnostic.is_deleted == False
         ).scalar() or 0
-        
+
         tasks_count = db.query(func.count(Task.id)).filter(
-            Task.engagement_id == engagement.id
+            Task.engagement_id == engagement.id,
+            Task.is_deleted == False
         ).scalar() or 0
-        
+
         pending_tasks_count = db.query(func.count(Task.id)).filter(
             Task.engagement_id == engagement.id,
-            Task.status == "pending"
+            Task.status == "pending",
+            Task.is_deleted == False
         ).scalar() or 0
-        
+
         notes_count = db.query(func.count(Note.id)).filter(
-            Note.engagement_id == engagement.id
+            Note.engagement_id == engagement.id,
+            Note.is_deleted == False
         ).scalar() or 0
         
         from app.models.media import diagnostic_media, Media
@@ -1307,12 +1314,15 @@ async def delete_engagement(
             detail="Only admins and firm admins can delete engagements."
         )
     
-    # Hard delete related work items tied to this engagement
-    db.query(Task).filter(Task.engagement_id == engagement_id).delete(synchronize_session=False)
-    db.query(Note).filter(Note.engagement_id == engagement_id).delete(synchronize_session=False)
-    db.query(Diagnostic).filter(Diagnostic.engagement_id == engagement_id).delete(synchronize_session=False)
+    # Soft delete all child records tied to this engagement
+    db.query(Task).filter(Task.engagement_id == engagement_id).update({"is_deleted": True}, synchronize_session=False)
+    db.query(Note).filter(Note.engagement_id == engagement_id).update({"is_deleted": True}, synchronize_session=False)
+    db.query(Diagnostic).filter(Diagnostic.engagement_id == engagement_id).update({"is_deleted": True}, synchronize_session=False)
+    db.query(BBA).filter(BBA.engagement_id == engagement_id).update({"is_deleted": True}, synchronize_session=False)
+    db.query(StrategyWorkbook).filter(StrategyWorkbook.engagement_id == engagement_id).update({"is_deleted": True}, synchronize_session=False)
+    db.query(StrategicBusinessPlan).filter(StrategicBusinessPlan.engagement_id == engagement_id).update({"is_deleted": True}, synchronize_session=False)
 
-    # Soft delete: mark engagement as deleted instead of removing the row
+    # Soft delete the engagement itself
     engagement.is_deleted = True
     db.commit()
 

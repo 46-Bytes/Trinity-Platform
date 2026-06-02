@@ -706,7 +706,8 @@ class FirmService:
             # Check if association already exists
             existing_association = self.db.query(AdvisorClient).filter(
                 AdvisorClient.advisor_id == primary_advisor_id,
-                AdvisorClient.client_id == client.id
+                AdvisorClient.client_id == client.id,
+                AdvisorClient.is_deleted == False
             ).first()
             
             if not existing_association:

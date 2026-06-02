@@ -96,7 +96,10 @@ async def create_from_diagnostic(
     report is stored as context for the workbook. Idempotent: if a workbook
     already exists for this diagnostic, returns the existing workbook.
     """
-    diagnostic = db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
+    diagnostic = db.query(Diagnostic).filter(
+        Diagnostic.id == diagnostic_id,
+        Diagnostic.is_deleted == False,
+    ).first()
     if not diagnostic:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Diagnostic not found")
     engagement = db.query(Engagement).filter(

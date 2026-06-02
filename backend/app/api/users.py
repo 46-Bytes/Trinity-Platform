@@ -17,6 +17,9 @@ from ..models.media import Media
 from ..models.engagement import Engagement
 from ..models.diagnostic import Diagnostic
 from ..models.impersonation import ImpersonationSession
+from ..models.conversation import Conversation
+from ..models.message import Message
+from ..models.adv_client import AdvisorClient
 from ..schemas.user import UserResponse, UserUpdate, UserDetailResponse, UserFileResponse, UserDiagnosticResponse, PaginatedUsersResponse
 from ..utils.auth import get_current_user
 from ..services.auth_service import AuthService
@@ -547,6 +550,17 @@ async def delete_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User {user_id} not found"
         )
+
+    # Cascade soft-delete to all conversations and their messages
+    conv_ids = [c.id for c in db.query(Conversation.id).filter(Conversation.user_id == user_id).all()]
+    db.query(Conversation).filter(Conversation.user_id == user_id).update({"is_deleted": True}, synchronize_session=False)
+    if conv_ids:
+        db.query(Message).filter(Message.conversation_id.in_(conv_ids)).update({"is_deleted": True}, synchronize_session=False)
+
+    # Cascade soft-delete to advisor-client associations
+    db.query(AdvisorClient).filter(
+        (AdvisorClient.advisor_id == user_id) | (AdvisorClient.client_id == user_id)
+    ).update({"is_deleted": True}, synchronize_session=False)
 
     user.is_deleted = True
     user.is_active = False

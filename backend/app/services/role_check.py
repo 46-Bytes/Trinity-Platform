@@ -58,6 +58,7 @@ def check_engagement_access(
                     AdvisorClient.advisor_id == user.id,
                     AdvisorClient.client_id == engagement.client_id,
                     AdvisorClient.status == "active",
+                    AdvisorClient.is_deleted == False,
                 )
                 .first()
                 is not None
@@ -66,7 +67,7 @@ def check_engagement_access(
                 return True
 
         return False
-    
+
     # Firm Advisor access
     if user.role == UserRole.FIRM_ADVISOR:
         if engagement.primary_advisor_id == user.id:
@@ -81,6 +82,7 @@ def check_engagement_access(
                     AdvisorClient.advisor_id == user.id,
                     AdvisorClient.client_id == engagement.client_id,
                     AdvisorClient.status == "active",
+                    AdvisorClient.is_deleted == False,
                 )
                 .first()
                 is not None

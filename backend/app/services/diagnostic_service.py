@@ -173,12 +173,13 @@ class DiagnosticService:
             Updated Diagnostic model
         """
         diagnostic = self.db.query(Diagnostic).filter(
-            Diagnostic.id == diagnostic_id
+            Diagnostic.id == diagnostic_id,
+            Diagnostic.is_deleted == False
         ).first()
-        
+
         if not diagnostic:
             raise ValueError(f"Diagnostic {diagnostic_id} not found")
-        
+
         # Merge responses (preserve existing responses)
         # Create a new dict to ensure SQLAlchemy detects the change
         current_responses = dict(diagnostic.user_responses or {})
@@ -234,12 +235,13 @@ class DiagnosticService:
             Processed Diagnostic model with all AI data
         """
         diagnostic = self.db.query(Diagnostic).filter(
-            Diagnostic.id == diagnostic_id
+            Diagnostic.id == diagnostic_id,
+            Diagnostic.is_deleted == False
         ).first()
-        
+
         if not diagnostic:
             raise ValueError(f"Diagnostic {diagnostic_id} not found")
-        
+
         if not diagnostic.user_responses:
             raise ValueError("Cannot submit diagnostic without responses")
         
@@ -1220,13 +1222,15 @@ class DiagnosticService:
     def get_diagnostic(self, diagnostic_id: UUID) -> Optional[Diagnostic]:
         """Get diagnostic by ID."""
         return self.db.query(Diagnostic).filter(
-            Diagnostic.id == diagnostic_id
+            Diagnostic.id == diagnostic_id,
+            Diagnostic.is_deleted == False
         ).first()
-    
+
     def get_engagement_diagnostics(self, engagement_id: UUID) -> list:
         """Get all diagnostics for an engagement."""
         return self.db.query(Diagnostic).filter(
-            Diagnostic.engagement_id == engagement_id
+            Diagnostic.engagement_id == engagement_id,
+            Diagnostic.is_deleted == False
         ).order_by(Diagnostic.created_at.desc()).all()
     
     # ==================== PHASE 5: HELPER METHODS ====================
@@ -1243,12 +1247,13 @@ class DiagnosticService:
             Updated Diagnostic model
         """
         diagnostic = self.db.query(Diagnostic).filter(
-            Diagnostic.id == diagnostic_id
+            Diagnostic.id == diagnostic_id,
+            Diagnostic.is_deleted == False
         ).first()
-        
+
         if not diagnostic:
             raise ValueError(f"Diagnostic {diagnostic_id} not found")
-        
+
         if diagnostic.status != "completed":
             raise ValueError("Can only regenerate reports for completed diagnostics")
         

@@ -1,7 +1,7 @@
 """
 Message model for chat messages in conversations
 """
-from sqlalchemy import Column, String, Text, DateTime, func, ForeignKey
+from sqlalchemy import Column, String, Text, DateTime, Boolean, func, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 import uuid
@@ -30,6 +30,9 @@ class Message(Base):
     response_data = Column(JSONB, nullable=True, comment="Raw GPT response data")
     message_metadata = Column(JSONB, nullable=True, comment="Additional metadata (tokens, model, etc.)")
     
+    # Soft delete
+    is_deleted = Column(Boolean, nullable=False, server_default='false', comment="Whether this record has been soft deleted")
+
     # Timestamps
     created_at = Column(DateTime, nullable=False, server_default=func.current_timestamp(), index=True)
     updated_at = Column(DateTime, nullable=False, server_default=func.current_timestamp(), onupdate=func.current_timestamp())

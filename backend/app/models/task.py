@@ -1,7 +1,7 @@
 """
 Task model for action items (manual or AI-generated)
 """
-from sqlalchemy import Column, String, Text, DateTime, Integer, Date, func, ForeignKey
+from sqlalchemy import Column, String, Text, DateTime, Integer, Date, Boolean, func, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import relationship
 import uuid
@@ -49,10 +49,13 @@ class Task(Base):
     due_date = Column(Date, nullable=True, index=True, comment="Task due date")
     completed_at = Column(DateTime, nullable=True, comment="When task was completed")
     
+    # Soft delete
+    is_deleted = Column(Boolean, nullable=False, server_default='false', comment="Whether this record has been soft deleted")
+
     # Timestamps
     created_at = Column(DateTime, nullable=False, server_default=func.current_timestamp())
     updated_at = Column(DateTime, nullable=False, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
-    
+
     # Relationships
     engagement = relationship("Engagement", back_populates="tasks")
     diagnostic = relationship("Diagnostic", back_populates="tasks")

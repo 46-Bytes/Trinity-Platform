@@ -120,8 +120,8 @@ async def list_notes(
     - Note visibility settings
     """
     # Build base query
-    query = db.query(Note)
-    
+    query = db.query(Note).filter(Note.is_deleted == False)
+
     # Filter by engagement if provided
     if engagement_id:
         # Verify engagement access
@@ -210,14 +210,14 @@ async def get_note(
     
     User must have access to the engagement and note visibility.
     """
-    note = db.query(Note).filter(Note.id == note_id).first()
-    
+    note = db.query(Note).filter(Note.id == note_id, Note.is_deleted == False).first()
+
     if not note:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Note not found."
         )
-    
+
     # Check engagement access
     engagement = db.query(Engagement).filter(Engagement.id == note.engagement_id).first()
     if not engagement:
@@ -225,20 +225,20 @@ async def get_note(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Engagement not found."
         )
-    
+
     if not check_engagement_access(engagement, current_user, db=db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to this engagement."
         )
-    
+
     # Check note visibility
     if not check_note_visibility(note, current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to view this note."
         )
-    
+
     return NoteResponse.model_validate(note)
 
 
@@ -253,7 +253,7 @@ async def mark_note_read(
 
     User must have access to the engagement and note visibility.
     """
-    note = db.query(Note).filter(Note.id == note_id).first()
+    note = db.query(Note).filter(Note.id == note_id, Note.is_deleted == False).first()
 
     if not note:
         raise HTTPException(
@@ -304,14 +304,14 @@ async def update_note(
     
     Only the author, advisors, or admins can update notes.
     """
-    note = db.query(Note).filter(Note.id == note_id).first()
-    
+    note = db.query(Note).filter(Note.id == note_id, Note.is_deleted == False).first()
+
     if not note:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Note not found."
         )
-    
+
     # Check engagement access
     engagement = db.query(Engagement).filter(Engagement.id == note.engagement_id).first()
     if not engagement:
@@ -319,13 +319,13 @@ async def update_note(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Engagement not found."
         )
-    
+
     if not check_engagement_access(engagement, current_user, db=db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to this engagement."
         )
-    
+
     # Check if user can update (author, advisor, or admin)
     # Author is the user who created the note (author_id == user_id)
     can_update = (
@@ -365,14 +365,14 @@ async def delete_note(
     
     Only the author, advisors, or admins can delete notes.
     """
-    note = db.query(Note).filter(Note.id == note_id).first()
-    
+    note = db.query(Note).filter(Note.id == note_id, Note.is_deleted == False).first()
+
     if not note:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Note not found."
         )
-    
+
     # Check engagement access
     engagement = db.query(Engagement).filter(Engagement.id == note.engagement_id).first()
     if not engagement:
@@ -380,13 +380,13 @@ async def delete_note(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Engagement not found."
         )
-    
+
     if not check_engagement_access(engagement, current_user, db=db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to this engagement."
         )
-    
+
     # Check if user can delete (author, advisor, or admin)
     # Author is the user who created the note (author_id == user_id)
     can_delete = (

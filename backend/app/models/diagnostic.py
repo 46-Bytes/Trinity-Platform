@@ -1,7 +1,7 @@
 """
 Diagnostic model for AI-powered business assessments
 """
-from sqlalchemy import Column, String, Text, DateTime, Integer, Numeric, func, ForeignKey
+from sqlalchemy import Column, String, Text, DateTime, Integer, Numeric, Boolean, func, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 import uuid
@@ -60,6 +60,9 @@ class Diagnostic(Base):
     # Celery task tracking
     celery_task_id = Column(String(255), nullable=True, comment="Celery task ID for cancellation/tracking")
     
+    # Soft delete
+    is_deleted = Column(Boolean, nullable=False, server_default='false', comment="Whether this record has been soft deleted")
+
     # Timestamps
     created_at = Column(DateTime, nullable=False, server_default=func.current_timestamp())
     started_at = Column(DateTime, nullable=True, comment="When user started filling it out")

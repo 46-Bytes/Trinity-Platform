@@ -73,7 +73,10 @@ class SBPService:
         return plan
 
     def create_plan_from_diagnostic(self, diagnostic_id: UUID, user_id: UUID, force_new: bool = False) -> StrategicBusinessPlan:
-        diagnostic = self.db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
+        diagnostic = self.db.query(Diagnostic).filter(
+            Diagnostic.id == diagnostic_id,
+            Diagnostic.is_deleted == False,
+        ).first()
         if not diagnostic:
             raise ValueError(f"Diagnostic {diagnostic_id} not found")
         if diagnostic.status != "completed":
@@ -116,18 +119,25 @@ class SBPService:
     # ------------------------------------------------------------------
 
     def get_plan(self, plan_id: UUID) -> Optional[StrategicBusinessPlan]:
-        return self.db.query(StrategicBusinessPlan).filter(StrategicBusinessPlan.id == plan_id).first()
+        return self.db.query(StrategicBusinessPlan).filter(
+            StrategicBusinessPlan.id == plan_id,
+            StrategicBusinessPlan.is_deleted == False,
+        ).first()
 
     def get_plan_by_diagnostic(self, diagnostic_id: UUID) -> Optional[StrategicBusinessPlan]:
         return (
             self.db.query(StrategicBusinessPlan)
-            .filter(StrategicBusinessPlan.diagnostic_id == diagnostic_id)
+            .filter(
+                StrategicBusinessPlan.diagnostic_id == diagnostic_id,
+                StrategicBusinessPlan.is_deleted == False,
+            )
             .first()
         )
 
     def get_plans_by_engagement(self, engagement_id: UUID, user_id: Optional[UUID] = None) -> List[StrategicBusinessPlan]:
         query = self.db.query(StrategicBusinessPlan).filter(
-            StrategicBusinessPlan.engagement_id == engagement_id
+            StrategicBusinessPlan.engagement_id == engagement_id,
+            StrategicBusinessPlan.is_deleted == False,
         )
         if user_id:
             query = query.filter(StrategicBusinessPlan.created_by_user_id == user_id)

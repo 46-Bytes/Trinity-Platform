@@ -154,7 +154,10 @@ async def list_plans(
     else:
         plans = (
             db.query(StrategicBusinessPlan)
-            .filter(StrategicBusinessPlan.created_by_user_id == current_user.id)
+            .filter(
+                StrategicBusinessPlan.created_by_user_id == current_user.id,
+                StrategicBusinessPlan.is_deleted == False,
+            )
             .order_by(StrategicBusinessPlan.updated_at.desc())
             .all()
         )

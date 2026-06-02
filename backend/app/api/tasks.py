@@ -235,8 +235,8 @@ async def list_tasks(
     Returns tasks based on user's access to engagements.
     """
     # Build base query
-    query = db.query(Task)
-    
+    query = db.query(Task).filter(Task.is_deleted == False)
+
     # Filter by engagement if provided
     if engagement_id:
         # Verify engagement access
@@ -346,6 +346,7 @@ async def list_tasks(
                 .filter(
                     Note.engagement_id == task.engagement_id,
                     Note.task_id == task.id,
+                    Note.is_deleted == False,
                 )
                 .all()
             )
@@ -381,14 +382,14 @@ async def get_task(
     
     User must have access to the engagement.
     """
-    task = db.query(Task).filter(Task.id == task_id).first()
-    
+    task = db.query(Task).filter(Task.id == task_id, Task.is_deleted == False).first()
+
     if not task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Task not found."
         )
-    
+
     # Check engagement access
     engagement = db.query(Engagement).filter(Engagement.id == task.engagement_id).first()
     if not engagement:
@@ -396,13 +397,13 @@ async def get_task(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Engagement not found."
         )
-    
+
     if not check_engagement_access(engagement, current_user, db=db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to this engagement."
         )
-    
+
     return TaskResponse.model_validate(task)
 
 
@@ -419,14 +420,14 @@ async def update_task(
     User must have access to the engagement.
     Only the creator, assigned user, advisors, or admins can update tasks.
     """
-    task = db.query(Task).filter(Task.id == task_id).first()
-    
+    task = db.query(Task).filter(Task.id == task_id, Task.is_deleted == False).first()
+
     if not task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Task not found."
         )
-    
+
     # Check engagement access
     engagement = db.query(Engagement).filter(Engagement.id == task.engagement_id).first()
     if not engagement:
@@ -434,13 +435,13 @@ async def update_task(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Engagement not found."
         )
-    
+
     if not check_engagement_access(engagement, current_user, db=db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to this engagement."
         )
-    
+
     # Check if user can update (creator, assigned user, advisor, or admin)
     can_update = False
     if current_user.role in [UserRole.SUPER_ADMIN, UserRole.ADMIN]:
@@ -515,14 +516,14 @@ async def delete_task(
     
     Only the creator, advisors, or admins can delete tasks.
     """
-    task = db.query(Task).filter(Task.id == task_id).first()
-    
+    task = db.query(Task).filter(Task.id == task_id, Task.is_deleted == False).first()
+
     if not task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Task not found."
         )
-    
+
     # Check engagement access
     engagement = db.query(Engagement).filter(Engagement.id == task.engagement_id).first()
     if not engagement:
@@ -530,13 +531,13 @@ async def delete_task(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Engagement not found."
         )
-    
+
     if not check_engagement_access(engagement, current_user, db=db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to this engagement."
         )
-    
+
     # Check if user can delete (creator, advisor, or admin)
     can_delete = False
     if current_user.role in [UserRole.SUPER_ADMIN, UserRole.ADMIN]:

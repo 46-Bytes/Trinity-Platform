@@ -58,7 +58,7 @@ class BBAService:
            preserving all step data so the user doesn't lose work.
         3. Otherwise create a brand-new BBA.
         """
-        diagnostic = self.db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
+        diagnostic = self.db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id, Diagnostic.is_deleted == False).first()
         if not diagnostic:
             raise ValueError(f"Diagnostic {diagnostic_id} not found")
         if diagnostic.status != "completed":
@@ -197,7 +197,7 @@ class BBAService:
         Returns:
             BBA object or None
         """
-        return self.db.query(BBA).filter(BBA.id == bba_id).first()
+        return self.db.query(BBA).filter(BBA.id == bba_id, BBA.is_deleted == False).first()
     
     def get_user_bba_projects(self, user_id: UUID) -> List[BBA]:
         """
@@ -210,7 +210,8 @@ class BBAService:
             List of BBA projects
         """
         return self.db.query(BBA).filter(
-            BBA.created_by_user_id == user_id
+            BBA.created_by_user_id == user_id,
+            BBA.is_deleted == False
         ).order_by(BBA.created_at.desc()).all()
     
     def get_bba_by_diagnostic(self, diagnostic_id: UUID) -> Optional[BBA]:
@@ -218,7 +219,8 @@ class BBAService:
         Get BBA project by diagnostic ID (when created from that diagnostic).
         """
         return self.db.query(BBA).filter(
-            BBA.diagnostic_id == diagnostic_id
+            BBA.diagnostic_id == diagnostic_id,
+            BBA.is_deleted == False
         ).order_by(BBA.created_at.desc()).first()
 
     def get_bbas_by_engagement(self, engagement_id: UUID, user_id: Optional[UUID] = None) -> List[BBA]:
@@ -229,7 +231,7 @@ class BBAService:
         When user_id is None, all projects for the engagement are returned (used by
         the engagement-wide generated-documents view).
         """
-        query = self.db.query(BBA).filter(BBA.engagement_id == engagement_id)
+        query = self.db.query(BBA).filter(BBA.engagement_id == engagement_id, BBA.is_deleted == False)
         if user_id:
             query = query.filter(BBA.created_by_user_id == user_id)
         return query.order_by(BBA.created_at.desc()).all()

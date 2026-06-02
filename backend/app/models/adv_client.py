@@ -1,7 +1,7 @@
 """
 Advisor-Client association model for many-to-many relationships.
 """
-from sqlalchemy import Column, String, DateTime, ForeignKey, func, UniqueConstraint
+from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, func, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
@@ -22,6 +22,7 @@ class AdvisorClient(Base):
     advisor_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'),nullable=False,index=True, comment="Foreign key to users table (advisor)") 
     client_id = Column(UUID(as_uuid=True),ForeignKey('users.id', ondelete='CASCADE'),nullable=False,index=True,comment="Foreign key to users table (client)")
     status = Column(String(50),nullable=False,server_default='active',index=True,comment="Association status: active, inactive, suspended")
+    is_deleted = Column(Boolean, nullable=False, server_default='false', comment="Whether this record has been soft deleted")
     created_at = Column( DateTime,nullable=False,server_default=func.current_timestamp(),comment="When the association was created" )
     updated_at = Column(DateTime,nullable=False,server_default=func.current_timestamp(),onupdate=func.current_timestamp(),comment="When the association was last updated")  
     __table_args__ = (UniqueConstraint('advisor_id', 'client_id', name='uq_advisor_client'),) 

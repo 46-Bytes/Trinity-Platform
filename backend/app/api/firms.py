@@ -752,14 +752,16 @@ async def get_firm_stats(
     diagnostics_count = db.query(func.count(Diagnostic.id)).join(
         Engagement
     ).filter(
-        Engagement.firm_id == firm_id
+        Engagement.firm_id == firm_id,
+        Diagnostic.is_deleted == False
     ).scalar() or 0
-    
+
     # Count tasks
     tasks_count = db.query(func.count(Task.id)).join(
         Engagement
     ).filter(
-        Engagement.firm_id == firm_id
+        Engagement.firm_id == firm_id,
+        Task.is_deleted == False
     ).scalar() or 0
     
     # Count total advisors (FIRM_ADVISOR only, NOT including Firm Admin)

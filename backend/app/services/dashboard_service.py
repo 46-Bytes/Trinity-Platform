@@ -149,27 +149,31 @@ def get_superadmin_dashboard_stats(db: Session) -> DashboardStatsResponse:
     ai_generations_current = db.query(func.count(Diagnostic.id)).filter(
         and_(
             Diagnostic.status == 'completed',
+            Diagnostic.is_deleted == False,
             Diagnostic.created_at >= current_month_start
         )
     ).scalar() or 0
-    
+
     # AI Generations - Last month
     ai_generations_last = db.query(func.count(Diagnostic.id)).filter(
         and_(
             Diagnostic.status == 'completed',
+            Diagnostic.is_deleted == False,
             Diagnostic.created_at >= last_month_start,
             Diagnostic.created_at <= last_month_end
         )
     ).scalar() or 0
-    
+
     # AI Generations - All time (total completed)
     ai_generations_all = db.query(func.count(Diagnostic.id)).filter(
-        Diagnostic.status == 'completed'
+        Diagnostic.status == 'completed',
+        Diagnostic.is_deleted == False
     ).scalar() or 0
-    
+
     # Query recent completed diagnostics
     recent_diagnostics = db.query(Diagnostic).filter(
         Diagnostic.status == 'completed',
+        Diagnostic.is_deleted == False,
         Diagnostic.completed_at.isnot(None)
     ).order_by(
         Diagnostic.completed_at.desc()
@@ -267,7 +271,8 @@ def get_client_dashboard_stats(db: Session, client_user_id: UUID) -> ClientDashb
 
     # Show all tasks in the client's engagements (mirrors /api/tasks behaviour)
     tasks_query = db.query(Task).filter(
-        Task.engagement_id.in_(engagement_ids)
+        Task.engagement_id.in_(engagement_ids),
+        Task.is_deleted == False
     )
     
     total_tasks = tasks_query.count()
@@ -310,7 +315,8 @@ def get_client_dashboard_stats(db: Session, client_user_id: UUID) -> ClientDashb
     
     # Get diagnostics from client's engagements
     total_diagnostics = db.query(Diagnostic).filter(
-        Diagnostic.engagement_id.in_(engagement_ids)
+        Diagnostic.engagement_id.in_(engagement_ids),
+        Diagnostic.is_deleted == False
     ).count()
     
     return ClientDashboardStatsResponse(
@@ -337,7 +343,8 @@ def get_firm_advisor_dashboard_stats(db: Session, firm_advisor_user_id: UUID) ->
     # Get active clients associated with this firm advisor through advisor_client table
     associations = db.query(AdvisorClient).filter(
         AdvisorClient.advisor_id == firm_advisor_user_id,
-        AdvisorClient.status == 'active'
+        AdvisorClient.status == 'active',
+        AdvisorClient.is_deleted == False
     ).all()
     
     active_clients = len(associations)
@@ -353,6 +360,7 @@ def get_firm_advisor_dashboard_stats(db: Session, firm_advisor_user_id: UUID) ->
     associated_client_ids_stmt = db.query(AdvisorClient.client_id).filter(
         AdvisorClient.advisor_id == firm_advisor_user_id,
         AdvisorClient.status == "active",
+        AdvisorClient.is_deleted == False,
     ).subquery()
 
     engagements_query = db.query(Engagement.id).filter(
@@ -380,7 +388,8 @@ def get_firm_advisor_dashboard_stats(db: Session, firm_advisor_user_id: UUID) ->
     if engagement_ids:
         # Get diagnostics from these engagements
         diagnostic_ids = db.query(Diagnostic.id).filter(
-            Diagnostic.engagement_id.in_(engagement_ids)
+            Diagnostic.engagement_id.in_(engagement_ids),
+            Diagnostic.is_deleted == False
         ).all()
         diagnostic_id_list = [d[0] for d in diagnostic_ids]
         
@@ -398,17 +407,19 @@ def get_firm_advisor_dashboard_stats(db: Session, firm_advisor_user_id: UUID) ->
     if engagement_ids:
         total_tasks = db.query(func.count(Task.id)).filter(
             Task.engagement_id.in_(engagement_ids),
+            Task.is_deleted == False,
             or_(
                 Task.assigned_to_user_id == firm_advisor_user_id,
                 Task.created_by_user_id == firm_advisor_user_id
             )
         ).scalar() or 0
-    
+
     # Get total diagnostics from firm_advisor's engagements
     total_diagnostics = 0
     if engagement_ids:
         total_diagnostics = db.query(func.count(Diagnostic.id)).filter(
-            Diagnostic.engagement_id.in_(engagement_ids)
+            Diagnostic.engagement_id.in_(engagement_ids),
+            Diagnostic.is_deleted == False
         ).scalar() or 0
     
     return FirmAdvisorDashboardStatsResponse(

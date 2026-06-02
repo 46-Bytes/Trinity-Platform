@@ -567,8 +567,8 @@ async def get_diagnostic_status(
             "error": "error message" | null
         }
     """
-    diagnostic = db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
-    
+    diagnostic = db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id, Diagnostic.is_deleted == False).first()
+
     if not diagnostic:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -779,13 +779,13 @@ async def update_diagnostic_tag(
             detail="Only advisors can tag documents"
         )
     
-    diagnostic = db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
+    diagnostic = db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id, Diagnostic.is_deleted == False).first()
     if not diagnostic:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Diagnostic not found"
         )
-    
+
     engagement = db.query(Engagement).filter(Engagement.id == diagnostic.engagement_id).first()
     if not engagement:
         raise HTTPException(
@@ -834,8 +834,8 @@ async def download_diagnostic_report(
         PDF file download
     """
     try:
-        diagnostic = db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
-        
+        diagnostic = db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id, Diagnostic.is_deleted == False).first()
+
         if not diagnostic:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

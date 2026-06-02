@@ -274,7 +274,7 @@ Return ONLY a JSON object with a "tasks" key containing the array of task rows.
     # -------------------------------------------------------------------------
 
     def _get_bba(self, bba_id: UUID) -> BBA:
-        bba = self.db.query(BBA).filter(BBA.id == bba_id).first()
+        bba = self.db.query(BBA).filter(BBA.id == bba_id, BBA.is_deleted == False).first()
         if not bba:
             raise ValueError(f"BBA project {bba_id} not found")
         return bba

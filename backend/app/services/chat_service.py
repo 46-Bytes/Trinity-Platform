@@ -89,7 +89,8 @@ class ChatService:
         # Find an existing conversation for this user and category
         query = self.db.query(Conversation).filter(
             Conversation.user_id == user_id,
-            Conversation.category == category
+            Conversation.category == category,
+            Conversation.is_deleted == False
         )
 
         if engagement_id:
@@ -101,7 +102,8 @@ class ChatService:
         if existing_conversation:
             if diagnostic_id:
                 diagnostic = self.db.query(Diagnostic).filter(
-                    Diagnostic.id == diagnostic_id
+                    Diagnostic.id == diagnostic_id,
+                    Diagnostic.is_deleted == False
                 ).first()
                 if diagnostic and not diagnostic.conversation_id:
                     diagnostic.conversation_id = existing_conversation.id
@@ -127,7 +129,8 @@ class ChatService:
         if diagnostic_id:
             logger.info(f"🔍 Linking diagnostic {diagnostic_id} to conversation {conversation.id}")
             diagnostic = self.db.query(Diagnostic).filter(
-                Diagnostic.id == diagnostic_id
+                Diagnostic.id == diagnostic_id,
+                Diagnostic.is_deleted == False
             ).first()
             if diagnostic:
                 diagnostic.conversation_id = conversation.id
@@ -166,7 +169,8 @@ class ChatService:
             List of Conversation models
         """
         conversations = self.db.query(Conversation).filter(
-            Conversation.user_id == user_id
+            Conversation.user_id == user_id,
+            Conversation.is_deleted == False
         ).order_by(Conversation.updated_at.desc()).all()
         
         return conversations
@@ -185,7 +189,8 @@ class ChatService:
         
         # First check if conversation exists at all
         conversation = self.db.query(Conversation).filter(
-            Conversation.id == conversation_id
+            Conversation.id == conversation_id,
+            Conversation.is_deleted == False
         ).first()
         
         if not conversation:
@@ -247,7 +252,8 @@ class ChatService:
         self.db.refresh(user_message)
         
         previous_messages = self.db.query(Message).filter(
-            Message.conversation_id == conversation_id
+            Message.conversation_id == conversation_id,
+            Message.is_deleted == False
         ).order_by(Message.created_at.asc()).limit(limit).all()
         
         messages = self._build_gpt_context(
@@ -315,7 +321,8 @@ class ChatService:
             return []
         
         query = self.db.query(Message).filter(
-            Message.conversation_id == conversation_id
+            Message.conversation_id == conversation_id,
+            Message.is_deleted == False
         ).order_by(Message.created_at.asc())
         
         if limit:
@@ -491,20 +498,23 @@ class ChatService:
         # First, try to find diagnostic linked to this conversation
         diagnostic = self.db.query(Diagnostic).filter(
             Diagnostic.conversation_id == conversation.id,
-            Diagnostic.status == "completed"
+            Diagnostic.status == "completed",
+            Diagnostic.is_deleted == False
         ).order_by(Diagnostic.completed_at.desc()).first()
-        
+
         if not diagnostic and engagement_id:
             diagnostic = self.db.query(Diagnostic).filter(
                 Diagnostic.engagement_id == engagement_id,
-                Diagnostic.status == "completed"
+                Diagnostic.status == "completed",
+                Diagnostic.is_deleted == False
             ).order_by(Diagnostic.completed_at.desc()).first()
-        
+
         # If still not found, try to find any completed diagnostic for this user
         if not diagnostic:
             diagnostic = self.db.query(Diagnostic).filter(
                 Diagnostic.created_by_user_id == conversation.user_id,
-                Diagnostic.status == "completed"
+                Diagnostic.status == "completed",
+                Diagnostic.is_deleted == False
             ).order_by(Diagnostic.completed_at.desc()).first()
         
         if not diagnostic:
@@ -723,12 +733,13 @@ class ChatService:
         """
         message = self.db.query(Message).filter(
             Message.id == message_id,
-            Message.role == "assistant"
+            Message.role == "assistant",
+            Message.is_deleted == False
         ).first()
-        
+
         if not message:
             raise ValueError(f"Assistant message {message_id} not found")
-        
+
         # Use GPT to extract task from message
         # This would call a task extraction prompt
         # For now, create a simple task from the message
@@ -769,12 +780,13 @@ class ChatService:
         """
         message = self.db.query(Message).filter(
             Message.id == message_id,
-            Message.role == "assistant"
+            Message.role == "assistant",
+            Message.is_deleted == False
         ).first()
-        
+
         if not message:
             raise ValueError(f"Assistant message {message_id} not found")
-        
+
         from app.models.note import Note
         
         note = Note(

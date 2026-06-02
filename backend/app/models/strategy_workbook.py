@@ -1,7 +1,7 @@
 """
 Strategy Workbook model for tracking workbook generation sessions
 """
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey, func
+from sqlalchemy import Column, String, Text, DateTime, Boolean, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
 from sqlalchemy.orm import relationship
 import uuid
@@ -47,9 +47,12 @@ class StrategyWorkbook(Base):
     # Metadata
     notes = Column(Text, nullable=True, comment="User notes or review comments")
     
+    # Soft delete
+    is_deleted = Column(Boolean, nullable=False, server_default='false', comment="Whether this record has been soft deleted")
+
     # Timestamps
     created_at = Column(DateTime, nullable=False, server_default=func.current_timestamp())
-    updated_at = Column(DateTime, nullable=False, server_default=func.current_timestamp(), 
+    updated_at = Column(DateTime, nullable=False, server_default=func.current_timestamp(),
                        onupdate=func.current_timestamp())
     completed_at = Column(DateTime, nullable=True, comment="When workbook generation completed")
     

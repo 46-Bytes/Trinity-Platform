@@ -1,7 +1,7 @@
 """
 Conversation model for chat sessions with Trinity AI
 """
-from sqlalchemy import Column, String, DateTime, func, ForeignKey
+from sqlalchemy import Column, String, DateTime, Boolean, func, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
@@ -27,6 +27,9 @@ class Conversation(Base):
                      comment="general, diagnostic, finance, legal, operations, etc.")
     title = Column(String(255), nullable=True, comment="Optional conversation title")
     
+    # Soft delete
+    is_deleted = Column(Boolean, nullable=False, server_default='false', comment="Whether this record has been soft deleted")
+
     # Timestamps
     created_at = Column(DateTime, nullable=False, server_default=func.current_timestamp())
     updated_at = Column(DateTime, nullable=False, server_default=func.current_timestamp(), onupdate=func.current_timestamp())

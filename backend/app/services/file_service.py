@@ -222,12 +222,13 @@ class FileService:
         from app.models.diagnostic import Diagnostic
         
         diagnostic = self.db.query(Diagnostic).filter(
-            Diagnostic.id == diagnostic_id
+            Diagnostic.id == diagnostic_id,
+            Diagnostic.is_deleted == False
         ).first()
-        
+
         if not diagnostic:
             return []
-        
+
         return list(diagnostic.media)
     
     def attach_file_to_diagnostic(
@@ -239,8 +240,11 @@ class FileService:
         from app.models.diagnostic import Diagnostic
         
         media = self.db.query(Media).filter(Media.id == media_id).first()
-        diagnostic = self.db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
-        
+        diagnostic = self.db.query(Diagnostic).filter(
+            Diagnostic.id == diagnostic_id,
+            Diagnostic.is_deleted == False
+        ).first()
+
         if not media or not diagnostic:
             return False
         

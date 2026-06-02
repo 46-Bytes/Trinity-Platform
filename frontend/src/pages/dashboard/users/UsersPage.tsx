@@ -402,7 +402,7 @@ export default function UsersPage() {
                                 Associate Client
                               </DropdownMenuItem>
                             )}
-                            {(user?.role === 'admin' || user?.role === 'super_admin') && u.id !== user?.id && (
+                            {user?.role === 'super_admin' && u.id !== user?.id && (
                               <DropdownMenuItem
                                 className="cursor-pointer text-destructive focus:text-destructive"
                                 onClick={(e) => {

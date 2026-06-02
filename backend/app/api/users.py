@@ -20,6 +20,11 @@ from ..models.impersonation import ImpersonationSession
 from ..models.conversation import Conversation
 from ..models.message import Message
 from ..models.adv_client import AdvisorClient
+from ..models.task import Task
+from ..models.note import Note
+from ..models.bba import BBA
+from ..models.strategy_workbook import StrategyWorkbook
+from ..models.strategic_business_plan import StrategicBusinessPlan
 from ..schemas.user import UserResponse, UserUpdate, UserDetailResponse, UserFileResponse, UserDiagnosticResponse, PaginatedUsersResponse
 from ..utils.auth import get_current_user
 from ..services.auth_service import AuthService
@@ -532,10 +537,10 @@ async def delete_user(
 
     Sets is_deleted=True and is_active=False so the user can no longer log in.
     """
-    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+    if current_user.role != UserRole.SUPER_ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can delete users"
+            detail="Only super_admin can delete users"
         )
 
     if user_id == current_user.id:
@@ -550,6 +555,25 @@ async def delete_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User {user_id} not found"
         )
+
+    # Cascade soft-delete to engagements where user is primary advisor or primary client
+    engagement_ids = [
+        e.id for e in db.query(Engagement.id).filter(
+            or_(
+                Engagement.primary_advisor_id == user_id,
+                Engagement.client_id == user_id,
+            ),
+            Engagement.is_deleted == False,
+        ).all()
+    ]
+    if engagement_ids:
+        db.query(Task).filter(Task.engagement_id.in_(engagement_ids)).update({"is_deleted": True}, synchronize_session=False)
+        db.query(Note).filter(Note.engagement_id.in_(engagement_ids)).update({"is_deleted": True}, synchronize_session=False)
+        db.query(Diagnostic).filter(Diagnostic.engagement_id.in_(engagement_ids)).update({"is_deleted": True}, synchronize_session=False)
+        db.query(BBA).filter(BBA.engagement_id.in_(engagement_ids)).update({"is_deleted": True}, synchronize_session=False)
+        db.query(StrategyWorkbook).filter(StrategyWorkbook.engagement_id.in_(engagement_ids)).update({"is_deleted": True}, synchronize_session=False)
+        db.query(StrategicBusinessPlan).filter(StrategicBusinessPlan.engagement_id.in_(engagement_ids)).update({"is_deleted": True}, synchronize_session=False)
+        db.query(Engagement).filter(Engagement.id.in_(engagement_ids)).update({"is_deleted": True}, synchronize_session=False)
 
     # Cascade soft-delete to all conversations and their messages
     conv_ids = [c.id for c in db.query(Conversation.id).filter(Conversation.user_id == user_id).all()]

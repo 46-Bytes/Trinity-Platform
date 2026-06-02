@@ -586,6 +586,12 @@ async def delete_user(
         (AdvisorClient.advisor_id == user_id) | (AdvisorClient.client_id == user_id)
     ).update({"is_deleted": True}, synchronize_session=False)
 
+    # Soft-delete Media records uploaded by this user
+    db.query(Media).filter(
+        Media.user_id == user_id,
+        Media.deleted_at.is_(None),
+    ).update({"deleted_at": datetime.utcnow(), "is_active": False}, synchronize_session=False)
+
     user.is_deleted = True
     user.is_active = False
     db.commit()

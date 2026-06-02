@@ -7,6 +7,8 @@ from sqlalchemy import or_, func, text, select
 from typing import List, Optional
 from uuid import UUID
 import logging
+import os
+from datetime import datetime, timezone
 
 from ..database import get_db
 from ..models.engagement import Engagement
@@ -21,6 +23,7 @@ from ..models.diagnostic import Diagnostic
 from ..models.bba import BBA
 from ..models.strategy_workbook import StrategyWorkbook
 from ..models.strategic_business_plan import StrategicBusinessPlan
+from ..models.media import Media, diagnostic_media
 from ..schemas.engagement import (
     EngagementCreate,
     EngagementUpdate,
@@ -1314,6 +1317,42 @@ async def delete_engagement(
             detail="Only admins and firm admins can delete engagements."
         )
     
+    # Delete generated files from disk before soft-deleting records
+    workbooks = db.query(StrategyWorkbook).filter(
+        StrategyWorkbook.engagement_id == engagement_id,
+        StrategyWorkbook.is_deleted == False,
+    ).all()
+    for wb in workbooks:
+        if wb.generated_workbook_path and os.path.exists(wb.generated_workbook_path):
+            os.remove(wb.generated_workbook_path)
+
+    sbps = db.query(StrategicBusinessPlan).filter(
+        StrategicBusinessPlan.engagement_id == engagement_id,
+        StrategicBusinessPlan.is_deleted == False,
+    ).all()
+    for sbp in sbps:
+        for path in [sbp.generated_report_path, sbp.generated_employee_report_path]:
+            if path and os.path.exists(path):
+                os.remove(path)
+
+    # Soft-delete Media records linked to this engagement's diagnostics
+    diagnostic_ids = [
+        d.id for d in db.query(Diagnostic.id).filter(
+            Diagnostic.engagement_id == engagement_id
+        ).all()
+    ]
+    if diagnostic_ids:
+        media_rows = db.execute(
+            text("SELECT media_id FROM diagnostic_media WHERE diagnostic_id = ANY(:ids)"),
+            {"ids": diagnostic_ids},
+        ).fetchall()
+        media_ids = [r[0] for r in media_rows]
+        if media_ids:
+            db.query(Media).filter(Media.id.in_(media_ids)).update(
+                {"deleted_at": datetime.now(timezone.utc), "is_active": False},
+                synchronize_session=False,
+            )
+
     # Soft delete all child records tied to this engagement
     db.query(Task).filter(Task.engagement_id == engagement_id).update({"is_deleted": True}, synchronize_session=False)
     db.query(Note).filter(Note.engagement_id == engagement_id).update({"is_deleted": True}, synchronize_session=False)

@@ -29,6 +29,7 @@ from ..schemas.user import UserResponse, UserUpdate, UserDetailResponse, UserFil
 from ..utils.auth import get_current_user
 from ..services.auth_service import AuthService
 from ..services.audit_service import AuditService
+from ..services.auth0_management import Auth0Management
 from ..config import settings
 
 import logging
@@ -210,8 +211,8 @@ async def create_user(
             detail=f"Invalid role: {user_data.role}. Must be one of: client, advisor, admin, super_admin, firm_admin, firm_advisor"
         )
     
-    # Check if user with this email already exists in local DB
-    existing_user = db.query(User).filter(User.email == user_data.email).first()
+    # Check if an active (non-deleted) user with this email already exists
+    existing_user = db.query(User).filter(User.email == user_data.email, User.is_deleted == False).first()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -594,6 +595,11 @@ async def delete_user(
 
     user.is_deleted = True
     user.is_active = False
+
+    # Delete from Auth0 before committing — if Auth0 deletion fails, local record stays unchanged
+    if user.auth0_id:
+        Auth0Management.delete_user(user.auth0_id)
+
     db.commit()
 
     return {"message": "User deleted successfully"}

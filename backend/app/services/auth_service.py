@@ -295,8 +295,8 @@ class AuthService:
         Raises:
             Exception: If user already exists or creation fails
         """
-        # Check if user already exists in local database
-        existing_user = db.query(User).filter(User.email == email).first()
+        # Check if an active (non-deleted) user with this email already exists
+        existing_user = db.query(User).filter(User.email == email, User.is_deleted == False).first()
         if existing_user:
             raise Exception(f"User with email {email} already exists in local database")
         

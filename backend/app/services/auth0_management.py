@@ -339,3 +339,33 @@ class Auth0Management:
             return response.json()
         except requests.exceptions.RequestException as e:
             raise Exception(f"Failed to update user role in Auth0: {e}")
+
+    @classmethod
+    def delete_user(cls, auth0_user_id: str) -> None:
+        """
+        Delete a user from Auth0 permanently.
+
+        Called during user deletion to free up the email address for re-registration.
+
+        Args:
+            auth0_user_id: Auth0 user ID (format: auth0|xxxxx)
+
+        Raises:
+            Exception: If deletion fails
+        """
+        token = cls.get_management_token()
+        url = f"https://{settings.AUTH0_DOMAIN}/api/v2/users/{auth0_user_id}"
+        headers = {"Authorization": f"Bearer {token}"}
+
+        try:
+            response = requests.delete(url, headers=headers)
+            response.raise_for_status()
+            logger.info(f"✅ Auth0 user {auth0_user_id} deleted successfully")
+        except requests.exceptions.RequestException as e:
+            detail = ""
+            if hasattr(e, "response") and e.response is not None:
+                try:
+                    detail = e.response.json().get("message", e.response.text)
+                except Exception:
+                    detail = e.response.text
+            raise Exception(f"Failed to delete Auth0 user {auth0_user_id}: {detail}")

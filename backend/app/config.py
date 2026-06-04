@@ -61,7 +61,13 @@ class Settings(BaseSettings):
     # File Uploads
     UPLOAD_DIR: str = "uploads"
 
-    # Email (Gmail SMTP)
+    # Email (Resend)
+    RESEND_API_KEY: str = ""
+    RESEND_FROM_EMAIL: str = "noreply@benchmarkbusinessadvisory.com.au"
+    RESEND_REPLY_TO: str = "benchmarkbusinessadvisoryau@gmail.com"
+    FROM_EMAIL: Optional[str] = None
+
+    # Email (Gmail SMTP — legacy, unused)
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
     SMTP_USERNAME: str = ""

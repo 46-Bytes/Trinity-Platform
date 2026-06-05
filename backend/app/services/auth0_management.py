@@ -196,9 +196,10 @@ class Auth0Management:
                     user_name=user_name
                 )
             except Exception as email_error:
-                # Log the error but don't fail user creation
-                # The user exists in Auth0, they just need to request password reset manually
-                raise
+                logger.warning(
+                    f"⚠️ Failed to send setup email to {email}: {email_error}. "
+                    "User created in Auth0 — they can use 'Forgot Password' to set their password."
+                )
             
             return user
             

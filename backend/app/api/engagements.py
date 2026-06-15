@@ -1022,6 +1022,15 @@ def get_eligible_clients_for_user(current_user: User, db: Session) -> List[UUID]
     - firm_admin: Only clients inside the firm (with matching firm_id)
     - firm_advisor: Associated clients with matching firm_id
     """
+    if current_user.role == UserRole.SUPER_ADMIN:
+        # Super admin can add any active client
+        clients = db.query(User).filter(
+            User.role == UserRole.CLIENT,
+            User.is_active == True,
+            User.is_deleted == False
+        ).all()
+        return [client.id for client in clients]
+
     if current_user.role == UserRole.ADMIN:
         # Admin can add existing clients (without firm_id)
         clients = db.query(User).filter(

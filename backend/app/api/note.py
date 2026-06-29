@@ -26,22 +26,25 @@ router = APIRouter(prefix="/api/notes", tags=["notes"])
 def check_note_visibility(note: Note, user: User) -> bool:
     """
     Check if user can view a note based on visibility settings.
-    
+
     Rules:
     - 'all': Everyone with engagement access can see
-    - 'advisor_only': Only advisors and admins can see
-    - 'client_only': Only clients and admins can see
+    - 'advisor_only': Advisors, firm advisors, firm admins, and admins can see
+    - 'client_only': Clients and admins can see
     """
-    if user.role in [UserRole.SUPER_ADMIN, UserRole.ADMIN]:
+    admin_roles = {UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.FIRM_ADMIN}
+    advisor_roles = {UserRole.ADVISOR, UserRole.FIRM_ADVISOR, UserRole.FIRM_ADMIN}
+
+    if user.role in admin_roles:
         return True
-    
+
     if note.visibility == "all":
         return True
     elif note.visibility == "advisor_only":
-        return user.role == UserRole.ADVISOR
+        return user.role in advisor_roles
     elif note.visibility == "client_only":
         return user.role == UserRole.CLIENT
-    
+
     return False
 
 

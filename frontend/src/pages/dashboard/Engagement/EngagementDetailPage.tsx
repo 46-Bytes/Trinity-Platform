@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, StickyNote } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from '@/components/ui/button';
 import { ToolSurvey } from '@/components/engagement/tools/ToolSurvey';
@@ -9,6 +9,7 @@ import { EngagementChatbot } from '@/components/engagement/chatbot';
 import { GeneratedFilesList } from '@/components/engagement/overview';
 import type { GeneratedFileProps } from '@/components/engagement/overview';
 import { TasksList } from '@/components/engagement/tasks';
+import { EngagementNotesPanel } from '@/components/engagement/notes';
 import { toast } from 'sonner';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { useAuth } from '@/context/AuthContext';
@@ -37,6 +38,7 @@ export default function EngagementDetailPage() {
   const [toolDocuments, setToolDocuments] = useState<any[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [notesOpen, setNotesOpen] = useState(false);
   const [engagement, setEngagement] = useState<{ client_name?: string; tool?: string } | null>(null);
   const [isLoadingEngagement, setIsLoadingEngagement] = useState(false);
   const fetchInFlightRef = useRef(false);
@@ -699,15 +701,26 @@ export default function EngagementDetailPage() {
 
   return (
     <div className="w-full mx-auto px-0 sm:px-1 md:px-3 lg:px-6 py-2 sm:py-3 md:py-6" style={{ width: '100%', boxSizing: 'border-box', maxWidth: '100vw', overflowX: 'clip', paddingLeft: 'clamp(0px, 1vw, 24px)', paddingRight: 'clamp(0px, 1vw, 24px)' }}>
-      <div className="mb-4 sm:mb-6" style={{ width: '100%', maxWidth: '100%' }}>
-        <h1 className="text-2xl sm:text-3xl font-bold break-words" style={{ maxWidth: '100%' }}>
-          {isLoadingEngagement ? 'Loading...' : (engagement?.client_name || 'Engagement Details')}
-        </h1>
-        <p className="text-muted-foreground mt-1 break-words" style={{ maxWidth: '100%' }}>Manage your client engagement</p>
+      <div className="mb-4 sm:mb-6 flex items-start justify-between gap-4" style={{ width: '100%', maxWidth: '100%' }}>
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold break-words" style={{ maxWidth: '100%' }}>
+            {isLoadingEngagement ? 'Loading...' : (engagement?.client_name || 'Engagement Details')}
+          </h1>
+          <p className="text-muted-foreground mt-1 break-words" style={{ maxWidth: '100%' }}>Manage your client engagement</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setNotesOpen(true)}
+          className="flex items-center gap-2 flex-shrink-0 mt-1"
+        >
+          <StickyNote className="h-4 w-4" />
+          Notes
+        </Button>
       </div>
       
       <Tabs defaultValue="overview" className="w-full min-w-0">
-        <div className="flex items-center gap-4 mb-4 flex-wrap">
+        <div className="flex items-center gap-4 mb-4">
           <Button
             variant="ghost"
             size="sm"
@@ -807,6 +820,12 @@ export default function EngagementDetailPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <EngagementNotesPanel
+        engagementId={engagementId}
+        open={notesOpen}
+        onOpenChange={setNotesOpen}
+      />
     </div>
   );
 }

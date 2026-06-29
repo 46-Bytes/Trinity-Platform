@@ -46,6 +46,8 @@ export interface NoteUpdatePayload {
 
 interface NoteState {
   notes: Note[];
+  engagementNotes: Note[];
+  isLoadingEngagementNotes: boolean;
   selectedNote: Note | null;
   isLoading: boolean;
   error: string | null;
@@ -207,7 +209,7 @@ export const updateNote = createAsyncThunk(
       if (updates.attachments !== undefined) backendUpdates.attachments = updates.attachments;
 
       const response = await fetch(`${API_BASE_URL}/api/notes/${id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -286,9 +288,45 @@ export const markNoteRead = createAsyncThunk(
   }
 );
 
+export const fetchEngagementNotes = createAsyncThunk(
+  'note/fetchEngagementNotes',
+  async (params: { engagementId: string; skip?: number; limit?: number }, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('No authentication token found');
+
+      const queryParams = new URLSearchParams();
+      queryParams.append('engagement_id', params.engagementId);
+      if (params.skip !== undefined) queryParams.append('skip', params.skip.toString());
+      if (params.limit !== undefined) queryParams.append('limit', params.limit.toString());
+
+      const response = await fetch(`${API_BASE_URL}/api/notes?${queryParams.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to fetch notes' }));
+        throw new Error(errorData.detail || `HTTP ${response.status}: Failed to fetch notes`);
+      }
+
+      const data = await response.json();
+      const notes: Note[] = (Array.isArray(data) ? data : []).map(mapBackendNoteToFrontend);
+      // Return only engagement-level notes (not tied to any task)
+      return notes.filter((n) => !n.taskId);
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to fetch engagement notes');
+    }
+  }
+);
+
 // Initial state
 const initialState: NoteState = {
   notes: [],
+  engagementNotes: [],
+  isLoadingEngagementNotes: false,
   selectedNote: null,
   isLoading: false,
   error: null,
@@ -311,6 +349,9 @@ const noteSlice = createSlice({
     },
     clearError: (state) => {
       state.error = null;
+    },
+    clearEngagementNotes: (state) => {
+      state.engagementNotes = [];
     },
   },
   extraReducers: (builder) => {
@@ -385,10 +426,21 @@ const noteSlice = createSlice({
         if (state.selectedNote?.id === updatedNote.id) {
           state.selectedNote = updatedNote;
         }
+      })
+      // Fetch engagement-level notes
+      .addCase(fetchEngagementNotes.pending, (state) => {
+        state.isLoadingEngagementNotes = true;
+      })
+      .addCase(fetchEngagementNotes.fulfilled, (state, action) => {
+        state.isLoadingEngagementNotes = false;
+        state.engagementNotes = action.payload;
+      })
+      .addCase(fetchEngagementNotes.rejected, (state) => {
+        state.isLoadingEngagementNotes = false;
       });
   },
 });
 
-export const { setSelectedNote, setFilters, clearFilters, clearError } = noteSlice.actions;
+export const { setSelectedNote, setFilters, clearFilters, clearError, clearEngagementNotes } = noteSlice.actions;
 export default noteSlice.reducer;
 

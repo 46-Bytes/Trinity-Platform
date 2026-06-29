@@ -155,11 +155,6 @@ export function NotesList({ engagementId, taskId, onAddNote }: NotesListProps) {
                         >
                           {note.noteType.replace('_', ' ')}
                         </Badge>
-                        {note.visibility !== 'all' && (
-                          <Badge variant="secondary" className="text-xs">
-                            {note.visibility.replace('_', ' ')}
-                          </Badge>
-                        )}
                       </div>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
                         {note.authorName && (

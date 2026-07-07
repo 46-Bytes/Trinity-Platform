@@ -38,6 +38,7 @@ import SubscriptionsPage from "./pages/dashboard/Subscriptions";
 import FileUploadPOCPage from "./pages/poc/FileUploadPOCPage";
 import StrategyWorkbookPage from "./pages/dashboard/StrategyWorkbookPage";
 import StrategicBusinessPlanPage from "./pages/dashboard/StrategicBusinessPlanPage";
+import AIPrivacyPage from "./pages/dashboard/AIPrivacyPage";
 
 const queryClient = new QueryClient();
 
@@ -95,6 +96,7 @@ function AppRoutes() {
           <Route path="subscription" element={<FirmDetailsSubscription />} />
         </Route>
         <Route path="subscriptions" element={<SubscriptionsPage />} />
+        <Route path="ai-privacy" element={<AIPrivacyPage />} />
         {/* Placeholder routes */}
         <Route path="chat" element={<DashboardHome />} />
         <Route path="analytics" element={<DashboardHome />} />

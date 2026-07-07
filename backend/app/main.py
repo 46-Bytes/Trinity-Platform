@@ -21,6 +21,7 @@ from .api.subscriptions import router as subscriptions_router
 from .api.dashboard import router as dashboard_router
 from .api.strategy_workbook import router as strategy_workbook_router
 from .api.strategic_business_plan import router as sbp_router
+from .api.ai_field_privacy import router as ai_field_privacy_router
 
 # from .services.openai_service import OpenAIService  # Preserved for rollback
 from .services.claude_service import ClaudeService
@@ -95,6 +96,7 @@ app.include_router(subscriptions_router)
 app.include_router(dashboard_router)
 app.include_router(strategy_workbook_router, prefix="/api")
 app.include_router(sbp_router, prefix="/api")
+app.include_router(ai_field_privacy_router)
 
 # Mount static files directory for serving uploaded files
 # This allows /files/... URLs to be served directly

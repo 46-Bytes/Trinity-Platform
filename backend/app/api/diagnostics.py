@@ -34,7 +34,7 @@ from app.services.document_template_service import get_document_template_service
 from app.services.role_check import check_engagement_access
 from app.utils.file_loader import load_diagnostic_questions
 from app.utils.auth import get_current_user
-from app.utils.diagnostic_utils import get_admin_role_if_applicable, enrich_diagnostic_with_roles, filter_diagnostic_report_for_user
+from app.utils.diagnostic_utils import get_admin_role_if_applicable, enrich_diagnostic_with_roles, filter_diagnostic_report_for_user, get_ai_excluded_fields, strip_excluded_fields
 from app.models.user import User, UserRole
 from app.models.diagnostic import Diagnostic
 from app.models.engagement import Engagement
@@ -896,12 +896,13 @@ async def download_diagnostic_report(
         if not report_user:
             report_user = current_user
 
+        engagement_obj = db.query(Engagement).filter(
+            Engagement.id == diagnostic.engagement_id
+        ).first()
+
         # Look up lead advisor name for cover page
         advisor_name = ""
         try:
-            engagement_obj = db.query(Engagement).filter(
-                Engagement.id == diagnostic.engagement_id
-            ).first()
             if engagement_obj and engagement_obj.primary_advisor_id:
                 advisor_user = db.query(User).filter(
                     User.id == engagement_obj.primary_advisor_id
@@ -911,12 +912,27 @@ async def download_diagnostic_report(
         except Exception:
             advisor_name = ""
 
+        # Apply AI field privacy — strip fields flagged include_in_ai=False from the
+        # exported report so it matches what the pipeline withholds from Claude. The
+        # stored diagnostic.user_responses is left untouched (the app UI still shows them).
+        # Errors here propagate to the outer handler (500) rather than leaking excluded data.
+        excluded_fields = get_ai_excluded_fields(
+            db, getattr(engagement_obj, "tool", None) if engagement_obj else None
+        )
+        report_responses = strip_excluded_fields(diagnostic.user_responses or {}, excluded_fields)
+        if excluded_fields:
+            logger.info(
+                "AI privacy: excluding %d field(s) from PDF report for diagnostic %s",
+                len(excluded_fields), diagnostic_id,
+            )
+
         pdf_bytes = ReportService.generate_pdf_report(
             diagnostic=diagnostic,
             user=report_user,
             question_text_map=question_text_map,
             structured_question_map=structured_question_map,
-            advisor_name=advisor_name
+            advisor_name=advisor_name,
+            user_responses_override=report_responses
         )
         
         filename = ReportService.get_download_filename(diagnostic, report_user)
@@ -1017,12 +1033,28 @@ async def generate_document_from_template(
     try:
         # Get template service
         template_service = get_document_template_service()
-        
+
+        # Apply AI field privacy — strip fields flagged include_in_ai=False so the
+        # generated document matches what the pipeline withholds from Claude. The stored
+        # diagnostic.user_responses is left untouched (the app UI still shows them).
+        engagement_obj = db.query(Engagement).filter(
+            Engagement.id == diagnostic.engagement_id
+        ).first()
+        excluded_fields = get_ai_excluded_fields(
+            db, getattr(engagement_obj, "tool", None) if engagement_obj else None
+        )
+        document_responses = strip_excluded_fields(diagnostic.user_responses, excluded_fields)
+        if excluded_fields:
+            logger.info(
+                "AI privacy: excluding %d field(s) from generated document for diagnostic %s",
+                len(excluded_fields), diagnostic_id,
+            )
+
         # Generate document
         document_bytes = template_service.generate_document(
             db=db,
             template_name=request.template_name,
-            user_responses=diagnostic.user_responses
+            user_responses=document_responses
         )
         
         # Generate filename

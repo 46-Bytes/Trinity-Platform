@@ -1,11 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchNotes, deleteNote, type Note, markNoteRead } from '@/store/slices/notesReducer';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Trash2, Pin, User, Calendar } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { NoteCard } from '@/components/engagement/notes/NoteCard';
 import { useAuth } from '@/context/AuthContext';
 
 interface NotesListProps {
@@ -61,31 +59,6 @@ export function NotesList({ engagementId, taskId, onAddNote }: NotesListProps) {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const getNoteTypeColor = (type: string) => {
-    switch (type) {
-      case 'meeting':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case 'observation':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      case 'decision':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'progress_update':
-        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-    }
-  };
-
   // Sort notes: pinned first, then by creation date
   const sortedNotes = [...notes].sort((a, b) => {
     if (a.isPinned && !b.isPinned) return -1;
@@ -133,65 +106,12 @@ export function NotesList({ engagementId, taskId, onAddNote }: NotesListProps) {
                 !!user && (!note.readBy || !note.readBy.includes(user.id));
 
               return (
-                <Card
+                <NoteCard
                   key={note.id}
-                  className={`${
-                    note.isPinned ? 'border-primary' : ''
-                  } ${isUnreadForCurrentUser ? 'bg-muted/60' : ''}`}
-                >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        {note.isPinned && (
-                          <Pin className="h-4 w-4 text-primary" />
-                        )}
-                        <CardTitle className="text-base">
-                          {note.title || 'Untitled Note'}
-                        </CardTitle>
-                        <Badge
-                          variant="outline"
-                          className={getNoteTypeColor(note.noteType)}
-                        >
-                          {note.noteType.replace('_', ' ')}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
-                        {note.authorName && (
-                          <span className="flex items-center gap-1">
-                            <User className="h-3 w-3" />
-                            {note.authorName}
-                          </span>
-                        )}
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {formatDate(note.createdAt)}
-                        </span>
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteNote(note.id)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <p className="text-sm whitespace-pre-wrap">{note.content}</p>
-                  {note.tags && note.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-3">
-                      {note.tags.map((tag, index) => (
-                        <Badge key={index} variant="outline" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                  note={note}
+                  unread={isUnreadForCurrentUser}
+                  onDelete={() => handleDeleteNote(note.id)}
+                />
               );
             })}
           </div>

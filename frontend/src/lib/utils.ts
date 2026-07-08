@@ -71,3 +71,15 @@ export function formatRoleForDisplay(role: string | null | undefined): string {
   if (!role) return '';
   return capitalizeFirstLetter(role);
 }
+
+/**
+ * Gets initials from a full name (e.g. "Saadullah Khan" -> "SK").
+ * @param name - The full name to derive initials from
+ * @returns Up to 2 uppercase initials, or "?" if no name is given
+ */
+export function getInitials(name?: string | null): string {
+  const words = name?.trim().split(/\s+/).filter(Boolean) ?? [];
+  if (words.length === 0) return '?';
+  const initials = words.length === 1 ? words[0].slice(0, 2) : words[0][0] + words[1][0];
+  return initials.toUpperCase();
+}

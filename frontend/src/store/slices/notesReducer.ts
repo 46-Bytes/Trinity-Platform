@@ -1,6 +1,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 
 // Types
+export type NoteType = 'general' | 'follow_up' | 'issue' | 'decision';
+
 export interface Note {
   id: string;
   engagementId: string;
@@ -11,7 +13,8 @@ export interface Note {
   authorName?: string;
   title?: string;
   content: string;
-  noteType: 'general' | 'meeting' | 'observation' | 'decision' | 'progress_update';
+  // Free-text on the backend, so older/foreign values (e.g. 'meeting', 'chat_generated') can appear here.
+  noteType: string;
   isPinned: boolean;
   visibility: 'all' | 'advisor_only' | 'client_only';
   tags?: string[];
@@ -27,7 +30,7 @@ export interface NoteCreatePayload {
   diagnosticId?: string;
   title?: string;
   content: string;
-  noteType?: 'general' | 'meeting' | 'observation' | 'decision' | 'progress_update';
+  noteType?: NoteType;
   isPinned?: boolean;
   visibility?: 'all' | 'advisor_only' | 'client_only';
   tags?: string[];
@@ -37,7 +40,7 @@ export interface NoteCreatePayload {
 export interface NoteUpdatePayload {
   title?: string;
   content?: string;
-  noteType?: 'general' | 'meeting' | 'observation' | 'decision' | 'progress_update';
+  noteType?: NoteType;
   isPinned?: boolean;
   visibility?: 'all' | 'advisor_only' | 'client_only';
   tags?: string[];

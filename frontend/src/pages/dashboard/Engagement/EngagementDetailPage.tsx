@@ -9,7 +9,7 @@ import { EngagementChatbot } from '@/components/engagement/chatbot';
 import { GeneratedFilesList } from '@/components/engagement/overview';
 import type { GeneratedFileProps } from '@/components/engagement/overview';
 import { TasksList } from '@/components/engagement/tasks';
-import { EngagementNotesPanel } from '@/components/engagement/notes';
+import { EngagementNotesModal } from '@/components/engagement/notes';
 import { toast } from 'sonner';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { useAuth } from '@/context/AuthContext';
@@ -709,10 +709,9 @@ export default function EngagementDetailPage() {
           <p className="text-muted-foreground mt-1 break-words" style={{ maxWidth: '100%' }}>Manage your client engagement</p>
         </div>
         <Button
-          variant="outline"
           size="sm"
           onClick={() => setNotesOpen(true)}
-          className="flex items-center gap-2 flex-shrink-0 mt-1"
+          className="flex items-center gap-2 flex-shrink-0 mt-1 bg-accent text-accent-foreground hover:bg-accent/90"
         >
           <StickyNote className="h-4 w-4" />
           Notes
@@ -821,8 +820,9 @@ export default function EngagementDetailPage() {
         </TabsContent>
       </Tabs>
 
-      <EngagementNotesPanel
+      <EngagementNotesModal
         engagementId={engagementId}
+        engagementName={engagement?.client_name}
         open={notesOpen}
         onOpenChange={setNotesOpen}
       />

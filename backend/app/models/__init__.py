@@ -17,6 +17,7 @@ from .firm import Firm
 from .strategy_workbook import StrategyWorkbook
 from .document_template import DocumentTemplate
 from .strategic_business_plan import StrategicBusinessPlan
+from .ai_field_privacy import AIFieldPrivacy
 
 __all__ = [
     "User",
@@ -35,6 +36,7 @@ __all__ = [
     "StrategyWorkbook",
     "DocumentTemplate",
     "StrategicBusinessPlan",
+    "AIFieldPrivacy",
 ]
 
 

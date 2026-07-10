@@ -10,6 +10,7 @@ import { GeneratedFilesList } from '@/components/engagement/overview';
 import type { GeneratedFileProps } from '@/components/engagement/overview';
 import { TasksList } from '@/components/engagement/tasks';
 import { EngagementNotesModal } from '@/components/engagement/notes';
+import { ProgramGuideTab } from '@/components/engagement/program-guide/ProgramGuideTab';
 import { toast } from 'sonner';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { useAuth } from '@/context/AuthContext';
@@ -718,7 +719,7 @@ export default function EngagementDetailPage() {
         </Button>
       </div>
       
-      <Tabs defaultValue="overview" className="w-full min-w-0">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full min-w-0">
         <div className="flex items-center gap-4 mb-4">
           <Button
             variant="ghost"
@@ -729,10 +730,13 @@ export default function EngagementDetailPage() {
             <ArrowLeft className="h-4 w-4" />
             Back
           </Button>
-          <TabsList className="grid w-fit grid-cols-5">
+          <TabsList className={engagement?.tool === 'value_builder' ? 'grid w-fit grid-cols-6' : 'grid w-fit grid-cols-5'}>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
             <TabsTrigger value="diagnostic">Diagnostic</TabsTrigger>
+            {engagement?.tool === 'value_builder' && (
+              <TabsTrigger value="program-guide">Program Guide</TabsTrigger>
+            )}
             <TabsTrigger value="tools">Tools</TabsTrigger>
             <TabsTrigger value="chatbot">Chat Bot</TabsTrigger>
           </TabsList>
@@ -800,6 +804,19 @@ export default function EngagementDetailPage() {
             <ToolSurvey engagementId={engagementId} toolType="diagnostic" engagementType={engagement?.tool} />
           </div>
         </TabsContent>
+
+        {engagement?.tool === 'value_builder' && (
+          <TabsContent value="program-guide" className="mt-6">
+            <ProgramGuideTab
+              engagementId={engagementId!}
+              diagnostics={diagnostics}
+              currentUserId={user?.id}
+              isAdmin={isAdmin}
+              canReorder={isAdmin || isAdvisor}
+              onNavigateToDiagnostic={() => setActiveTab('diagnostic')}
+            />
+          </TabsContent>
+        )}
 
         <TabsContent value="tools" className="mt-6">
           <div className="card-trinity p-6">

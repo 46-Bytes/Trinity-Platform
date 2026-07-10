@@ -1,0 +1,218 @@
+[
+  {
+    "program_type": "value_builder",
+    "module_code": "M0",
+    "display_order": 0,
+    "title": "Diagnostic Gateway",
+    "purpose": "PLACEHOLDER: Complete the Value Builder diagnostic so Trinity can generate your report, recommendations, and a personalised starting point and module path.",
+    "preparation_checklist": [
+      { "key": "gather-key-documents", "text": "PLACEHOLDER: Gather key financial and operational documents" }
+    ],
+    "recommended_tools": [
+      { "tool_key": "diagnostic", "label": "Value Builder Diagnostic" }
+    ],
+    "deliverables": [
+      "PLACEHOLDER: Diagnostic Report & Recommendations"
+    ]
+  },
+  {
+    "program_type": "value_builder",
+    "module_code": "V1",
+    "display_order": 1,
+    "title": "Financial",
+    "purpose": "PLACEHOLDER: Build the financial foundation for the rest of the program. Give the owner clarity on performance, surface margin leaks and pricing issues, and set a simple financial rhythm.",
+    "preparation_checklist": [
+      { "key": "load-financials", "text": "PLACEHOLDER: Load financials into Trinity (P&L, balance sheet, revenue) or connect Xero" },
+      { "key": "generate-financial-health-summary", "text": "PLACEHOLDER: Generate the Financial Health Summary via the AI tool" },
+      { "key": "run-pricing-review", "text": "PLACEHOLDER: Run the Pricing Review prompt" },
+      { "key": "note-improvement-levers", "text": "PLACEHOLDER: Note 3 to 5 improvement levers to explore" }
+    ],
+    "recommended_tools": [
+      { "tool_key": "bba", "label": "Recommendations Report Builder" }
+    ],
+    "deliverables": [
+      "PLACEHOLDER: Financial Health Summary",
+      "PLACEHOLDER: Pricing Review & Recommendations",
+      "PLACEHOLDER: Margin Improvement Plan",
+      "PLACEHOLDER: Financial Rhythm & Reporting Plan"
+    ]
+  },
+  {
+    "program_type": "value_builder",
+    "module_code": "V2",
+    "display_order": 2,
+    "title": "Strategy & Planning",
+    "purpose": "PLACEHOLDER: Carry the owner's own leadership and vision into a clear, actionable strategic plan.",
+    "preparation_checklist": [
+      { "key": "review-vision", "text": "PLACEHOLDER: Review the owner's vision and priorities for the business" }
+    ],
+    "recommended_tools": [
+      { "tool_key": "strategy_workbook", "label": "Strategy Workbook Creator" },
+      { "tool_key": "strategic_business_plan", "label": "Strategic Business Plan" }
+    ],
+    "deliverables": [
+      "PLACEHOLDER: Strategy Workbook",
+      "PLACEHOLDER: Strategic Business Plan"
+    ]
+  },
+  {
+    "program_type": "value_builder",
+    "module_code": "V3",
+    "display_order": 3,
+    "title": "Leadership & Communications",
+    "purpose": "PLACEHOLDER: Strengthen how the owner leads and communicates through the business.",
+    "preparation_checklist": [
+      { "key": "review-comms", "text": "PLACEHOLDER: Review current leadership communication rhythms" }
+    ],
+    "recommended_tools": [
+      { "tool_key": "bba", "label": "Recommendations Report Builder" }
+    ],
+    "deliverables": [
+      "PLACEHOLDER: Leadership & Communications Plan"
+    ]
+  },
+  {
+    "program_type": "value_builder",
+    "module_code": "V4",
+    "display_order": 4,
+    "title": "People",
+    "purpose": "PLACEHOLDER: Build a people module that works whether or not the owner has a team.",
+    "preparation_checklist": [
+      { "key": "review-org", "text": "PLACEHOLDER: Review current team structure, if any" }
+    ],
+    "recommended_tools": [
+      { "tool_key": "bba", "label": "Recommendations Report Builder" }
+    ],
+    "deliverables": [
+      "PLACEHOLDER: People Plan"
+    ]
+  },
+  {
+    "program_type": "value_builder",
+    "module_code": "V5",
+    "display_order": 5,
+    "title": "Systems & Processes",
+    "purpose": "PLACEHOLDER: Document and improve the systems and processes that keep the business running.",
+    "preparation_checklist": [
+      { "key": "list-core-processes", "text": "PLACEHOLDER: List the business's core operating processes" }
+    ],
+    "recommended_tools": [
+      { "tool_key": "bba", "label": "Recommendations Report Builder" }
+    ],
+    "deliverables": [
+      "PLACEHOLDER: Systems & Processes Plan"
+    ]
+  },
+  {
+    "program_type": "value_builder",
+    "module_code": "V6",
+    "display_order": 6,
+    "title": "Technology",
+    "purpose": "PLACEHOLDER: Assess the business's technology stack and identify improvement opportunities.",
+    "preparation_checklist": [
+      { "key": "list-tech-stack", "text": "PLACEHOLDER: List the current technology stack" }
+    ],
+    "recommended_tools": [
+      { "tool_key": "bba", "label": "Recommendations Report Builder" }
+    ],
+    "deliverables": [
+      "PLACEHOLDER: Technology Improvement Plan"
+    ]
+  },
+  {
+    "program_type": "value_builder",
+    "module_code": "V7",
+    "display_order": 7,
+    "title": "Sales & Marketing",
+    "purpose": "PLACEHOLDER: Sharpen the business's sales and marketing engine.",
+    "preparation_checklist": [
+      { "key": "review-pipeline", "text": "PLACEHOLDER: Review current sales pipeline and marketing channels" }
+    ],
+    "recommended_tools": [
+      { "tool_key": "bba", "label": "Recommendations Report Builder" }
+    ],
+    "deliverables": [
+      "PLACEHOLDER: Sales & Marketing Plan"
+    ]
+  },
+  {
+    "program_type": "value_builder",
+    "module_code": "V8",
+    "display_order": 8,
+    "title": "Brand, IP & Competitive Advantage",
+    "purpose": "PLACEHOLDER: Clarify what makes the business defensible and differentiated.",
+    "preparation_checklist": [
+      { "key": "list-ip-assets", "text": "PLACEHOLDER: List brand and IP assets" }
+    ],
+    "recommended_tools": [
+      { "tool_key": "bba", "label": "Recommendations Report Builder" }
+    ],
+    "deliverables": [
+      "PLACEHOLDER: Competitive Advantage Summary"
+    ]
+  },
+  {
+    "program_type": "value_builder",
+    "module_code": "V9",
+    "display_order": 9,
+    "title": "Owner Independence",
+    "purpose": "PLACEHOLDER: Reduce owner dependency so the business can run without the owner in the room.",
+    "preparation_checklist": [
+      { "key": "list-owner-tasks", "text": "PLACEHOLDER: List tasks only the owner currently does" }
+    ],
+    "recommended_tools": [
+      { "tool_key": "bba", "label": "Recommendations Report Builder" }
+    ],
+    "deliverables": [
+      "PLACEHOLDER: Owner Independence Plan"
+    ]
+  },
+  {
+    "program_type": "value_builder",
+    "module_code": "V10",
+    "display_order": 10,
+    "title": "Value & Growth",
+    "purpose": "PLACEHOLDER: Focus on the retention, concentration, and recurring-revenue drivers of business value and growth.",
+    "preparation_checklist": [
+      { "key": "review-revenue-quality", "text": "PLACEHOLDER: Review customer concentration and revenue quality" }
+    ],
+    "recommended_tools": [
+      { "tool_key": "bba", "label": "Recommendations Report Builder" }
+    ],
+    "deliverables": [
+      "PLACEHOLDER: Value & Growth Plan"
+    ]
+  },
+  {
+    "program_type": "value_builder",
+    "module_code": "V11",
+    "display_order": 11,
+    "title": "Risk, Legal, Compliance & Property",
+    "purpose": "PLACEHOLDER: Identify and reduce legal, compliance, and property-related risk.",
+    "preparation_checklist": [
+      { "key": "review-contracts", "text": "PLACEHOLDER: Review key contracts, leases, and compliance obligations" }
+    ],
+    "recommended_tools": [
+      { "tool_key": "bba", "label": "Recommendations Report Builder" }
+    ],
+    "deliverables": [
+      "PLACEHOLDER: Risk & Compliance Summary"
+    ]
+  },
+  {
+    "program_type": "value_builder",
+    "module_code": "M12",
+    "display_order": 12,
+    "title": "Re-Diagnostic Capstone",
+    "purpose": "PLACEHOLDER: Re-run the diagnostic, see the value movement since the last one, and get routed back through the module library with a refreshed focus.",
+    "preparation_checklist": [
+      { "key": "review-progress", "text": "PLACEHOLDER: Review progress made across the modules since the last diagnostic" }
+    ],
+    "recommended_tools": [
+      { "tool_key": "diagnostic", "label": "Value Builder Diagnostic" }
+    ],
+    "deliverables": [
+      "PLACEHOLDER: Value Movement Report"
+    ]
+  }
+]

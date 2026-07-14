@@ -17,7 +17,8 @@ import {
   ChevronDown,
   Shield,
   MessageSquare,
-  CreditCard
+  CreditCard,
+  HelpCircle
 } from 'lucide-react';
 import { UserRole } from '@/types/auth';
 
@@ -47,6 +48,7 @@ const navItems: NavItem[] = [
   { label: 'AI Tools', href: '/dashboard/ai-tools', icon: Brain, roles: ['super_admin', 'admin', 'advisor', 'firm_admin', 'firm_advisor'] },
   { label: 'Firm Management', href: '/dashboard/firm', icon: Building2, roles: ['firm_admin'] },
   { label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
+  { label: 'Help', href: '/dashboard/help', icon: HelpCircle, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
 ];
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {

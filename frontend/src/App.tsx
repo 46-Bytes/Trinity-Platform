@@ -38,6 +38,8 @@ import SubscriptionsPage from "./pages/dashboard/Subscriptions";
 import FileUploadPOCPage from "./pages/poc/FileUploadPOCPage";
 import StrategyWorkbookPage from "./pages/dashboard/StrategyWorkbookPage";
 import StrategicBusinessPlanPage from "./pages/dashboard/StrategicBusinessPlanPage";
+import HelpPage from "./pages/dashboard/help/HelpPage";
+import HelpManagePage from "./pages/dashboard/help/HelpManagePage";
 
 const queryClient = new QueryClient();
 
@@ -86,6 +88,8 @@ function AppRoutes() {
         <Route path="documents" element={<DocumentsPage />} />
         <Route path="ai-tools" element={<AIToolsPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="help" element={<HelpPage />} />
+        <Route path="help/manage" element={<HelpManagePage />} />
         <Route path="firms" element={<FirmsPage />} />
         <Route path="firms/:firmId" element={<FirmDetailsLayout />}>
           <Route path="clients" element={<FirmDetailsClients />} />

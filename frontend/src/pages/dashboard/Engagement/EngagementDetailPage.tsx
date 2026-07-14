@@ -11,6 +11,7 @@ import type { GeneratedFileProps } from '@/components/engagement/overview';
 import { TasksList } from '@/components/engagement/tasks';
 import { EngagementNotesModal } from '@/components/engagement/notes';
 import { ProgramGuideTab } from '@/components/engagement/program-guide/ProgramGuideTab';
+import { SaleReadyProgramTab } from '@/components/engagement/sale-ready';
 import { toast } from 'sonner';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { useAuth } from '@/context/AuthContext';
@@ -730,12 +731,15 @@ export default function EngagementDetailPage() {
             <ArrowLeft className="h-4 w-4" />
             Back
           </Button>
-          <TabsList className={engagement?.tool === 'value_builder' ? 'grid w-fit grid-cols-6' : 'grid w-fit grid-cols-5'}>
+          <TabsList className={(engagement?.tool === 'value_builder' || engagement?.tool === 'sale_ready') ? 'grid w-fit grid-cols-6' : 'grid w-fit grid-cols-5'}>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
             <TabsTrigger value="diagnostic">Diagnostic</TabsTrigger>
             {engagement?.tool === 'value_builder' && (
               <TabsTrigger value="program-guide">Program Guide</TabsTrigger>
+            )}
+            {engagement?.tool === 'sale_ready' && (
+              <TabsTrigger value="sale-ready">Sale Ready</TabsTrigger>
             )}
             <TabsTrigger value="tools">Tools</TabsTrigger>
             <TabsTrigger value="chatbot">Chat Bot</TabsTrigger>
@@ -815,6 +819,12 @@ export default function EngagementDetailPage() {
               canReorder={isAdmin || isAdvisor}
               onNavigateToDiagnostic={() => setActiveTab('diagnostic')}
             />
+          </TabsContent>
+        )}
+
+        {engagement?.tool === 'sale_ready' && (
+          <TabsContent value="sale-ready" className="mt-6">
+            <SaleReadyProgramTab engagementId={engagementId!} />
           </TabsContent>
         )}
 

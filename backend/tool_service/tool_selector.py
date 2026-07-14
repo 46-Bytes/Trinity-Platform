@@ -42,10 +42,20 @@ async def create_tool_for_engagement(
     # Create tool based on type
     if tool_type in ('diagnostic', 'value_builder', 'sale_ready'):
         service = get_diagnostic_service(db)
-        return await service.create_diagnostic(
+        result = await service.create_diagnostic(
             engagement_id=engagement_id,
             created_by_user_id=created_by_user_id
         )
+        # Sale Ready: also auto-generate the program tracker (stage state, tasks
+        # into the existing task system, and DD items). Idempotent - safe if the
+        # creation hook double-fires. Non-fatal: never block engagement creation.
+        if tool_type == 'sale_ready':
+            try:
+                from app.services.sale_ready_service import get_sale_ready_service
+                get_sale_ready_service(db).generate_engagement(engagement, created_by_user_id)
+            except Exception as e:  # pragma: no cover - defensive
+                print(f"Warning: Failed to generate Sale Ready program: {str(e)}")
+        return result
     elif tool_type == 'kpi_builder':
         return _create_kpi_builder(db, engagement_id, created_by_user_id)
     else:

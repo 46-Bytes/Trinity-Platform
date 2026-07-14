@@ -18,6 +18,7 @@ export interface Task {
   priority: 'low' | 'medium' | 'high' | 'urgent';
   priorityRank?: number;
   moduleReference?: string;
+  section?: string;
   impactLevel?: 'low' | 'medium' | 'high';
   effortLevel?: 'low' | 'medium' | 'high';
   dueDate?: string;
@@ -39,6 +40,7 @@ export interface TaskCreatePayload {
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   priorityRank?: number;
   moduleReference?: string;
+  section?: string;
   dueDate?: string;
 }
 
@@ -93,6 +95,7 @@ function mapBackendTaskToFrontend(item: any): Task {
     priority: item.priority || 'medium',
     priorityRank: item.priority_rank,
     moduleReference: item.module_reference,
+    section: item.section,
     impactLevel: item.impact_level,
     effortLevel: item.effort_level,
     dueDate: item.due_date,
@@ -118,6 +121,7 @@ function mapFrontendTaskToBackend(task: TaskCreatePayload): any {
     priority: task.priority || 'medium',
     priority_rank: task.priorityRank || null,
     module_reference: task.moduleReference || null,
+    section: task.section || null,
     due_date: task.dueDate || null,
   };
 }

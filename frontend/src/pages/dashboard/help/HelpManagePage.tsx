@@ -35,6 +35,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   ArrowLeft,
   Plus,
   ChevronUp,
@@ -43,6 +49,10 @@ import {
   Trash2,
   Loader2,
   FolderPlus,
+  FolderOpen,
+  MoreHorizontal,
+  PlayCircle,
+  Video,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -262,7 +272,7 @@ export default function HelpManagePage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="space-y-1">
+        <div className="space-y-2">
           <button
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
             onClick={() => navigate('/dashboard/help')}
@@ -270,8 +280,17 @@ export default function HelpManagePage() {
             <ArrowLeft className="w-4 h-4" />
             Back to Help
           </button>
-          <h1 className="font-heading text-2xl font-bold text-foreground">Manage Help Videos</h1>
-          <p className="text-muted-foreground">Add, edit, reorder, and remove categories and videos.</p>
+          <div className="flex items-center gap-3">
+            <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-gradient-to-br from-accent to-accent/70 text-accent-foreground flex items-center justify-center shadow-sm">
+              <PlayCircle className="w-6 h-6" />
+            </div>
+            <div>
+              <h1 className="font-heading text-2xl font-bold text-foreground">Manage Help Videos</h1>
+              <p className="text-muted-foreground text-sm">
+                Add, edit, reorder, and remove categories and videos.
+              </p>
+            </div>
+          </div>
         </div>
         <button className="btn-primary" onClick={openAddCategory}>
           <FolderPlus className="w-4 h-4" />
@@ -286,26 +305,43 @@ export default function HelpManagePage() {
         </div>
       ) : categories.length === 0 ? (
         <div className="card-trinity p-12 text-center">
-          <FolderPlus className="w-10 h-10 mx-auto text-muted-foreground/50" />
-          <p className="text-muted-foreground mt-3">No categories yet. Create one to get started.</p>
+          <div className="w-14 h-14 rounded-2xl bg-accent/10 text-accent flex items-center justify-center mx-auto">
+            <FolderPlus className="w-7 h-7" />
+          </div>
+          <p className="text-foreground font-medium mt-4">No categories yet</p>
+          <p className="text-sm text-muted-foreground mt-1">Create your first category to get started.</p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-5">
           {categories.map((category, catIndex) => (
-            <div key={category.id} className="card-trinity p-5 space-y-4">
+            <div
+              key={category.id}
+              className="card-trinity overflow-hidden animate-fade-in"
+              style={{ animationDelay: `${catIndex * 60}ms` }}
+            >
               {/* Category header */}
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="font-heading text-lg font-semibold text-foreground truncate">
-                    {category.name}
-                  </h2>
-                  {category.description && (
-                    <p className="text-sm text-muted-foreground mt-0.5">{category.description}</p>
-                  )}
+              <div className="flex items-start justify-between gap-3 p-5 bg-gradient-to-r from-accent/[0.07] via-accent/[0.02] to-transparent border-b border-border/60">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-accent/10 text-accent flex items-center justify-center">
+                    <FolderOpen className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="font-heading text-lg font-semibold text-foreground truncate">
+                        {category.name}
+                      </h2>
+                      <span className="status-badge bg-accent/10 text-accent">
+                        {category.videos.length} {category.videos.length === 1 ? 'video' : 'videos'}
+                      </span>
+                    </div>
+                    {category.description && (
+                      <p className="text-sm text-muted-foreground mt-0.5">{category.description}</p>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
+                <div className="flex items-center gap-0.5 flex-shrink-0">
                   <button
-                    className="p-1.5 rounded-lg hover:bg-muted disabled:opacity-40 transition-colors"
+                    className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
                     onClick={() => moveCategory(catIndex, -1)}
                     disabled={catIndex === 0 || isSaving}
                     aria-label="Move category up"
@@ -313,49 +349,78 @@ export default function HelpManagePage() {
                     <ChevronUp className="w-4 h-4" />
                   </button>
                   <button
-                    className="p-1.5 rounded-lg hover:bg-muted disabled:opacity-40 transition-colors"
+                    className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
                     onClick={() => moveCategory(catIndex, 1)}
                     disabled={catIndex === categories.length - 1 || isSaving}
                     aria-label="Move category down"
                   >
                     <ChevronDown className="w-4 h-4" />
                   </button>
-                  <button
-                    className="p-1.5 rounded-lg hover:bg-muted transition-colors"
-                    onClick={() => openEditCategory(category)}
-                    aria-label="Edit category"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </button>
-                  <button
-                    className="p-1.5 rounded-lg hover:bg-muted text-destructive transition-colors"
-                    onClick={() => setDeleteTarget({ type: 'category', id: category.id, name: category.name })}
-                    aria-label="Delete category"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        aria-label="Category actions"
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem className="cursor-pointer" onClick={() => openEditCategory(category)}>
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="cursor-pointer text-destructive focus:text-destructive"
+                        onClick={() => setDeleteTarget({ type: 'category', id: category.id, name: category.name })}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
 
               {/* Videos */}
-              <div className="space-y-2">
+              <div className="p-4 space-y-2.5">
                 {category.videos.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic">No videos in this category yet.</p>
+                  <div className="text-center py-6 text-sm text-muted-foreground">
+                    <Video className="w-6 h-6 mx-auto mb-2 opacity-40" />
+                    No videos in this category yet.
+                  </div>
                 ) : (
                   category.videos.map((video, vidIndex) => (
                     <div
                       key={video.id}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-border p-3"
+                      className="group flex items-center gap-3 rounded-xl border border-border/70 p-2.5 transition-all hover:border-accent/40 hover:bg-accent/[0.03] hover:shadow-sm"
                     >
-                      <div className="min-w-0">
+                      {/* Thumbnail */}
+                      <div className="relative flex-shrink-0 w-28 aspect-video rounded-lg overflow-hidden bg-muted">
+                        <img
+                          src={`https://img.youtube.com/vi/${video.youtube_video_id}/mqdefault.jpg`}
+                          alt={video.title}
+                          loading="lazy"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <PlayCircle className="w-7 h-7 text-white drop-shadow" />
+                        </div>
+                      </div>
+                      {/* Info */}
+                      <div className="min-w-0 flex-1">
                         <p className="font-medium text-foreground truncate">{video.title}</p>
-                        <p className="text-xs text-muted-foreground truncate">
+                        {video.description && (
+                          <p className="text-sm text-muted-foreground truncate">{video.description}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground/70 truncate mt-0.5 font-mono">
                           youtu.be/{video.youtube_video_id}
                         </p>
                       </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
+                      {/* Actions */}
+                      <div className="flex items-center gap-0.5 flex-shrink-0">
                         <button
-                          className="p-1.5 rounded-lg hover:bg-muted disabled:opacity-40 transition-colors"
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
                           onClick={() => moveVideo(category, vidIndex, -1)}
                           disabled={vidIndex === 0 || isSaving}
                           aria-label="Move video up"
@@ -363,35 +428,47 @@ export default function HelpManagePage() {
                           <ChevronUp className="w-4 h-4" />
                         </button>
                         <button
-                          className="p-1.5 rounded-lg hover:bg-muted disabled:opacity-40 transition-colors"
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
                           onClick={() => moveVideo(category, vidIndex, 1)}
                           disabled={vidIndex === category.videos.length - 1 || isSaving}
                           aria-label="Move video down"
                         >
                           <ChevronDown className="w-4 h-4" />
                         </button>
-                        <button
-                          className="p-1.5 rounded-lg hover:bg-muted transition-colors"
-                          onClick={() => openEditVideo(video)}
-                          aria-label="Edit video"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          className="p-1.5 rounded-lg hover:bg-muted text-destructive transition-colors"
-                          onClick={() => setDeleteTarget({ type: 'video', id: video.id, name: video.title })}
-                          aria-label="Delete video"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                              aria-label="Video actions"
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem className="cursor-pointer" onClick={() => openEditVideo(video)}>
+                              <Edit className="w-4 h-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="cursor-pointer text-destructive focus:text-destructive"
+                              onClick={() => setDeleteTarget({ type: 'video', id: video.id, name: video.title })}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   ))
                 )}
-                <Button variant="outline" size="sm" onClick={() => openAddVideo(category.id)}>
-                  <Plus className="w-4 h-4 mr-1" />
+                <button
+                  onClick={() => openAddVideo(category.id)}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border py-3 text-sm font-medium text-muted-foreground transition-all hover:border-accent hover:text-accent hover:bg-accent/[0.04]"
+                >
+                  <Plus className="w-4 h-4" />
                   Add Video
-                </Button>
+                </button>
               </div>
             </div>
           ))}

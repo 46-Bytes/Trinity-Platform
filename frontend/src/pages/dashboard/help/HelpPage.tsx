@@ -28,11 +28,11 @@ export default function HelpPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
+        <div className="flex items-center gap-3">
+          <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-gradient-to-br from-accent to-accent/70 text-accent-foreground flex items-center justify-center shadow-sm">
+            <PlayCircle className="w-6 h-6" />
+          </div>
           <h1 className="font-heading text-2xl font-bold text-foreground">Help &amp; User Guide</h1>
-          <p className="text-muted-foreground mt-1">
-            Watch training and walkthrough videos to learn how to use Trinity.
-          </p>
         </div>
         {isAdmin && (
           <button className="btn-primary" onClick={() => navigate('/dashboard/help/manage')}>
@@ -49,34 +49,52 @@ export default function HelpPage() {
         </div>
       ) : !hasContent ? (
         <div className="card-trinity p-12 text-center">
-          <PlayCircle className="w-10 h-10 mx-auto text-muted-foreground/50" />
-          <p className="text-muted-foreground mt-3">No help videos are available yet.</p>
-          {isAdmin && (
-            <p className="text-sm text-muted-foreground mt-1">
-              Use “Manage videos” to add your first category and video.
-            </p>
-          )}
+          <div className="w-14 h-14 rounded-2xl bg-accent/10 text-accent flex items-center justify-center mx-auto">
+            <PlayCircle className="w-7 h-7" />
+          </div>
+          <p className="text-foreground font-medium mt-4">No help videos yet</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {isAdmin
+              ? 'Use “Manage videos” to add your first category and video.'
+              : 'Check back soon — training videos will appear here.'}
+          </p>
         </div>
       ) : (
         <div className="space-y-10">
           {categories
             .filter((category) => category.videos.length > 0)
-            .map((category) => (
-              <section key={category.id} className="space-y-4">
-                <div>
-                  <h2 className="font-heading text-xl font-semibold text-foreground">{category.name}</h2>
-                  {category.description && (
-                    <p className="text-muted-foreground mt-1">{category.description}</p>
-                  )}
+            .map((category, catIndex) => (
+              <section
+                key={category.id}
+                className="space-y-4 animate-fade-in"
+                style={{ animationDelay: `${catIndex * 60}ms` }}
+              >
+                <div className="flex items-center gap-3 border-b border-border/60 pb-3">
+                  <div className="w-1.5 h-9 rounded-full bg-gradient-to-b from-accent to-accent/60" />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="font-heading text-xl font-semibold text-foreground">{category.name}</h2>
+                      <span className="status-badge bg-accent/10 text-accent">
+                        {category.videos.length} {category.videos.length === 1 ? 'video' : 'videos'}
+                      </span>
+                    </div>
+                    {category.description && (
+                      <p className="text-muted-foreground text-sm mt-0.5">{category.description}</p>
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {category.videos.map((video) => (
-                    <div key={video.id} className="card-trinity p-4 space-y-3">
-                      <YouTubePlayer videoId={video.youtube_video_id} title={video.title} />
-                      <div>
-                        <h3 className="font-medium text-foreground">{video.title}</h3>
+                    <div key={video.id} className="card-trinity p-3 space-y-3 group">
+                      <div className="overflow-hidden rounded-lg">
+                        <YouTubePlayer videoId={video.youtube_video_id} title={video.title} />
+                      </div>
+                      <div className="px-1 pb-1">
+                        <h3 className="font-medium text-foreground group-hover:text-accent transition-colors">
+                          {video.title}
+                        </h3>
                         {video.description && (
-                          <p className="text-sm text-muted-foreground mt-1">{video.description}</p>
+                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{video.description}</p>
                         )}
                       </div>
                     </div>

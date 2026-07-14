@@ -97,15 +97,16 @@ async def create_task(
         priority=task_data.priority,
         priority_rank=task_data.priority_rank,
         module_reference=task_data.module_reference,
+        section=task_data.section,
         impact_level=task_data.impact_level,
         effort_level=task_data.effort_level,
         due_date=task_data.due_date,
     )
-    
+
     db.add(task)
     db.commit()
     db.refresh(task)
-    
+
     return TaskResponse.model_validate(task)
 
 

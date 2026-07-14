@@ -1,0 +1,14 @@
+[
+  { "program_type": "sale_ready", "module_code": "M_FIN", "category": "Financial", "sub_item": "Placeholder: last 3 years financial statements", "document_required": "Audited/management accounts", "action_step": "Request from client", "default_order": 1 },
+  { "program_type": "sale_ready", "module_code": "M_FIN", "category": "Financial", "sub_item": "Placeholder: tax returns", "document_required": "Company tax returns", "action_step": "Request from accountant", "default_order": 2 },
+
+  { "program_type": "sale_ready", "module_code": "M_LEGAL", "category": "Legal", "sub_item": "Placeholder: material contracts register", "document_required": "Signed contracts", "action_step": "Collate and review", "default_order": 1 },
+  { "program_type": "sale_ready", "module_code": "M_LEGAL", "category": "Property & Assets", "sub_item": "Placeholder: lease agreements", "document_required": "Current leases", "action_step": "Request from client", "default_order": 2 },
+
+  { "program_type": "sale_ready", "module_code": "M_OWNER", "category": "Operations", "sub_item": "Placeholder: documented operating procedures", "document_required": "SOPs", "action_step": "Confirm existence", "default_order": 1 },
+  { "program_type": "sale_ready", "module_code": "M_PEOPLE", "category": "People", "sub_item": "Placeholder: employment agreements", "document_required": "Key staff contracts", "action_step": "Request from client", "default_order": 1 },
+  { "program_type": "sale_ready", "module_code": "M_CUSTOMER", "category": "Customer", "sub_item": "Placeholder: customer concentration analysis", "document_required": "Revenue by customer", "action_step": "Prepare analysis", "default_order": 1 },
+  { "program_type": "sale_ready", "module_code": "M_BRAND", "category": "IP", "sub_item": "Placeholder: trademark/IP register", "document_required": "IP registrations", "action_step": "Confirm ownership", "default_order": 1 },
+  { "program_type": "sale_ready", "module_code": "M_TAX", "category": "Tax", "sub_item": "Placeholder: tax compliance status", "document_required": "Tax clearance", "action_step": "Confirm with accountant", "default_order": 1 },
+  { "program_type": "sale_ready", "module_code": "M_DD", "category": "Consolidation", "sub_item": "Placeholder: master DD index", "document_required": "Data room index", "action_step": "Assemble data room", "default_order": 1 }
+]

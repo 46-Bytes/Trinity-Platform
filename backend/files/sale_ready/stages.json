@@ -1,0 +1,19 @@
+[
+  { "program_type": "sale_ready", "stage_code": "ONBOARD",      "stage_type": "pre_module",  "default_order": 1,  "title": "Onboarding",                          "description": "Client setup, welcome, and diagnostic access." },
+  { "program_type": "sale_ready", "stage_code": "DIAG",         "stage_type": "pre_module",  "default_order": 2,  "title": "Diagnostic",                          "description": "Client completes the Trinity diagnostic; report generated." },
+  { "program_type": "sale_ready", "stage_code": "APPRAISAL",    "stage_type": "pre_module",  "default_order": 3,  "title": "Appraisal",                           "description": "Financial analysis, addbacks, appraisal report. (Not performed in-platform for v1.)" },
+  { "program_type": "sale_ready", "stage_code": "PRIORITISE",   "stage_type": "pre_module",  "default_order": 4,  "title": "Prioritisation",                      "description": "AI suggests the initial module order from diagnostic and appraisal; advisor reviews and adjusts." },
+  { "program_type": "sale_ready", "stage_code": "PLANNING",     "stage_type": "pre_module",  "default_order": 5,  "title": "Planning Workshop",                   "description": "Client session to review findings and agree the program plan." },
+
+  { "program_type": "sale_ready", "stage_code": "M_FIN",        "stage_type": "module",      "default_order": 6,  "title": "Financial Clarity & Reporting",       "description": "Placeholder — module content to be supplied by BBA." },
+  { "program_type": "sale_ready", "stage_code": "M_LEGAL",      "stage_type": "module",      "default_order": 7,  "title": "Legal, Compliance, Property & Assets","description": "Placeholder — module content to be supplied by BBA." },
+  { "program_type": "sale_ready", "stage_code": "M_OWNER",      "stage_type": "module",      "default_order": 8,  "title": "Owner Dependency & Operations",       "description": "Placeholder — module content to be supplied by BBA." },
+  { "program_type": "sale_ready", "stage_code": "M_PEOPLE",     "stage_type": "module",      "default_order": 9,  "title": "People",                              "description": "Placeholder — module content to be supplied by BBA." },
+  { "program_type": "sale_ready", "stage_code": "M_CUSTOMER",   "stage_type": "module",      "default_order": 10, "title": "Customer, Product & Revenue Quality", "description": "Placeholder — module content to be supplied by BBA." },
+  { "program_type": "sale_ready", "stage_code": "M_BRAND",      "stage_type": "module",      "default_order": 11, "title": "Brand, IP & Intangibles",             "description": "Placeholder — module content to be supplied by BBA." },
+  { "program_type": "sale_ready", "stage_code": "M_TAX",        "stage_type": "module",      "default_order": 12, "title": "Tax, Compliance & Regulatory",        "description": "Placeholder — module content to be supplied by BBA." },
+  { "program_type": "sale_ready", "stage_code": "M_DD",         "stage_type": "module",      "default_order": 13, "title": "Due Diligence Preparation",           "description": "Consolidation stage where DD items from all modules are prepared." },
+
+  { "program_type": "sale_ready", "stage_code": "TRANSITION",   "stage_type": "post_module", "default_order": 14, "title": "Transition & Handover Planning",      "description": "Key person dependence, customer/supplier handover, integration, post-sale contracts, transition management." },
+  { "program_type": "sale_ready", "stage_code": "SALE_PLANNER", "stage_type": "post_module", "default_order": 15, "title": "Sale Planner Checklist",              "description": "Sale type, sale structure, marketing plan, and issues to address." }
+]

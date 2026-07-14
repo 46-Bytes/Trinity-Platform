@@ -1,0 +1,30 @@
+[
+  { "program_type": "sale_ready", "stage_code": "ONBOARD", "section": "must_do", "title": "Send welcome pack and engagement letter", "description": "Placeholder task — real content to be supplied by BBA.", "priority": "high", "default_order": 1, "due_offset_days": 3 },
+  { "program_type": "sale_ready", "stage_code": "ONBOARD", "section": "must_do", "title": "Grant client access to the Trinity diagnostic", "description": "Placeholder task — real content to be supplied by BBA.", "priority": "high", "default_order": 2, "due_offset_days": 3 },
+  { "program_type": "sale_ready", "stage_code": "ONBOARD", "section": "optional", "title": "Schedule kickoff call", "description": "Placeholder task — real content to be supplied by BBA.", "priority": "medium", "default_order": 3, "due_offset_days": null },
+
+  { "program_type": "sale_ready", "stage_code": "DIAG", "section": "must_do", "title": "Confirm diagnostic completed by client", "description": "Placeholder task — real content to be supplied by BBA.", "priority": "high", "default_order": 1, "due_offset_days": 14 },
+  { "program_type": "sale_ready", "stage_code": "DIAG", "section": "must_do", "title": "Review diagnostic report", "description": "Placeholder task — real content to be supplied by BBA.", "priority": "medium", "default_order": 2, "due_offset_days": null },
+
+  { "program_type": "sale_ready", "stage_code": "PRIORITISE", "section": "must_do", "title": "Apply and review recommended module order", "description": "Placeholder task — real content to be supplied by BBA.", "priority": "high", "default_order": 1, "due_offset_days": null },
+
+  { "program_type": "sale_ready", "stage_code": "PLANNING", "section": "must_do", "title": "Run planning workshop with client", "description": "Placeholder task — real content to be supplied by BBA.", "priority": "high", "default_order": 1, "due_offset_days": null },
+
+  { "program_type": "sale_ready", "stage_code": "M_FIN", "section": "must_do", "title": "Placeholder must-do task for Financial Clarity & Reporting", "description": "Real content to be supplied by BBA.", "priority": "medium", "default_order": 1, "due_offset_days": null },
+  { "program_type": "sale_ready", "stage_code": "M_FIN", "section": "optional", "title": "Placeholder optional task for Financial Clarity & Reporting", "description": "Real content to be supplied by BBA.", "priority": "low", "default_order": 2, "due_offset_days": null },
+
+  { "program_type": "sale_ready", "stage_code": "M_LEGAL", "section": "must_do", "title": "Placeholder must-do task for Legal, Compliance, Property & Assets", "description": "Real content to be supplied by BBA.", "priority": "medium", "default_order": 1, "due_offset_days": null },
+  { "program_type": "sale_ready", "stage_code": "M_OWNER", "section": "must_do", "title": "Placeholder must-do task for Owner Dependency & Operations", "description": "Real content to be supplied by BBA.", "priority": "medium", "default_order": 1, "due_offset_days": null },
+  { "program_type": "sale_ready", "stage_code": "M_PEOPLE", "section": "must_do", "title": "Placeholder must-do task for People", "description": "Real content to be supplied by BBA.", "priority": "medium", "default_order": 1, "due_offset_days": null },
+  { "program_type": "sale_ready", "stage_code": "M_CUSTOMER", "section": "must_do", "title": "Placeholder must-do task for Customer, Product & Revenue Quality", "description": "Real content to be supplied by BBA.", "priority": "medium", "default_order": 1, "due_offset_days": null },
+  { "program_type": "sale_ready", "stage_code": "M_BRAND", "section": "must_do", "title": "Placeholder must-do task for Brand, IP & Intangibles", "description": "Real content to be supplied by BBA.", "priority": "medium", "default_order": 1, "due_offset_days": null },
+  { "program_type": "sale_ready", "stage_code": "M_TAX", "section": "must_do", "title": "Placeholder must-do task for Tax, Compliance & Regulatory", "description": "Real content to be supplied by BBA.", "priority": "medium", "default_order": 1, "due_offset_days": null },
+  { "program_type": "sale_ready", "stage_code": "M_DD", "section": "must_do", "title": "Consolidate DD items from all modules", "description": "Placeholder task — real content to be supplied by BBA.", "priority": "high", "default_order": 1, "due_offset_days": null },
+
+  { "program_type": "sale_ready", "stage_code": "TRANSITION", "section": "must_do", "title": "Placeholder: key person dependence plan", "description": "Real content to be supplied by BBA.", "priority": "medium", "default_order": 1, "due_offset_days": null },
+  { "program_type": "sale_ready", "stage_code": "TRANSITION", "section": "must_do", "title": "Placeholder: customer & supplier handover plan", "description": "Real content to be supplied by BBA.", "priority": "medium", "default_order": 2, "due_offset_days": null },
+
+  { "program_type": "sale_ready", "stage_code": "SALE_PLANNER", "section": "must_do", "title": "Placeholder: confirm sale type", "description": "Real content to be supplied by BBA.", "priority": "medium", "default_order": 1, "due_offset_days": null },
+  { "program_type": "sale_ready", "stage_code": "SALE_PLANNER", "section": "must_do", "title": "Placeholder: confirm sale structure", "description": "Real content to be supplied by BBA.", "priority": "medium", "default_order": 2, "due_offset_days": null },
+  { "program_type": "sale_ready", "stage_code": "SALE_PLANNER", "section": "optional", "title": "Placeholder: draft marketing plan", "description": "Real content to be supplied by BBA.", "priority": "low", "default_order": 3, "due_offset_days": null }
+]

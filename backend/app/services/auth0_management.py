@@ -7,6 +7,7 @@ import secrets
 import string
 import re
 import time
+import hashlib
 from typing import Optional, Dict
 from datetime import datetime, timedelta, timezone
 from ..config import settings
@@ -62,7 +63,27 @@ class Auth0Management:
         except requests.exceptions.RequestException as e:
             logger.error(f"❌ Failed to get Management API token: {e}")
             raise Exception(f"Failed to authenticate with Auth0 Management API: {e}")
-    
+
+    @classmethod
+    def get_user_by_email(cls, email: str) -> Optional[Dict]:
+        """
+        Exact-match lookup via GET /api/v2/users-by-email.
+
+        Matches the full email address (case-insensitive on Auth0's side), so it
+        cannot false-positive on a shared local-part. Returns the first matching
+        user, or None if no user exists with this email.
+        """
+        token = cls.get_management_token()
+        url = f"https://{settings.AUTH0_DOMAIN}/api/v2/users-by-email"
+        resp = requests.get(
+            url,
+            params={"email": email},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        resp.raise_for_status()
+        users = resp.json()
+        return users[0] if users else None
+
     @classmethod
     def create_user(
         cls,
@@ -141,7 +162,14 @@ class Auth0Management:
             # Absolute fallback - ensure at least 3 characters
             timestamp_suffix = str(int(time.time()))[-12:]  # Last 12 digits
             initial_username = f"usr{timestamp_suffix}"[:15]
-        
+
+        # Guarantee uniqueness: two emails sharing a local-part (paula@a vs paula@b)
+        # must not generate the same Auth0 username. Auth0 enforces unique usernames,
+        # so a collision would surface as a misleading "email already exists" 409.
+        # Suffix from a hash of the full email, kept within Auth0's 15-char limit.
+        email_hash = hashlib.sha1(email.strip().lower().encode()).hexdigest()[:6]
+        initial_username = f"{initial_username[:8]}-{email_hash}"[:15]
+
         logger.info(f"Generated username for {email}: {initial_username} (length: {len(initial_username)})")
         
         # Prepare user data
@@ -205,11 +233,19 @@ class Auth0Management:
             
         except requests.exceptions.HTTPError as e:
             error_detail = e.response.json() if e.response.content else str(e)
-            
+
             # Handle specific error cases
             if e.response.status_code == 409:
-                raise Exception(f"User with email {email} already exists in Auth0")
-            
+                # A 409 means duplicate email OR duplicate username. Disambiguate so we
+                # don't blame the email for what may be a username collision.
+                if cls.get_user_by_email(email):
+                    raise Exception(f"User with email {email} already exists in Auth0")
+                # Email is free -> it was a username collision (should be prevented by the
+                # unique suffix above; surface the real cause if it ever happens).
+                raise Exception(
+                    f"Auth0 rejected username '{initial_username}' for {email} as already taken"
+                )
+
             raise Exception(f"Failed to create user in Auth0: {error_detail}")
     
     @classmethod

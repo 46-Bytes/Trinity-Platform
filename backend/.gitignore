@@ -27,6 +27,11 @@ wheels/
 .env
 .env.local
 
+# GCP / service-account credentials — never commit
+trinity-platform-*.json
+*.serviceaccount.json
+service-account*.json
+
 # IDE
 .vscode/
 .idea/

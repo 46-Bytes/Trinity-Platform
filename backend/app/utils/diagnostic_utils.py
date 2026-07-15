@@ -1,13 +1,61 @@
 """
 Utility functions for diagnostic operations.
 """
-from typing import Optional
+from typing import Any, Dict, Optional, Set
 from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.models.user import User, UserRole
 from app.models.diagnostic import Diagnostic
+from app.models.ai_field_privacy import AIFieldPrivacy
 from app.schemas.diagnostic import DiagnosticResponse, DiagnosticDetail
+
+
+def get_ai_excluded_fields(db: Session, questionnaire_type: str) -> Set[str]:
+    """
+    Return the set of field names flagged include_in_ai=False for a questionnaire type.
+
+    These are the fields admins have marked as excluded from AI processing via the
+    AI Field Privacy page. Absence of a row means included (default on).
+
+    The `(... or "value_builder")` fallback matches the diagnostic pipeline
+    (diagnostic_service._process_diagnostic_pipeline) so exports strip exactly the
+    fields the pipeline stripped before sending to Claude.
+
+    Args:
+        db: Database session
+        questionnaire_type: 'sale_ready' | 'value_builder' (engagement.tool)
+
+    Returns:
+        Set of excluded field_name strings
+    """
+    return {
+        row.field_name
+        for row in db.query(AIFieldPrivacy).filter(
+            AIFieldPrivacy.questionnaire_type == (questionnaire_type or "value_builder"),
+            AIFieldPrivacy.include_in_ai == False,  # noqa: E712
+        ).all()
+    }
+
+
+def strip_excluded_fields(responses: Dict[str, Any], excluded: Set[str]) -> Dict[str, Any]:
+    """
+    Return a copy of `responses` with excluded top-level keys removed.
+
+    Matches on top-level field names only (identical semantics to the pipeline;
+    nested matrixdynamic/multipletext sub-fields are not individually filtered).
+    Returns the responses unchanged when there is nothing to strip.
+
+    Args:
+        responses: The diagnostic's user_responses dict
+        excluded: Field names to remove (from get_ai_excluded_fields)
+
+    Returns:
+        Filtered copy of responses (or the original dict when no filtering applies)
+    """
+    if not responses or not excluded:
+        return responses or {}
+    return {k: v for k, v in responses.items() if k not in excluded}
 
 
 def get_admin_role_if_applicable(db: Session, user_id: UUID) -> Optional[str]:

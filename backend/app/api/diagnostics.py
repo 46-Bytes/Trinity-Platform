@@ -34,7 +34,7 @@ from app.services.document_template_service import get_document_template_service
 from app.services.role_check import check_engagement_access
 from app.utils.file_loader import load_diagnostic_questions
 from app.utils.auth import get_current_user
-from app.utils.diagnostic_utils import get_admin_role_if_applicable, enrich_diagnostic_with_roles, filter_diagnostic_report_for_user, get_ai_excluded_fields, strip_excluded_fields
+from app.utils.diagnostic_utils import get_admin_role_if_applicable, enrich_diagnostic_with_roles, filter_diagnostic_report_for_user
 from app.models.user import User, UserRole
 from app.models.diagnostic import Diagnostic
 from app.models.engagement import Engagement
@@ -912,27 +912,17 @@ async def download_diagnostic_report(
         except Exception:
             advisor_name = ""
 
-        # Apply AI field privacy — strip fields flagged include_in_ai=False from the
-        # exported report so it matches what the pipeline withholds from Claude. The
-        # stored diagnostic.user_responses is left untouched (the app UI still shows them).
-        # Errors here propagate to the outer handler (500) rather than leaking excluded data.
-        excluded_fields = get_ai_excluded_fields(
-            db, getattr(engagement_obj, "tool", None) if engagement_obj else None
-        )
-        report_responses = strip_excluded_fields(diagnostic.user_responses or {}, excluded_fields)
-        if excluded_fields:
-            logger.info(
-                "AI privacy: excluding %d field(s) from PDF report for diagnostic %s",
-                len(excluded_fields), diagnostic_id,
-            )
-
+        # AI field privacy applies ONLY to the Claude payload (enforced in
+        # diagnostic_service._process_diagnostic_pipeline). Human-facing exports must
+        # still show every answer, so the report's "All Responses" table renders the
+        # complete stored responses — private fields are shown here, just never sent to AI.
         pdf_bytes = ReportService.generate_pdf_report(
             diagnostic=diagnostic,
             user=report_user,
             question_text_map=question_text_map,
             structured_question_map=structured_question_map,
             advisor_name=advisor_name,
-            user_responses_override=report_responses
+            user_responses_override=diagnostic.user_responses or {}
         )
         
         filename = ReportService.get_download_filename(diagnostic, report_user)
@@ -1034,27 +1024,14 @@ async def generate_document_from_template(
         # Get template service
         template_service = get_document_template_service()
 
-        # Apply AI field privacy — strip fields flagged include_in_ai=False so the
-        # generated document matches what the pipeline withholds from Claude. The stored
-        # diagnostic.user_responses is left untouched (the app UI still shows them).
-        engagement_obj = db.query(Engagement).filter(
-            Engagement.id == diagnostic.engagement_id
-        ).first()
-        excluded_fields = get_ai_excluded_fields(
-            db, getattr(engagement_obj, "tool", None) if engagement_obj else None
-        )
-        document_responses = strip_excluded_fields(diagnostic.user_responses, excluded_fields)
-        if excluded_fields:
-            logger.info(
-                "AI privacy: excluding %d field(s) from generated document for diagnostic %s",
-                len(excluded_fields), diagnostic_id,
-            )
-
-        # Generate document
+        # AI field privacy applies ONLY to the Claude payload (enforced in
+        # diagnostic_service._process_diagnostic_pipeline). Generated documents are a
+        # human-facing export, so every answer is rendered — private fields are shown
+        # in the document, just never sent to AI.
         document_bytes = template_service.generate_document(
             db=db,
             template_name=request.template_name,
-            user_responses=document_responses
+            user_responses=diagnostic.user_responses
         )
         
         # Generate filename

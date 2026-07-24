@@ -60,14 +60,20 @@ async def get_dashboard_stats(
     if current_user.role == UserRole.SUPER_ADMIN:
         return get_dashboard_stats_service(db)
     
+    # Covers advisor-provisioned clients and self-service business owners alike -
+    # a self-service owner is a CLIENT.
     if current_user.role == UserRole.CLIENT:
         return get_client_dashboard_stats(db, current_user.id)
-    
+
+    # Invited team members get the same shape, narrowed to their own tasks.
+    if current_user.role == UserRole.TEAM_MEMBER:
+        return get_client_dashboard_stats(db, current_user.id, assigned_only=True)
+
     if current_user.role == UserRole.FIRM_ADVISOR:
         return get_firm_advisor_dashboard_stats(db, current_user.id)
-    
+
     # If none of the allowed roles, return 403
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="Only super admins, clients, and firm advisors can access dashboard statistics.")
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="Only super admins, clients, team members, and firm advisors can access dashboard statistics.")
 
 
 @router.get("/activity", response_model=ActivityDataResponse)

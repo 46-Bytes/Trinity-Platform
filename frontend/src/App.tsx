@@ -39,6 +39,15 @@ import FileUploadPOCPage from "./pages/poc/FileUploadPOCPage";
 import StrategyWorkbookPage from "./pages/dashboard/StrategyWorkbookPage";
 import StrategicBusinessPlanPage from "./pages/dashboard/StrategicBusinessPlanPage";
 import AIPrivacyPage from "./pages/dashboard/AIPrivacyPage";
+import TeamPage from "./pages/dashboard/TeamPage";
+import BillingPage from "./pages/dashboard/BillingPage";
+
+// Self-service (SaaS) signup funnel
+import SignUpPage from "./pages/signup/SignUpPage";
+import CheckoutPage from "./pages/signup/CheckoutPage";
+import OnboardingCompletePage from "./pages/signup/OnboardingCompletePage";
+
+import { isBusinessOwner, type UserRole } from "@/types/auth";
 
 const queryClient = new QueryClient();
 
@@ -48,11 +57,60 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-screen">Checking authentication...</div>;
   }
-  
+
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
-  
+
+  return <>{children}</>;
+}
+
+/**
+ * Restrict a route to specific roles.
+ *
+ * `ProtectedRoute` only checks that somebody is signed in, so without this any
+ * authenticated user could reach any dashboard page by typing its URL.
+ */
+function RoleGuard({ roles, children }: { roles: UserRole[]; children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) return null;
+
+  if (!user || !roles.includes(user.role)) {
+    return (
+      <div className="card-trinity p-6">
+        <div className="text-center py-12">
+          <p className="text-destructive mb-2">Access Denied</p>
+          <p className="text-sm text-muted-foreground">
+            You do not have permission to view this page.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}
+
+/** Restrict a route to self-service business owners (billing, team management). */
+function OwnerGuard({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) return null;
+
+  if (!isBusinessOwner(user)) {
+    return (
+      <div className="card-trinity p-6">
+        <div className="text-center py-12">
+          <p className="text-destructive mb-2">Access Denied</p>
+          <p className="text-sm text-muted-foreground">
+            This area is only available to self-service business owners.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return <>{children}</>;
 }
 
@@ -63,7 +121,20 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
-      
+
+      {/* Self-service (SaaS) signup funnel - Feature 7 */}
+      <Route path="/signup" element={<SignUpPage />} />
+      <Route path="/onboarding/checkout" element={
+        <ProtectedRoute>
+          <OwnerGuard><CheckoutPage /></OwnerGuard>
+        </ProtectedRoute>
+      } />
+      <Route path="/onboarding/complete" element={
+        <ProtectedRoute>
+          <OwnerGuard><OnboardingCompletePage /></OwnerGuard>
+        </ProtectedRoute>
+      } />
+
       {/* Protected Dashboard Routes */}
       <Route path="/dashboard" element={
         <ProtectedRoute>
@@ -97,6 +168,9 @@ function AppRoutes() {
         </Route>
         <Route path="subscriptions" element={<SubscriptionsPage />} />
         <Route path="ai-privacy" element={<AIPrivacyPage />} />
+        {/* Self-service business owner surfaces - Feature 7 */}
+        <Route path="team" element={<OwnerGuard><TeamPage /></OwnerGuard>} />
+        <Route path="billing" element={<OwnerGuard><BillingPage /></OwnerGuard>} />
         {/* Placeholder routes */}
         <Route path="chat" element={<DashboardHome />} />
         <Route path="analytics" element={<DashboardHome />} />

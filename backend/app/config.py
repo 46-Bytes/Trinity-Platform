@@ -79,6 +79,25 @@ class Settings(BaseSettings):
     GOOGLE_DRIVE_CREDENTIALS_FILE: Optional[str] = None
     GOOGLE_DRIVE_FOLDER_ID: Optional[str] = None
 
+    # Billing (self-service / SaaS tier)
+    # "manual" activates a subscription immediately without taking payment -
+    # the default so the owner journey is testable before Feature 8 lands.
+    # "stripe" routes through Stripe Checkout (Feature 8).
+    BILLING_PROVIDER: str = "manual"
+    STRIPE_SECRET_KEY: Optional[str] = None
+    STRIPE_WEBHOOK_SECRET: Optional[str] = None
+    # Whether business owners may sign themselves up. Keep False until the
+    # public marketing site is ready to point at /signup.
+    SELF_SERVICE_SIGNUP_ENABLED: bool = True
+
+    @field_validator("BILLING_PROVIDER")
+    @classmethod
+    def validate_billing_provider(cls, v: str) -> str:
+        allowed = {"manual", "stripe"}
+        if v not in allowed:
+            raise ValueError(f"BILLING_PROVIDER must be one of {sorted(allowed)}")
+        return v
+
     @field_validator("OPENAI_TEMPERATURE")
     @classmethod
     def validate_temperature(cls, v: float) -> float:

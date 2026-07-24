@@ -24,6 +24,38 @@ router = APIRouter(prefix="/files", tags=["files"])
 MAX_UPLOAD_FILES = 20
 
 
+def _require_diagnostic_access(db: Session, diagnostic_id: UUID, current_user: User) -> Diagnostic:
+    """
+    Load a diagnostic and enforce that the caller may reach it via its engagement.
+
+    These endpoints previously took a diagnostic_id on trust, which let any
+    authenticated user attach files to - or read files from - anybody's
+    diagnostic. Tolerable while accounts were invite-only, not once self-service
+    signup is public.
+    """
+    diagnostic = db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
+    if not diagnostic:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Diagnostic not found")
+
+    engagement = (
+        db.query(Engagement)
+        .filter(Engagement.id == diagnostic.engagement_id, Engagement.is_deleted == False)
+        .first()
+    )
+    if not engagement:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Engagement not found for this diagnostic",
+        )
+
+    if not check_engagement_access(engagement, current_user, db=db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this diagnostic",
+        )
+    return diagnostic
+
+
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
 async def upload_files(
     files: List[UploadFile] = File(...),
@@ -58,15 +90,20 @@ async def upload_files(
 
     file_service = get_file_service(db)
 
+    # Parse and authorise the target diagnostic BEFORE storing anything, so an
+    # unauthorised caller cannot even land bytes on disk.
+    diagnostic_uuid = None
+    if diagnostic_id:
+        try:
+            diagnostic_uuid = UUID(diagnostic_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid diagnostic_id.",
+            )
+        _require_diagnostic_access(db, diagnostic_uuid, current_user)
+
     try:
-        # Parse diagnostic_id if provided
-        diagnostic_uuid = None
-        if diagnostic_id:
-            try:
-                diagnostic_uuid = UUID(diagnostic_id)
-            except ValueError:
-                print(f"  Invalid diagnostic_id: {diagnostic_id}")
-        
         # Upload files (pass diagnostic_id to use correct storage path)
         uploaded_media = await file_service.upload_files(
             files=files,
@@ -123,8 +160,10 @@ async def get_diagnostic_files(
     Returns:
         List of file metadata
     """
+    _require_diagnostic_access(db, diagnostic_id, current_user)
+
     file_service = get_file_service(db)
-    
+
     try:
         files = file_service.get_diagnostic_files(diagnostic_id)
         

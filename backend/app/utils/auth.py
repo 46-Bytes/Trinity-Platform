@@ -265,8 +265,46 @@ def require_role(allowed_roles: List[UserRole]):
                 detail=f"Access denied. Required roles: {[r.value for r in allowed_roles]}"
             )
         return user
-    
+
     return role_checker
+
+
+def require_self_service_owner(user: User = Depends(get_current_user)) -> User:
+    """
+    Dependency requiring a self-service business owner.
+
+    An owner is a CLIENT with account_type='self_service'. Advisor-provisioned
+    clients are deliberately excluded: they have no subscription of their own
+    and must never see checkout, billing or team management. Invited team
+    members are excluded too - they are not the account holder.
+    """
+    if user.role != UserRole.CLIENT or not user.is_self_service:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This area is only available to self-service business owners."
+        )
+    return user
+
+
+def require_active_subscription(
+    user: User = Depends(require_self_service_owner),
+    db: Session = Depends(get_db),
+) -> User:
+    """
+    Dependency requiring a self-service owner whose subscription is paid up.
+
+    Gates the paid surface. Returns 402 rather than 403 so the frontend can
+    tell "you need to pay" apart from "you may not do this" and route to
+    checkout instead of showing an access-denied page.
+    """
+    from ..services.self_service import get_active_subscription
+
+    if not get_active_subscription(db, user.id):
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="An active subscription is required to access this feature."
+        )
+    return user
 
 
 def is_token_expired(token: dict) -> bool:

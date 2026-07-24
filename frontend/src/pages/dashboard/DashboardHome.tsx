@@ -5,13 +5,17 @@ import { AdvisorDashboard } from './components/AdvisorDashboard';
 import { ClientDashboard } from './components/ClientDashboard';
 import { AdminDashboard } from './components/AdminDashboard';
 import { FirmAdminDashboard } from './components/FirmAdminDashboard';
+import { OwnerProgramCard } from './components/OwnerProgramCard';
+import { isBusinessOwner } from '@/types/auth';
 
 // Role-specific dashboard components are now in separate files
 
 export default function DashboardHome() {
   const { user } = useAuth();
+  const owner = isBusinessOwner(user);
 
   const getDashboardTitle = () => {
+    if (owner) return 'My Business';
     switch (user?.role) {
       case 'super_admin': return 'Platform Overview';
       case 'admin': return 'Administration Dashboard';
@@ -19,6 +23,7 @@ export default function DashboardHome() {
       case 'client': return 'My Dashboard';
       case 'firm_admin': return 'Firm Dashboard';
       case 'firm_advisor': return 'Advisor Dashboard';
+      case 'team_member': return 'My Work';
       default: return 'Dashboard';
     }
   };
@@ -29,7 +34,10 @@ export default function DashboardHome() {
       case 'admin': return <AdminDashboard />;
       case 'advisor':
       case 'firm_advisor': return <AdvisorDashboard />;
-      case 'client': return <ClientDashboard />;
+      // A self-service business owner is a `client`, so the same dashboard
+      // serves both - the owner just gets a program card above it.
+      case 'client':
+      case 'team_member': return <ClientDashboard />;
       case 'firm_admin': return <FirmAdminDashboard />;
       default: return null;
     }
@@ -51,6 +59,8 @@ export default function DashboardHome() {
           Last updated: Just now
         </div>
       </div>
+
+      {owner && <OwnerProgramCard />}
 
       {renderDashboard()}
     </div>

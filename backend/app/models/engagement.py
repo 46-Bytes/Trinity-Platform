@@ -23,7 +23,7 @@ class Engagement(Base):
     firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id", ondelete="SET NULL"), nullable=True, index=True, comment="Foreign key to firms (NULL for solo advisors)")
     client_id = Column(UUID(as_uuid=True), nullable=True, index=True, comment="Foreign key to users (the client account) - kept for backward compatibility")
     client_ids = Column(ARRAY(UUID(as_uuid=True)), nullable=True, comment="Array of client user IDs")
-    primary_advisor_id = Column(UUID(as_uuid=True), nullable=False, index=True, comment="Foreign key to users (main advisor)")
+    primary_advisor_id = Column(UUID(as_uuid=True), nullable=True, index=True, comment="Foreign key to users (main advisor). NULL for self-service engagements, where the owner has no advisor.")
     secondary_advisor_ids = Column(ARRAY(UUID(as_uuid=True)), nullable=True, comment="Array of additional advisor IDs")
     
     # Engagement details

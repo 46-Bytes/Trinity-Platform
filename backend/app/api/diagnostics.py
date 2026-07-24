@@ -102,18 +102,24 @@ async def create_diagnostic(
         }
         ```
     """
+    # Access check: this endpoint previously trusted any authenticated caller,
+    # which let anyone attach a diagnostic to any engagement. Harmless while
+    # signup was invite-only; not once self-service signup is public.
+    _require_engagement_access(db, diagnostic_data.engagement_id, current_user)
+
     service = get_diagnostic_service(db)
-    
+
     try:
         diagnostic = await service.create_diagnostic(
             engagement_id=diagnostic_data.engagement_id,
-            created_by_user_id=diagnostic_data.created_by_user_id,
+            # Ignore any caller-supplied id: the creator is whoever is authenticated.
+            created_by_user_id=current_user.id,
             diagnostic_type=diagnostic_data.diagnostic_type,
             diagnostic_version=diagnostic_data.diagnostic_version
         )
-        
+
         return diagnostic
-        
+
     except ValueError as e:
         logger.warning(f"Invalid request data when creating diagnostic: {e}")
         raise HTTPException(
@@ -158,15 +164,22 @@ async def update_diagnostic_responses(
         }
         ```
     """
+    # Access check: previously absent, so any authenticated user could overwrite
+    # any diagnostic's answers by id.
+    diagnostic_row = db.query(Diagnostic).filter(Diagnostic.id == diagnostic_id).first()
+    if not diagnostic_row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Diagnostic not found")
+    _require_diagnostic_access(db, diagnostic_row, current_user)
+
     service = get_diagnostic_service(db)
-    
+
     try:
         diagnostic = await service.update_responses(
             diagnostic_id=diagnostic_id,
             user_responses=update_data.user_responses,
             status=update_data.status
         )
-        
+
         # Return full diagnostic detail (includes user_responses)
         return diagnostic
         

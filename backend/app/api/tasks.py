@@ -41,6 +41,13 @@ async def create_task(
     User must have access to the engagement.
     The created_by_user_id will be set to the current user.
     """
+    # Team members work the tasks they are given; they do not create them.
+    if current_user.role == UserRole.TEAM_MEMBER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Team members cannot create tasks."
+        )
+
     # Verify engagement exists
     engagement = db.query(Engagement).filter(Engagement.id == task_data.engagement_id).first()
     if not engagement:
@@ -48,14 +55,14 @@ async def create_task(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Engagement not found."
         )
-    
+
     # Check engagement access
     if not check_engagement_access(engagement, current_user, db=db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to this engagement."
         )
-    
+
     # Verify assigned users exist if provided
     if task_data.assigned_to_user_ids:
         if len(task_data.assigned_to_user_ids) == 0:
@@ -284,6 +291,14 @@ async def list_tasks(
                     text("client_ids @> ARRAY[:user_id]::uuid[]").bindparams(user_id=current_user.id),
                 )
             )
+        elif current_user.role == UserRole.TEAM_MEMBER:
+            # Team members see ONLY the tasks assigned to them, not everything
+            # in their owner's engagement. This is the difference from the
+            # CLIENT branch above, which is engagement-wide on purpose.
+            query = query.join(Engagement).filter(
+                text("client_ids @> ARRAY[:user_id]::uuid[]").bindparams(user_id=current_user.id),
+                text("assigned_to_user_ids @> ARRAY[:user_id]::uuid[]").bindparams(user_id=current_user.id),
+            )
         else:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -465,7 +480,29 @@ async def update_task(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to update this task."
         )
-    
+
+    # Team members work their own tasks within a narrow lane: a collaborator may
+    # move the status of a task assigned to them, a viewer is read-only. Neither
+    # may retitle, reassign, reprioritise or reschedule.
+    if current_user.role == UserRole.TEAM_MEMBER:
+        from ..models.owner_team_member import TeamAccessLevel
+        from ..services.team_service import get_membership_for_user
+
+        membership = get_membership_for_user(db, current_user.id)
+        if not membership or membership.access_level != TeamAccessLevel.COLLABORATOR.value:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your access level does not allow updating tasks."
+            )
+
+        changed_fields = task_data.model_dump(exclude_unset=True).keys()
+        disallowed = set(changed_fields) - {"status"}
+        if disallowed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Team members can only update task status. Not permitted: {sorted(disallowed)}."
+            )
+
     # Verify assigned users exist if being updated
     if task_data.assigned_to_user_ids is not None:
         if len(task_data.assigned_to_user_ids) == 0:

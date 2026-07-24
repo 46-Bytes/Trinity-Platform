@@ -15,13 +15,16 @@ from ..database import get_db
 from ..services.auth_service import AuthService
 from ..services.login_check import check_user_login_eligibility
 from ..services.audit_service import AuditService
+from ..services.self_service import consume_intent, find_usable_intent, get_active_subscription
+from ..services.team_service import mark_member_active
 from ..config import settings
 from ..utils.auth import get_current_user, get_token_expiry_time, get_original_user, decode_auth0_token, decode_and_resolve_user
 from ..utils.password import hash_password, verify_password
-from ..models.user import User
+from ..models.user import User, UserRole
 from ..models.firm import Firm
 from ..models.impersonation import ImpersonationSession
 from uuid import UUID
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -32,31 +35,49 @@ oauth = AuthService.create_oauth_client()
 
 
 @router.get("/login")
-async def login(request: Request, force_login: bool = Query(False, description="Force Auth0 to show login page")):
+async def login(
+    request: Request,
+    force_login: bool = Query(False, description="Force Auth0 to show login page"),
+    screen_hint: Optional[str] = Query(None, description="Pass 'signup' to open Auth0's signup screen"),
+    intent: Optional[str] = Query(None, description="Self-service signup intent ID (Feature 7)"),
+):
     """
     Initiate Auth0 Universal Login flow.
-    
+
     This endpoint redirects the user to Auth0's Universal Login page.
-    
+
     Flow:
     1. User clicks "Login" on your frontend
     2. Frontend redirects to this endpoint
     3. This endpoint redirects to Auth0 Universal Login
     4. User logs in on Auth0's hosted page
     5. Auth0 redirects back to /callback
-    
+
     Args:
         force_login: If True, forces Auth0 to show login page (prompt=login)
                     Useful when user needs to try different credentials
+        screen_hint: 'signup' opens Auth0's registration screen instead of login.
+                    Used by the self-service business owner funnel.
+        intent: Self-service signup intent ID. Stashed in the session so the
+                callback can apply the owner's program and business name. The
+                callback also matches on email, so losing the session only
+                costs precision, not correctness.
     """
     # Build the callback URL
     redirect_uri = request.url_for('callback')
-    
+
     # Prepare authorization parameters
     auth_params = {}
     if force_login:
         auth_params['prompt'] = 'login'
-    
+    if screen_hint == 'signup':
+        auth_params['screen_hint'] = 'signup'
+
+    # Carry the self-service signup intent across the Auth0 round trip.
+    request.session.pop('signup_intent_id', None)
+    if intent:
+        request.session['signup_intent_id'] = intent
+
     # Redirect to Auth0 Universal Login
     # Explicitly skip consent screen and don't request API access
     return await oauth.auth0.authorize_redirect(
@@ -132,9 +153,41 @@ async def callback(
         if username_from_token:
             user_info['username'] = username_from_token
         
+        # Self-service (Feature 7): if this email started a signup on our site,
+        # apply their intent so they are created as a self-service business
+        # owner rather than falling through to the ADVISOR default.
+        auth0_email = user_info.get('email', '')
+        signup_intent = find_usable_intent(
+            db,
+            email=auth0_email,
+            intent_id=request.session.pop('signup_intent_id', None),
+        )
+        # Capture this before get_or_create_user, which creates the row.
+        is_new_account = not AuthService.get_user_by_email(db, auth0_email) if auth0_email else False
+
         # Create or update user in database
-        user = AuthService.get_or_create_user(db, user_info)
-        
+        user = AuthService.get_or_create_user(
+            db, user_info,
+            default_role=UserRole.CLIENT if signup_intent else None,
+        )
+
+        was_new_signup = False
+        if signup_intent:
+            # Only apply to a brand new account - an intent must never be able
+            # to re-role somebody who already had one.
+            if is_new_account:
+                consume_intent(db, signup_intent, user)
+                was_new_signup = True
+            else:
+                logger.warning(
+                    "Signup intent %s matched an existing account (%s); ignoring",
+                    signup_intent.id, user.email,
+                )
+
+        # A team member's first login flips their membership to active.
+        if user.role == UserRole.TEAM_MEMBER:
+            mark_member_active(db, user)
+
         # Check if user is eligible to login (firm revoked, user suspended, etc.)
         can_login, error_message = check_user_login_eligibility(db, user)
         if not can_login:
@@ -174,7 +227,16 @@ async def callback(
         # Redirect to frontend callback page with token
         # Frontend will store token in localStorage and redirect to dashboard
         callback_url = f"{settings.FRONTEND_URL}/auth/callback?token={encoded_token}"
-        
+
+        # A self-service owner who has not paid yet goes to checkout, not the
+        # dashboard - their workspace does not exist until the subscription is
+        # active. `next` is read by the frontend AuthCallback page.
+        if was_new_signup or (user.role == UserRole.CLIENT and user.is_self_service):
+            if not get_active_subscription(db, user.id):
+                program = signup_intent.program if signup_intent else ""
+                next_path = f"/onboarding/checkout?program={program}" if program else "/onboarding/checkout"
+                callback_url += f"&next={quote_plus(next_path)}"
+
         response = RedirectResponse(
             url=callback_url,
             status_code=302

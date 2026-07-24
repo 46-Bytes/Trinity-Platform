@@ -283,11 +283,18 @@ async def list_engagements(
         # Support multi-client engagements via `client_ids` array.
         # `client_id` is kept for backward compatibility but is not reliable when multiple
         # clients are associated to one engagement.
+        # Also covers self-service business owners, who are CLIENT users owning
+        # their own advisor-less engagement.
         query = query.filter(
             or_(
                 Engagement.client_id == current_user.id,
                 text("client_ids @> ARRAY[:user_id]::uuid[]").bindparams(user_id=current_user.id),
             )
+        )
+    elif current_user.role == UserRole.TEAM_MEMBER:
+        # Team members see the engagements they were added to on invite.
+        query = query.filter(
+            text("client_ids @> ARRAY[:user_id]::uuid[]").bindparams(user_id=current_user.id)
         )
     else:
         raise HTTPException(
@@ -351,7 +358,12 @@ async def list_engagements(
         ).first()
         
         effective_status = engagement.status
-        if completed_diagnostic and engagement.status != "completed":
+        # A self-service engagement (no advisor) spans the whole program, so a
+        # completed M0 diagnostic is the START of the owner's work, not the end.
+        # Only auto-complete advisor-led engagements, where the diagnostic is
+        # the deliverable.
+        is_self_service_engagement = engagement.primary_advisor_id is None
+        if completed_diagnostic and engagement.status != "completed" and not is_self_service_engagement:
             engagement.status = "completed"
             if not engagement.completed_at:
                 from datetime import datetime, timezone
@@ -548,13 +560,23 @@ async def get_user_role_data(
             ]
         }
     
+    elif current_user.role == UserRole.TEAM_MEMBER:
+        # Team members never create or edit engagements, so there is nothing to
+        # pick. Returned rather than 403'd so the engagement views still render.
+        return {"user_role": "team_member", "is_self_service": True, "advisors": []}
+
     elif current_user.role == UserRole.CLIENT:
-        # Get advisors associated with this client through advisor_client table        
+        # A self-service business owner has no advisor by definition - skip the
+        # association lookup and tell the frontend not to render an advisor picker.
+        if current_user.is_self_service:
+            return {"user_role": "client", "is_self_service": True, "advisors": []}
+
+        # Get advisors associated with this client through advisor_client table
         associations = db.query(AdvisorClient).filter(
             AdvisorClient.client_id == current_user.id,
             AdvisorClient.status == 'active'
         ).all()
-        
+
         associated_advisor_ids = [assoc.advisor_id for assoc in associations]
         
         if not associated_advisor_ids:
@@ -579,6 +601,7 @@ async def get_user_role_data(
         
         return {
             "user_role": "client",
+            "is_self_service": False,
             "advisors": [
                 {
                     "id": str(advisor.id),

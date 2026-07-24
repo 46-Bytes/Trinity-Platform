@@ -17,17 +17,30 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // Backend API base URL - use env variable
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
-// Map backend user shape to frontend User type
+const KNOWN_ROLES: UserRole[] = [
+  'super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor', 'team_member',
+];
+
+// Map backend user shape to frontend User type.
+// Throws on a missing or unrecognised role rather than assuming one: this used
+// to default to 'advisor', which would silently hand the advisor UI to any
+// account whose role failed to come back. With public self-service signup that
+// is not a risk worth carrying, so we fail closed and the caller signs out.
 function mapBackendUserToFrontend(backendUser: any): User {
-  // Use role from backend, default to 'advisor' if not present
-  const role = (backendUser.role || 'advisor') as UserRole;
-  
+  const role = backendUser.role as UserRole;
+  if (!role || !KNOWN_ROLES.includes(role)) {
+    throw new Error(`Unrecognised user role from backend: ${JSON.stringify(backendUser.role)}`);
+  }
+
   return {
     id: backendUser.id,
     email: backendUser.email,
     name: backendUser.name || backendUser.email,
     nickname: backendUser.nickname || undefined,
     role: role,
+    accountType: backendUser.account_type || undefined,
+    isSelfService: !!backendUser.is_self_service,
+    businessName: backendUser.business_name || undefined,
     avatar: backendUser.picture || undefined,
     bio: backendUser.bio || undefined,
     firmId: backendUser.firm_id || undefined,

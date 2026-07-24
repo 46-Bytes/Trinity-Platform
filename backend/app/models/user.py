@@ -18,6 +18,22 @@ class UserRole(str, enum.Enum):
     SUPER_ADMIN = "super_admin"
     FIRM_ADMIN = "firm_admin"
     FIRM_ADVISOR = "firm_advisor"
+    # Team members invited by a self-service business owner. Narrower than
+    # CLIENT: they only see tasks assigned to them and cannot edit diagnostics.
+    TEAM_MEMBER = "team_member"
+
+
+class AccountType(str, enum.Enum):
+    """
+    How a CLIENT account came to exist.
+
+    A self-service business owner IS a CLIENT - same role, same permissions on
+    the engagement surface. `account_type` is what tells an advisor-provisioned
+    client apart from an owner who signed up and paid directly, which is what
+    gates billing, team management and the checkout flow.
+    """
+    ADVISORY = "advisory"          # provisioned by an advisor/admin (the default)
+    SELF_SERVICE = "self_service"  # signed up directly via the SaaS funnel
 
 
 class UserRoleType(TypeDecorator):
@@ -51,6 +67,7 @@ class UserRoleType(TypeDecorator):
                 'super_admin': 'SUPER_ADMIN',
                 'firm_admin': 'firm_admin',  # Keep lowercase (DB has it as lowercase)
                 'firm_advisor': 'firm_advisor',  # Keep lowercase (DB has it as lowercase)
+                'team_member': 'team_member',  # Keep lowercase (matches firm_* convention)
             }
             return db_value_map.get(value_str, value_str.upper())
         if isinstance(value, str):
@@ -63,6 +80,7 @@ class UserRoleType(TypeDecorator):
                 'super_admin': 'SUPER_ADMIN',
                 'firm_admin': 'firm_admin',
                 'firm_advisor': 'firm_advisor',
+                'team_member': 'team_member',
             }
             if value_lower in db_value_map:
                 return db_value_map[value_lower]
@@ -86,9 +104,11 @@ class UserRoleType(TypeDecorator):
             'SUPER_ADMIN': 'super_admin',
             'FIRM_ADMIN': 'firm_admin',  # Convert from uppercase DB value
             'FIRM_ADVISOR': 'firm_advisor',  # Convert from uppercase DB value
+            'TEAM_MEMBER': 'team_member',
             # Also handle lowercase if they exist in DB
             'firm_admin': 'firm_admin',
             'firm_advisor': 'firm_advisor',
+            'team_member': 'team_member',
         }
         normalized = lowercase_map.get(value_str, value_str.lower())
         try:
@@ -211,9 +231,17 @@ class User(Base):
         UserRoleType(50),
         default=UserRole.ADVISOR,
         nullable=False,
-        comment="User role (advisor, client, admin, super_admin, firm_admin, firm_advisor)"
+        comment="User role (advisor, client, admin, super_admin, firm_admin, firm_advisor, team_member)"
     )
-    
+
+    account_type = Column(
+        String(20),
+        default=AccountType.ADVISORY.value,
+        server_default=AccountType.ADVISORY.value,
+        nullable=False,
+        comment="How the account was provisioned: 'advisory' (by an advisor/admin) or 'self_service' (direct SaaS signup)"
+    )
+
     # Timestamps
     created_at = Column(
         DateTime,
@@ -250,9 +278,22 @@ class User(Base):
     media = relationship("Media", back_populates="user")
     conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
     
+    @property
+    def is_self_service(self) -> bool:
+        """
+        True for direct-to-owner SaaS accounts (the business owner and the team
+        members they invite), False for advisor-provisioned accounts.
+
+        A self-service business owner carries UserRole.CLIENT - the role and the
+        engagement-surface permissions are identical to an advisory client. This
+        flag is what gates the owner-only extras: checkout, billing and team
+        management.
+        """
+        return self.account_type == AccountType.SELF_SERVICE.value
+
     def __repr__(self):
         return f"<User {self.email}>"
-    
+
     def to_dict(self):
         """Convert user object to dictionary."""
         return {
@@ -270,6 +311,8 @@ class User(Base):
             "is_active": self.is_active,
             "is_deleted": self.is_deleted,
             "role": self.role if self.role else None,
+            "account_type": self.account_type,
+            "is_self_service": self.is_self_service,
             "firm_id": str(self.firm_id) if self.firm_id else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

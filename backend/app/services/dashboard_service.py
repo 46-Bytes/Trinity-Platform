@@ -248,10 +248,24 @@ def get_superadmin_dashboard_stats(db: Session) -> DashboardStatsResponse:
     )
 
 
-def get_client_dashboard_stats(db: Session, client_user_id: UUID) -> ClientDashboardStatsResponse:
+def get_client_dashboard_stats(
+    db: Session,
+    client_user_id: UUID,
+    assigned_only: bool = False,
+) -> ClientDashboardStatsResponse:
     """
     Get dashboard statistics for a client user.
-    
+
+    Also serves self-service business owners, who are CLIENT users, and (with
+    assigned_only=True) invited team members.
+
+    Args:
+        db: Database session
+        client_user_id: The user to report on
+        assigned_only: Count only tasks assigned to this user rather than every
+            task in their engagements. Used for team members, whose visibility
+            is narrower than the account holder's.
+
     Returns:
         ClientDashboardStatsResponse with:
         - Total tasks (assigned to or created by client, in their engagements)
@@ -278,7 +292,13 @@ def get_client_dashboard_stats(db: Session, client_user_id: UUID) -> ClientDashb
         Task.engagement_id.in_(engagement_ids),
         Task.is_deleted == False
     )
-    
+
+    # Team members see only their own tasks (mirrors the TEAM_MEMBER branch in /api/tasks)
+    if assigned_only:
+        tasks_query = tasks_query.filter(
+            text("assigned_to_user_ids @> ARRAY[:uid]::uuid[]").bindparams(uid=client_user_id)
+        )
+
     total_tasks = tasks_query.count()
     
     # Get latest tasks (ordered by created_at desc, limit 20)

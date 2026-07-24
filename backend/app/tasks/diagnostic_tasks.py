@@ -200,7 +200,9 @@ async def _run_pipeline(diagnostic_id_str: str):
         engagement = background_db.query(Engagement).filter(
             Engagement.id == diagnostic_obj.engagement_id
         ).first()
-        if engagement and engagement.status != "completed":
+        # Self-service engagements (no advisor) run for the length of the owner's
+        # program, so a completed diagnostic must not close them.
+        if engagement and engagement.status != "completed" and engagement.primary_advisor_id is not None:
             engagement.status = "completed"
             if not engagement.completed_at:
                 engagement.completed_at = datetime.now(timezone.utc)

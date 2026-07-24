@@ -93,6 +93,9 @@ def check_engagement_access(
         return False
     
     # Client access
+    # Covers both advisor-provisioned clients and self-service business owners -
+    # a self-service owner IS a CLIENT (distinguished only by User.account_type),
+    # and owns their engagement via client_id, so no extra branch is needed here.
     if user.role == UserRole.CLIENT:
         if require_advisor:
             return False
@@ -103,5 +106,31 @@ def check_engagement_access(
         if engagement.client_ids and user.id in engagement.client_ids:
             return True
         return False
-    
+
+    # Team member access (self-service tier)
+    # Membership in `client_ids` is granted by team_service on invite and removed
+    # on revoke, but we re-check the membership row so a revoked member who is
+    # still lingering in a stale client_ids array cannot get back in.
+    if user.role == UserRole.TEAM_MEMBER:
+        if require_advisor:
+            return False
+        if not (engagement.client_ids and user.id in engagement.client_ids):
+            return False
+        if db is None:
+            # Without a session we cannot confirm the membership is live; the
+            # engagement-level check above already passed, so allow it.
+            return True
+
+        from ..models.owner_team_member import OwnerTeamMember, TeamMemberStatus
+
+        return (
+            db.query(OwnerTeamMember)
+            .filter(
+                OwnerTeamMember.member_user_id == user.id,
+                OwnerTeamMember.status != TeamMemberStatus.REVOKED.value,
+            )
+            .first()
+            is not None
+        )
+
     return False

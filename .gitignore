@@ -1,0 +1,4 @@
+# Local overrides containing real secrets — never commit
+infra/main.parameters.local.json
+.env
+.env.local

@@ -1,12 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
 from sqlalchemy.orm import Session
-from pathlib import Path
 import os
-import shutil
 import time
 
 from app.database import get_db
 from app.models.user import User
+from app.services.storage_service import get_storage_service
 from app.utils.auth import get_current_user
 
 
@@ -99,36 +98,26 @@ async def update_profile(
         if file_ext not in allowed_extensions:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail=f"Invalid file type. Only JPG and PNG files are allowed. Received: {file_ext}")
         
-        # Base files directory (backend/files)
-        base_dir = Path(__file__).resolve().parents[2] / "files"
-        # Store profile pictures in files/uploads/users/{user_id}/profilepicture/
-        profile_picture_dir = base_dir / "uploads" / "users" / str(user.id) / "profilepicture"
-        profile_picture_dir.mkdir(parents=True, exist_ok=True)
-
-        # Remove any existing profile pictures in this directory
-        for existing in profile_picture_dir.iterdir():
-            if existing.is_file():
-                try:
-                    existing.unlink()
-                except Exception:
-                    pass
+        # Store profile pictures under uploads/users/{user_id}/profilepicture/
+        storage = get_storage_service()
+        prefix = f"uploads/users/{user.id}/profilepicture"
+        storage.delete_prefix(prefix)
 
         # Normalize .jpeg to .jpg
         if file_ext == '.jpeg':
             file_ext = '.jpg'
         filename = f"profilepicture_{int(time.time())}{file_ext}"
-
-        destination = profile_picture_dir / filename
+        storage_key = f"{prefix}/{filename}"
 
         try:
-            with destination.open("wb") as buffer:
-                shutil.copyfileobj(profile_picture.file, buffer)
+            content = await profile_picture.read()
+            storage.write_bytes(storage_key, content)
         finally:
             await profile_picture.close()
 
-        # Store relative URL/path in picture field
-        rel_path = destination.relative_to(base_dir).as_posix()
-        user.picture = f"/files/{rel_path}"
+        # Store relative URL in picture field — the frontend prepends the
+        # API base URL for any value that isn't already an absolute URL.
+        user.picture = f"/files/{storage_key}"
 
     db.add(user)
     db.commit()
@@ -157,32 +146,13 @@ async def remove_profile_picture(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="User not found")
 
     # If user has a profile picture, delete it
-    if user.picture:
-        # Base files directory (backend/files)
-        base_dir = Path(__file__).resolve().parents[2] / "files"
-        
-        if user.picture.startswith('/files/'):
-            rel_path = user.picture.replace('/files/', '')
-            picture_path = base_dir / rel_path
-            
-            # Delete the file if it exists
-            if picture_path.exists() and picture_path.is_file():
-                try:
-                    picture_path.unlink()
-                except Exception as e:
-                    # Log error but continue - we'll still clear the DB field
-                    print(f"Error deleting profile picture file: {e}")
-        
-        # Also try to delete entire directory if it's empty
-        profile_picture_dir = base_dir / "uploads" / "users" / str(user.id) / "profilepicture"
-        if profile_picture_dir.exists():
-            try:
-                # Remove directory if empty
-                if not any(profile_picture_dir.iterdir()):
-                    profile_picture_dir.rmdir()
-            except Exception:
-                pass  # Directory not empty or other error, that's fine
-    
+    if user.picture and user.picture.startswith('/files/'):
+        try:
+            get_storage_service().delete_prefix(f"uploads/users/{user.id}/profilepicture")
+        except Exception as e:
+            # Log error but continue - we'll still clear the DB field
+            print(f"Error deleting profile picture file: {e}")
+
 
     user.picture = None
     

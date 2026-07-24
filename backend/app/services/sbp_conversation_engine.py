@@ -6,6 +6,7 @@ Uses ClaudeService.generate_json_completion() with file attachments (matching BB
 from typing import Dict, Any, List, Optional, Tuple
 from uuid import UUID
 import asyncio
+import io
 import json
 import logging
 import re
@@ -57,7 +58,7 @@ class SBPConversationEngine:
     # File handling (matches BBA engine pattern)
     # ------------------------------------------------------------------
 
-    _UPLOAD_DIR = Path(__file__).resolve().parents[2] / "files" / "uploads" / "sbp"
+    _STORAGE_PREFIX = "uploads/sbp"
 
     def _separate_files_by_type(self, file_mappings: Dict[str, str]) -> Tuple[List[str], List[str], List[str]]:
         """
@@ -90,17 +91,20 @@ class SBPConversationEngine:
         return pdf_file_ids, ci_file_ids, local_extract_filenames
 
     def _extract_text_from_local_file(self, filename: str, stored_path: str) -> Optional[str]:
-        """Extract text content from a locally stored DOCX or PPTX file."""
-        full_path = self._UPLOAD_DIR / stored_path
-        if not full_path.exists():
-            logger.warning(f"[SBP Engine] Local file not found for text extraction: {full_path}")
+        """Extract text content from a stored DOCX or PPTX file."""
+        from app.services.storage_service import get_storage_service
+        storage = get_storage_service()
+        storage_key = f"{self._STORAGE_PREFIX}/{stored_path}"
+        if not storage.exists(storage_key):
+            logger.warning(f"[SBP Engine] Stored file not found for text extraction: {storage_key}")
             return None
 
         ext = Path(filename).suffix.lower()
         try:
+            content = storage.read_bytes(storage_key)
             if ext == ".docx":
                 from docx import Document  # python-docx
-                doc = Document(str(full_path))
+                doc = Document(io.BytesIO(content))
                 paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
                 # Also extract tables
                 for table in doc.tables:
@@ -113,7 +117,7 @@ class SBPConversationEngine:
 
             elif ext == ".pptx":
                 from pptx import Presentation  # python-pptx
-                prs = Presentation(str(full_path))
+                prs = Presentation(io.BytesIO(content))
                 slides_text = []
                 for i, slide in enumerate(prs.slides, 1):
                     slide_parts = []

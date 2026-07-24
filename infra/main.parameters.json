@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "namePrefix": { "value": "trinity" },
+    "envName": { "value": "prod" },
+    "postgresAdminPassword": { "value": "REPLACE_ME" },
+    "secretKey": { "value": "REPLACE_ME" },
+    "auth0ClientSecret": { "value": "REPLACE_ME" },
+    "auth0ManagementClientSecret": { "value": "REPLACE_ME" },
+    "anthropicApiKey": { "value": "REPLACE_ME" },
+    "openaiApiKey": { "value": "" },
+    "resendApiKey": { "value": "REPLACE_ME" },
+    "auth0Domain": { "value": "REPLACE_ME.auth0.com" },
+    "auth0ClientId": { "value": "REPLACE_ME" },
+    "auth0Audience": { "value": "REPLACE_ME" },
+    "auth0ManagementApiAudience": { "value": "REPLACE_ME" },
+    "auth0ManagementClientId": { "value": "REPLACE_ME" },
+    "frontendUrl": { "value": "https://REPLACE_ME.azurestaticapps.net" }
+  }
+}

@@ -4,7 +4,6 @@ Strategy Workbook service for document analysis and data extraction
 from sqlalchemy.orm import Session
 from typing import Dict, Any, List, Optional
 from uuid import UUID
-from pathlib import Path
 import json
 import logging
 
@@ -14,6 +13,7 @@ from app.models.media import Media
 # from app.services.openai_service import openai_service  # Preserved for rollback
 from app.services.claude_service import claude_service
 from app.services.file_service import get_file_service
+from app.services.storage_service import get_storage_service
 from app.config import settings
 from app.utils.file_loader import load_prompt
 
@@ -86,14 +86,12 @@ class StrategyWorkbookService:
                 logger.info(f"Returning existing strategy workbook {existing.id} for diagnostic {diagnostic_id}")
                 return existing
             logger.info(f"Resetting existing strategy workbook {existing.id} for diagnostic {diagnostic_id} (force_new=True)")
-            # Delete old generated file from disk if it exists
+            # Delete old generated file if it exists
             if existing.generated_workbook_path:
-                old_path = Path(existing.generated_workbook_path)
-                if old_path.exists():
-                    try:
-                        old_path.unlink()
-                    except OSError:
-                        logger.warning(f"Failed to delete old workbook file: {old_path}")
+                try:
+                    get_storage_service().delete(existing.generated_workbook_path)
+                except Exception:
+                    logger.warning(f"Failed to delete old workbook file: {existing.generated_workbook_path}")
             # Reset to draft state
             existing.status = "draft"
             existing.extracted_data = None

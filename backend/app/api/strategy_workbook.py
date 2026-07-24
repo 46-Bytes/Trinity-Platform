@@ -2,11 +2,10 @@
 Strategy Workbook API endpoints
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status, Form
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import Any, Dict, List, Optional
 from uuid import UUID
-from pathlib import Path
 import io
 import logging
 import traceback
@@ -24,6 +23,7 @@ from app.services.role_check import check_engagement_access
 from app.services.strategy_workbook_service import get_strategy_workbook_service
 from app.services.strategy_workbook_exporter import get_strategy_workbook_exporter
 from app.services.file_service import get_file_service
+from app.services.storage_service import get_storage_service
 from app.schemas.strategy_workbook import (
     StrategyWorkbookResponse,
     StrategyWorkbookUploadResponse,
@@ -379,24 +379,15 @@ async def generate_workbook(
             workbook.notes = request.review_notes
             db.commit()
         
-        # Generate workbook
+        # Generate workbook bytes and persist via the storage backend
         exporter = get_strategy_workbook_exporter()
-        
-        # Create output directory
-        base_dir = Path(__file__).resolve().parents[2]  # Go up to backend/
-        output_dir = base_dir / "files" / "uploads" / "strategy-workbook" / str(workbook.id)
-        output_dir.mkdir(parents=True, exist_ok=True)
-        
-        output_path = output_dir / "Strategy_Workshop_Workbook.xlsx"
-        
-        # Generate workbook bytes
-        workbook_bytes = exporter.generate_workbook(
-            extracted_data=workbook.extracted_data,
-            output_path=output_path
-        )
-        
+        workbook_bytes = exporter.generate_workbook(extracted_data=workbook.extracted_data)
+
+        storage_key = f"uploads/strategy-workbook/{workbook.id}/Strategy_Workshop_Workbook.xlsx"
+        get_storage_service().write_bytes(storage_key, workbook_bytes)
+
         # Update workbook record
-        workbook.generated_workbook_path = str(output_path)
+        workbook.generated_workbook_path = storage_key
         workbook.status = "completed"
         from datetime import datetime, timezone
         workbook.completed_at = datetime.now(timezone.utc)
@@ -502,17 +493,18 @@ async def download_workbook(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Workbook has not been generated yet"
         )
-    
-    file_path = Path(workbook.generated_workbook_path)
-    if not file_path.exists():
+
+    storage = get_storage_service()
+    if not storage.exists(workbook.generated_workbook_path):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Workbook file not found"
         )
-    
-    return FileResponse(
-        path=str(file_path),
-        filename="Strategy_Workshop_Workbook.xlsx",
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+    content = storage.read_bytes(workbook.generated_workbook_path)
+    return StreamingResponse(
+        io.BytesIO(content),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="Strategy_Workshop_Workbook.xlsx"'},
     )
 

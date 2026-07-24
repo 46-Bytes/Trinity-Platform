@@ -28,7 +28,7 @@ Phase 3 – PowerPoint Presentation Generator
 - PowerPoint (.pptx) branded export
 """
 from fastapi import APIRouter, UploadFile, File, HTTPException, status, Depends, BackgroundTasks, Query
-from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 from uuid import UUID
@@ -48,6 +48,7 @@ from app.services.bba_task_planner_service import get_bba_task_planner_service
 from app.services.bba_task_list_export import get_bba_task_list_exporter
 from app.services.bba_presentation_service import get_bba_presentation_service
 from app.services.bba_pptx_export import BBAPptxExporter
+from app.services.storage_service import get_storage_service
 from app.utils.auth import get_current_user
 from app.models.user import User
 from app.models.diagnostic import Diagnostic
@@ -96,12 +97,9 @@ def _check_bba_access(bba, current_user: User, db: Session) -> None:
 
 router = APIRouter(prefix="/api/poc", tags=["bba"])
 
-# Base directory for persisting BBA uploaded files (under app UPLOAD_DIR)
-def _bba_uploads_base() -> Path:
-    base = Path(settings.UPLOAD_DIR)
-    if not base.is_absolute():
-        base = Path(__file__).resolve().parent.parent.parent / base
-    return base / "bba"
+# Storage key prefix for persisted BBA uploaded files (relative to the
+# files root — backend/files locally, or the Azure Blob container).
+_BBA_STORAGE_PREFIX = "bba"
 
 
 def _sanitize_filename(filename: str) -> str:
@@ -286,18 +284,15 @@ async def upload_files_poc(
                 file_id = openai_result["id"]
                 safe_name = _sanitize_filename(filename)
 
-                # Persist file to disk
+                # Persist file to durable storage
                 disk_path = None
                 try:
-                    bba_base = _bba_uploads_base()
-                    project_dir = bba_base / str(project_id)
-                    project_dir.mkdir(parents=True, exist_ok=True)
-                    stored_path = project_dir / safe_name
-                    stored_path.write_bytes(file_content)
+                    storage_key = f"{_BBA_STORAGE_PREFIX}/{project_id}/{safe_name}"
+                    get_storage_service().write_bytes(storage_key, file_content)
                     disk_path = f"{project_id}/{safe_name}"
-                    logger.info(f"Stored file {filename} at {stored_path}")
+                    logger.info(f"Stored file {filename} at {storage_key}")
                 except Exception as store_err:
-                    logger.warning(f"Failed to persist file {filename} to disk: {store_err}")
+                    logger.warning(f"Failed to persist file {filename} to storage: {store_err}")
 
                 logger.info(f"Successfully uploaded {filename}. File ID: {file_id}")
                 return {
@@ -384,7 +379,7 @@ async def upload_files_poc(
     }
 
 
-@router.get("/{project_id}/files/{filename:path}", response_class=FileResponse)
+@router.get("/{project_id}/files/{filename:path}")
 async def download_bba_file(
     project_id: UUID,
     filename: str,
@@ -407,15 +402,17 @@ async def download_bba_file(
     if not relative_path:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found in this project")
 
-    full_path = _bba_uploads_base() / relative_path
-    if not full_path.is_file():
-        logger.warning(f"Stored file missing on disk: {full_path}")
+    storage = get_storage_service()
+    storage_key = f"{_BBA_STORAGE_PREFIX}/{relative_path}"
+    if not storage.exists(storage_key):
+        logger.warning(f"Stored file missing: {storage_key}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found on server")
 
-    return FileResponse(
-        path=str(full_path),
-        filename=filename,
+    content = storage.read_bytes(storage_key)
+    return StreamingResponse(
+        io.BytesIO(content),
         media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

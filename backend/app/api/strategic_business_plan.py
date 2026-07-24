@@ -2,15 +2,15 @@
 Strategic Business Plan API endpoints
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status
-from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import update as sa_update
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 from pathlib import Path
+import io
 import logging
-import shutil
 import uuid as uuid_mod
 
 logger = logging.getLogger(__name__)
@@ -23,6 +23,7 @@ from app.models.diagnostic import Diagnostic
 from app.models.engagement import Engagement
 from app.services.role_check import check_engagement_access
 from app.services.sbp_service import get_sbp_service, SBPService
+from app.services.storage_service import get_storage_service
 from app.schemas.strategic_business_plan import (
     SBPCreate,
     SBPSetup,
@@ -45,9 +46,8 @@ from app.schemas.strategic_business_plan import (
 
 router = APIRouter(prefix="/strategic-business-plan", tags=["strategic-business-plan"])
 
-# Upload directory
-UPLOAD_DIR = Path(__file__).resolve().parents[2] / "files" / "uploads" / "sbp"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+# Storage key prefix for persisted SBP uploads (relative to the files root)
+STORAGE_PREFIX = "uploads/sbp"
 
 MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB
 ALLOWED_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".xls", ".pptx", ".txt", ".csv", ".png", ".jpg", ".jpeg"}
@@ -195,8 +195,7 @@ async def upload_files(
     plan = _get_plan_or_404(plan_id, db)
     _check_plan_access(plan, current_user, db)
 
-    plan_dir = UPLOAD_DIR / str(plan_id)
-    plan_dir.mkdir(parents=True, exist_ok=True)
+    storage = get_storage_service()
 
     file_ids = list(plan.file_ids or [])
     file_mappings = dict(plan.file_mappings or {})
@@ -225,12 +224,11 @@ async def upload_files(
                 detail=f"File '{upload_file.filename}' exceeds 100 MB limit",
             )
 
-        # 1. Save locally
+        # 1. Persist to durable storage
         local_id = str(uuid_mod.uuid4())
         safe_name = f"{local_id}{ext}"
-        file_path = plan_dir / safe_name
-        with open(file_path, "wb") as f:
-            f.write(content)
+        storage_key = f"{STORAGE_PREFIX}/{plan_id}/{safe_name}"
+        storage.write_bytes(storage_key, content)
 
         # 2. Upload to Claude Files API
         claude_file_id = None
@@ -593,17 +591,17 @@ async def export_docx(
     try:
         from app.services.sbp_report_export import get_sbp_report_exporter
         exporter = get_sbp_report_exporter()
-        file_path = exporter.generate_docx(plan)
+        doc_bytes = exporter.generate_docx(plan)
 
         client_name = (plan.client_name or "Client").replace(" ", "_")
         from datetime import datetime
         year = datetime.now().year
         filename = f"Strategic_Business_Plan_{client_name}_{year}.docx"
 
-        return FileResponse(
-            path=str(file_path),
-            filename=filename,
+        return StreamingResponse(
+            io.BytesIO(doc_bytes),
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
     except Exception as e:
         logger.error(f"Export failed for plan {plan_id}: {e}", exc_info=True)
@@ -627,17 +625,17 @@ async def export_employee_docx(
     try:
         from app.services.sbp_report_export import get_sbp_employee_exporter
         exporter = get_sbp_employee_exporter()
-        file_path = exporter.generate_employee_docx(plan)
+        doc_bytes = exporter.generate_employee_docx(plan)
 
         client_name = (plan.client_name or "Client").replace(" ", "_")
         from datetime import datetime
         year = datetime.now().year
         filename = f"Employee_Strategy_Document_{client_name}_{year}.docx"
 
-        return FileResponse(
-            path=str(file_path),
-            filename=filename,
+        return StreamingResponse(
+            io.BytesIO(doc_bytes),
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
     except Exception as e:
         logger.error(f"Employee export failed for plan {plan_id}: {e}", exc_info=True)
@@ -806,15 +804,15 @@ async def export_presentation(
     try:
         from app.services.sbp_pptx_export import get_sbp_pptx_exporter
         exporter = get_sbp_pptx_exporter()
-        file_path = exporter.generate_pptx(plan)
+        pptx_bytes = exporter.generate_pptx(plan)
 
         client_name = (plan.client_name or "Client").replace(" ", "_")
         filename = f"Strategic_Business_Plan_Presentation_{client_name}.pptx"
 
-        return FileResponse(
-            path=str(file_path),
-            filename=filename,
+        return StreamingResponse(
+            io.BytesIO(pptx_bytes),
             media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
     except Exception as e:
         logger.error(f"Presentation export failed for plan {plan_id}: {e}", exc_info=True)

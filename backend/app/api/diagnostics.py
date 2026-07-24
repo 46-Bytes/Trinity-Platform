@@ -29,6 +29,7 @@ from app.schemas.diagnostic import (
 )
 from app.services.diagnostic_service import get_diagnostic_service
 from app.services.file_service import get_file_service
+from app.services.storage_service import get_storage_service
 from app.services.report_service import ReportService
 from app.services.document_template_service import get_document_template_service
 from app.services.role_check import check_engagement_access
@@ -332,23 +333,19 @@ async def delete_diagnostic_file(
                 detail=f"File '{file_name}' not found in field '{field_name}'. Available files: {available_files}"
             )
         
-        # Delete file from disk
-        base_dir = Path(__file__).resolve().parents[2] / "files"
+        # Delete stored file (relative_path is relative to the "uploads/" prefix)
         relative_path = file_to_remove.get("relative_path")
         logger.info(f"Relative path: {relative_path}")
-        logger.info(f"Base dir: {base_dir}")
-        
+
         if relative_path:
-            file_path = base_dir / relative_path
-            logger.info(f"Full file path: {file_path}")
-            logger.info(f"File exists: {file_path.exists()}")
-            if file_path.exists():
-                try:
-                    file_path.unlink()
-                    logger.info(f"File deleted successfully: {file_path}")
-                except Exception as e:
-                    # Log error but continue with metadata removal
-                    logger.warning(f"Could not delete file {file_path}: {str(e)}")
+            storage = get_storage_service()
+            storage_key = f"uploads/{relative_path}"
+            try:
+                storage.delete(storage_key)
+                logger.info(f"File deleted successfully: {storage_key}")
+            except Exception as e:
+                # Log error but continue with metadata removal
+                logger.warning(f"Could not delete file {storage_key}: {str(e)}")
         
         # Remove file from user_responses
         # Use exact matching to ensure we remove the correct file

@@ -61,6 +61,11 @@ class Settings(BaseSettings):
     # File Uploads
     UPLOAD_DIR: str = "uploads"
 
+    # File storage backend: "local" (disk under backend/files) or "azure_blob"
+    STORAGE_BACKEND: str = "local"
+    AZURE_STORAGE_CONNECTION_STRING: Optional[str] = None
+    AZURE_STORAGE_CONTAINER: str = "files"
+
     # Email (Resend)
     RESEND_API_KEY: str = ""
     RESEND_FROM_EMAIL: str = "noreply@benchmarkbusinessadvisory.com.au"

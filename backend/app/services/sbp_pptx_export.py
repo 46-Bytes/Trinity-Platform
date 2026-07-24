@@ -2,9 +2,8 @@
 Strategic Business Plan PowerPoint Exporter
 Generates .pptx files from generated slide content.
 """
+import io
 import logging
-from pathlib import Path
-from datetime import datetime
 from typing import Dict, Any, List
 
 from pptx import Presentation
@@ -16,14 +15,11 @@ from app.models.strategic_business_plan import StrategicBusinessPlan
 
 logger = logging.getLogger(__name__)
 
-OUTPUT_DIR = Path(__file__).resolve().parents[2] / "files" / "exports" / "sbp"
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
 
 class SBPPptxExporter:
     """Generates a .pptx presentation from the plan's slide content."""
 
-    def generate_pptx(self, plan: StrategicBusinessPlan) -> Path:
+    def generate_pptx(self, plan: StrategicBusinessPlan) -> bytes:
         prs = Presentation()
         prs.slide_width = Inches(13.333)
         prs.slide_height = Inches(7.5)
@@ -41,12 +37,11 @@ class SBPPptxExporter:
                 self._add_content_slide(prs, slide_data)
 
         # Save
-        client_safe = (plan.client_name or "Client").replace(" ", "_")
-        filename = f"Strategic_Business_Plan_Presentation_{client_safe}.pptx"
-        output_path = OUTPUT_DIR / filename
-        prs.save(str(output_path))
-        logger.info(f"Generated SBP presentation: {output_path}")
-        return output_path
+        buffer = io.BytesIO()
+        prs.save(buffer)
+        pptx_bytes = buffer.getvalue()
+        logger.info(f"Generated SBP presentation for plan {plan.id} ({len(pptx_bytes)} bytes)")
+        return pptx_bytes
 
     def _add_title_slide(self, prs: Presentation, data: Dict[str, Any], plan: StrategicBusinessPlan):
         layout = prs.slide_layouts[0]  # Title slide

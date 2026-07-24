@@ -2,8 +2,8 @@
 Strategic Business Plan Report Exporter
 Generates professional .docx files from the assembled plan.
 """
+import io
 import logging
-from pathlib import Path
 from datetime import datetime
 from typing import Optional
 
@@ -18,9 +18,6 @@ from bs4 import BeautifulSoup
 from app.models.strategic_business_plan import StrategicBusinessPlan
 
 logger = logging.getLogger(__name__)
-
-OUTPUT_DIR = Path(__file__).resolve().parents[2] / "files" / "exports" / "sbp"
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 SECTION_INTROS = {
     "executive_summary": (
@@ -256,7 +253,7 @@ class SBPReportExporter:
 
         doc.add_paragraph("")
 
-    def generate_docx(self, plan: StrategicBusinessPlan) -> Path:
+    def generate_docx(self, plan: StrategicBusinessPlan) -> bytes:
         """Generate the main Strategic Business Plan .docx document."""
         doc = Document()
 
@@ -333,23 +330,21 @@ class SBPReportExporter:
             doc.add_page_break()
 
         # ── Save ──────────────────────────────────────────────────────────
-        client_safe = client_name.replace(" ", "_")
-        filename = f"Strategic_Business_Plan_{client_safe}_{year}.docx"
-        output_path = OUTPUT_DIR / filename
-        doc.save(str(output_path))
-        logger.info(f"Generated SBP report: {output_path}")
+        buffer = io.BytesIO()
+        doc.save(buffer)
+        doc_bytes = buffer.getvalue()
+        logger.info(f"Generated SBP report for plan {plan.id} ({len(doc_bytes)} bytes)")
 
-        plan.generated_report_path = str(output_path)
         plan.status = "completed"
         plan.completed_at = datetime.now()
 
-        return output_path
+        return doc_bytes
 
 
 class SBPEmployeeExporter(SBPReportExporter):
     """Generates an employee-facing strategy document variant."""
 
-    def generate_employee_docx(self, plan: StrategicBusinessPlan) -> Path:
+    def generate_employee_docx(self, plan: StrategicBusinessPlan) -> bytes:
         doc = Document()
 
         style = doc.styles["Normal"]
@@ -392,14 +387,12 @@ class SBPEmployeeExporter(SBPReportExporter):
                     self._html_to_docx(doc, section["content"])
                     doc.add_page_break()
 
-        client_safe = (plan.client_name or "Client").replace(" ", "_")
-        filename = f"Employee_Strategy_Document_{client_safe}_{datetime.now().year}.docx"
-        output_path = OUTPUT_DIR / filename
-        doc.save(str(output_path))
-        logger.info(f"Generated employee strategy document: {output_path}")
+        buffer = io.BytesIO()
+        doc.save(buffer)
+        doc_bytes = buffer.getvalue()
+        logger.info(f"Generated employee strategy document for plan {plan.id} ({len(doc_bytes)} bytes)")
 
-        plan.generated_employee_report_path = str(output_path)
-        return output_path
+        return doc_bytes
 
 
 def get_sbp_report_exporter() -> SBPReportExporter:

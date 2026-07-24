@@ -40,6 +40,7 @@ from ..services.role_check import check_engagement_access
 from ..services.bba_service import get_bba_service
 from ..services.strategy_workbook_service import get_strategy_workbook_service
 from ..services.sbp_service import get_sbp_service
+from ..services.storage_service import get_storage_service
 from ..models.adv_client import AdvisorClient
 
 # Configure logger for this module
@@ -1326,14 +1327,15 @@ async def delete_engagement(
             detail="Only admins and firm admins can delete engagements."
         )
     
-    # Delete generated files from disk before soft-deleting records
+    # Delete generated files from storage before soft-deleting records
     workbooks = db.query(StrategyWorkbook).filter(
         StrategyWorkbook.engagement_id == engagement_id,
         StrategyWorkbook.is_deleted == False,
     ).all()
+    storage = get_storage_service()
     for wb in workbooks:
-        if wb.generated_workbook_path and os.path.exists(wb.generated_workbook_path):
-            os.remove(wb.generated_workbook_path)
+        if wb.generated_workbook_path:
+            storage.delete(wb.generated_workbook_path)
 
     sbps = db.query(StrategicBusinessPlan).filter(
         StrategicBusinessPlan.engagement_id == engagement_id,

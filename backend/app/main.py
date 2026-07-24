@@ -1,13 +1,14 @@
 """
 FastAPI application entry point with Auth0 integration.
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import Response
 from starlette.middleware.sessions import SessionMiddleware
-from pathlib import Path
 import logging
+import mimetypes
 from .config import settings
+from .services.storage_service import get_storage_service
 
 from .api.diagnostics import router as diagnostics_router
 
@@ -98,13 +99,18 @@ app.include_router(strategy_workbook_router, prefix="/api")
 app.include_router(sbp_router, prefix="/api")
 app.include_router(ai_field_privacy_router)
 
-# Mount static files directory for serving uploaded files
-# This allows /files/... URLs to be served directly
-base_dir = Path(__file__).resolve().parents[1]  # Go up to backend/
-files_dir = base_dir / "files"
-files_dir.mkdir(exist_ok=True)  # Create directory if it doesn't exist
-
-app.mount("/files", StaticFiles(directory=str(files_dir)), name="files")
+# Serve uploaded/generated files at /files/... through the storage backend
+# (local disk in dev, Azure Blob in production — see app.services.storage_service).
+# A plain StaticFiles mount only works for local disk, so this goes through
+# the same abstraction every upload/export endpoint uses.
+@app.get("/files/{key:path}")
+async def serve_file(key: str):
+    storage = get_storage_service()
+    if not storage.exists(key):
+        raise HTTPException(status_code=404, detail="File not found")
+    content = storage.read_bytes(key)
+    media_type = mimetypes.guess_type(key)[0] or "application/octet-stream"
+    return Response(content=content, media_type=media_type)
 
 
 @app.on_event("startup")

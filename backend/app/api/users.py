@@ -8,12 +8,13 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel
 
 from sqlalchemy import or_, desc
-from fastapi.responses import FileResponse
-from pathlib import Path
+from fastapi.responses import StreamingResponse
+import io
 
 from ..database import get_db
 from ..models.user import User, UserRole
 from ..models.media import Media
+from ..services.storage_service import get_storage_service
 from ..models.engagement import Engagement
 from ..models.diagnostic import Diagnostic
 from ..models.impersonation import ImpersonationSession
@@ -427,14 +428,14 @@ async def download_user_file(
             detail="File not found"
         )
     
-    # Check if file exists on disk
-    file_path = Path(media.file_path)
-    if not file_path.exists():
+    # Check the file exists in storage
+    storage = get_storage_service()
+    if not storage.exists(media.file_path):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="File not found on server"
         )
-    
+
     # Determine media type
     media_type_map = {
         'pdf': 'application/pdf',
@@ -448,13 +449,13 @@ async def download_user_file(
         'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'txt': 'text/plain',
     }
-    
+
     ext = media.file_extension.lower() if media.file_extension else ''
     media_type = media_type_map.get(ext, 'application/octet-stream')
-    
-    return FileResponse(
-        path=str(file_path),
-        filename=media.file_name,
+
+    content = storage.read_bytes(media.file_path)
+    return StreamingResponse(
+        io.BytesIO(content),
         media_type=media_type,
         headers={
             "Content-Disposition": f'attachment; filename="{media.file_name}"'

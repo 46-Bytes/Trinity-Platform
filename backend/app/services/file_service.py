@@ -7,7 +7,6 @@ from typing import List, Optional
 from uuid import UUID
 import uuid
 import os
-import shutil
 from pathlib import Path
 
 import logging
@@ -18,6 +17,7 @@ from app.models.media import Media
 from app.models.user import User
 # from app.services.openai_service import openai_service  # Preserved for rollback
 from app.services.claude_service import claude_service
+from app.services.storage_service import get_storage_service
 from app.config import settings
 
 
@@ -43,13 +43,11 @@ class FileService:
         self.db = db
         # Use the singleton openai_service instance
         self.claude_service = claude_service
-        # Use files/uploads as the base upload directory
-        # Path(__file__) = backend/app/services/file_service.py
-        # .parents[2] = backend/
-        # / "files" / "uploads" = backend/files/uploads
-        base_dir = Path(__file__).resolve().parents[2]  # Go up to backend/
-        self.upload_dir = base_dir / "files" / "uploads"
-        self.upload_dir.mkdir(parents=True, exist_ok=True)
+        self.storage = get_storage_service()
+        # Storage keys for diagnostic/user files are rooted at "uploads/"
+        # (relative to the files root, e.g. backend/files/uploads on disk,
+        # or the "uploads/" prefix inside the Azure Blob container).
+        self.upload_dir = Path("uploads")
     
     def _get_file_extension(self, filename: str) -> str:
         """Extract file extension from filename"""
@@ -98,55 +96,62 @@ class FileService:
         """
         # Validate file
         self._validate_file(file)
-        
-        # Create directory based on whether diagnostic_id is provided
+
+        # Storage key based on whether diagnostic_id is provided
         if diagnostic_id:
-            # Store diagnostic files in files/uploads/diagnostic/{diagnostic_id}/
-            storage_dir = self.upload_dir / "diagnostic" / str(diagnostic_id)
+            # Store diagnostic files under uploads/diagnostic/{diagnostic_id}/
+            storage_prefix = self.upload_dir / "diagnostic" / str(diagnostic_id)
         else:
-            # Store user files (profile pictures, etc.) in files/uploads/users/{user_id}/
-            storage_dir = self.upload_dir / "users" / str(user_id)
-        
-        storage_dir.mkdir(parents=True, exist_ok=True)
-        
+            # Store user files (profile pictures, etc.) under uploads/users/{user_id}/
+            storage_prefix = self.upload_dir / "users" / str(user_id)
+
         # Generate unique filename
         ext = self._get_file_extension(file.filename)
         unique_filename = f"{uuid.uuid4()}.{ext}"
-        file_path = storage_dir / unique_filename
-        
-        # Save file locally
+        storage_key = (storage_prefix / unique_filename).as_posix()
+
+        # Read the upload into memory and persist via the storage backend
         try:
-            with open(file_path, "wb") as buffer:
-                shutil.copyfileobj(file.file, buffer)
+            content = file.file.read()
+            self.storage.write_bytes(storage_key, content)
         except Exception as e:
             logger.error(f"Failed to save file: {e}")
             raise HTTPException(status_code=500, detail="Failed to save file. Please try again or contact support.")
-        
-        # Get file size
-        file_size = os.path.getsize(file_path)
-        
+
+        file_size = len(content)
+
         # Create media record
         media = Media(
             user_id=user_id,
             file_name=file.filename,
-            file_path=str(file_path),
+            file_path=storage_key,
             file_size=file_size,
             file_type=file.content_type,
             file_extension=ext,
             question_field_name=question_field_name,
             description=description
         )
-        
+
         self.db.add(media)
         self.db.flush()  # Get the media ID
-        
+
         # Upload to LLM provider if requested
         if upload_to_openai:  # param name kept for interface compat
+            local_path = self.storage.local_path(storage_key)
+            temp_path = None
             try:
-                file_path_str = str(file_path)
-                print(f"Uploading file to Claude from path: {file_path_str}")
+                if local_path is not None:
+                    claude_path = str(local_path)
+                else:
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
+                        tmp.write(content)
+                        temp_path = tmp.name
+                    claude_path = temp_path
+
+                print(f"Uploading file to Claude from path: {claude_path}")
                 llm_file = await self.claude_service.upload_file(
-                    file_path=file_path_str,
+                    file_path=claude_path,
                     purpose="user_data",
                 )
 
@@ -164,10 +169,16 @@ class FileService:
             except Exception as e:
                 print(f"  Failed to upload file to LLM provider: {str(e)}")
                 # Continue even if LLM upload fails
-        
+            finally:
+                if temp_path:
+                    try:
+                        os.unlink(temp_path)
+                    except OSError:
+                        pass
+
         self.db.commit()
         self.db.refresh(media)
-        
+
         return media
     
     async def upload_files(
@@ -271,10 +282,9 @@ class FileService:
             return False
         
         if hard_delete:
-            # Delete physical file
+            # Delete stored file
             try:
-                if os.path.exists(media.file_path):
-                    os.remove(media.file_path)
+                self.storage.delete(media.file_path)
             except Exception as e:
                 print(f"  Failed to delete physical file: {str(e)}")
             

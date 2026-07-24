@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+.env
+.env.local
+*.serviceaccount.json
+service-account*.json
+trinity-platform-*.json
+.git/
+.pytest_cache/
+tests/
+*.md
+Trinity_Platform_API.postman_collection.json

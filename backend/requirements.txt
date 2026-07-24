@@ -62,3 +62,6 @@ flower==2.0.1
 
 # Email (Resend)
 resend
+
+# Azure Blob Storage (production file storage backend)
+azure-storage-blob==12.24.0

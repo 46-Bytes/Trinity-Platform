@@ -18,6 +18,8 @@ from .strategy_workbook import StrategyWorkbook
 from .document_template import DocumentTemplate
 from .strategic_business_plan import StrategicBusinessPlan
 from .ai_field_privacy import AIFieldPrivacy
+from .owner_team_member import OwnerTeamMember
+from .signup_intent import SignupIntent
 
 __all__ = [
     "User",
@@ -37,6 +39,8 @@ __all__ = [
     "DocumentTemplate",
     "StrategicBusinessPlan",
     "AIFieldPrivacy",
+    "OwnerTeamMember",
+    "SignupIntent",
 ]
 
 

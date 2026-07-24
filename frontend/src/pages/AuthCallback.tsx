@@ -13,9 +13,14 @@ export default function AuthCallback() {
       // Store token in localStorage
       localStorage.setItem('auth_token', token);
       console.log('✅ Token stored in localStorage');
-      
-      // Redirect to dashboard
-      navigate('/dashboard', { replace: true });
+
+      // The backend sets `next` to route a self-service owner who has not paid
+      // yet to checkout instead of the dashboard. Only same-origin relative
+      // paths are honoured so the parameter cannot be used as an open redirect.
+      const next = params.get('next');
+      const isSafeRelativePath = !!next && next.startsWith('/') && !next.startsWith('//');
+
+      navigate(isSafeRelativePath ? next : '/dashboard', { replace: true });
     } else {
       // No token, redirect to login
       console.error('❌ No token in callback URL');

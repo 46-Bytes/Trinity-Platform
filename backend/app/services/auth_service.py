@@ -88,18 +88,23 @@ class AuthService:
         return None
     
     @staticmethod
-    def get_or_create_user(db: Session, user_info: dict) -> User:
+    def get_or_create_user(db: Session, user_info: dict, default_role: UserRole = None) -> User:
         """
         Get existing user or create new user from Auth0 user info.
-        
+
         Handles account linking: If a user with the same email exists but different auth0_id
         (e.g., signed up with email/password, now logging in with Google), updates the auth0_id
         to link the accounts.
-        
+
         Args:
             db: Database session
             user_info: User information from Auth0
-            
+            default_role: Role for a newly created user when Auth0 carries none.
+                Passed by the self-service funnel (Feature 7) so an owner who
+                signed up on our site is created as a CLIENT. Omitting it means
+                a brand new Auth0 account with no role metadata is created
+                INACTIVE rather than silently becoming an advisor.
+
         Returns:
             User: User object
         """
@@ -192,31 +197,48 @@ class AuthService:
             user.last_login = datetime.now(timezone.utc)
             user.updated_at = datetime.now(timezone.utc)
         else:
-            # Create new user
-            # Use Auth0 role if available, otherwise default to ADVISOR
-            default_role = auth0_role if auth0_role is not None else UserRole.ADVISOR
-            print(f"👤 Creating new user with role: {default_role.value} (from Auth0: {auth0_role.value if auth0_role else 'None'})")
-            
+            # Create new user.
+            # Precedence: the role Auth0 carries, then the caller's default
+            # (the self-service funnel passes CLIENT), then CLIENT as a
+            # fail-closed floor.
+            #
+            # This used to default to ADVISOR, which was safe only while Auth0
+            # signup was effectively private. With public self-service signup
+            # (Feature 7), anyone reaching Auth0's hosted signup page would
+            # have been granted the advisor role - so an unclaimed account now
+            # gets the least-privileged role AND is created inactive, requiring
+            # an admin to vouch for it.
+            unclaimed = auth0_role is None and default_role is None
+            resolved_role = auth0_role or default_role or UserRole.CLIENT
+            print(f"👤 Creating new user with role: {resolved_role.value} (from Auth0: {auth0_role.value if auth0_role else 'None'})")
+            if unclaimed:
+                logger.warning(
+                    "  [USER_CREATE] %s signed up via Auth0 with no role and no signup intent; "
+                    "creating INACTIVE with role=client pending admin review",
+                    email,
+                )
+
             # Username comes from Auth0 (already extracted above)
 
             first_name = user_info.get('first_name') or user_info.get('given_name')
             last_name = user_info.get('last_name') or user_info.get('family_name')
             
-            logger.info(f"  [USER_CREATE] Creating user with - email: {email}, username: {username}, first_name: {first_name}, last_name: {last_name}, role: {default_role.value}")
-            
+            logger.info(f"  [USER_CREATE] Creating user with - email: {email}, username: {username}, first_name: {first_name}, last_name: {last_name}, role: {resolved_role.value}")
+
             # Determine the name to use (username from Auth0, or email as fallback)
             display_name = username or email
-            
+
 
             user_data = {
                 'auth0_id': auth0_id,
                 'email': email,
                 'name': display_name,
-                'first_name': first_name,  
+                'first_name': first_name,
                 'last_name': last_name,
                 'picture': user_info.get('picture'),
                 'email_verified': user_info.get('email_verified', False),
-                'role': default_role,
+                'role': resolved_role,
+                'is_active': not unclaimed,
                 'last_login': datetime.now(timezone.utc),
             }
             

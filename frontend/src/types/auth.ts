@@ -1,4 +1,13 @@
-export type UserRole = 'super_admin' | 'admin' | 'advisor' | 'client' | 'firm_admin' | 'firm_advisor';
+export type UserRole = 'super_admin' | 'admin' | 'advisor' | 'client' | 'firm_admin' | 'firm_advisor' | 'team_member';
+
+/**
+ * How a client account was provisioned.
+ *
+ * A self-service business owner IS a `client` - same role, same permissions on
+ * the engagement surface. `accountType` is what gates the owner-only extras:
+ * checkout, billing and team management.
+ */
+export type AccountType = 'advisory' | 'self_service';
 
 export interface User {
   id: string;
@@ -6,6 +15,9 @@ export interface User {
   name: string;
   nickname?: string;
   role: UserRole;
+  accountType?: AccountType;
+  isSelfService?: boolean;
+  businessName?: string;
   avatar?: string;
   firmId?: string;
   createdAt: string;
@@ -27,6 +39,7 @@ export const roleLabels: Record<UserRole, string> = {
   client: 'Client',
   firm_admin: 'Firm Admin',
   firm_advisor: 'Firm Advisor',
+  team_member: 'Team Member',
 };
 
 export const roleColors: Record<UserRole, string> = {
@@ -36,4 +49,17 @@ export const roleColors: Record<UserRole, string> = {
   client: 'bg-muted text-muted-foreground',
   firm_admin: 'bg-orange-100 text-orange-700',
   firm_advisor: 'bg-teal-100 text-teal-700',
+  team_member: 'bg-slate-100 text-slate-700',
 };
+
+/** True for a self-service business owner (the account holder, not a team member). */
+export function isBusinessOwner(user: Pick<User, 'role' | 'isSelfService'> | null | undefined): boolean {
+  return !!user && user.role === 'client' && !!user.isSelfService;
+}
+
+/** Label shown instead of the raw role for self-service owners. */
+export function displayRoleLabel(user: Pick<User, 'role' | 'isSelfService'> | null | undefined): string {
+  if (!user) return '';
+  if (isBusinessOwner(user)) return 'Business Owner';
+  return roleLabels[user.role] ?? user.role;
+}

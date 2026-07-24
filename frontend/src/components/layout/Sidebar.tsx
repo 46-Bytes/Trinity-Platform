@@ -20,7 +20,7 @@ import {
   CreditCard,
   ShieldCheck
 } from 'lucide-react';
-import { UserRole } from '@/types/auth';
+import { UserRole, isBusinessOwner } from '@/types/auth';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -34,21 +34,27 @@ interface NavItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   roles: UserRole[];
+  /** Restrict to self-service business owners (billing, team). Advisory clients never see these. */
+  ownerOnly?: boolean;
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
+  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor', 'team_member'] },
   { label: 'Users', href: '/dashboard/users', icon: Users, roles: ['super_admin', 'admin'] },
   { label: 'Firms', href: '/dashboard/firms', icon: Building2, roles: ['super_admin'] },
   { label: 'Subscriptions', href: '/dashboard/subscriptions', icon: CreditCard, roles: ['super_admin'] },
   { label: 'Clients', href: '/dashboard/clients', icon: UserCircle, roles: ['advisor', 'firm_admin', 'firm_advisor'] },
   { label: 'Advisors', href: '/dashboard/advisors', icon: Users, roles: ['firm_admin'] },
-  { label: 'Engagements', href: '/dashboard/engagements', icon: FolderOpen, roles: ['super_admin','admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
-  { label: 'Tasks', href: '/dashboard/tasks', icon: CheckSquare, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
+  { label: 'Engagements', href: '/dashboard/engagements', icon: FolderOpen, roles: ['super_admin','admin', 'advisor', 'client', 'firm_admin', 'firm_advisor', 'team_member'] },
+  { label: 'Tasks', href: '/dashboard/tasks', icon: CheckSquare, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor', 'team_member'] },
   { label: 'AI Tools', href: '/dashboard/ai-tools', icon: Brain, roles: ['super_admin', 'admin', 'advisor', 'firm_admin', 'firm_advisor'] },
   { label: 'Firm Management', href: '/dashboard/firm', icon: Building2, roles: ['firm_admin'] },
   { label: 'AI Privacy', href: '/dashboard/ai-privacy', icon: ShieldCheck, roles: ['super_admin', 'admin'] },
-  { label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
+  // Self-service business owner surfaces (Feature 7). Gated on account type, not
+  // role - an advisor's client is also a `client` and must not see these.
+  { label: 'Team', href: '/dashboard/team', icon: Users, roles: ['client'], ownerOnly: true },
+  { label: 'Billing', href: '/dashboard/billing', icon: CreditCard, roles: ['client'], ownerOnly: true },
+  { label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor', 'team_member'] },
 ];
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
@@ -56,8 +62,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const location = useLocation();
   const [firmsExpanded, setFirmsExpanded] = useState(false);
 
-  const filteredItems = navItems.filter(item => 
-    user && item.roles.includes(user.role) && item.href !== '/dashboard/firm' // Remove firm admin dashboard from superadmin
+  const filteredItems = navItems.filter(item =>
+    user &&
+    item.roles.includes(user.role) &&
+    (!item.ownerOnly || isBusinessOwner(user)) &&
+    item.href !== '/dashboard/firm' // Remove firm admin dashboard from superadmin
   );
 
   // Check if we're on a firm details page

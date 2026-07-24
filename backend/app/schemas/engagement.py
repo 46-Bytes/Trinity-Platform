@@ -51,7 +51,8 @@ class EngagementResponse(EngagementBase):
     client_ids: Optional[List[UUID]] = Field(default=[], description="Array of client user IDs")
     client_name: Optional[str] = Field(None, description="Client's name (populated from user) - kept for backward compatibility")
     client_names: Optional[List[str]] = Field(default=[], description="Array of client names (populated from users)")
-    primary_advisor_id: UUID
+    # NULL for self-service engagements, where the owner has no advisor.
+    primary_advisor_id: Optional[UUID] = None
     advisor_name: Optional[str] = Field(None, description="Primary advisor's name (populated from user)")
     secondary_advisor_ids: Optional[List[UUID]] = []
     created_at: datetime

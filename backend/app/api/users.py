@@ -139,6 +139,7 @@ async def list_users(
             first_name=u.first_name,
             last_name=u.last_name,
             nickname=u.nickname,
+            business_name=u.business_name,
             picture=u.picture,
             email_verified=u.email_verified,
             is_active=u.is_active,
@@ -250,6 +251,7 @@ async def create_user(
         first_name=new_user.first_name,
         last_name=new_user.last_name,
         nickname=new_user.nickname,
+        business_name=new_user.business_name,
         picture=new_user.picture,
         email_verified=new_user.email_verified,
         is_active=new_user.is_active,
@@ -374,6 +376,7 @@ async def get_user(
         first_name=user.first_name,
         last_name=user.last_name,
         nickname=user.nickname,
+        business_name=user.business_name,
         picture=user.picture,
         email_verified=user.email_verified,
         is_active=user.is_active,
@@ -505,10 +508,13 @@ async def update_user(
     
     if user_update.is_active is not None:
         user.is_active = user_update.is_active
-    
+
+    if user_update.business_name is not None:
+        user.business_name = user_update.business_name
+
     db.commit()
     db.refresh(user)
-    
+
     return UserResponse(
         id=user.id,
         auth0_id=user.auth0_id,
@@ -517,6 +523,7 @@ async def update_user(
         first_name=user.first_name,
         last_name=user.last_name,
         nickname=user.nickname,
+        business_name=user.business_name,
         picture=user.picture,
         email_verified=user.email_verified,
         is_active=user.is_active,

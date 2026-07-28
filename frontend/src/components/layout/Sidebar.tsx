@@ -56,8 +56,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const location = useLocation();
   const [firmsExpanded, setFirmsExpanded] = useState(false);
 
-  const filteredItems = navItems.filter(item => 
+  const filteredItems = navItems.filter(item =>
     user && item.roles.includes(user.role) && item.href !== '/dashboard/firm' // Remove firm admin dashboard from superadmin
+    && item.href !== '/dashboard/ai-privacy' // Hide AI Privacy from sidebar
   );
 
   // Check if we're on a firm details page

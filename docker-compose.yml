@@ -1,13 +1,28 @@
-version: "3.8"
 services:
-  redis:
-    image: redis:7-alpine
+  # API only — the production image, but running just the FastAPI app (gunicorn).
+  # The Celery worker in the image's supervisord config is NOT started: diagnostic
+  # jobs are dispatched with FastAPI BackgroundTasks and run in-process
+  # (see app/api/diagnostics.py -> background_tasks.add_task(_run_pipeline, ...)),
+  # so Redis/Celery aren't needed to run the app locally.
+  backend:
+    build: ./backend
+    command: ["gunicorn", "app.main:app", "-c", "gunicorn_conf.py"]
     ports:
-      - "6379:6379"
-    command: redis-server --appendonly yes
+      - "8000:8000"
+    # DATABASE_URL, Auth0, ANTHROPIC_API_KEY, SECRET_KEY, etc. come from your
+    # existing backend/.env (gitignored, not baked into the image).
+    env_file:
+      - ./backend/.env
+    environment:
+      # Local-disk storage for local runs; azure_blob is production-only.
+      STORAGE_BACKEND: local
     volumes:
-      - redis_data:/data
+      # Persist uploads/exports on the host so they survive container rebuilds.
+      - ./backend/files:/app/files
     restart: unless-stopped
-
-volumes:
-  redis_data:
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 25s

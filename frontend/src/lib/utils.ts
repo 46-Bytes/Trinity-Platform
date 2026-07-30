@@ -72,6 +72,46 @@ export function formatRoleForDisplay(role: string | null | undefined): string {
   return capitalizeFirstLetter(role);
 }
 
+const AUD_FULL = new Intl.NumberFormat('en-AU', {
+  style: 'currency',
+  currency: 'AUD',
+  maximumFractionDigits: 0,
+});
+
+const AUD_COMPACT = new Intl.NumberFormat('en-AU', {
+  style: 'currency',
+  currency: 'AUD',
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
+
+/**
+ * Formats a number as whole AUD (e.g. 2610000 -> "$2,610,000").
+ * @param value - The amount in Australian dollars
+ * @returns The formatted currency string
+ */
+export function formatAUD(value: number): string {
+  return AUD_FULL.format(value);
+}
+
+/**
+ * Formats a number as compact AUD for axis ticks and tight tiles (e.g. 2610000 -> "$2.6M").
+ * @param value - The amount in Australian dollars
+ * @returns The formatted compact currency string
+ */
+export function formatAUDCompact(value: number): string {
+  return AUD_COMPACT.format(value);
+}
+
+/**
+ * Formats a signed AUD delta with an explicit leading sign (e.g. -50000 -> "-$50,000").
+ * @param value - The signed amount in Australian dollars
+ * @returns The formatted currency string prefixed with + or -
+ */
+export function formatAUDDelta(value: number): string {
+  return `${value < 0 ? '-' : '+'}${AUD_FULL.format(Math.abs(value))}`;
+}
+
 /**
  * Gets initials from a full name (e.g. "Saadullah Khan" -> "SK").
  * @param name - The full name to derive initials from

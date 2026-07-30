@@ -39,6 +39,7 @@ import FileUploadPOCPage from "./pages/poc/FileUploadPOCPage";
 import StrategyWorkbookPage from "./pages/dashboard/StrategyWorkbookPage";
 import StrategicBusinessPlanPage from "./pages/dashboard/StrategicBusinessPlanPage";
 import AIPrivacyPage from "./pages/dashboard/AIPrivacyPage";
+import ValueDashboardPage from "./pages/dashboard/value/ValueDashboardPage";
 
 const queryClient = new QueryClient();
 
@@ -97,6 +98,8 @@ function AppRoutes() {
         </Route>
         <Route path="subscriptions" element={<SubscriptionsPage />} />
         <Route path="ai-privacy" element={<AIPrivacyPage />} />
+        <Route path="value" element={<ValueDashboardPage />} />
+        <Route path="value/:engagementId" element={<ValueDashboardPage />} />
         {/* Placeholder routes */}
         <Route path="chat" element={<DashboardHome />} />
         <Route path="analytics" element={<DashboardHome />} />

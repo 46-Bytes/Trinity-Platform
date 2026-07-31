@@ -43,7 +43,11 @@ def upgrade() -> None:
                existing_type=postgresql.ARRAY(sa.UUID()),
                comment='Array of user IDs assigned to this task (for multiple assignments, e.g., all advisors in engagement)',
                existing_nullable=True)
-    op.create_index(op.f('ix_tasks_assigned_to_user_ids'), 'tasks', ['assigned_to_user_ids'], unique=False)
+    # 'add_assigned_to_user_ids' already created this index (as GIN); autogenerate
+    # did not detect it, so only create it if it is genuinely missing.
+    task_indexes = [ix['name'] for ix in sa.inspect(op.get_bind()).get_indexes('tasks')]
+    if 'ix_tasks_assigned_to_user_ids' not in task_indexes:
+        op.create_index(op.f('ix_tasks_assigned_to_user_ids'), 'tasks', ['assigned_to_user_ids'], unique=False)
     op.alter_column('users', 'is_deleted',
                existing_type=sa.BOOLEAN(),
                comment='Whether the user has been soft deleted',
@@ -69,7 +73,7 @@ def downgrade() -> None:
                existing_comment='Whether the user has been soft deleted',
                existing_nullable=False,
                existing_server_default=sa.text('false'))
-    op.drop_index(op.f('ix_tasks_assigned_to_user_ids'), table_name='tasks')
+    # Index is owned by 'add_assigned_to_user_ids'; leave it for that revision to drop.
     op.alter_column('tasks', 'assigned_to_user_ids',
                existing_type=postgresql.ARRAY(sa.UUID()),
                comment=None,

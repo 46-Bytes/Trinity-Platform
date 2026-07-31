@@ -1,7 +1,7 @@
 """Add BBA report generation columns
 
 Revision ID: add_bba_report_columns
-Revises: remove_unique_sub_id
+Revises: create_bba_advisor_client
 Create Date: 2026-01-29
 
 Adds columns for Steps 6-7 of the BBA report builder workflow:
@@ -19,7 +19,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 # revision identifiers, used by Alembic.
 revision = 'add_bba_report_columns'
-down_revision = 'remove_unique_sub_id'
+down_revision = 'create_bba_advisor_client'
 branch_labels = None
 depends_on = None
 

@@ -18,6 +18,7 @@ from .strategy_workbook import StrategyWorkbook
 from .document_template import DocumentTemplate
 from .strategic_business_plan import StrategicBusinessPlan
 from .program_guide import ProgramModuleContent, EngagementProgramModuleState, EngagementModuleChecklistItem
+from .program_deliverable import ProgramModuleDeliverable, EngagementModuleDeliverable
 
 __all__ = [
     "User",
@@ -39,6 +40,8 @@ __all__ = [
     "ProgramModuleContent",
     "EngagementProgramModuleState",
     "EngagementModuleChecklistItem",
+    "ProgramModuleDeliverable",
+    "EngagementModuleDeliverable",
 ]
 
 

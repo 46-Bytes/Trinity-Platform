@@ -17,6 +17,11 @@ FastAPI backend with Auth0 authentication integration.
    ```bash
    pip install -r requirements.txt
    ```
+   For local development, use `requirements-dev.txt` instead — it installs the
+   above plus the test tooling:
+   ```bash
+   pip install -r requirements-dev.txt
+   ```
 
 4. **Configure environment variables:**
    - Copy `.env.example` to `.env`
@@ -31,6 +36,22 @@ FastAPI backend with Auth0 authentication integration.
    ```bash
    uvicorn app.main:app --reload --port 8000
    ```
+
+## Tests
+
+Requires `pip install -r requirements-dev.txt`. Run from `backend/`:
+
+```bash
+pytest tests/test_program_deliverable_status.py -v
+```
+
+`tests/conftest.py` puts `backend/` on `sys.path` and, only when no `.env` is
+present, stubs the environment variables that `app.config.Settings` requires —
+so tests import cleanly on a machine with no configuration.
+
+Note that a bare `pytest` also collects `tests/test_claude_service.py`, whose
+async tests need `pytest-asyncio` (not currently a dependency). Run specific
+test files until that is added.
 
 ## Auth0 Configuration
 

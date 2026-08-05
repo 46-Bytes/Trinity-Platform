@@ -255,6 +255,17 @@ class TestUpdateAdvisorDeliverable:
         with pytest.raises(ValueError, match="Cannot edit a preset deliverable"):
             service.update_advisor_deliverable(test_engagement, row.id, title="Nope")
 
+    def test_updating_an_untouched_preset_by_library_id_raises(self, service, test_engagement, make_preset):
+        """
+        An untouched preset has no instance row, so its library id is the only
+        id it has - and that is the id the read view hands out. It must reach
+        the preset guard, not a lookup miss.
+        """
+        preset = make_preset()
+
+        with pytest.raises(ValueError, match="Cannot edit a preset deliverable"):
+            service.update_advisor_deliverable(test_engagement, preset.id, title="Nope")
+
     def test_explicit_none_title_raises(self, service, test_engagement, test_user):
         row = service.add_advisor_deliverable(
             test_engagement, module_code="V2", title="Original",
@@ -301,6 +312,17 @@ class TestRemoveAdvisorDeliverable:
 
         with pytest.raises(ValueError, match="Cannot delete a preset deliverable"):
             service.remove_advisor_deliverable(test_engagement, row.id)
+
+    def test_deleting_an_untouched_preset_by_library_id_raises(self, service, test_engagement, make_preset):
+        """
+        The library-id counterpart of test_deleting_a_preset_raises. Resolving
+        instance ids only made this a "not found", which put the informative
+        refusal out of reach of any caller working from the read view.
+        """
+        preset = make_preset()
+
+        with pytest.raises(ValueError, match="Cannot delete a preset deliverable"):
+            service.remove_advisor_deliverable(test_engagement, preset.id)
 
     def test_preset_survives_a_failed_delete(self, service, db_session, test_engagement, test_user, make_preset):
         preset = make_preset()

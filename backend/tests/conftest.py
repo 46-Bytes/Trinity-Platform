@@ -140,3 +140,69 @@ def test_engagement(db_session, test_user):
     db_session.add(engagement)
     db_session.flush()
     return engagement
+
+
+@pytest.fixture
+def make_user(db_session):
+    """
+    Build a throwaway user with an explicit role.
+
+    `test_user` above deliberately sets only `email`, so its role falls back to
+    the column default (ADVISOR) - useless for role-boundary tests.
+    """
+    def _make(role=None):
+        from app.models.user import User, UserRole
+
+        user = User(
+            email=f"deliverable-api-{uuid.uuid4()}@example.test",
+            role=role or UserRole.ADVISOR,
+        )
+        db_session.add(user)
+        db_session.flush()
+        return user
+    return _make
+
+
+# ----------------------------------------------------------------------
+# HTTP fixtures
+# ----------------------------------------------------------------------
+@pytest.fixture
+def api(db_session):
+    """
+    A TestClient wired to the rollback-only session, with a swappable caller.
+
+        resp = api.as_user(advisor).get(url)
+
+    Two things this deliberately does:
+      - overrides get_db with the transactional session, so requests write
+        inside the savepoint and vanish at teardown like every other DB test;
+      - overrides get_current_user, which also means the session-cookie branch
+        in utils/auth.py never runs, so SessionMiddleware is irrelevant here.
+
+    TestClient is constructed bare rather than as a context manager: the `with`
+    form runs the startup event, which builds the Anthropic client for nothing.
+    """
+    from fastapi.testclient import TestClient
+
+    from app.database import get_db
+    from app.main import app
+    from app.utils.auth import get_current_user
+
+    acting = {}
+
+    app.dependency_overrides[get_db] = lambda: db_session
+    app.dependency_overrides[get_current_user] = lambda: acting["user"]
+
+    client = TestClient(app)
+
+    class _Api:
+        def as_user(self, user):
+            acting["user"] = user
+            return client
+
+    try:
+        yield _Api()
+    finally:
+        # `app` is a module-level singleton shared for the whole session, so a
+        # leaked override would poison every later test.
+        app.dependency_overrides.clear()

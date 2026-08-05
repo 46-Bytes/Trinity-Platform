@@ -27,6 +27,15 @@ wheels/
 .env
 .env.local
 
+# Cloud service-account keys. These carry a live private_key - a blanket
+# *.json cannot be used here because tracked fixtures under files/ are JSON,
+# so the credential shapes are named explicitly instead.
+trinity-platform-*.json
+*service-account*.json
+*service_account*.json
+*credentials*.json
+gcp-key*.json
+
 # IDE
 .vscode/
 .idea/

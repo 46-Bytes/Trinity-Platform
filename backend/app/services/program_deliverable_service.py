@@ -37,17 +37,43 @@ MODULE_STATUS_IN_PROGRESS = "in_progress"
 MODULE_STATUS_COMPLETED = "completed"
 
 
+DELIVERABLE_SOURCE_PRESET = "preset"
+DELIVERABLE_SOURCE_ADVISOR = "advisor"
+
+# Sort sentinel: presets carry a real library display_order, advisor-added
+# deliverables get this so they always fall after the presets in a module.
+_ADVISOR_SORT_ORDER = 1_000_000
+
+
 class DeliverableState(NamedTuple):
     """
-    One deliverable's effective state, flattened for status purposes.
+    One deliverable's effective state, flattened.
 
     `mandatory` comes from the library row for presets and from the instance
     row for advisor-added deliverables. `in_scope` and `complete` always come
     from the instance row, defaulted when no instance row exists.
+
+    The first three fields are the only ones derive_module_status reads. The
+    identity fields below exist so callers can render a deliverable list from
+    the same single round trip - both legs of the query already select from the
+    tables that hold them, so carrying them costs nothing.
+
+    `deliverable_id` is the id a mutation should be addressed by: the library
+    id for a preset (an untouched preset has no instance row, so it has no
+    instance id), the instance id for an advisor-added deliverable. That is
+    exactly what ProgramDeliverableService._resolve accepts.
+
+    The identity fields default so that a DeliverableState can still be built
+    from the three status booleans alone - which is how derive_module_status is
+    unit-tested, with no database and no identity to invent.
     """
     mandatory: bool
     in_scope: bool
     complete: bool
+    deliverable_id: Optional[UUID] = None
+    source: str = DELIVERABLE_SOURCE_PRESET
+    title: str = ""
+    description: Optional[str] = None
 
 
 def derive_module_status(states: Sequence[DeliverableState]) -> str:
@@ -76,6 +102,18 @@ def derive_module_status(states: Sequence[DeliverableState]) -> str:
         return MODULE_STATUS_IN_PROGRESS
     else:
         return MODULE_STATUS_NOT_STARTED
+
+
+class DeliverableNotFound(ValueError):
+    """
+    A deliverable id did not resolve on this engagement.
+
+    Deliberately a ValueError subclass rather than a new exception hierarchy:
+    every existing `except ValueError` keeps catching it, so this stays
+    invisible to callers that do not care. The API layer catches it
+    specifically to answer 404 instead of 400, so a client can tell a stale id
+    from a malformed request.
+    """
 
 
 # ----------------------------------------------------------------------
@@ -139,6 +177,11 @@ class ProgramDeliverableService:
         keys. A module with none is absent rather than mapped to an empty list
         - callers should use `.get(code, [])`, which derive_module_status
         correctly reads as 'not_started'.
+
+        Each module's list is ordered: presets first by their library
+        display_order, then advisor-added deliverables by when they were
+        created. `sort_order`/`sort_time` exist only to produce that order and
+        are not carried on DeliverableState - the list order is the contract.
         """
         preset_leg = (
             select(
@@ -149,6 +192,14 @@ class ProgramDeliverableService:
                 # No instance row means untouched: in scope and incomplete.
                 func.coalesce(EngagementModuleDeliverable.is_in_scope, literal(True)).label("in_scope"),
                 func.coalesce(EngagementModuleDeliverable.is_complete, literal(False)).label("complete"),
+                # A preset is addressed by its LIBRARY id: until it is touched
+                # there is no instance row and therefore no instance id.
+                ProgramModuleDeliverable.id.label("deliverable_id"),
+                literal(DELIVERABLE_SOURCE_PRESET).label("source"),
+                ProgramModuleDeliverable.title.label("title"),
+                ProgramModuleDeliverable.description.label("description"),
+                ProgramModuleDeliverable.display_order.label("sort_order"),
+                ProgramModuleDeliverable.created_at.label("sort_time"),
             )
             .select_from(ProgramModuleDeliverable)
             .outerjoin(
@@ -172,6 +223,14 @@ class ProgramDeliverableService:
             func.coalesce(EngagementModuleDeliverable.is_mandatory, literal(False)).label("mandatory"),
             EngagementModuleDeliverable.is_in_scope.label("in_scope"),
             EngagementModuleDeliverable.is_complete.label("complete"),
+            EngagementModuleDeliverable.id.label("deliverable_id"),
+            literal(DELIVERABLE_SOURCE_ADVISOR).label("source"),
+            EngagementModuleDeliverable.title.label("title"),
+            EngagementModuleDeliverable.description.label("description"),
+            # Sentinel: advisor-added items always sort after every preset,
+            # then among themselves by creation time.
+            literal(_ADVISOR_SORT_ORDER).label("sort_order"),
+            EngagementModuleDeliverable.created_at.label("sort_time"),
         ).where(
             EngagementModuleDeliverable.engagement_id == engagement.id,
             EngagementModuleDeliverable.library_deliverable_id.is_(None),
@@ -181,12 +240,16 @@ class ProgramDeliverableService:
         rows = self.db.execute(union_all(preset_leg, advisor_leg)).all()
 
         by_module: Dict[str, List[DeliverableState]] = {}
-        for row in rows:
+        for row in sorted(rows, key=lambda r: (r.sort_order, r.sort_time)):
             by_module.setdefault(row.module_code, []).append(
                 DeliverableState(
                     mandatory=bool(row.mandatory),
                     in_scope=bool(row.in_scope),
                     complete=bool(row.complete),
+                    deliverable_id=row.deliverable_id,
+                    source=row.source,
+                    title=row.title,
+                    description=row.description,
                 )
             )
         return by_module
@@ -302,7 +365,39 @@ class ProgramDeliverableService:
         if library_row is not None:
             return self._get_instance_for_preset(engagement.id, library_row.id), library_row
 
-        raise ValueError(f"Deliverable {deliverable_id} not found for this engagement")
+        raise DeliverableNotFound(f"Deliverable {deliverable_id} not found for this engagement")
+
+    def _resolve_advisor_added(
+        self,
+        engagement: Engagement,
+        deliverable_id: UUID,
+        action: str,
+    ) -> EngagementModuleDeliverable:
+        """
+        Resolve an id that is only allowed to name an advisor-added deliverable.
+
+        This goes through _resolve rather than _get_instance so that BOTH id
+        spaces are accepted. The read view exposes a preset by its LIBRARY id,
+        which is the only id a caller ever has for one - looking up instance ids
+        alone answered "not found" for a preset, hiding the informative "scope
+        it out instead" behind a 404 and making the guard unreachable over HTTP.
+
+        Raises DeliverableNotFound if the id names nothing, ValueError if it
+        names a preset.
+        """
+        instance, library_row = self._resolve(engagement, deliverable_id)
+
+        # A preset has to hit the guard whether or not it has been materialized.
+        # Addressed by library id before its first mutation there is no instance
+        # row, so library_row is the only thing proving it is a preset.
+        assert_advisor_added(
+            library_row.id if library_row is not None else instance.library_deliverable_id,
+            action,
+        )
+
+        # Every preset raised above, so what reaches here is advisor-added - and
+        # those have no library row, meaning _resolve matched on the instance.
+        return instance
 
     # ------------------------------------------------------------------
     # Mutations: completion and scope
@@ -413,7 +508,7 @@ class ProgramDeliverableService:
     def update_advisor_deliverable(
         self,
         engagement: Engagement,
-        instance_id: UUID,
+        deliverable_id: UUID,
         **fields: Any,
     ) -> EngagementModuleDeliverable:
         """
@@ -422,15 +517,15 @@ class ProgramDeliverableService:
         Only keys actually passed are applied, so omitting a field leaves it
         alone. Passing None explicitly for a required field raises rather than
         nulling it.
+
+        Takes either id space, like the completion and scope mutations - naming
+        a preset here is a rule violation (400), not a lookup miss (404).
         """
         unknown = set(fields) - {"title", "description", "is_mandatory"}
         if unknown:
             raise ValueError(f"Cannot update {', '.join(sorted(unknown))}")
 
-        instance = self._get_instance(engagement.id, instance_id)
-        if instance is None:
-            raise ValueError(f"Deliverable {instance_id} not found for this engagement")
-        assert_advisor_added(instance.library_deliverable_id, "edit")
+        instance = self._resolve_advisor_added(engagement, deliverable_id, "edit")
 
         if not fields:
             return instance
@@ -449,19 +544,17 @@ class ProgramDeliverableService:
     def remove_advisor_deliverable(
         self,
         engagement: Engagement,
-        instance_id: UUID,
+        deliverable_id: UUID,
     ) -> EngagementModuleDeliverable:
         """
         Soft delete an advisor-added deliverable.
 
         Presets cannot be removed at all - they are library content shared by
         every engagement, and the per-engagement way to exclude one is to scope
-        it out.
+        it out. Takes either id space so that naming a preset reaches that
+        refusal instead of a lookup miss.
         """
-        instance = self._get_instance(engagement.id, instance_id)
-        if instance is None:
-            raise ValueError(f"Deliverable {instance_id} not found for this engagement")
-        assert_advisor_added(instance.library_deliverable_id, "delete")
+        instance = self._resolve_advisor_added(engagement, deliverable_id, "delete")
 
         instance.is_deleted = True
         self.db.commit()

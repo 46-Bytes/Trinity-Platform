@@ -39,6 +39,7 @@ import FileUploadPOCPage from "./pages/poc/FileUploadPOCPage";
 import StrategyWorkbookPage from "./pages/dashboard/StrategyWorkbookPage";
 import StrategicBusinessPlanPage from "./pages/dashboard/StrategicBusinessPlanPage";
 import AIPrivacyPage from "./pages/dashboard/AIPrivacyPage";
+import RolesMatrixPage from "./pages/dashboard/RolesMatrixPage";
 
 const queryClient = new QueryClient();
 
@@ -80,9 +81,11 @@ function AppRoutes() {
         <Route path="engagements/:engagementId/bba" element={<FileUploadPOCPage />} />
         <Route path="engagements/:engagementId/strategy-workbook" element={<StrategyWorkbookPage />} />
         <Route path="engagements/:engagementId/strategic-business-plan" element={<StrategicBusinessPlanPage />} />
+        <Route path="engagements/:engagementId/roles-matrix" element={<RolesMatrixPage />} />
         <Route path="ai-tools/bba" element={<FileUploadPOCPage />} />
         <Route path="ai-tools/strategy-workbook" element={<StrategyWorkbookPage />} />
         <Route path="ai-tools/strategic-business-plan" element={<StrategicBusinessPlanPage />} />
+        <Route path="ai-tools/roles-matrix" element={<RolesMatrixPage />} />
         <Route path="tasks" element={<TasksPage />} />
         <Route path="documents" element={<DocumentsPage />} />
         <Route path="ai-tools" element={<AIToolsPage />} />

@@ -1,8 +1,30 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, Brain, FileText, Users, Target, Calendar, Shield, TrendingUp, Briefcase, ClipboardList, ArrowRight, Sparkles } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const aiTools = [
+interface AITool {
+  id: string;
+  name: string;
+  description: string;
+  icon: LucideIcon;
+  category: string;
+  popular: boolean;
+  /** Present only for tools that are built — cards without one are not launchable */
+  route?: string;
+}
+
+const aiTools: AITool[] = [
+  {
+    id: 'roles-matrix',
+    name: 'Roles & Responsibilities Matrix',
+    description: 'Turn position descriptions and notes into an HR Planning Tool matrix',
+    icon: Users,
+    category: 'HR',
+    popular: true,
+    route: '/dashboard/ai-tools/roles-matrix',
+  },
   { 
     id: 'business-plan', 
     name: 'Business Plan Generator', 
@@ -72,6 +94,7 @@ const aiTools = [
 const categories = ['All', ...new Set(aiTools.map(t => t.category))];
 
 export default function AIToolsPage() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
 
@@ -149,8 +172,9 @@ export default function AIToolsPage() {
       {/* Tools Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredTools.map((tool) => (
-          <div 
+          <div
             key={tool.id}
+            onClick={() => tool.route && navigate(tool.route)}
             className="card-trinity p-6 cursor-pointer group hover:shadow-trinity-lg"
           >
             <div className="flex items-start justify-between mb-4">

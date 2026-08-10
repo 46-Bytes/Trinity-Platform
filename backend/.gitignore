@@ -39,6 +39,9 @@ service-account*.json
 *.swo
 *~
 
+# Office lock/owner files (created while a workbook or document is open)
+~$*
+
 # Database
 *.db
 *.sqlite3

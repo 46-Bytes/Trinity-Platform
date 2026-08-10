@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '@/store/hooks';
 import { clearWorkbook } from '@/store/slices/strategyWorkbookReducer';
 import { clearPlan } from '@/store/slices/strategicBusinessPlanReducer';
+import { clearMatrix } from '@/store/slices/rolesMatrixReducer';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -19,7 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { BookOpen, FileText, Loader2, Wrench, ClipboardList } from 'lucide-react';
+import { BookOpen, FileText, Loader2, Wrench, ClipboardList, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -315,6 +316,15 @@ export function FollowUpToolsTab({
     await launchStrategicBusinessPlan();
   };
 
+  const runRolesMatrix = () => {
+    const token = getAuthToken();
+    if (!token) return;
+
+    // The matrix page runs its own pre-flight and offers continue vs start fresh
+    dispatch(clearMatrix());
+    navigate(`/dashboard/engagements/${engagementId}/roles-matrix`);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -401,6 +411,31 @@ export function FollowUpToolsTab({
             onClick={runStrategicBusinessPlan}
           >
             {sbpLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ClipboardList className="h-4 w-4 mr-2" />}
+            Run
+          </Button>
+        </div>
+
+        {/* Roles & Responsibilities Matrix */}
+        <div className="flex items-center justify-between gap-4 p-4 hover:bg-muted/30 transition-colors">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="flex-shrink-0 p-2 rounded-md bg-muted">
+              <Users className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-medium text-sm">Roles &amp; Responsibilities Matrix</p>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Turn position descriptions and notes into an HR Planning Tool matrix for this engagement.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-shrink-0"
+            disabled={anyLoading}
+            onClick={runRolesMatrix}
+          >
+            <Users className="h-4 w-4 mr-2" />
             Run
           </Button>
         </div>

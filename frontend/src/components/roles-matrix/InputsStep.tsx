@@ -114,8 +114,11 @@ export function InputsStep({ matrix, isUploading, isSaving, onComplete }: Inputs
     handleFileSelect(e.dataTransfer.files);
   }, []);
 
-  const handleUpload = async () => {
-    if (!matrix || pendingFiles.length === 0) return;
+  /**
+   * Upload anything still sitting in the staging list.
+   */
+  const uploadPendingFiles = async (): Promise<boolean> => {
+    if (!matrix || pendingFiles.length === 0) return true;
     try {
       const result = await dispatch(
         uploadDocuments({ matrixId: matrix.id, files: pendingFiles })
@@ -132,12 +135,18 @@ export function InputsStep({ matrix, isUploading, isSaving, onComplete }: Inputs
             .map((file) => file.filename)
             .join(', ')}`
         );
-      } else {
-        toast.success('Documents uploaded');
+        return false;
       }
+      toast.success('Documents uploaded');
+      return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to upload documents');
+      return false;
     }
+  };
+
+  const handleUpload = () => {
+    void uploadPendingFiles();
   };
 
   const updateStaff = (index: number, field: keyof StaffMember, value: string) => {
@@ -168,8 +177,13 @@ export function InputsStep({ matrix, isUploading, isSaving, onComplete }: Inputs
       toast.error('Confirm which roles must be included in the matrix');
       return;
     }
-    if (uploadedFilenames.length === 0 && !pastedNotes.trim()) {
+    if (uploadedFilenames.length === 0 && pendingFiles.length === 0 && !pastedNotes.trim()) {
       toast.error('Upload a document or paste some notes before continuing');
+      return;
+    }
+    // Anything still staged is uploaded now, so selecting a file and pressing
+    // Continue never quietly drops it.
+    if (pendingFiles.length > 0 && !(await uploadPendingFiles())) {
       return;
     }
 

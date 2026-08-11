@@ -63,8 +63,26 @@ class ProgramGuideService:
             .first()
         )
 
-    @staticmethod
-    def _match_priority_area_to_module(raw: Optional[str], canonical: Dict[str, str]) -> Optional[str]:
+    # Retired module names, mapped to the code they used to mean.
+    #
+    # BBA findings are stored as freeform text, so every draft_findings row
+    # written before a rename still carries the old wording. The contains
+    # fallback below rescues a rename that only widens a name ("People" is a
+    # substring of "People & Structure"), but not one that replaces a word:
+    # neither "Brand, IP & Competitive Advantage" nor "Brand, IP & Protection"
+    # contains the other, so V8 would silently stop matching and its findings
+    # would land in unmapped_priority_areas, quietly degrading the recommended
+    # order to the default taxonomy.
+    #
+    # Add an entry here whenever a name in ScoringService.VALUE_BUILDER_MODULES
+    # changes. Entries are permanent - the old rows never get rewritten.
+    MODULE_NAME_ALIASES = {
+        "brand, ip & competitive advantage": "V8",
+        "people": "V4",
+    }
+
+    @classmethod
+    def _match_priority_area_to_module(cls, raw: Optional[str], canonical: Dict[str, str]) -> Optional[str]:
         """
         Map a BBA finding's freeform `priority_area` to a canonical Value
         Builder module code.
@@ -74,7 +92,10 @@ class ProgramGuideService:
            Value Builder taxonomy.
         2. Exact match against canonical module codes - defensive, in case
            the LLM returns a bare code like "V5".
-        3. Loose "contains" fallback - for BBA rows created before the
+        3. Exact match against a retired name - see MODULE_NAME_ALIASES. Runs
+           before the loose pass so a renamed module resolves to the code it
+           was renamed from, not to whichever current name happens to overlap.
+        4. Loose "contains" fallback - for BBA rows created before the
            prompt constraint, or any LLM non-compliance.
         """
         if not raw:
@@ -90,6 +111,10 @@ class ProgramGuideService:
         for code in canonical.keys():
             if code.lower() == normalized:
                 return code
+
+        alias = cls.MODULE_NAME_ALIASES.get(normalized)
+        if alias and alias in canonical:
+            return alias
 
         for code, name in canonical.items():
             name_lower = name.lower()

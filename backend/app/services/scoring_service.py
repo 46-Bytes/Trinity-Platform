@@ -28,11 +28,11 @@ class ScoringService:
         "V1": "Financial Management",
         "V2": "Strategy & Planning",
         "V3": "Leadership & Communications",
-        "V4": "People",
+        "V4": "People & Structure",
         "V5": "Systems & Processes",
         "V6": "Technology",
         "V7": "Sales & Marketing",
-        "V8": "Brand, IP & Competitive Advantage",
+        "V8": "Brand, IP & Protection",
         "V9": "Owner Independence",
         "V10": "Value & Growth",
         "V11": "Risk, Legal, Compliance & Property"

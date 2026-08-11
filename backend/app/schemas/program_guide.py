@@ -17,6 +17,10 @@ class ProgramModuleContentItem(BaseModel):
     purpose: Optional[str] = None
     preparation_checklist: Optional[List[Dict[str, Any]]] = None
     recommended_tools: Optional[List[Dict[str, Any]]] = None
+    required_inputs: Optional[List[Dict[str, Any]]] = None
+    # Display-only labels, derived by the seed script from the preset titles.
+    # The deliverables the status engine reads are served by /api/deliverables;
+    # this stays a flat string list until the composed view replaces it.
     deliverables: Optional[List[str]] = None
     is_active: bool = True
 

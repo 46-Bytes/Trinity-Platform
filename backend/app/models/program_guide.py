@@ -28,7 +28,19 @@ class ProgramModuleContent(Base):
     purpose = Column(Text, nullable=True, comment="One-paragraph summary of what this module achieves")
     preparation_checklist = Column(JSONB, nullable=True, comment="[{key, text}] static preparation items")
     recommended_tools = Column(JSONB, nullable=True, comment="[{tool_key, label}] Trinity tools to run for this module")
-    deliverables = Column(JSONB, nullable=True, comment="[label, ...] static deliverable labels")
+    required_inputs = Column(
+        JSONB,
+        nullable=True,
+        comment="[{key, label, source, fallback}] where source is 'trinity'|'advisor_upload'|'earlier_module'; "
+                "fallback states what to do when an earlier-module input is absent, since no module may assume another has run",
+    )
+    deliverables = Column(
+        JSONB,
+        nullable=True,
+        comment="[label, ...] display-only labels, DERIVED by the seed script from the titles in "
+                "program_module_deliverable. Not a source of truth: the deliverables the status engine "
+                "reads live in that table. Retire this once the composed view replaces it.",
+    )
 
     is_active = Column(Boolean, nullable=False, server_default='true')
 
@@ -50,6 +62,7 @@ class ProgramModuleContent(Base):
             "purpose": self.purpose,
             "preparation_checklist": self.preparation_checklist,
             "recommended_tools": self.recommended_tools,
+            "required_inputs": self.required_inputs,
             "deliverables": self.deliverables,
             "is_active": self.is_active,
         }

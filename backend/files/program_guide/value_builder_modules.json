@@ -12,14 +12,14 @@
       { "tool_key": "diagnostic", "label": "Value Builder Diagnostic" }
     ],
     "deliverables": [
-      "PLACEHOLDER: Diagnostic Report & Recommendations"
+      { "key": "M0-D1", "title": "PLACEHOLDER: Diagnostic Report & Recommendations", "is_mandatory": true }
     ]
   },
   {
     "program_type": "value_builder",
     "module_code": "V1",
     "display_order": 1,
-    "title": "Financial",
+    "title": "Financial Management",
     "purpose": "PLACEHOLDER: Build the financial foundation for the rest of the program. Give the owner clarity on performance, surface margin leaks and pricing issues, and set a simple financial rhythm.",
     "preparation_checklist": [
       { "key": "load-financials", "text": "PLACEHOLDER: Load financials into Trinity (P&L, balance sheet, revenue) or connect Xero" },
@@ -30,11 +30,21 @@
     "recommended_tools": [
       { "tool_key": "bba", "label": "Recommendations Report Builder" }
     ],
+    "required_inputs": [
+      { "key": "V1-I1", "label": "PLACEHOLDER: Diagnostic scores and report", "source": "trinity" },
+      { "key": "V1-I2", "label": "PLACEHOLDER: P&L, balance sheet and revenue breakdown", "source": "advisor_upload" },
+      {
+        "key": "V1-I3",
+        "label": "PLACEHOLDER: Strategic priorities agreed in Strategy & Planning",
+        "source": "earlier_module",
+        "fallback": "PLACEHOLDER: If V2 has not run, agree provisional priorities with the owner in session."
+      }
+    ],
     "deliverables": [
-      "PLACEHOLDER: Financial Health Summary",
-      "PLACEHOLDER: Pricing Review & Recommendations",
-      "PLACEHOLDER: Margin Improvement Plan",
-      "PLACEHOLDER: Financial Rhythm & Reporting Plan"
+      { "key": "V1-D1", "title": "PLACEHOLDER: Financial Health Summary", "is_mandatory": true },
+      { "key": "V1-D2", "title": "PLACEHOLDER: Pricing Review & Recommendations", "is_mandatory": true },
+      { "key": "V1-D3", "title": "PLACEHOLDER: Margin Improvement Plan", "is_mandatory": true },
+      { "key": "V1-D4", "title": "PLACEHOLDER: Financial Rhythm & Reporting Plan", "is_mandatory": true }
     ]
   },
   {
@@ -51,8 +61,8 @@
       { "tool_key": "strategic_business_plan", "label": "Strategic Business Plan" }
     ],
     "deliverables": [
-      "PLACEHOLDER: Strategy Workbook",
-      "PLACEHOLDER: Strategic Business Plan"
+      { "key": "V2-D1", "title": "PLACEHOLDER: Strategy Workbook", "is_mandatory": true },
+      { "key": "V2-D2", "title": "PLACEHOLDER: Strategic Business Plan", "is_mandatory": true }
     ]
   },
   {
@@ -68,14 +78,14 @@
       { "tool_key": "bba", "label": "Recommendations Report Builder" }
     ],
     "deliverables": [
-      "PLACEHOLDER: Leadership & Communications Plan"
+      { "key": "V3-D1", "title": "PLACEHOLDER: Leadership & Communications Plan", "is_mandatory": true }
     ]
   },
   {
     "program_type": "value_builder",
     "module_code": "V4",
     "display_order": 4,
-    "title": "People",
+    "title": "People & Structure",
     "purpose": "PLACEHOLDER: Build a people module that works whether or not the owner has a team.",
     "preparation_checklist": [
       { "key": "review-org", "text": "PLACEHOLDER: Review current team structure, if any" }
@@ -84,7 +94,7 @@
       { "tool_key": "bba", "label": "Recommendations Report Builder" }
     ],
     "deliverables": [
-      "PLACEHOLDER: People Plan"
+      { "key": "V4-D1", "title": "PLACEHOLDER: People Plan", "is_mandatory": true }
     ]
   },
   {
@@ -100,7 +110,7 @@
       { "tool_key": "bba", "label": "Recommendations Report Builder" }
     ],
     "deliverables": [
-      "PLACEHOLDER: Systems & Processes Plan"
+      { "key": "V5-D1", "title": "PLACEHOLDER: Systems & Processes Plan", "is_mandatory": true }
     ]
   },
   {
@@ -116,7 +126,7 @@
       { "tool_key": "bba", "label": "Recommendations Report Builder" }
     ],
     "deliverables": [
-      "PLACEHOLDER: Technology Improvement Plan"
+      { "key": "V6-D1", "title": "PLACEHOLDER: Technology Improvement Plan", "is_mandatory": true }
     ]
   },
   {
@@ -132,14 +142,14 @@
       { "tool_key": "bba", "label": "Recommendations Report Builder" }
     ],
     "deliverables": [
-      "PLACEHOLDER: Sales & Marketing Plan"
+      { "key": "V7-D1", "title": "PLACEHOLDER: Sales & Marketing Plan", "is_mandatory": true }
     ]
   },
   {
     "program_type": "value_builder",
     "module_code": "V8",
     "display_order": 8,
-    "title": "Brand, IP & Competitive Advantage",
+    "title": "Brand, IP & Protection",
     "purpose": "PLACEHOLDER: Clarify what makes the business defensible and differentiated.",
     "preparation_checklist": [
       { "key": "list-ip-assets", "text": "PLACEHOLDER: List brand and IP assets" }
@@ -148,7 +158,7 @@
       { "tool_key": "bba", "label": "Recommendations Report Builder" }
     ],
     "deliverables": [
-      "PLACEHOLDER: Competitive Advantage Summary"
+      { "key": "V8-D1", "title": "PLACEHOLDER: Competitive Advantage Summary", "is_mandatory": true }
     ]
   },
   {
@@ -164,7 +174,7 @@
       { "tool_key": "bba", "label": "Recommendations Report Builder" }
     ],
     "deliverables": [
-      "PLACEHOLDER: Owner Independence Plan"
+      { "key": "V9-D1", "title": "PLACEHOLDER: Owner Independence Plan", "is_mandatory": true }
     ]
   },
   {
@@ -180,7 +190,7 @@
       { "tool_key": "bba", "label": "Recommendations Report Builder" }
     ],
     "deliverables": [
-      "PLACEHOLDER: Value & Growth Plan"
+      { "key": "V10-D1", "title": "PLACEHOLDER: Value & Growth Plan", "is_mandatory": true }
     ]
   },
   {
@@ -196,7 +206,7 @@
       { "tool_key": "bba", "label": "Recommendations Report Builder" }
     ],
     "deliverables": [
-      "PLACEHOLDER: Risk & Compliance Summary"
+      { "key": "V11-D1", "title": "PLACEHOLDER: Risk & Compliance Summary", "is_mandatory": true }
     ]
   },
   {
@@ -212,7 +222,7 @@
       { "tool_key": "diagnostic", "label": "Value Builder Diagnostic" }
     ],
     "deliverables": [
-      "PLACEHOLDER: Value Movement Report"
+      { "key": "M12-D1", "title": "PLACEHOLDER: Value Movement Report", "is_mandatory": true }
     ]
   }
 ]

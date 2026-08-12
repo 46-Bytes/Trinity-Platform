@@ -46,6 +46,40 @@ class ProgramGuideView(BaseModel):
     modules: List[ProgramGuideModuleItem]
 
 
+class DashboardModuleItem(BaseModel):
+    """
+    One module as a business owner may see it: identity, position and progress.
+
+    Deliberately NOT a subclass of ProgramModuleContentItem. That class carries
+    purpose, preparation_checklist, recommended_tools and deliverables, all of
+    which are "No" for an owner in Part A's roles matrix - inheriting it is
+    exactly how card content would leak back into this view. Every field here is
+    listed on purpose; keep it that way.
+    """
+    module_code: str
+    title: str
+    effective_rank: Optional[int] = None
+    is_gateway: bool = False
+    is_capstone: bool = False
+    status: str = Field(..., description="'not_started' | 'in_progress' | 'completed'")
+
+
+class ProgramGuideDashboardView(BaseModel):
+    """
+    The program dashboard: progress and the module list, nothing else.
+
+    This is the one Program Guide read an owner is allowed. Module card
+    contents and diagnostic findings are served elsewhere, behind an
+    advisor-only guard.
+    """
+    program_type: str
+    modules: List[DashboardModuleItem]
+    total_modules: int
+    completed_modules: int
+    in_progress_modules: int
+    not_started_modules: int
+
+
 class ProgramGuideOrderUpdate(BaseModel):
     module_order: List[str] = Field(..., description="Ordered module codes, full or partial")
 

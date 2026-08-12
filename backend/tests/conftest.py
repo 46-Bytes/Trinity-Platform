@@ -130,24 +130,29 @@ def test_user(db_session):
 @pytest.fixture
 def clean_library(db_session):
     """
-    Hide any seeded preset library from this test.
+    Hide the seeded module card library from this test - both halves of it.
 
-    The deliverable tests each author the exact presets they expect to see and
-    then assert on derived status, which reads EVERY active preset for the
-    program type. A populated program_module_deliverable - now the normal state
-    of any seeded environment - therefore adds unrelated mandatory items to the
-    same modules and changes the answer: "complete the only mandatory item"
-    stops being true, and module["deliverables"][0] stops being the row the test
-    just created.
+    These tests each author the exact cards and presets they expect to see and
+    then assert on what comes back. Both reads are library-wide: derived status
+    reads EVERY active preset for the program type, and the guide view returns
+    EVERY content row. A populated library - now the normal state of any seeded
+    environment - therefore adds unrelated mandatory items to the same modules
+    and changes the answer, so "complete the only mandatory item" stops being
+    true and module["deliverables"][0] stops being the row the test created.
+    Authoring a V1 card also collides outright with the seeded one, which is
+    unique on (program_type, module_code).
 
-    Deactivating rather than deleting keeps the foreign key from any engagement
-    instance intact, and the outer transaction rolls it all back regardless.
+    Presets are deactivated rather than deleted, to keep the foreign key from
+    any engagement instance intact. Content rows have no such dependants and are
+    removed outright. The outer transaction rolls back either way.
     """
     from app.models.program_deliverable import ProgramModuleDeliverable
+    from app.models.program_guide import ProgramModuleContent
 
     db_session.query(ProgramModuleDeliverable).filter(
         ProgramModuleDeliverable.is_active == True,  # noqa: E712
     ).update({"is_active": False}, synchronize_session=False)
+    db_session.query(ProgramModuleContent).delete(synchronize_session=False)
     db_session.flush()
 
 

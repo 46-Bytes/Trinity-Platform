@@ -247,6 +247,55 @@ class ProgramGuideService:
             "modules": modules,
         }
 
+    def get_dashboard_view(self, engagement: Engagement) -> Dict[str, Any]:
+        """
+        Progress and the module list - the only Program Guide read an owner gets.
+
+        Built by narrowing get_program_guide_view rather than by a second query,
+        so ordering and gateway/capstone handling cannot drift between the two.
+        The narrowing is an explicit field list: anything not named here does not
+        reach the caller, which is the point.
+
+        Status comes from the deliverables engine. Modules with no deliverables
+        are absent from that mapping and read as not_started, which is what
+        derive_module_status returns for an empty list anyway.
+        """
+        # Imported here rather than at module scope: program_deliverable_service
+        # is the newer subsystem and this keeps the dependency one-directional.
+        from app.services.program_deliverable_service import (
+            MODULE_STATUS_COMPLETED,
+            MODULE_STATUS_IN_PROGRESS,
+            MODULE_STATUS_NOT_STARTED,
+            get_program_deliverable_service,
+        )
+
+        full = self.get_program_guide_view(engagement)
+        statuses = get_program_deliverable_service(self.db).get_module_statuses(engagement)
+
+        modules = [
+            {
+                "module_code": m["module_code"],
+                "title": m["title"],
+                "effective_rank": m["effective_rank"],
+                "is_gateway": m["is_gateway"],
+                "is_capstone": m["is_capstone"],
+                "status": statuses.get(m["module_code"], MODULE_STATUS_NOT_STARTED),
+            }
+            for m in full["modules"]
+        ]
+
+        def count(status: str) -> int:
+            return sum(1 for m in modules if m["status"] == status)
+
+        return {
+            "program_type": engagement.tool,
+            "modules": modules,
+            "total_modules": len(modules),
+            "completed_modules": count(MODULE_STATUS_COMPLETED),
+            "in_progress_modules": count(MODULE_STATUS_IN_PROGRESS),
+            "not_started_modules": count(MODULE_STATUS_NOT_STARTED),
+        }
+
     # ------------------------------------------------------------------
     # M12: value movement
     # ------------------------------------------------------------------

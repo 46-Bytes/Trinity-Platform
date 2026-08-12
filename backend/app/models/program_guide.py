@@ -65,6 +65,13 @@ class ProgramModuleContent(Base):
                 "e.g. why uploading source material matters. Keyed rather than one column per note, "
                 "because modules differ in which sections carry one",
     )
+    module_notes = Column(
+        JSONB,
+        nullable=True,
+        comment="[{key, title, text}] titled guidance about the module as a whole rather than about one "
+                "of its sections, e.g. how the module runs for a client with no leadership layer. "
+                "Distinct from section_notes: those are untitled and belong to a named section",
+    )
 
     guardrails = Column(
         JSONB,
@@ -121,6 +128,7 @@ class ProgramModuleContent(Base):
             "between_sessions": self.between_sessions,
             "post_session_actions": self.post_session_actions,
             "section_notes": self.section_notes,
+            "module_notes": self.module_notes,
             "guardrails": self.guardrails,
             "quality_standards": self.quality_standards,
             "recommended_tools": self.recommended_tools,

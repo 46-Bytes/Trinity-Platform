@@ -86,6 +86,7 @@ _PASSTHROUGH_FIELDS = (
     "recommended_tools",
     "required_inputs",
     "section_notes",
+    "module_notes",
 )
 
 
@@ -189,6 +190,37 @@ def _check_section_notes(problems, where, notes) -> None:
             problems.append(f"{where}: section_notes[{section!r}] must be a non-empty string")
 
 
+def _check_module_notes(problems, where, notes) -> None:
+    """
+    Titled guidance about the module as a whole. Unlike section_notes these
+    carry a title, which is part of the content rather than a label - "Where
+    there is no leadership layer" frames everything under it.
+    """
+    if notes is None:
+        return
+    if not isinstance(notes, list):
+        problems.append(f"{where}: module_notes must be a list")
+        return
+
+    seen = set()
+    for i, note in enumerate(notes):
+        at = f"{where}: module_notes[{i}]"
+        if not isinstance(note, dict):
+            problems.append(f"{at} must be an object")
+            continue
+        key = note.get("key")
+        if not key:
+            problems.append(f"{at} missing 'key'")
+        elif key in seen:
+            problems.append(f"{at} duplicate module note key {key!r}")
+        else:
+            seen.add(key)
+        for field in ("title", "text"):
+            value = note.get(field)
+            if not isinstance(value, str) or not value.strip():
+                problems.append(f"{at} missing '{field}'")
+
+
 def _check_guardrails(problems, where, guardrails) -> None:
     if guardrails is None:
         return
@@ -269,6 +301,7 @@ def validate_fixture(modules) -> None:
             problems, where, "post_session_actions", entry.get("post_session_actions"), require_items=True
         )
         _check_section_notes(problems, where, entry.get("section_notes"))
+        _check_module_notes(problems, where, entry.get("module_notes"))
         _check_sessions(problems, where, entry.get("sessions"))
         _check_guardrails(problems, where, entry.get("guardrails"))
         _check_tools(problems, where, entry.get("recommended_tools"))

@@ -21,12 +21,19 @@ import pytest
 from app.models.program_deliverable import ProgramModuleDeliverable
 from app.models.program_guide import ProgramModuleContent
 from app.models.user import UserRole
+from app.schemas.program_guide import DashboardModuleItem, ProgramModuleContentItem
 
 BASE = "/api/program-guide/engagements"
 CONTENT = "/api/program-guide/content"
 
-# Fields that describe how to run a module. Part A: Owner No.
-CONTENT_FIELDS = {"purpose", "preparation_checklist", "recommended_tools", "deliverables", "required_inputs"}
+# Everything the advisor's card carries that the owner's dashboard does not.
+#
+# Derived rather than hand-listed on purpose. A hand-written set silently stops
+# covering each new card section as the spec's parts land - which is exactly
+# when this test matters most. Subtracting the two schemas means any field added
+# to the card is treated as forbidden on the dashboard until someone
+# deliberately adds it to DashboardModuleItem too.
+CONTENT_FIELDS = set(ProgramModuleContentItem.model_fields) - set(DashboardModuleItem.model_fields)
 
 
 @pytest.fixture
@@ -69,6 +76,18 @@ def module(db_session, test_engagement):
         recommended_tools=[{"tool_key": "bba", "label": "Report Builder"}],
         required_inputs=[{"key": "V1-I1", "label": "Accounts", "source": "Advisor to upload"}],
         deliverables=["Financial Health Summary"],
+        # The advisor-only sections. Present here so the by-value leak
+        # assertions have something real to fail on.
+        sessions=[{
+            "key": "V1-S1",
+            "title": "Financial Workshop",
+            "agenda": [{
+                "key": "V1-S1-A3",
+                "title": "Expenses review",
+                "questions": ["Walk me through your three biggest expense lines."],
+            }],
+        }],
+        guardrails={"must_not": ["redo bookkeeping or rebuild the accounts"]},
     )
     preset = ProgramModuleDeliverable(
         program_type="value_builder",
@@ -153,6 +172,13 @@ class TestDashboardLeaksNoContent:
     ProgramModuleContentItem, fails here.
     """
 
+    def test_the_forbidden_set_is_not_empty(self):
+        """
+        CONTENT_FIELDS is derived, so a refactor collapsing the two schemas
+        would empty it and quietly turn the leak tests below into no-ops.
+        """
+        assert CONTENT_FIELDS, "the card and dashboard schemas no longer differ"
+
     def test_no_module_carries_a_content_field(self, api, owner, test_engagement, module):
         body = api.as_user(owner).get(f"{BASE}/{test_engagement.id}/dashboard").json()
 
@@ -162,10 +188,15 @@ class TestDashboardLeaksNoContent:
             assert not leaked, f"dashboard exposed card content: {sorted(leaked)}"
 
     def test_the_authored_content_is_absent_by_value_too(self, api, owner, test_engagement, module):
-        """Belt and braces: the purpose text must not appear anywhere in the payload."""
+        """
+        Belt and braces. Field names could be renamed on the way out; the
+        authored text itself must not appear anywhere in the payload.
+        """
         raw = api.as_user(owner).get(f"{BASE}/{test_engagement.id}/dashboard").text
         assert "Build the financial foundation" not in raw
         assert "Load financials" not in raw
+        assert "Walk me through your three biggest expense lines" not in raw
+        assert "redo bookkeeping" not in raw
 
     def test_it_still_carries_what_the_owner_needs(self, api, owner, test_engagement, module):
         body = api.as_user(owner).get(f"{BASE}/{test_engagement.id}/dashboard").json()

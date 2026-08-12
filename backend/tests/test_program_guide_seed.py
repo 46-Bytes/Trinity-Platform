@@ -292,6 +292,68 @@ class TestDerivedLegacyColumn:
         item = ProgramModuleContentItem.model_validate(card)
         assert item.deliverables == ["Financial Health Summary", "Pricing Review"]
 
+    def test_every_card_section_round_trips(self, db_session, write_fixture, program_type):
+        """
+        Each Part B section survives the seed and comes back out through the API
+        schema. Checked in one test because the failure mode is a field silently
+        dropped from the upsert, which one assertion per section would catch no
+        better than all of them together.
+        """
+        sections = {
+            "focus": "Financial clarity and a reporting rhythm.",
+            "core_outcomes": ["The owner can explain their financial position."],
+            "preparation_summary": {"owner": "Advisor", "duration": "60 to 120 minutes"},
+            "sessions": [{
+                "key": "V1-S1", "title": "Financial Workshop",
+                "duration": "Target 95 to 130 minutes", "format": "In person or online",
+                "agenda": [{
+                    "key": "V1-S1-A3", "title": "Expenses review", "duration": "20 to 25 minutes",
+                    "detail": "Work through the major expense lines.",
+                    "questions": ["What has grown fastest, and why?"],
+                }],
+            }],
+            "post_session_actions": {
+                "owner": "Advisor", "duration": "45 to 60 minutes",
+                "items": ["Finalise the Financial Health Summary."],
+            },
+            "guardrails": {
+                "must_not": ["redo bookkeeping or rebuild the accounts"],
+                "note": "These are boundaries of profession, not boundaries of module.",
+            },
+            "quality_standards": ["Invoicing changes have a named owner."],
+        }
+        seed_from_file(write_fixture([_module(deliverables=[], **sections)]), db=db_session)
+
+        item = ProgramModuleContentItem.model_validate(_card(db_session, program_type))
+        for field, expected in sections.items():
+            assert getattr(item, field) == expected, f"{field} did not round-trip"
+
+    def test_tool_build_status_round_trips(self, db_session, write_fixture, program_type):
+        """`status` is what lets the UI show an unbuilt tool rather than drop it."""
+        tools = [{
+            "tool_key": "financial_health_summary",
+            "label": "Financial Health Summary generator",
+            "when": "pre",
+            "status": "To build, Feature 3",
+        }]
+        seed_from_file(write_fixture([_module(recommended_tools=tools, deliverables=[])]), db=db_session)
+
+        item = ProgramModuleContentItem.model_validate(_card(db_session, program_type))
+        assert item.recommended_tools == tools
+
+    def test_deliverable_provenance_round_trips(self, db_session, write_fixture, program_type):
+        seed_from_file(write_fixture([
+            _module("V1", deliverables=[_deliverable(
+                "V1-D1", produced_by="trinity_tool", produced_by_note="advisor-refined", feeds=["V2"],
+            )]),
+            _module("V2", deliverables=[]),
+        ]), db=db_session)
+
+        row = _presets(db_session, program_type)[0]
+        assert row.produced_by == "trinity_tool"
+        assert row.produced_by_note == "advisor-refined"
+        assert row.feeds == ["V2"]
+
     def test_required_inputs_round_trips(self, db_session, write_fixture, program_type):
         inputs = [
             {"key": "V1-I1", "label": "Diagnostic scores", "source": "Held in Trinity"},
@@ -332,6 +394,66 @@ class TestFixtureValidation:
             validate_fixture([{
                 "program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
                 "deliverables": [item],
+            }])
+
+    def test_feeds_naming_an_unknown_module_is_rejected(self):
+        """
+        The reason the spec's deliverable ids are stable: feeds are real
+        cross-references. A typo'd target would otherwise sit in the database
+        forever pointing at nothing.
+        """
+        with pytest.raises(FixtureError, match="feeds unknown module 'V99'"):
+            validate_fixture([{
+                "program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
+                "deliverables": [_deliverable("V1-D1", feeds=["V99"])],
+            }])
+
+    def test_feeds_naming_a_present_module_is_accepted(self):
+        validate_fixture([
+            {"program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
+             "deliverables": [_deliverable("V1-D1", feeds=["V2"])]},
+            {"program_type": "p", "module_code": "V2", "display_order": 2, "title": "T", "deliverables": []},
+        ])
+
+    def test_unknown_producer_is_rejected(self):
+        with pytest.raises(FixtureError, match="produced_by 'wizard' not in"):
+            validate_fixture([{
+                "program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
+                "deliverables": [_deliverable("V1-D1", produced_by="wizard")],
+            }])
+
+    @pytest.mark.parametrize("section,value,expected", [
+        ("core_outcomes", "not a list", "core_outcomes must be a list"),
+        ("core_outcomes", ["", "ok"], r"core_outcomes\[0\] must be a non-empty string"),
+        ("quality_standards", [None], r"quality_standards\[0\] must be a non-empty string"),
+        ("preparation_summary", {"owner": "Advisor"}, "preparation_summary missing 'duration'"),
+        ("post_session_actions", {"owner": "A", "duration": "1h", "items": [""]},
+         r"post_session_actions\.items\[0\] must be a non-empty string"),
+        ("guardrails", {"note": "n"}, "guardrails missing 'must_not'"),
+        ("sessions", [{"title": "No key"}], r"sessions\[0\] missing 'key'"),
+        ("sessions", [{"key": "S1"}], r"sessions\[0\] missing 'title'"),
+        ("sessions", [{"key": "S1", "title": "T", "agenda": [{"title": "No key"}]}],
+         r"agenda\[0\] missing 'key'"),
+        ("sessions", [{"key": "S1", "title": "T",
+                       "agenda": [{"key": "A1", "title": "T", "questions": [""]}]}],
+         r"questions\[0\] must be a non-empty string"),
+        ("recommended_tools", [{"label": "No key"}], r"recommended_tools\[0\] missing 'tool_key'"),
+    ])
+    def test_malformed_card_sections_are_rejected(self, section, value, expected):
+        with pytest.raises(FixtureError, match=expected):
+            validate_fixture([{
+                "program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
+                "deliverables": [], section: value,
+            }])
+
+    def test_duplicate_session_and_agenda_keys_are_rejected(self):
+        with pytest.raises(FixtureError, match="duplicate agenda key"):
+            validate_fixture([{
+                "program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
+                "deliverables": [],
+                "sessions": [{"key": "S1", "title": "T", "agenda": [
+                    {"key": "A1", "title": "One"}, {"key": "A1", "title": "Two"},
+                ]}],
             }])
 
     def test_duplicate_keys_within_a_module_are_rejected(self):
@@ -406,6 +528,32 @@ class TestModuleNameAliases:
         """A stale alias is worse than none - it silently maps to nothing."""
         for name, code in ProgramGuideService.MODULE_NAME_ALIASES.items():
             assert code in ScoringService.VALUE_BUILDER_MODULES, f"alias {name!r} -> unknown code {code}"
+
+    def test_v1_is_transcribed_from_part_b(self):
+        """
+        V1 is the worked example proving Parts C-L need no code change. If it
+        regresses to placeholders, the loader is no longer proven against real
+        content.
+        """
+        with open(DEFAULT_FIXTURE, "r", encoding="utf-8") as f:
+            v1 = next(m for m in json.load(f) if m["module_code"] == "V1")
+
+        assert "PLACEHOLDER" not in json.dumps(v1), "V1 still contains placeholder text"
+
+        for section in ("focus", "core_outcomes", "preparation_summary", "sessions",
+                        "post_session_actions", "guardrails", "quality_standards"):
+            assert v1.get(section), f"V1 is missing {section}"
+
+        keys = [d["key"] for d in v1["deliverables"]]
+        assert keys == ["V1-D1", "V1-D2", "V1-D3", "V1-D4", "V1-D5"]
+
+        by_key = {d["key"]: d for d in v1["deliverables"]}
+        # The only optional deliverable in the fixture, and the only exercise of
+        # the is_mandatory=False path against real content.
+        assert by_key["V1-D5"]["is_mandatory"] is False
+        assert all(by_key[k]["is_mandatory"] for k in keys if k != "V1-D5")
+        assert by_key["V1-D1"]["produced_by"] == "trinity_tool"
+        assert by_key["V1-D1"]["feeds"] == ["V2", "V10"]
 
     def test_fixture_titles_match_the_scoring_taxonomy(self):
         """

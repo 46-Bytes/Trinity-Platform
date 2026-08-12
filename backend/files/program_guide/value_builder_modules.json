@@ -20,31 +20,175 @@
     "module_code": "V1",
     "display_order": 1,
     "title": "Financial Management",
-    "purpose": "PLACEHOLDER: Build the financial foundation for the rest of the program. Give the owner clarity on performance, surface margin leaks and pricing issues, and set a simple financial rhythm.",
-    "preparation_checklist": [
-      { "key": "load-financials", "text": "PLACEHOLDER: Load financials into Trinity (P&L, balance sheet, revenue) or connect Xero" },
-      { "key": "generate-financial-health-summary", "text": "PLACEHOLDER: Generate the Financial Health Summary via the AI tool" },
-      { "key": "run-pricing-review", "text": "PLACEHOLDER: Run the Pricing Review prompt" },
-      { "key": "note-improvement-levers", "text": "PLACEHOLDER: Note 3 to 5 improvement levers to explore" }
-    ],
-    "recommended_tools": [
-      { "tool_key": "bba", "label": "Recommendations Report Builder" }
+    "focus": "Financial clarity, cost and margin performance, and a reporting rhythm the owner will actually maintain.",
+    "purpose": "V1 establishes the financial foundation for every other module. The owner gains a clear, plain-language understanding of how the business performs, where money is being lost through cost structure and slow invoicing, and what to watch month to month. Almost every other module depends on the outputs produced here. This module is about commercial clarity, not accounting technicalities.",
+    "core_outcomes": [
+      "The owner can explain their financial position in simple terms.",
+      "Major expense lines are reviewed and cost adjustments identified.",
+      "The invoicing process is reviewed and cash-timing improvements agreed.",
+      "Margin leaks are identified and a small number of high-impact actions are agreed.",
+      "A lightweight financial reporting rhythm is in place and owned."
     ],
     "required_inputs": [
-      { "key": "V1-I1", "label": "PLACEHOLDER: Diagnostic scores and report", "source": "Held in Trinity" },
-      { "key": "V1-I2", "label": "PLACEHOLDER: P&L, balance sheet and revenue breakdown", "source": "Advisor to upload" },
+      { "key": "V1-I1", "label": "Diagnostic report, V1 module assessment", "source": "Held in Trinity" },
+      { "key": "V1-I2", "label": "Profit and loss, 3 years", "source": "Advisor to upload" },
+      { "key": "V1-I3", "label": "Balance sheet, current and prior", "source": "Advisor to upload" },
+      { "key": "V1-I4", "label": "Revenue breakdown by product, service or segment", "source": "Advisor to upload" },
+      { "key": "V1-I5", "label": "Aged receivables and current payment terms", "source": "Advisor to upload" },
+      { "key": "V1-I6", "label": "Accountant and bookkeeper contact details", "source": "Advisor to upload" },
+      { "key": "V1-I7", "label": "Existing budget or forecast, where one exists", "source": "Advisor to upload" }
+    ],
+    "preparation_summary": {
+      "owner": "Advisor",
+      "duration": "60 to 120 minutes depending on data quality"
+    },
+    "preparation_checklist": [
+      { "key": "load-financials", "text": "Load financial data into Trinity and generate the Financial Health Summary." },
+      { "key": "review-margin-trends", "text": "Review margin trends, revenue mix, labour and subcontractor ratios, overhead patterns." },
+      { "key": "identify-largest-expenses", "text": "Identify the largest expense lines and those that have grown fastest over the period." },
+      { "key": "review-debtors", "text": "Review the debtor position, average days to payment, and any work sitting uninvoiced." },
+      { "key": "identify-red-flags", "text": "Identify red flags: chronic low margin, structural under-pricing, excessive rework, negative equity, director loans, contingent liabilities." },
+      { "key": "note-improvement-levers", "text": "Note 3 to 5 suspected improvement levers to test in the session." },
+      { "key": "verify-not-sure-responses", "text": "Where the diagnostic returned \"not sure\" responses, list them for direct verification with the bookkeeper or accountant. Do not assume they are in order." }
+    ],
+    "sessions": [
       {
-        "key": "V1-I3",
-        "label": "PLACEHOLDER: Strategic priorities agreed in Strategy & Planning",
-        "source": "From an earlier module",
-        "fallback": "PLACEHOLDER: If V2 has not run, agree provisional priorities with the owner in session."
+        "key": "V1-S1",
+        "title": "Financial Workshop",
+        "duration": "Target 95 to 130 minutes",
+        "format": "In person or online",
+        "agenda": [
+          {
+            "key": "V1-S1-A1",
+            "title": "Frame the session",
+            "duration": "5 minutes",
+            "detail": "Clarify that the advisor is not the accountant or bookkeeper. Position the session as improving profitability, improving decision-making, and reducing financial stress."
+          },
+          {
+            "key": "V1-S1-A2",
+            "title": "Review the Financial Health Summary",
+            "duration": "20 to 30 minutes",
+            "detail": "Present in plain language: gross margin, net margin, revenue trend, major cost drivers. Check understanding continuously. Avoid jargon."
+          },
+          {
+            "key": "V1-S1-A3",
+            "title": "Expenses review and adjustment",
+            "duration": "20 to 25 minutes",
+            "detail": "Work through the major expense lines and test whether each still earns its place. Cover the three biggest costs, what has grown fastest, which costs are fixed versus flexible, and whether personal expenses are running through the business and properly separated.",
+            "questions": [
+              "Walk me through your three biggest expense lines. Are they where you would expect them to be?",
+              "What has grown fastest over the last two years, and why?",
+              "What is in here that no longer earns its place?",
+              "Which of these could flex if revenue dropped?"
+            ]
+          },
+          {
+            "key": "V1-S1-A4",
+            "title": "Invoicing process review",
+            "duration": "15 to 20 minutes",
+            "detail": "Review how and when invoices are raised, and where cash is being delayed by process rather than by customers. Late invoicing is one of the most common and most fixable cash constraints in an SME.",
+            "questions": [
+              "How quickly after the work is done does the invoice go out?",
+              "Who raises invoices, and is it their priority or the last thing on their list?",
+              "What are your payment terms, and are they actually enforced?",
+              "How long are customers really taking to pay?",
+              "Who follows up overdue accounts?",
+              "How often does an invoice get queried or corrected?"
+            ]
+          },
+          {
+            "key": "V1-S1-A5",
+            "title": "Margin leaks and cost structure",
+            "duration": "15 to 20 minutes",
+            "detail": "Identify low-margin offerings, delivery inefficiency and rework, overuse of subcontractors or casuals, operational waste, structural cost issues. Help the owner choose a small number of high-impact changes, not an overwhelming list."
+          },
+          {
+            "key": "V1-S1-A6",
+            "title": "Financial rhythm and reporting",
+            "duration": "15 to 20 minutes",
+            "detail": "Define the cadence: weekly or fortnightly metric check, monthly financial review, quarterly accountant engagement. Confirm who produces the numbers and who reviews them. Keep it light enough that the owner will sustain it."
+          },
+          {
+            "key": "V1-S1-A7",
+            "title": "Close and link forward",
+            "duration": "5 to 10 minutes",
+            "detail": "Show how financial improvement funds hiring, supports systems work, and strengthens enterprise value. Name the next module in this client's sequence."
+          }
+        ]
+      }
+    ],
+    "recommended_tools": [
+      {
+        "tool_key": "financial_health_summary",
+        "label": "Financial Health Summary generator",
+        "when": "pre",
+        "status": "To build, Feature 3"
       }
     ],
     "deliverables": [
-      { "key": "V1-D1", "title": "PLACEHOLDER: Financial Health Summary", "is_mandatory": true },
-      { "key": "V1-D2", "title": "PLACEHOLDER: Pricing Review & Recommendations", "is_mandatory": true },
-      { "key": "V1-D3", "title": "PLACEHOLDER: Margin Improvement Plan", "is_mandatory": true },
-      { "key": "V1-D4", "title": "PLACEHOLDER: Financial Rhythm & Reporting Plan", "is_mandatory": true }
+      {
+        "key": "V1-D1",
+        "title": "Financial Health Summary",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": ["V2", "V10"]
+      },
+      {
+        "key": "V1-D2",
+        "title": "Margin & Cost Improvement Plan",
+        "is_mandatory": true,
+        "produced_by": "advisor",
+        "feeds": ["V10"]
+      },
+      {
+        "key": "V1-D3",
+        "title": "Invoicing & Cashflow Improvement Plan",
+        "is_mandatory": true,
+        "produced_by": "advisor",
+        "feeds": ["V5"]
+      },
+      {
+        "key": "V1-D4",
+        "title": "Financial Rhythm & Reporting Plan",
+        "is_mandatory": true,
+        "produced_by": "advisor",
+        "feeds": ["V3"]
+      },
+      {
+        "key": "V1-D5",
+        "title": "Budget or Forecast Outline",
+        "is_mandatory": false,
+        "produced_by": "client",
+        "produced_by_note": "advisor-reviewed",
+        "feeds": ["V2"]
+      }
+    ],
+    "post_session_actions": {
+      "owner": "Advisor",
+      "duration": "45 to 60 minutes",
+      "items": [
+        "Finalise the Financial Health Summary and the Margin & Cost Improvement Plan.",
+        "Document the invoicing changes agreed, with a named owner and a start date.",
+        "Confirm the reporting rhythm and the metrics to be tracked.",
+        "Note any financial constraint that will affect later modules, particularly V2 Strategy, V4 People hiring capacity, and V6 Technology spend."
+      ]
+    },
+    "guardrails": {
+      "must_not": [
+        "redo bookkeeping or rebuild the accounts",
+        "build detailed three-way forecasts",
+        "provide tax, BAS or compliance advice",
+        "configure accounting or invoicing software directly; the advisor designs the process, the client or their bookkeeper makes the system change",
+        "promise specific profit outcomes"
+      ],
+      "note": "These are boundaries of profession, not boundaries of module. Where V1 surfaces an issue whose home module is elsewhere, the advisor addresses it and records the output against that module."
+    },
+    "quality_standards": [
+      "The owner can explain their financial position in their own words.",
+      "Expense and margin actions are few, specific and realistic.",
+      "Invoicing changes are practical and have a named owner.",
+      "A reporting rhythm exists and has a named owner."
     ]
   },
   {

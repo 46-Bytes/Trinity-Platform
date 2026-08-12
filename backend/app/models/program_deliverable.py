@@ -17,7 +17,7 @@ engagement only and have no library row - see the discriminator note on
 EngagementModuleDeliverable.library_deliverable_id.
 """
 from sqlalchemy import Column, String, Text, DateTime, Integer, Boolean, func, ForeignKey, UniqueConstraint, Index
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 import uuid
 
 from app.database import Base
@@ -48,6 +48,27 @@ class ProgramModuleDeliverable(Base):
         comment="Mandatory/optional flag for this preset; the only source of truth - instances never override it",
     )
 
+    # Who produces this deliverable. Split in two so the useful half stays
+    # queryable: the spec writes values like "trinity_tool, advisor-refined",
+    # and it is the producer alone that decides whether a generated tool output
+    # can be offered for saving against this deliverable.
+    produced_by = Column(
+        String(50),
+        nullable=True,
+        comment="'trinity_tool' | 'advisor' | 'client' - the primary producer",
+    )
+    produced_by_note = Column(
+        String(255),
+        nullable=True,
+        comment="Qualifier on the producer, e.g. 'advisor-refined', 'advisor-reviewed'",
+    )
+    feeds = Column(
+        JSONB,
+        nullable=True,
+        comment="[module_code, ...] later modules that consume this deliverable. The reason the spec's "
+                "deliverable ids are stable: these are cross-references between modules, not display text.",
+    )
+
     display_order = Column(Integer, nullable=False, comment="Author-defined sequence within (program_type, module_code)")
     is_active = Column(Boolean, nullable=False, server_default='true', comment="False retires the preset without deleting it")
 
@@ -68,6 +89,9 @@ class ProgramModuleDeliverable(Base):
             "title": self.title,
             "description": self.description,
             "is_mandatory": self.is_mandatory,
+            "produced_by": self.produced_by,
+            "produced_by_note": self.produced_by_note,
+            "feeds": self.feeds,
             "display_order": self.display_order,
             "is_active": self.is_active,
         }

@@ -14,8 +14,15 @@ class ProgramModuleContentItem(BaseModel):
     module_code: str
     display_order: int
     title: str
+    focus: Optional[str] = None
     purpose: Optional[str] = None
+    core_outcomes: Optional[List[str]] = None
     preparation_checklist: Optional[List[Dict[str, Any]]] = None
+    preparation_summary: Optional[Dict[str, Any]] = None
+    sessions: Optional[List[Dict[str, Any]]] = None
+    post_session_actions: Optional[Dict[str, Any]] = None
+    guardrails: Optional[Dict[str, Any]] = None
+    quality_standards: Optional[List[str]] = None
     recommended_tools: Optional[List[Dict[str, Any]]] = None
     required_inputs: Optional[List[Dict[str, Any]]] = None
     # Display-only labels, derived by the seed script from the preset titles.

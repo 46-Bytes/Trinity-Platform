@@ -12,9 +12,17 @@ from app.database import Base
 
 class ProgramModuleContent(Base):
     """
-    Client-authored content for a single module card (purpose, preparation
-    checklist, recommended tools, deliverables). Scoped by program_type so
+    Client-authored content for a single module card. Scoped by program_type so
     the same table can serve multiple module-based programs.
+
+    The columns mirror the specification's own card sections one for one, which
+    is why there are so many of them rather than a single content blob: each is
+    rendered separately and edited separately by an admin.
+
+    Durations throughout ("Target 95 to 130 minutes", "60 to 120 minutes
+    depending on data quality") are stored as the spec's own wording rather
+    than parsed into numbers. Nothing computes on them, and parsing would
+    invent precision while discarding the qualifiers.
     """
     __tablename__ = "program_module_content"
 
@@ -25,9 +33,39 @@ class ProgramModuleContent(Base):
     display_order = Column(Integer, nullable=False, comment="Default/author-defined sequence for this module")
 
     title = Column(String(255), nullable=False)
+    focus = Column(Text, nullable=True, comment="One-line statement of what this module concentrates on")
     purpose = Column(Text, nullable=True, comment="One-paragraph summary of what this module achieves")
+    core_outcomes = Column(JSONB, nullable=True, comment="[text, ...] what is true once the module is done")
+
+    # Preparation is split in two because the checklist is tickable and the
+    # summary is not: EngagementModuleChecklistItem.checklist_item_key matches
+    # preparation_checklist[].key, so that array's shape is load-bearing and
+    # the owner/duration could not simply be folded into it.
     preparation_checklist = Column(JSONB, nullable=True, comment="[{key, text}] static preparation items")
-    recommended_tools = Column(JSONB, nullable=True, comment="[{tool_key, label}] Trinity tools to run for this module")
+    preparation_summary = Column(JSONB, nullable=True, comment="{owner, duration} who prepares, and how long it takes")
+
+    sessions = Column(
+        JSONB,
+        nullable=True,
+        comment="[{key, title, duration, format, agenda: [{key, title, duration, detail, questions: [text, ...]}]}] "
+                "the facilitation plan; `questions` is the advisor's prompt script for that agenda item",
+    )
+    post_session_actions = Column(JSONB, nullable=True, comment="{owner, duration, items: [text, ...]} follow-up work after the session")
+
+    guardrails = Column(
+        JSONB,
+        nullable=True,
+        comment="{must_not: [text, ...], note} boundaries of profession rather than of module - where a module "
+                "surfaces an issue belonging elsewhere, the advisor still addresses it and records it there",
+    )
+    quality_standards = Column(JSONB, nullable=True, comment="[text, ...] what good looks like for this module")
+
+    recommended_tools = Column(
+        JSONB,
+        nullable=True,
+        comment="[{tool_key, label, when, status}] Trinity tools for this module; `status` carries build state "
+                "so an unbuilt tool can be shown as pending rather than silently omitted",
+    )
     required_inputs = Column(
         JSONB,
         nullable=True,
@@ -60,8 +98,15 @@ class ProgramModuleContent(Base):
             "module_code": self.module_code,
             "display_order": self.display_order,
             "title": self.title,
+            "focus": self.focus,
             "purpose": self.purpose,
+            "core_outcomes": self.core_outcomes,
             "preparation_checklist": self.preparation_checklist,
+            "preparation_summary": self.preparation_summary,
+            "sessions": self.sessions,
+            "post_session_actions": self.post_session_actions,
+            "guardrails": self.guardrails,
+            "quality_standards": self.quality_standards,
             "recommended_tools": self.recommended_tools,
             "required_inputs": self.required_inputs,
             "deliverables": self.deliverables,

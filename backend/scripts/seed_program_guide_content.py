@@ -50,9 +50,129 @@ DEFAULT_FIXTURE = os.path.join(
 # what the database holds.
 VALID_INPUT_SOURCES = {"Held in Trinity", "Advisor to upload", "From an earlier module"}
 
+# The producer half of the spec's "Produced by" column. Only the producer is
+# constrained; its qualifier ("advisor-refined") is free text.
+VALID_PRODUCERS = {"trinity_tool", "advisor", "client"}
+
+# Card sections copied straight through to the row. Listed once so adding a
+# section to the fixture means adding it here, not editing two upsert branches.
+_PASSTHROUGH_FIELDS = (
+    "purpose",
+    "focus",
+    "core_outcomes",
+    "preparation_checklist",
+    "preparation_summary",
+    "sessions",
+    "post_session_actions",
+    "guardrails",
+    "quality_standards",
+    "recommended_tools",
+    "required_inputs",
+)
+
 
 class FixtureError(ValueError):
     """The fixture is malformed. Raised before anything is written."""
+
+
+def _check_text_list(problems, where, field, value) -> None:
+    """core_outcomes / quality_standards / guardrails.must_not are plain prose lists."""
+    if value is None:
+        return
+    if not isinstance(value, list):
+        problems.append(f"{where}: {field} must be a list of strings")
+        return
+    for j, item in enumerate(value):
+        if not isinstance(item, str) or not item.strip():
+            problems.append(f"{where}: {field}[{j}] must be a non-empty string")
+
+
+def _check_owner_duration(problems, where, field, value, require_items=False) -> None:
+    """preparation_summary and post_session_actions share {owner, duration, ...}."""
+    if value is None:
+        return
+    if not isinstance(value, dict):
+        problems.append(f"{where}: {field} must be an object with owner and duration")
+        return
+    for key in ("owner", "duration"):
+        if not value.get(key):
+            problems.append(f"{where}: {field} missing '{key}'")
+    if require_items:
+        _check_text_list(problems, where, f"{field}.items", value.get("items"))
+
+
+def _check_sessions(problems, where, sessions) -> None:
+    if sessions is None:
+        return
+    if not isinstance(sessions, list):
+        problems.append(f"{where}: sessions must be a list")
+        return
+
+    seen = set()
+    for i, session in enumerate(sessions):
+        at = f"{where}: sessions[{i}]"
+        if not isinstance(session, dict):
+            problems.append(f"{at} must be an object")
+            continue
+        key = session.get("key")
+        if not key:
+            problems.append(f"{at} missing 'key'")
+        elif key in seen:
+            problems.append(f"{at} duplicate session key {key!r}")
+        else:
+            seen.add(key)
+        if not session.get("title"):
+            problems.append(f"{at} missing 'title'")
+
+        agenda = session.get("agenda")
+        if agenda is None:
+            continue
+        if not isinstance(agenda, list):
+            problems.append(f"{at}.agenda must be a list")
+            continue
+
+        seen_agenda = set()
+        for j, item in enumerate(agenda):
+            spot = f"{at}.agenda[{j}]"
+            if not isinstance(item, dict):
+                problems.append(f"{spot} must be an object")
+                continue
+            item_key = item.get("key")
+            if not item_key:
+                problems.append(f"{spot} missing 'key'")
+            elif item_key in seen_agenda:
+                problems.append(f"{spot} duplicate agenda key {item_key!r}")
+            else:
+                seen_agenda.add(item_key)
+            if not item.get("title"):
+                problems.append(f"{spot} missing 'title'")
+            _check_text_list(problems, spot, "questions", item.get("questions"))
+
+
+def _check_guardrails(problems, where, guardrails) -> None:
+    if guardrails is None:
+        return
+    if not isinstance(guardrails, dict):
+        problems.append(f"{where}: guardrails must be an object with must_not and an optional note")
+        return
+    if not guardrails.get("must_not"):
+        problems.append(f"{where}: guardrails missing 'must_not'")
+    _check_text_list(problems, where, "guardrails.must_not", guardrails.get("must_not"))
+
+
+def _check_tools(problems, where, tools) -> None:
+    if tools is None:
+        return
+    if not isinstance(tools, list):
+        problems.append(f"{where}: recommended_tools must be a list")
+        return
+    for j, tool in enumerate(tools):
+        if not isinstance(tool, dict):
+            problems.append(f"{where}: recommended_tools[{j}] must be an object")
+            continue
+        for field in ("tool_key", "label"):
+            if not tool.get(field):
+                problems.append(f"{where}: recommended_tools[{j}] missing '{field}'")
 
 
 def validate_fixture(modules) -> None:
@@ -67,6 +187,11 @@ def validate_fixture(modules) -> None:
 
     if not isinstance(modules, list) or not modules:
         raise FixtureError("Fixture must be a non-empty list of modules")
+
+    # Collected first so `feeds` can be checked against it below: a deliverable
+    # feeding a module that does not exist is a typo, and the whole point of
+    # stable ids is that these references resolve.
+    known_modules = {e.get("module_code") for e in modules if isinstance(e, dict)}
 
     seen_modules = set()
     for i, entry in enumerate(modules):
@@ -94,6 +219,16 @@ def validate_fixture(modules) -> None:
                     f"{where}: required_inputs[{j}] source {source!r} not in {sorted(VALID_INPUT_SOURCES)}"
                 )
 
+        _check_text_list(problems, where, "core_outcomes", entry.get("core_outcomes"))
+        _check_text_list(problems, where, "quality_standards", entry.get("quality_standards"))
+        _check_owner_duration(problems, where, "preparation_summary", entry.get("preparation_summary"))
+        _check_owner_duration(
+            problems, where, "post_session_actions", entry.get("post_session_actions"), require_items=True
+        )
+        _check_sessions(problems, where, entry.get("sessions"))
+        _check_guardrails(problems, where, entry.get("guardrails"))
+        _check_tools(problems, where, entry.get("recommended_tools"))
+
         # Deliverables must be objects. The fixture used to hold bare strings;
         # failing loudly here beats seeding a library keyed on nothing.
         seen_keys = set()
@@ -116,6 +251,23 @@ def validate_fixture(modules) -> None:
             if not isinstance(item.get("is_mandatory"), bool):
                 problems.append(f"{where}: deliverables[{j}] 'is_mandatory' must be true or false")
 
+            producer = item.get("produced_by")
+            if producer is not None and producer not in VALID_PRODUCERS:
+                problems.append(
+                    f"{where}: deliverables[{j}] produced_by {producer!r} not in {sorted(VALID_PRODUCERS)}"
+                )
+
+            feeds = item.get("feeds")
+            if feeds is not None:
+                if not isinstance(feeds, list):
+                    problems.append(f"{where}: deliverables[{j}] feeds must be a list of module codes")
+                else:
+                    for target in feeds:
+                        if target not in known_modules:
+                            problems.append(
+                                f"{where}: deliverables[{j}] feeds unknown module {target!r}"
+                            )
+
     if problems:
         raise FixtureError(
             "Fixture validation failed:\n  " + "\n  ".join(problems)
@@ -130,6 +282,14 @@ def _upsert_card(db, entry) -> str:
     # composed view replaces them.
     labels = [d["title"] for d in (entry.get("deliverables") or [])]
 
+    fields = {field: entry.get(field) for field in _PASSTHROUGH_FIELDS}
+    fields.update(
+        display_order=entry["display_order"],
+        title=entry["title"],
+        deliverables=labels,
+        is_active=entry.get("is_active", True),
+    )
+
     existing = (
         db.query(ProgramModuleContent)
         .filter(
@@ -139,27 +299,14 @@ def _upsert_card(db, entry) -> str:
         .first()
     )
     if existing:
-        existing.display_order = entry["display_order"]
-        existing.title = entry["title"]
-        existing.purpose = entry.get("purpose")
-        existing.preparation_checklist = entry.get("preparation_checklist")
-        existing.recommended_tools = entry.get("recommended_tools")
-        existing.required_inputs = entry.get("required_inputs")
-        existing.deliverables = labels
-        existing.is_active = entry.get("is_active", True)
+        for name, value in fields.items():
+            setattr(existing, name, value)
         return "updated"
 
     db.add(ProgramModuleContent(
         program_type=entry["program_type"],
         module_code=entry["module_code"],
-        display_order=entry["display_order"],
-        title=entry["title"],
-        purpose=entry.get("purpose"),
-        preparation_checklist=entry.get("preparation_checklist"),
-        recommended_tools=entry.get("recommended_tools"),
-        required_inputs=entry.get("required_inputs"),
-        deliverables=labels,
-        is_active=entry.get("is_active", True),
+        **fields,
     ))
     return "created"
 
@@ -190,18 +337,25 @@ def _sync_deliverables(db, entry) -> dict:
         key = item["key"]
         row = by_key.get(key)
 
+        fields = dict(
+            title=item["title"],
+            description=item.get("description"),
+            is_mandatory=item["is_mandatory"],
+            produced_by=item.get("produced_by"),
+            produced_by_note=item.get("produced_by_note"),
+            feeds=item.get("feeds"),
+            # Position in the fixture array IS the order, so reordering the
+            # array reorders the card with no renumbering by hand.
+            display_order=position,
+            is_active=True,
+        )
+
         if row is None:
             db.add(ProgramModuleDeliverable(
                 program_type=program_type,
                 module_code=module_code,
                 deliverable_key=key,
-                title=item["title"],
-                description=item.get("description"),
-                is_mandatory=item["is_mandatory"],
-                # Position in the fixture array IS the order, so reordering the
-                # array reorders the card with no renumbering by hand.
-                display_order=position,
-                is_active=True,
+                **fields,
             ))
             tally["created"] += 1
             continue
@@ -211,11 +365,8 @@ def _sync_deliverables(db, entry) -> dict:
         # every engagement's completion state for this deliverable.
         if not row.is_active:
             tally["reactivated"] += 1
-        row.title = item["title"]
-        row.description = item.get("description")
-        row.is_mandatory = item["is_mandatory"]
-        row.display_order = position
-        row.is_active = True
+        for name, value in fields.items():
+            setattr(row, name, value)
         tally["updated"] += 1
 
     fixture_keys = {item["key"] for item in fixture_items}

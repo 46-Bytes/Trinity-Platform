@@ -364,6 +364,39 @@ class TestDerivedLegacyColumn:
         item = ProgramModuleContentItem.model_validate(_card(db_session, program_type))
         assert item.section_notes == notes
 
+    def test_module_notes_round_trip(self, db_session, write_fixture, program_type):
+        """
+        Titled guidance about the whole module. The title is content, not a
+        label - "Where there is no leadership layer" frames everything under it.
+        """
+        notes = [{
+            "key": "no-leadership-layer",
+            "title": "Where there is no leadership layer",
+            "text": "Many clients have no managers. The module still runs.",
+        }]
+        seed_from_file(write_fixture([_module(module_notes=notes, deliverables=[])]), db=db_session)
+
+        item = ProgramModuleContentItem.model_validate(_card(db_session, program_type))
+        assert item.module_notes == notes
+
+    def test_agenda_note_round_trips(self, db_session, write_fixture, program_type):
+        """
+        A trailing instruction after an agenda item's questions. questions_intro
+        precedes them; this follows, so it needs its own field.
+        """
+        sessions = [{
+            "key": "V3-S1", "title": "Leadership Alignment Workshop",
+            "agenda": [{
+                "key": "V3-S1-A3", "title": "Decision rights",
+                "questions": ["What decisions come to you that should not?"],
+                "note": "Record simply: decision, decider, threshold, escalates to.",
+            }],
+        }]
+        seed_from_file(write_fixture([_module(sessions=sessions, deliverables=[])]), db=db_session)
+
+        item = ProgramModuleContentItem.model_validate(_card(db_session, program_type))
+        assert item.sessions[0]["agenda"][0]["note"].startswith("Record simply:")
+
     def test_session_note_and_questions_intro_round_trip(self, db_session, write_fixture, program_type):
         """
         questions_intro keeps a lead-in like "For each claimed advantage:"
@@ -535,6 +568,29 @@ class TestFixtureValidation:
                 "deliverables": [], "section_notes": {"deliverables": "   "},
             }])
 
+    @pytest.mark.parametrize("note,expected", [
+        ({"title": "T", "text": "X"}, r"module_notes\[0\] missing 'key'"),
+        ({"key": "k", "text": "X"}, r"module_notes\[0\] missing 'title'"),
+        ({"key": "k", "title": "T"}, r"module_notes\[0\] missing 'text'"),
+        ({"key": "k", "title": "T", "text": "   "}, r"module_notes\[0\] missing 'text'"),
+    ])
+    def test_malformed_module_notes_are_rejected(self, note, expected):
+        with pytest.raises(FixtureError, match=expected):
+            validate_fixture([{
+                "program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
+                "deliverables": [], "module_notes": [note],
+            }])
+
+    def test_duplicate_module_note_keys_are_rejected(self):
+        with pytest.raises(FixtureError, match="duplicate module note key"):
+            validate_fixture([{
+                "program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
+                "deliverables": [], "module_notes": [
+                    {"key": "k", "title": "One", "text": "X"},
+                    {"key": "k", "title": "Two", "text": "Y"},
+                ],
+            }])
+
     def test_duplicate_session_and_agenda_keys_are_rejected(self):
         with pytest.raises(FixtureError, match="duplicate agenda key"):
             validate_fixture([{
@@ -684,6 +740,32 @@ class TestModuleNameAliases:
         # Part C's Feeds column is "-" for V2-D1: it feeds nothing onward.
         assert "feeds" not in by_key["V2-D1"]
         assert by_key["V2-D2"]["feeds"] == ["V3", "V4", "V10"]
+
+    def test_v3_is_transcribed_from_part_d(self):
+        """
+        V3 introduced the two shapes that had nowhere to live: a titled
+        module-level note, and a trailing instruction after an agenda item's
+        questions. It is also the first module where every deliverable is
+        mandatory.
+        """
+        with open(DEFAULT_FIXTURE, "r", encoding="utf-8") as f:
+            v3 = next(m for m in json.load(f) if m["module_code"] == "V3")
+
+        assert "PLACEHOLDER" not in json.dumps(v3), "V3 still contains placeholder text"
+
+        note = v3["module_notes"][0]
+        assert note["title"] == "Where there is no leadership layer"
+        assert "no managers" in note["text"]
+
+        decision_rights = next(
+            a for a in v3["sessions"][0]["agenda"] if a["key"] == "V3-S1-A3"
+        )
+        assert decision_rights["note"] == "Record simply: decision, decider, threshold, escalates to."
+
+        keys = [d["key"] for d in v3["deliverables"]]
+        assert keys == ["V3-D1", "V3-D2", "V3-D3"]
+        assert all(d["is_mandatory"] for d in v3["deliverables"]), "Part D states no optional deliverables"
+        assert all(d["produced_by"] == "trinity_tool" for d in v3["deliverables"])
 
     def test_fixture_titles_match_the_scoring_taxonomy(self):
         """

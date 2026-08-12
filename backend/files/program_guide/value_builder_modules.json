@@ -411,15 +411,165 @@
     "module_code": "V3",
     "display_order": 3,
     "title": "Leadership & Communications",
-    "purpose": "PLACEHOLDER: Strengthen how the owner leads and communicates through the business.",
+    "focus": "How leaders behave, who decides what, and how information moves.",
+    "purpose": "V3 defines how the business is led day to day: what leaders are expected to do, who holds which decisions, how information travels up, down and out, and what rhythm holds it all together. Strategy and structure both fail without this. It is a light module in advisor effort and consistently high in value.",
+    "core_outcomes": [
+      "Leadership behaviours and expectations are defined and written down.",
+      "Decision rights are clear: who decides what, and what escalates.",
+      "Communication pathways are mapped in both directions.",
+      "A meeting rhythm exists, with agendas and a named owner for each meeting."
+    ],
+    "module_notes": [
+      {
+        "key": "no-leadership-layer",
+        "title": "Where there is no leadership layer",
+        "text": "Many clients have no managers. The module still runs. Leadership expectations become the owner's own operating standard, decision rights identify what could be delegated and to whom, and the rhythm may be a single weekly team meeting. Where the business needs a leadership layer it does not yet have, that becomes an input to V4 and V9 rather than something invented in this session."
+      }
+    ],
+    "section_notes": {
+      "recommended_tools": "No Trinity use during the live session.",
+      "deliverables": "No optional deliverables. The Playbook is explicit that this module stays at three outputs, with no additional frameworks."
+    },
+    "required_inputs": [
+      { "key": "V3-I1", "label": "Diagnostic report, V3 module assessment", "source": "Held in Trinity" },
+      { "key": "V3-I2", "label": "Diagnostic responses on management meetings, team meetings and director alignment", "source": "Held in Trinity" },
+      { "key": "V3-I3", "label": "Owner's stated goals and \"fix one thing\" response", "source": "Held in Trinity" },
+      {
+        "key": "V3-I4",
+        "label": "V2 Strategic Business Plan and priorities",
+        "source": "From an earlier module",
+        "source_note": "where available",
+        "fallback": "Where V2 has not run, the owner's stated goals from the diagnostic serve in place of the strategic priorities."
+      },
+      { "key": "V3-I5", "label": "List of people in leadership or supervisory roles, or confirmation there are none", "source": "Advisor to upload" },
+      { "key": "V3-I6", "label": "Existing meeting agendas or terms of reference", "source": "Advisor to upload" }
+    ],
+    "preparation_summary": { "owner": "Advisor", "duration": "30 to 45 minutes" },
     "preparation_checklist": [
-      { "key": "review-comms", "text": "PLACEHOLDER: Review current leadership communication rhythms" }
+      { "key": "review-meeting-diagnostics", "text": "Review the diagnostic responses on meeting rhythms, management and team meetings, and director alignment." },
+      { "key": "review-strategic-priorities", "text": "Where V2 is complete, review the strategic priorities. Leadership behaviour should be defined against what the strategy actually requires." },
+      { "key": "establish-leadership-roles", "text": "Establish who is genuinely in a leadership role. This often does not match job titles." },
+      { "key": "identify-recurring-patterns", "text": "Identify the recurring patterns to test in the session: inconsistent communication, unclear decision-making, reactive leadership, the owner as bottleneck." },
+      { "key": "prepare-discussion-notes", "text": "Prepare discussion notes: questions to ask, areas to clarify, and specific examples observed in earlier work." }
+    ],
+    "sessions": [
+      {
+        "key": "V3-S1",
+        "title": "Leadership Alignment Workshop",
+        "duration": "Target 65 to 85 minutes",
+        "format": "In person or online",
+        "agenda": [
+          {
+            "key": "V3-S1-A1",
+            "title": "Frame the session",
+            "duration": "5 minutes",
+            "detail": "Explain that strategy and structure both fail without aligned leadership, and that this session defines how leaders behave, decide and communicate."
+          },
+          {
+            "key": "V3-S1-A2",
+            "title": "Leadership expectations",
+            "duration": "15 to 20 minutes",
+            "detail": "Define what leaders must consistently do, and what staff should be able to expect from them.",
+            "questions": [
+              "What behaviours must leaders here consistently demonstrate?",
+              "What should any staff member be able to expect from a leader?",
+              "Where do leaders currently undermine each other, even unintentionally?",
+              "How should the direction of the business be presented to teams?"
+            ]
+          },
+          {
+            "key": "V3-S1-A3",
+            "title": "Decision rights",
+            "duration": "15 to 20 minutes",
+            "detail": "Establish who decides what, at what threshold, and what must escalate. This is where owner bottlenecks are named and removed.",
+            "questions": [
+              "What decisions come to you that should not?",
+              "What is the largest decision someone else can make without asking you?",
+              "What are you afraid will happen if you let go of that?",
+              "What must always come to you, and why?"
+            ],
+            "note": "Record simply: decision, decider, threshold, escalates to."
+          },
+          {
+            "key": "V3-S1-A4",
+            "title": "Communication pathways",
+            "duration": "15 to 20 minutes",
+            "detail": "Map how information moves down, up and out. What escalates, how staff raise issues, how leaders update teams, and who speaks externally."
+          },
+          {
+            "key": "V3-S1-A5",
+            "title": "Meeting rhythm",
+            "duration": "10 to 15 minutes",
+            "detail": "Confirm the cadence and scale it to the size of the business. Typically a weekly huddle, a monthly management meeting and a quarterly strategy review. Confirm who runs each, who attends, and the standing agenda."
+          },
+          {
+            "key": "V3-S1-A6",
+            "title": "Close",
+            "duration": "5 minutes",
+            "detail": "Confirm what changes on Monday."
+          }
+        ]
+      }
     ],
     "recommended_tools": [
-      { "tool_key": "bba", "label": "Recommendations Report Builder" }
+      {
+        "tool_key": "leadership_communications_pack",
+        "label": "Leadership & Communications Pack generator",
+        "when": "post",
+        "status": "To build, Feature 3"
+      }
     ],
     "deliverables": [
-      { "key": "V3-D1", "title": "PLACEHOLDER: Leadership & Communications Plan", "is_mandatory": true }
+      {
+        "key": "V3-D1",
+        "title": "Leadership Alignment Summary",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": ["V4", "V9"]
+      },
+      {
+        "key": "V3-D2",
+        "title": "Communication Pathway Map",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": ["V4"]
+      },
+      {
+        "key": "V3-D3",
+        "title": "Meeting Cadence & Agenda Pack",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": ["V9"]
+      }
+    ],
+    "post_session_actions": {
+      "owner": "Advisor",
+      "duration": "30 to 45 minutes",
+      "items": [
+        "Finalise the three documents and issue them to the client.",
+        "Confirm the first date each meeting in the new cadence will run, and who owns it.",
+        "Where a decision right has moved away from the owner, note it as evidence for V9."
+      ]
+    },
+    "guardrails": {
+      "must_not": [
+        "coach individuals",
+        "mediate conflict between people",
+        "address individual performance issues",
+        "draft or rewrite HR policy",
+        "run the client's meetings on their behalf"
+      ],
+      "note": "This module is alignment-focused, not HR or coaching. These are boundaries of profession, not boundaries of module. Where V3 surfaces an issue whose home module is elsewhere, the advisor addresses it and records the output against that module."
+    },
+    "quality_standards": [
+      "Leadership expectations are in plain language and specific enough to act on.",
+      "Decision rights name a person, not a role the business does not have.",
+      "At least one decision has moved away from the owner.",
+      "The meeting rhythm is scaled to the business, with a named owner for each meeting.",
+      "Nothing in the outputs assumes a leadership layer the business does not have."
     ]
   },
   {

@@ -29,6 +29,7 @@ from app.services.program_guide_service import ProgramGuideService
 from app.services.scoring_service import ScoringService
 from scripts.seed_program_guide_content import (
     DEFAULT_FIXTURE,
+    VALID_NOTE_SECTIONS,
     FixtureError,
     seed_from_file,
     validate_fixture,
@@ -328,6 +329,75 @@ class TestDerivedLegacyColumn:
         for field, expected in sections.items():
             assert getattr(item, field) == expected, f"{field} did not round-trip"
 
+    def test_a_phase_without_a_duration_is_accepted(self, db_session, write_fixture, program_type):
+        """
+        The regression Part C exposed. V1 states a duration for every phase and
+        V2 states none, so requiring one rejected a valid module while buying
+        nothing - no code computes on durations.
+        """
+        seed_from_file(write_fixture([_module(
+            preparation_summary={"owner": "Advisor"},
+            between_sessions={"owner": "Advisor", "items": ["Run the plan generator."]},
+            post_session_actions={"owner": "Advisor", "items": ["Issue the plan."]},
+            deliverables=[],
+        )]), db=db_session)
+
+        item = ProgramModuleContentItem.model_validate(_card(db_session, program_type))
+        assert item.preparation_summary == {"owner": "Advisor"}
+        assert item.between_sessions["items"] == ["Run the plan generator."]
+
+    def test_a_phase_without_an_owner_is_still_rejected(self):
+        """Permissive about duration, strict about who does the work."""
+        with pytest.raises(FixtureError, match="preparation_summary missing 'owner'"):
+            validate_fixture([{
+                "program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
+                "deliverables": [], "preparation_summary": {"duration": "1 hour"},
+            }])
+
+    def test_section_notes_round_trip(self, db_session, write_fixture, program_type):
+        notes = {
+            "required_inputs": "Upload is optional but strongly recommended.",
+            "deliverables": "The plan template already covers priorities.",
+        }
+        seed_from_file(write_fixture([_module(section_notes=notes, deliverables=[])]), db=db_session)
+
+        item = ProgramModuleContentItem.model_validate(_card(db_session, program_type))
+        assert item.section_notes == notes
+
+    def test_session_note_and_questions_intro_round_trip(self, db_session, write_fixture, program_type):
+        """
+        questions_intro keeps a lead-in like "For each claimed advantage:"
+        attached to the questions it introduces rather than buried in detail.
+        """
+        sessions = [{
+            "key": "V2-S1", "title": "Strategy Workshop",
+            "note": "Where two advisors are available, the lead facilitates and whiteboards.",
+            "agenda": [{
+                "key": "V2-S1-A5", "title": "Competitive position",
+                "questions_intro": "For each claimed advantage:",
+                "questions": ["Would a customer notice if it disappeared?"],
+            }],
+        }]
+        seed_from_file(write_fixture([_module(sessions=sessions, deliverables=[])]), db=db_session)
+
+        item = ProgramModuleContentItem.model_validate(_card(db_session, program_type))
+        assert item.sessions == sessions
+
+    def test_source_note_round_trips(self, db_session, write_fixture, program_type):
+        """
+        Part C writes "From an earlier module, where available". The source stays
+        one of Part A's three literals so it remains filterable; the qualifier is
+        preserved beside it rather than dropped.
+        """
+        inputs = [{
+            "key": "V2-I10", "label": "Outputs from any completed module",
+            "source": "From an earlier module", "source_note": "where available",
+        }]
+        seed_from_file(write_fixture([_module(required_inputs=inputs, deliverables=[])]), db=db_session)
+
+        item = ProgramModuleContentItem.model_validate(_card(db_session, program_type))
+        assert item.required_inputs == inputs
+
     def test_tool_build_status_round_trips(self, db_session, write_fixture, program_type):
         """`status` is what lets the UI show an unbuilt tool rather than drop it."""
         tools = [{
@@ -426,7 +496,8 @@ class TestFixtureValidation:
         ("core_outcomes", "not a list", "core_outcomes must be a list"),
         ("core_outcomes", ["", "ok"], r"core_outcomes\[0\] must be a non-empty string"),
         ("quality_standards", [None], r"quality_standards\[0\] must be a non-empty string"),
-        ("preparation_summary", {"owner": "Advisor"}, "preparation_summary missing 'duration'"),
+        # No "missing duration" case: duration is optional by design, and the
+        # owner requirement is pinned in test_a_phase_without_an_owner_is_still_rejected.
         ("post_session_actions", {"owner": "A", "duration": "1h", "items": [""]},
          r"post_session_actions\.items\[0\] must be a non-empty string"),
         ("guardrails", {"note": "n"}, "guardrails missing 'must_not'"),
@@ -444,6 +515,24 @@ class TestFixtureValidation:
             validate_fixture([{
                 "program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
                 "deliverables": [], section: value,
+            }])
+
+    def test_unknown_section_note_key_is_rejected(self):
+        """
+        A typo'd key would store a note nothing ever renders. Silently losing
+        authored content is the failure worth guarding against.
+        """
+        with pytest.raises(FixtureError, match="section_notes key 'delivrables' not in"):
+            validate_fixture([{
+                "program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
+                "deliverables": [], "section_notes": {"delivrables": "Typo in the key."},
+            }])
+
+    def test_empty_section_note_is_rejected(self):
+        with pytest.raises(FixtureError, match="section_notes\\['deliverables'\\] must be a non-empty string"):
+            validate_fixture([{
+                "program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
+                "deliverables": [], "section_notes": {"deliverables": "   "},
             }])
 
     def test_duplicate_session_and_agenda_keys_are_rejected(self):
@@ -554,6 +643,41 @@ class TestModuleNameAliases:
         assert all(by_key[k]["is_mandatory"] for k in keys if k != "V1-D5")
         assert by_key["V1-D1"]["produced_by"] == "trinity_tool"
         assert by_key["V1-D1"]["feeds"] == ["V2", "V10"]
+
+    def test_v2_is_transcribed_from_part_c(self):
+        """
+        V2 is the module that proved Parts C-L are not pure data entry: two
+        sessions, a between-sessions phase, section notes, a qualified input
+        source, and phases with no stated duration.
+        """
+        with open(DEFAULT_FIXTURE, "r", encoding="utf-8") as f:
+            v2 = next(m for m in json.load(f) if m["module_code"] == "V2")
+
+        assert "PLACEHOLDER" not in json.dumps(v2), "V2 still contains placeholder text"
+
+        assert [s["key"] for s in v2["sessions"]] == ["V2-S1", "V2-S2"]
+        assert v2["between_sessions"]["owner"] == "Advisor"
+        # Part C states an owner but no duration for either phase.
+        assert "duration" not in v2["preparation_summary"]
+        assert "duration" not in v2["post_session_actions"]
+        assert set(v2["section_notes"]) <= VALID_NOTE_SECTIONS
+
+        intro = next(
+            a for a in v2["sessions"][0]["agenda"] if a["key"] == "V2-S1-A5"
+        )["questions_intro"]
+        assert intro == "For each claimed advantage:"
+
+        earlier = next(i for i in v2["required_inputs"] if i["source"] == "From an earlier module")
+        assert earlier["source_note"] == "where available"
+        assert earlier["fallback"].startswith("V2 does not assume")
+
+        by_key = {d["key"]: d for d in v2["deliverables"]}
+        assert list(by_key) == ["V2-D1", "V2-D2", "V2-D3", "V2-D4"]
+        assert by_key["V2-D1"]["is_mandatory"] and by_key["V2-D2"]["is_mandatory"]
+        assert not by_key["V2-D3"]["is_mandatory"] and not by_key["V2-D4"]["is_mandatory"]
+        # Part C's Feeds column is "-" for V2-D1: it feeds nothing onward.
+        assert "feeds" not in by_key["V2-D1"]
+        assert by_key["V2-D2"]["feeds"] == ["V3", "V4", "V10"]
 
     def test_fixture_titles_match_the_scoring_taxonomy(self):
         """

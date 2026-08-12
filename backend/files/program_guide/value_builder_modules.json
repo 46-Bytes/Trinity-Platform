@@ -196,17 +196,214 @@
     "module_code": "V2",
     "display_order": 2,
     "title": "Strategy & Planning",
-    "purpose": "PLACEHOLDER: Carry the owner's own leadership and vision into a clear, actionable strategic plan.",
-    "preparation_checklist": [
-      { "key": "review-vision", "text": "PLACEHOLDER: Review the owner's vision and priorities for the business" }
+    "focus": "Direction for the next one to five years, captured in a workshop and written up as a strategic business plan the owner owns.",
+    "purpose": "V2 is where the owner stops reacting and starts leading. A facilitated workshop works through the Strategy Workbook to capture direction, business model, competitive position and priorities. Trinity then drafts the Strategic Business Plan from those inputs, the advisor walks the client through it, and the client takes it away to adjust and make their own.",
+    "core_outcomes": [
+      "A completed Strategy Workbook capturing the client's strategic inputs.",
+      "A written Strategic Business Plan is created.",
+      "The owner can state where the business is going, and why, in their own words.",
+      "The owner has the plan in hand, understands it, and knows what they want to change."
     ],
+    "section_notes": {
+      "required_inputs": "Upload is optional but strongly recommended. The more source material Trinity receives, the more of the workbook it pre-fills, and the less workshop time is spent on data entry rather than strategy.",
+      "deliverables": "The plan template already covers priorities, key actions and positioning, so no separate priorities map or value proposition document is produced.",
+      "recommended_tools": "Both tools already exist in Trinity. V2 requires no new tool build and should not draw on the Feature 3 allocation."
+    },
+    "required_inputs": [
+      { "key": "V2-I1", "label": "Diagnostic report and advisor recommendations", "source": "Held in Trinity" },
+      { "key": "V2-I2", "label": "Owner's stated goals, growth constraint and \"fix one thing\" response", "source": "Held in Trinity" },
+      { "key": "V2-I3", "label": "SWOT, competitor and industry responses from the diagnostic", "source": "Held in Trinity" },
+      { "key": "V2-I4", "label": "Previous strategic plans or business plans", "source": "Advisor to upload" },
+      { "key": "V2-I5", "label": "Organisational chart", "source": "Advisor to upload" },
+      { "key": "V2-I6", "label": "Product and service documentation", "source": "Advisor to upload" },
+      { "key": "V2-I7", "label": "Financial reports: P&L, budgets, forecasts", "source": "Advisor to upload" },
+      { "key": "V2-I8", "label": "Competitor list or analysis", "source": "Advisor to upload" },
+      { "key": "V2-I9", "label": "Marketing material", "source": "Advisor to upload" },
+      {
+        "key": "V2-I10",
+        "label": "Outputs from any completed module",
+        "source": "From an earlier module",
+        "source_note": "where available",
+        "fallback": "V2 does not assume any other module has run. It may be the first module a client starts with. Where V1 is complete, its financial outputs sharpen the session. Where it is not, the client's own financial reports serve the same purpose."
+      }
+    ],
+    "preparation_summary": { "owner": "Advisor" },
+    "preparation_checklist": [
+      { "key": "gather-source-material", "text": "Gather all available source material from the client and from Trinity." },
+      { "key": "run-workbook-generator", "text": "Run the Strategy Workbook generator. Trinity extracts vision, mission, values, goals, products and services, structure, competitors, financials, SWOT indicators, market segments, customer behaviour, growth opportunities and past initiatives, then produces a pre-filled workbook." },
+      { "key": "review-prefilled-workbook", "text": "Review the pre-filled workbook. Correct anything Trinity has misread and note the gaps that need the client to fill them." },
+      { "key": "read-free-text-responses", "text": "Read the owner's free-text diagnostic responses closely. Their own language should carry into the plan." },
+      { "key": "note-ambition-gaps", "text": "Note where the diagnostic or the financials disagree with the owner's stated ambition. That gap is the session's most useful material." }
+    ],
+    "sessions": [
+      {
+        "key": "V2-S1",
+        "title": "Strategy Workshop",
+        "duration": "Target 3 to 4 hours",
+        "format": "In person preferred",
+        "note": "The pre-filled Strategy Workbook is the capture tool for the session. Where two advisors are available, the lead facilitates and whiteboards while the second types summaries into the workbook and photographs each whiteboard before it is erased.",
+        "agenda": [
+          {
+            "key": "V2-S1-A1",
+            "title": "Frame the session",
+            "duration": "10 minutes",
+            "detail": "Explain that this session sets direction, not operational detail, and that the workbook captures everything for the plan that follows."
+          },
+          {
+            "key": "V2-S1-A2",
+            "title": "Review the pre-filled workbook",
+            "duration": "20 minutes",
+            "detail": "Walk the client through what Trinity has already extracted. Confirm, correct, and identify what is missing. This sets the pace and shows the client the work already done."
+          },
+          {
+            "key": "V2-S1-A3",
+            "title": "Vision, values and goals",
+            "duration": "40 to 50 minutes",
+            "detail": "Vision, mission and values. Business goals and personal goals, kept distinct. Where the owner wants the business to be, and what they want their own life to look like alongside it.",
+            "questions": [
+              "Where do you want this business to be in three years?",
+              "What does that look like on an ordinary Tuesday?",
+              "What do you want out of it personally?",
+              "What are you not willing to give up to get there?"
+            ]
+          },
+          {
+            "key": "V2-S1-A4",
+            "title": "Business model, products and customers",
+            "duration": "40 to 50 minutes",
+            "detail": "Products and services, divisions and structure, market segments, customer needs, trends and buying behaviour. What the business actually sells, to whom, and what genuinely drives revenue.",
+            "questions": [
+              "Which customers do you want more of?",
+              "What do they actually buy, and why from you?",
+              "Where does the money really come from, and is that where your time goes?"
+            ]
+          },
+          {
+            "key": "V2-S1-A5",
+            "title": "Competitive position and SWOT",
+            "duration": "30 to 40 minutes",
+            "detail": "Competitors, competitive advantage, barriers to entry, and the full SWOT. Test the owner's assessment rather than accepting it. Test in both directions. Owners routinely overclaim the soft advantages and underclaim the durable ones. \"Great service\" is not an advantage, it is table stakes and every competitor claims it. The advantages that genuinely hold in an SME are unglamorous: location, switching costs, an accumulated customer database, long relationships, a specific accreditation or licence, exclusive supply, or simply being the one everybody already knows. Where an owner rates the business as easy to replicate, check whether that is actually true before agreeing with them.",
+            "questions_intro": "For each claimed advantage:",
+            "questions": [
+              "Could a competitor copy this within twelve months if they spent money on it?",
+              "Would a customer notice if it disappeared?",
+              "Does it change what someone pays or who they choose?"
+            ]
+          },
+          {
+            "key": "V2-S1-A6",
+            "title": "Growth opportunities and priorities",
+            "duration": "40 to 50 minutes",
+            "detail": "Growth opportunities, past initiatives and what happened to them, and the priorities for the next twelve months. Push toward a focused set rather than a wishlist."
+          },
+          {
+            "key": "V2-S1-A7",
+            "title": "Close",
+            "duration": "10 minutes",
+            "detail": "Confirm the workbook is complete enough. Explain that the plan will be drafted and presented at the next meeting."
+          }
+        ]
+      },
+      {
+        "key": "V2-S2",
+        "title": "Plan Walkthrough",
+        "duration": "Target 1 hour",
+        "agenda": [
+          {
+            "key": "V2-S2-A1",
+            "title": "Purpose",
+            "duration": "5 minutes",
+            "detail": "This session is to walk the client through the drafted plan, not to rewrite it live."
+          },
+          {
+            "key": "V2-S2-A2",
+            "title": "Walk the plan",
+            "duration": "35 to 40 minutes",
+            "detail": "Section by section, in plain language. Check the owner recognises their own business and their own words in it."
+          },
+          {
+            "key": "V2-S2-A3",
+            "title": "Priorities and 90-day actions",
+            "duration": "10 to 15 minutes",
+            "detail": "Confirm the twelve-month priorities and the first ninety days of action, with owners against each."
+          },
+          {
+            "key": "V2-S2-A4",
+            "title": "Handover",
+            "duration": "5 minutes",
+            "detail": "Hand the plan to the client to review, adjust and make their own. Agree a date for the adjusted version to come back."
+          }
+        ]
+      }
+    ],
+    "between_sessions": {
+      "owner": "Advisor",
+      "items": [
+        "Run the Strategic Business Plan generator, uploading the completed workbook, whiteboard photographs and any supporting documents.",
+        "Generate the One-Page Summary where the client will use it.",
+        "Read the plan in full before the walkthrough."
+      ]
+    },
     "recommended_tools": [
-      { "tool_key": "strategy_workbook", "label": "Strategy Workbook Creator" },
-      { "tool_key": "strategic_business_plan", "label": "Strategic Business Plan" }
+      { "tool_key": "strategy_workbook", "label": "Strategy Workbook generator", "when": "pre", "status": "Existing Trinity tool" },
+      { "tool_key": "strategic_business_plan", "label": "Strategic Business Plan generator", "when": "between sessions", "status": "Existing Trinity tool" }
     ],
     "deliverables": [
-      { "key": "V2-D1", "title": "PLACEHOLDER: Strategy Workbook", "is_mandatory": true },
-      { "key": "V2-D2", "title": "PLACEHOLDER: Strategic Business Plan", "is_mandatory": true }
+      {
+        "key": "V2-D1",
+        "title": "Strategy Workbook, completed",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "pre-filled, completed in workshop"
+      },
+      {
+        "key": "V2-D2",
+        "title": "Strategic Business Plan",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-guided drafting",
+        "feeds": ["V3", "V4", "V10"]
+      },
+      {
+        "key": "V2-D3",
+        "title": "One-Page Strategy Summary",
+        "is_mandatory": false,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-approved",
+        "feeds": ["V3"]
+      },
+      {
+        "key": "V2-D4",
+        "title": "Business Model Canvas",
+        "is_mandatory": false,
+        "produced_by": "advisor"
+      }
+    ],
+    "post_session_actions": {
+      "owner": "Advisor",
+      "items": [
+        "Issue the plan and the one-pager to the client.",
+        "Confirm the date the client will return their adjusted version.",
+        "Note any priority that will require work in a later module, so it is not lost when that module opens."
+      ]
+    },
+    "guardrails": {
+      "must_not": [
+        "write the plan by hand rather than through the tool",
+        "complete the workbook on the client's behalf; the content must be the client's",
+        "produce detailed market research or industry analysis",
+        "drift into operational or project planning",
+        "forecast or promise the financial outcome of a strategic option",
+        "rewrite the plan live during the walkthrough"
+      ],
+      "note": "These are boundaries of profession, not boundaries of module. Where V2 surfaces an issue whose home module is elsewhere, the advisor addresses it and records the output against that module."
+    },
+    "quality_standards": [
+      "The workbook is complete enough that the plan can be drafted without going back to the client.",
+      "The plan reads as the owner's business, in the owner's language.",
+      "The owner can state the direction of the business in a sentence or two without reading it back.",
+      "Twelve-month priorities are focused, with a named owner against each.",
+      "The client returns an adjusted plan rather than filing it untouched."
     ]
   },
   {

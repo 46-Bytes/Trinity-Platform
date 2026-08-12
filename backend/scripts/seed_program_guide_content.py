@@ -54,6 +54,22 @@ VALID_INPUT_SOURCES = {"Held in Trinity", "Advisor to upload", "From an earlier 
 # constrained; its qualifier ("advisor-refined") is free text.
 VALID_PRODUCERS = {"trinity_tool", "advisor", "client"}
 
+# Sections that may carry a section-level note. Constrained so a typo'd key
+# cannot store a note that nothing ever renders - silently losing authored
+# content is the failure worth guarding against here.
+VALID_NOTE_SECTIONS = {
+    "core_outcomes",
+    "required_inputs",
+    "preparation",
+    "sessions",
+    "between_sessions",
+    "recommended_tools",
+    "deliverables",
+    "post_session_actions",
+    "guardrails",
+    "quality_standards",
+}
+
 # Card sections copied straight through to the row. Listed once so adding a
 # section to the fixture means adding it here, not editing two upsert branches.
 _PASSTHROUGH_FIELDS = (
@@ -63,11 +79,13 @@ _PASSTHROUGH_FIELDS = (
     "preparation_checklist",
     "preparation_summary",
     "sessions",
+    "between_sessions",
     "post_session_actions",
     "guardrails",
     "quality_standards",
     "recommended_tools",
     "required_inputs",
+    "section_notes",
 )
 
 
@@ -88,15 +106,22 @@ def _check_text_list(problems, where, field, value) -> None:
 
 
 def _check_owner_duration(problems, where, field, value, require_items=False) -> None:
-    """preparation_summary and post_session_actions share {owner, duration, ...}."""
+    """
+    preparation_summary, between_sessions and post_session_actions share
+    {owner, duration, items}.
+
+    `duration` is deliberately NOT required. V1 states one for every phase and
+    V2 states none at all, so requiring it rejected a perfectly valid module
+    while buying nothing - nothing computes on durations. `owner` stays
+    required because a phase with no named owner is a real authoring mistake.
+    """
     if value is None:
         return
     if not isinstance(value, dict):
-        problems.append(f"{where}: {field} must be an object with owner and duration")
+        problems.append(f"{where}: {field} must be an object with an owner")
         return
-    for key in ("owner", "duration"):
-        if not value.get(key):
-            problems.append(f"{where}: {field} missing '{key}'")
+    if not value.get("owner"):
+        problems.append(f"{where}: {field} missing 'owner'")
     if require_items:
         _check_text_list(problems, where, f"{field}.items", value.get("items"))
 
@@ -147,6 +172,21 @@ def _check_sessions(problems, where, sessions) -> None:
             if not item.get("title"):
                 problems.append(f"{spot} missing 'title'")
             _check_text_list(problems, spot, "questions", item.get("questions"))
+
+
+def _check_section_notes(problems, where, notes) -> None:
+    if notes is None:
+        return
+    if not isinstance(notes, dict):
+        problems.append(f"{where}: section_notes must be an object keyed by section name")
+        return
+    for section, text in notes.items():
+        if section not in VALID_NOTE_SECTIONS:
+            problems.append(
+                f"{where}: section_notes key {section!r} not in {sorted(VALID_NOTE_SECTIONS)}"
+            )
+        if not isinstance(text, str) or not text.strip():
+            problems.append(f"{where}: section_notes[{section!r}] must be a non-empty string")
 
 
 def _check_guardrails(problems, where, guardrails) -> None:
@@ -223,8 +263,12 @@ def validate_fixture(modules) -> None:
         _check_text_list(problems, where, "quality_standards", entry.get("quality_standards"))
         _check_owner_duration(problems, where, "preparation_summary", entry.get("preparation_summary"))
         _check_owner_duration(
+            problems, where, "between_sessions", entry.get("between_sessions"), require_items=True
+        )
+        _check_owner_duration(
             problems, where, "post_session_actions", entry.get("post_session_actions"), require_items=True
         )
+        _check_section_notes(problems, where, entry.get("section_notes"))
         _check_sessions(problems, where, entry.get("sessions"))
         _check_guardrails(problems, where, entry.get("guardrails"))
         _check_tools(problems, where, entry.get("recommended_tools"))

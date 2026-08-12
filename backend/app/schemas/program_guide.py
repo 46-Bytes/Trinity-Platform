@@ -20,9 +20,11 @@ class ProgramModuleContentItem(BaseModel):
     preparation_checklist: Optional[List[Dict[str, Any]]] = None
     preparation_summary: Optional[Dict[str, Any]] = None
     sessions: Optional[List[Dict[str, Any]]] = None
+    between_sessions: Optional[Dict[str, Any]] = None
     post_session_actions: Optional[Dict[str, Any]] = None
     guardrails: Optional[Dict[str, Any]] = None
     quality_standards: Optional[List[str]] = None
+    section_notes: Optional[Dict[str, str]] = None
     recommended_tools: Optional[List[Dict[str, Any]]] = None
     required_inputs: Optional[List[Dict[str, Any]]] = None
     # Display-only labels, derived by the seed script from the preset titles.

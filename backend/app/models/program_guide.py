@@ -50,7 +50,21 @@ class ProgramModuleContent(Base):
         comment="[{key, title, duration, format, agenda: [{key, title, duration, detail, questions: [text, ...]}]}] "
                 "the facilitation plan; `questions` is the advisor's prompt script for that agenda item",
     )
+    between_sessions = Column(
+        JSONB,
+        nullable=True,
+        comment="{owner, duration, items: [text, ...]} work done between two sessions, e.g. generating "
+                "a document from the first session's workbook before walking the client through it",
+    )
     post_session_actions = Column(JSONB, nullable=True, comment="{owner, duration, items: [text, ...]} follow-up work after the session")
+
+    section_notes = Column(
+        JSONB,
+        nullable=True,
+        comment="{section_name: text} prose attached to a whole section rather than to one of its items, "
+                "e.g. why uploading source material matters. Keyed rather than one column per note, "
+                "because modules differ in which sections carry one",
+    )
 
     guardrails = Column(
         JSONB,
@@ -104,7 +118,9 @@ class ProgramModuleContent(Base):
             "preparation_checklist": self.preparation_checklist,
             "preparation_summary": self.preparation_summary,
             "sessions": self.sessions,
+            "between_sessions": self.between_sessions,
             "post_session_actions": self.post_session_actions,
+            "section_notes": self.section_notes,
             "guardrails": self.guardrails,
             "quality_standards": self.quality_standards,
             "recommended_tools": self.recommended_tools,

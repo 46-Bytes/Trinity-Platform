@@ -5,9 +5,10 @@ Adds the module card's required-inputs list, which the spec labels per item as
 earlier-module case also carries a fallback, because the spec is explicit that
 no module may assume another has already run.
 
-Shape: [{key, label, source, fallback}] with source in
-'trinity' | 'advisor_upload' | 'earlier_module'. Nullable, no backfill - the
-seed script populates it from the fixture.
+Shape: [{key, label, source, fallback}] with source one of the Part A literals
+'Held in Trinity' | 'Advisor to upload' | 'From an earlier module' - the spec
+maps each label to itself, so the stored value is the label. Nullable, no
+backfill - the seed script populates it from the fixture.
 
 Written with inspector guards to match add_program_deliverable_tables, because
 several environments have drifted from the migration history.
@@ -54,8 +55,8 @@ def upgrade() -> None:
                 _COLUMN,
                 JSONB,
                 nullable=True,
-                comment="[{key, label, source, fallback}] where source is "
-                        "'trinity'|'advisor_upload'|'earlier_module'; fallback states what to do "
+                comment="[{key, label, source, fallback}] where source is one of the Part A literals "
+                        "'Held in Trinity'|'Advisor to upload'|'From an earlier module'; fallback states what to do "
                         "when an earlier-module input is absent, since no module may assume another has run",
             ),
         )

@@ -31,12 +31,12 @@
       { "tool_key": "bba", "label": "Recommendations Report Builder" }
     ],
     "required_inputs": [
-      { "key": "V1-I1", "label": "PLACEHOLDER: Diagnostic scores and report", "source": "trinity" },
-      { "key": "V1-I2", "label": "PLACEHOLDER: P&L, balance sheet and revenue breakdown", "source": "advisor_upload" },
+      { "key": "V1-I1", "label": "PLACEHOLDER: Diagnostic scores and report", "source": "Held in Trinity" },
+      { "key": "V1-I2", "label": "PLACEHOLDER: P&L, balance sheet and revenue breakdown", "source": "Advisor to upload" },
       {
         "key": "V1-I3",
         "label": "PLACEHOLDER: Strategic priorities agreed in Strategy & Planning",
-        "source": "earlier_module",
+        "source": "From an earlier module",
         "fallback": "PLACEHOLDER: If V2 has not run, agree provisional priorities with the owner in session."
       }
     ],

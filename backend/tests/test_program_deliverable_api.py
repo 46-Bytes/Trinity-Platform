@@ -86,9 +86,14 @@ class TestReadAccess:
     def test_admin_can_read(self, api, admin, test_engagement):
         assert api.as_user(admin).get(f"{BASE}/{test_engagement.id}").status_code == 200
 
-    def test_owner_can_read(self, api, owner, test_engagement):
-        """Owners get the dashboard view - read is open to any role with access."""
-        assert api.as_user(owner).get(f"{BASE}/{test_engagement.id}").status_code == 200
+    def test_owner_is_denied(self, api, owner, test_engagement):
+        """
+        Part A puts module card contents, preset deliverables and advisor-added
+        deliverables in the owner's No column - all of which this read returns.
+        Their dashboard is a separate, narrower read that does not come from
+        this endpoint.
+        """
+        assert api.as_user(owner).get(f"{BASE}/{test_engagement.id}").status_code == 403
 
     def test_outsider_is_rejected(self, api, outsider, test_engagement):
         assert api.as_user(outsider).get(f"{BASE}/{test_engagement.id}").status_code == 403

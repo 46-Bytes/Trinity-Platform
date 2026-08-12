@@ -294,8 +294,8 @@ class TestDerivedLegacyColumn:
 
     def test_required_inputs_round_trips(self, db_session, write_fixture, program_type):
         inputs = [
-            {"key": "V1-I1", "label": "Diagnostic scores", "source": "trinity"},
-            {"key": "V1-I2", "label": "Prior module output", "source": "earlier_module",
+            {"key": "V1-I1", "label": "Diagnostic scores", "source": "Held in Trinity"},
+            {"key": "V1-I2", "label": "Prior module output", "source": "From an earlier module",
              "fallback": "Agree provisional priorities in session"},
         ]
         seed_from_file(write_fixture([_module(required_inputs=inputs, deliverables=[])]), db=db_session)
@@ -341,11 +341,16 @@ class TestFixtureValidation:
                 "deliverables": [_deliverable("V1-D1"), _deliverable("V1-D1")],
             }])
 
-    def test_unknown_input_source_is_rejected(self):
+    @pytest.mark.parametrize("source", ["somewhere_else", "trinity", "advisor_upload"])
+    def test_unknown_input_source_is_rejected(self, source):
+        """
+        The slug forms are listed explicitly: they were the pre-Part-A shape and
+        would otherwise seed silently, leaving cards rendering a slug.
+        """
         with pytest.raises(FixtureError, match="not in"):
             validate_fixture([{
                 "program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
-                "required_inputs": [{"key": "I1", "label": "L", "source": "somewhere_else"}],
+                "required_inputs": [{"key": "I1", "label": "L", "source": source}],
                 "deliverables": [],
             }])
 

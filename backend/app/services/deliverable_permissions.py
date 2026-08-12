@@ -1,17 +1,23 @@
 """
 Access control for the Value Builder deliverables API.
 
-    ┌─── PENDING BBA CONFIRMATION ──────────────────────────────────────────┐
+    ┌─── CONFIRMED BY SPECIFICATION PART A ──────────────────────────────────┐
 
-    The spec says business owners get a dashboard only - they cannot open
-    modules or mutate anything - while advisors and admins have full access.
-    That has NOT been finally confirmed with BBA.
+    Part A's roles matrix settles what was previously open. For a business
+    owner: Program dashboard View, and No to everything else - open a module,
+    module card contents, diagnostic findings, preset deliverables,
+    advisor-added deliverables.
+
+    So owners are denied BOTH reads and writes here. This API serves module
+    contents and deliverable detail, which is squarely the "No" column. The
+    owner's dashboard is a separate, narrower read - progress and the module
+    list, no deliverable detail - and is deliberately not served from here.
 
     EVERY access decision for the deliverables API is made in this file. No
     endpoint in app/api/program_deliverable.py contains a role check. If the
     rule changes, it changes here and nowhere else.
 
-    What "owner" means in practice: the write guard denies UserRole.CLIENT,
+    What "owner" means in practice: the guards deny UserRole.CLIENT,
     which is ALL clients, not only self-service owners. Per migration
     f7a1b2c3d4e5, a true self-service owner is CLIENT *and*
     users.account_type == 'self_service', while an advisor-provisioned client
@@ -40,15 +46,15 @@ from app.utils.auth import get_current_user
 # app/api/program_guide.py.
 DELIVERABLE_PROGRAM_TYPE = "value_builder"
 
-# The effective write allow-list. This is documentation plus the set the
-# boundary tests assert against - enforcement goes through
+# The effective allow-list for this API, reads included. This is documentation
+# plus the set the boundary tests assert against - enforcement goes through
 # check_engagement_access(require_advisor=True), which yields exactly this set.
 #
 # That flag is easy to misread: it is tested in one place only (role_check.py,
 # inside the CLIENT branch), so it means "is not a client" rather than "is an
 # advisor" - admins, super admins and firm admins return True before it is ever
 # read. Using it keeps one mechanism rather than two that must agree.
-DELIVERABLE_MUTATE_ROLES = frozenset({
+DELIVERABLE_ACCESS_ROLES = frozenset({
     UserRole.ADVISOR,
     UserRole.FIRM_ADVISOR,
     UserRole.FIRM_ADMIN,
@@ -87,12 +93,16 @@ def require_deliverable_read(
     current_user: User = Depends(get_current_user),
 ) -> Engagement:
     """
-    Read access: any role with access to the engagement, owners included.
+    Read access: advisors and admins only - see DELIVERABLE_ACCESS_ROLES.
+
+    Owners are denied. This read returns module contents and full deliverable
+    detail, which Part A puts in the owner's No column; their dashboard is a
+    separate narrower read.
 
     Returns the loaded engagement so endpoints do not refetch it.
     """
     engagement = _load_engagement(engagement_id, db)
-    return _authorize(engagement, current_user, db, require_advisor=False)
+    return _authorize(engagement, current_user, db, require_advisor=True)
 
 
 def require_deliverable_write(
@@ -101,7 +111,12 @@ def require_deliverable_write(
     current_user: User = Depends(get_current_user),
 ) -> Engagement:
     """
-    Mutate access: advisors and admins only - see DELIVERABLE_MUTATE_ROLES.
+    Mutate access: advisors and admins only - see DELIVERABLE_ACCESS_ROLES.
+
+    Identical to the read guard today. They stay separate functions because the
+    reasons differ: reads are denied to owners because module contents are not
+    theirs to see, writes because completing a deliverable is not theirs to do.
+    Part A's admin row already splits them for the library API.
 
     Returns the loaded engagement so endpoints do not refetch it.
     """

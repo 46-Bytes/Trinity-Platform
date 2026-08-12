@@ -45,7 +45,10 @@ DEFAULT_FIXTURE = os.path.join(
     "files", "program_guide", "value_builder_modules.json",
 )
 
-VALID_INPUT_SOURCES = {"trinity", "advisor_upload", "earlier_module"}
+# Part A fixes these as the STORED values, not display labels over some slug -
+# its table maps each label to itself. Kept verbatim so what the card renders is
+# what the database holds.
+VALID_INPUT_SOURCES = {"Held in Trinity", "Advisor to upload", "From an earlier module"}
 
 
 class FixtureError(ValueError):

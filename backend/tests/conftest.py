@@ -128,7 +128,31 @@ def test_user(db_session):
 
 
 @pytest.fixture
-def test_engagement(db_session, test_user):
+def clean_library(db_session):
+    """
+    Hide any seeded preset library from this test.
+
+    The deliverable tests each author the exact presets they expect to see and
+    then assert on derived status, which reads EVERY active preset for the
+    program type. A populated program_module_deliverable - now the normal state
+    of any seeded environment - therefore adds unrelated mandatory items to the
+    same modules and changes the answer: "complete the only mandatory item"
+    stops being true, and module["deliverables"][0] stops being the row the test
+    just created.
+
+    Deactivating rather than deleting keeps the foreign key from any engagement
+    instance intact, and the outer transaction rolls it all back regardless.
+    """
+    from app.models.program_deliverable import ProgramModuleDeliverable
+
+    db_session.query(ProgramModuleDeliverable).filter(
+        ProgramModuleDeliverable.is_active == True,  # noqa: E712
+    ).update({"is_active": False}, synchronize_session=False)
+    db_session.flush()
+
+
+@pytest.fixture
+def test_engagement(db_session, test_user, clean_library):
     """Throwaway value_builder engagement, discarded with the transaction."""
     from app.models.engagement import Engagement
 

@@ -31,8 +31,9 @@ class ProgramModuleContent(Base):
     required_inputs = Column(
         JSONB,
         nullable=True,
-        comment="[{key, label, source, fallback}] where source is 'trinity'|'advisor_upload'|'earlier_module'; "
-                "fallback states what to do when an earlier-module input is absent, since no module may assume another has run",
+        comment="[{key, label, source, fallback}] where source is one of the Part A literals "
+                "'Held in Trinity'|'Advisor to upload'|'From an earlier module'; fallback states what to do "
+                "when an earlier-module input is absent, since no module may assume another has run",
     )
     deliverables = Column(
         JSONB,

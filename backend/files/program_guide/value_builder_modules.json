@@ -367,7 +367,7 @@
       {
         "key": "V2-D3",
         "title": "One-Page Strategy Summary",
-        "is_mandatory": false,
+        "is_mandatory": true,
         "produced_by": "trinity_tool",
         "produced_by_note": "advisor-approved",
         "feeds": ["V3"]

@@ -673,8 +673,14 @@ class TestModuleNameAliases:
 
         by_key = {d["key"]: d for d in v2["deliverables"]}
         assert list(by_key) == ["V2-D1", "V2-D2", "V2-D3", "V2-D4"]
+        # V2-D3 is mandatory per the Playbook, resolving the contradiction Part C
+        # flagged against the GPT workflow. Where a client will not use the
+        # one-pager the advisor scopes it out on that engagement, which is the
+        # reversible choice; optional would have excluded it from completion
+        # everywhere.
         assert by_key["V2-D1"]["is_mandatory"] and by_key["V2-D2"]["is_mandatory"]
-        assert not by_key["V2-D3"]["is_mandatory"] and not by_key["V2-D4"]["is_mandatory"]
+        assert by_key["V2-D3"]["is_mandatory"]
+        assert not by_key["V2-D4"]["is_mandatory"]
         # Part C's Feeds column is "-" for V2-D1: it feeds nothing onward.
         assert "feeds" not in by_key["V2-D1"]
         assert by_key["V2-D2"]["feeds"] == ["V3", "V4", "V10"]

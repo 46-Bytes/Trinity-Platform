@@ -49,9 +49,16 @@ export default function EngagementDetailPage() {
   const { mediaTags, diagnosticTags } = useAppSelector((state) => state.tag);
   
   // Check user role for file filtering
-  const isAdmin = user?.role === 'admin' || user?.role === 'firm_admin';
+  // isAdminRole covers super_admin as well; spelling the check out by hand here
+  // omitted it, which left a super admin unable to reorder modules.
+  const isAdmin = isAdminRole(user?.role);
   const isAdvisor = user?.role === 'advisor' || user?.role === 'firm_advisor';
   const isClient = user?.role === 'client';
+
+  // Part A: a business owner gets the program dashboard only - not the module
+  // cards. The backend refuses them the guide read regardless; this keeps the
+  // tab from appearing and failing. Their dashboard lands here separately.
+  const canViewProgramGuide = engagement?.tool === 'value_builder' && !isClient;
   
   // Listen to Redux diagnostic state to detect when diagnostic is submitted
   const reduxDiagnostic = useAppSelector((state) => state.diagnostic.diagnostic);
@@ -730,11 +737,11 @@ export default function EngagementDetailPage() {
             <ArrowLeft className="h-4 w-4" />
             Back
           </Button>
-          <TabsList className={engagement?.tool === 'value_builder' ? 'grid w-fit grid-cols-6' : 'grid w-fit grid-cols-5'}>
+          <TabsList className={canViewProgramGuide ? 'grid w-fit grid-cols-6' : 'grid w-fit grid-cols-5'}>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
             <TabsTrigger value="diagnostic">Diagnostic</TabsTrigger>
-            {engagement?.tool === 'value_builder' && (
+            {canViewProgramGuide && (
               <TabsTrigger value="program-guide">Program Guide</TabsTrigger>
             )}
             <TabsTrigger value="tools">Tools</TabsTrigger>
@@ -805,7 +812,7 @@ export default function EngagementDetailPage() {
           </div>
         </TabsContent>
 
-        {engagement?.tool === 'value_builder' && (
+        {canViewProgramGuide && (
           <TabsContent value="program-guide" className="mt-6">
             <ProgramGuideTab
               engagementId={engagementId!}

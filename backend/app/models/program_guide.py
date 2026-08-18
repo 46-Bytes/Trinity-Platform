@@ -58,19 +58,13 @@ class ProgramModuleContent(Base):
     )
     post_session_actions = Column(JSONB, nullable=True, comment="{owner, duration, items: [text, ...]} follow-up work after the session")
 
-    section_notes = Column(
+    notes = Column(
         JSONB,
         nullable=True,
-        comment="{section_name: text} prose attached to a whole section rather than to one of its items, "
-                "e.g. why uploading source material matters. Keyed rather than one column per note, "
-                "because modules differ in which sections carry one",
-    )
-    module_notes = Column(
-        JSONB,
-        nullable=True,
-        comment="[{key, title, text}] titled guidance about the module as a whole rather than about one "
-                "of its sections, e.g. how the module runs for a client with no leadership layer. "
-                "Distinct from section_notes: those are untitled and belong to a named section",
+        comment="[{key, title, text, section}] prose that is not part of any list. `title` and `section` "
+                "are both optional and independent: a note may be titled or not, and attached to a named "
+                "section or to the module as a whole. Started as two columns until a note arrived that was "
+                "both titled AND section-attached, which neither could hold",
     )
 
     guardrails = Column(
@@ -127,8 +121,7 @@ class ProgramModuleContent(Base):
             "sessions": self.sessions,
             "between_sessions": self.between_sessions,
             "post_session_actions": self.post_session_actions,
-            "section_notes": self.section_notes,
-            "module_notes": self.module_notes,
+            "notes": self.notes,
             "guardrails": self.guardrails,
             "quality_standards": self.quality_standards,
             "recommended_tools": self.recommended_tools,

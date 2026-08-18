@@ -85,8 +85,7 @@ _PASSTHROUGH_FIELDS = (
     "quality_standards",
     "recommended_tools",
     "required_inputs",
-    "section_notes",
-    "module_notes",
+    "notes",
 )
 
 
@@ -125,6 +124,37 @@ def _check_owner_duration(problems, where, field, value, require_items=False) ->
         problems.append(f"{where}: {field} missing 'owner'")
     if require_items:
         _check_text_list(problems, where, f"{field}.items", value.get("items"))
+
+
+def _check_options(problems, where, options) -> None:
+    """
+    A named choice set inside an agenda item, e.g. testing every task against
+    Retain / Lose / Gain. Each option is a term and its definition, which is
+    neither a question nor prose, so it needs its own shape.
+    """
+    if options is None:
+        return
+    if not isinstance(options, list):
+        problems.append(f"{where}: options must be a list")
+        return
+
+    seen = set()
+    for i, option in enumerate(options):
+        at = f"{where}: options[{i}]"
+        if not isinstance(option, dict):
+            problems.append(f"{at} must be an object")
+            continue
+        key = option.get("key")
+        if not key:
+            problems.append(f"{at} missing 'key'")
+        elif key in seen:
+            problems.append(f"{at} duplicate option key {key!r}")
+        else:
+            seen.add(key)
+        for field in ("term", "definition"):
+            value = option.get(field)
+            if not isinstance(value, str) or not value.strip():
+                problems.append(f"{at} missing '{field}'")
 
 
 def _check_sessions(problems, where, sessions) -> None:
@@ -173,52 +203,51 @@ def _check_sessions(problems, where, sessions) -> None:
             if not item.get("title"):
                 problems.append(f"{spot} missing 'title'")
             _check_text_list(problems, spot, "questions", item.get("questions"))
+            _check_options(problems, spot, item.get("options"))
 
 
-def _check_section_notes(problems, where, notes) -> None:
-    if notes is None:
-        return
-    if not isinstance(notes, dict):
-        problems.append(f"{where}: section_notes must be an object keyed by section name")
-        return
-    for section, text in notes.items():
-        if section not in VALID_NOTE_SECTIONS:
-            problems.append(
-                f"{where}: section_notes key {section!r} not in {sorted(VALID_NOTE_SECTIONS)}"
-            )
-        if not isinstance(text, str) or not text.strip():
-            problems.append(f"{where}: section_notes[{section!r}] must be a non-empty string")
-
-
-def _check_module_notes(problems, where, notes) -> None:
+def _check_notes(problems, where, notes) -> None:
     """
-    Titled guidance about the module as a whole. Unlike section_notes these
-    carry a title, which is part of the content rather than a label - "Where
-    there is no leadership layer" frames everything under it.
+    Prose that is not part of any list.
+
+    `title` and `section` are independently optional, which is the whole point:
+    a note may be titled or not, and belong to a named section or to the module
+    as a whole. This began as two columns - untitled-by-section and
+    titled-module-wide - until a note arrived that was both, and neither held
+    it. Only `text` is required.
     """
     if notes is None:
         return
     if not isinstance(notes, list):
-        problems.append(f"{where}: module_notes must be a list")
+        problems.append(f"{where}: notes must be a list")
         return
 
     seen = set()
     for i, note in enumerate(notes):
-        at = f"{where}: module_notes[{i}]"
+        at = f"{where}: notes[{i}]"
         if not isinstance(note, dict):
             problems.append(f"{at} must be an object")
             continue
+
         key = note.get("key")
         if not key:
             problems.append(f"{at} missing 'key'")
         elif key in seen:
-            problems.append(f"{at} duplicate module note key {key!r}")
+            problems.append(f"{at} duplicate note key {key!r}")
         else:
             seen.add(key)
-        for field in ("title", "text"):
-            value = note.get(field)
-            if not isinstance(value, str) or not value.strip():
-                problems.append(f"{at} missing '{field}'")
+
+        text = note.get("text")
+        if not isinstance(text, str) or not text.strip():
+            problems.append(f"{at} missing 'text'")
+
+        title = note.get("title")
+        if title is not None and (not isinstance(title, str) or not title.strip()):
+            problems.append(f"{at} 'title' must be a non-empty string when present")
+
+        section = note.get("section")
+        if section is not None and section not in VALID_NOTE_SECTIONS:
+            problems.append(f"{at} section {section!r} not in {sorted(VALID_NOTE_SECTIONS)}")
 
 
 def _check_guardrails(problems, where, guardrails) -> None:
@@ -300,8 +329,7 @@ def validate_fixture(modules) -> None:
         _check_owner_duration(
             problems, where, "post_session_actions", entry.get("post_session_actions"), require_items=True
         )
-        _check_section_notes(problems, where, entry.get("section_notes"))
-        _check_module_notes(problems, where, entry.get("module_notes"))
+        _check_notes(problems, where, entry.get("notes"))
         _check_sessions(problems, where, entry.get("sessions"))
         _check_guardrails(problems, where, entry.get("guardrails"))
         _check_tools(problems, where, entry.get("recommended_tools"))

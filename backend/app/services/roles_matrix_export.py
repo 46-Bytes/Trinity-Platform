@@ -13,6 +13,8 @@ import io
 import logging
 
 from openpyxl import load_workbook
+from openpyxl.styles import Alignment
+from openpyxl.utils import get_column_letter
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +45,15 @@ ROW_KEYS = [
     "resp",
     "when",
 ]
+
+# Free-text columns: Role Descriptions (B) and Action (H). Extracted
+# responsibilities are full sentences, far longer than the template's sample
+# data, so these wrap instead of forcing an unusably wide sheet.
+WRAP_COLUMNS = {2, 8}
+# Widening stops here; anything longer wraps within the cell.
+MAX_COLUMN_WIDTH = 60
+# Excel's width unit is roughly one character, plus padding for the cell border.
+WIDTH_PADDING = 2
 
 
 class RolesMatrixExporter:
@@ -87,6 +98,7 @@ class RolesMatrixExporter:
         last_styled_row = self._find_last_styled_row(ws)
         self._clear_data_region(ws)
         self._write_rows(ws, matrix_rows, last_styled_row)
+        self._fit_columns(ws, matrix_rows)
 
         stream = io.BytesIO()
         wb.save(stream)
@@ -143,7 +155,19 @@ class RolesMatrixExporter:
 
             for column, key in enumerate(ROW_KEYS, start=1):
                 value = (row_data or {}).get(key)
-                ws.cell(row=target_row, column=column).value = self._clean(value)
+                cell = ws.cell(row=target_row, column=column)
+                cell.value = self._clean(value)
+
+                if column in WRAP_COLUMNS and cell.value:
+                    existing = cell.alignment
+                    cell.alignment = Alignment(
+                        horizontal=existing.horizontal,
+                        vertical=existing.vertical or "top",
+                        wrap_text=True,
+                    )
+                    # Drop the template's fixed row height so Excel grows the row
+                    # to fit the wrapped text. customHeight is derived from this.
+                    ws.row_dimensions[target_row].height = None
 
     @staticmethod
     def _copy_row_style(ws, source_row: int, target_row: int) -> None:
@@ -156,6 +180,27 @@ class RolesMatrixExporter:
         source_height = ws.row_dimensions[source_row].height
         if source_height:
             ws.row_dimensions[target_row].height = source_height
+
+    @staticmethod
+    def _fit_columns(ws, matrix_rows: List[Dict[str, Any]]) -> None:
+        """
+        Widen columns to fit their content, never below the template's own width
+        and never past MAX_COLUMN_WIDTH. Wrapping handles anything longer.
+        """
+        for column, key in enumerate(ROW_KEYS, start=1):
+            longest = max(
+                (len(str((row or {}).get(key) or "")) for row in matrix_rows or []),
+                default=0,
+            )
+            if longest == 0:
+                continue
+
+            letter = get_column_letter(column)
+            template_width = ws.column_dimensions[letter].width or 0
+            needed = longest + WIDTH_PADDING
+            ws.column_dimensions[letter].width = min(
+                max(template_width, needed), MAX_COLUMN_WIDTH
+            )
 
     @staticmethod
     def _clean(value: Any) -> Optional[str]:

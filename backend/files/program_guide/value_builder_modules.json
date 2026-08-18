@@ -204,11 +204,23 @@
       "The owner can state where the business is going, and why, in their own words.",
       "The owner has the plan in hand, understands it, and knows what they want to change."
     ],
-    "section_notes": {
-      "required_inputs": "Upload is optional but strongly recommended. The more source material Trinity receives, the more of the workbook it pre-fills, and the less workshop time is spent on data entry rather than strategy.",
-      "deliverables": "The plan template already covers priorities, key actions and positioning, so no separate priorities map or value proposition document is produced.",
-      "recommended_tools": "Both tools already exist in Trinity. V2 requires no new tool build and should not draw on the Feature 3 allocation."
-    },
+    "notes": [
+      {
+        "key": "upload-recommended",
+        "section": "required_inputs",
+        "text": "Upload is optional but strongly recommended. The more source material Trinity receives, the more of the workbook it pre-fills, and the less workshop time is spent on data entry rather than strategy."
+      },
+      {
+        "key": "plan-template-coverage",
+        "section": "deliverables",
+        "text": "The plan template already covers priorities, key actions and positioning, so no separate priorities map or value proposition document is produced."
+      },
+      {
+        "key": "tools-already-exist",
+        "section": "recommended_tools",
+        "text": "Both tools already exist in Trinity. V2 requires no new tool build and should not draw on the Feature 3 allocation."
+      }
+    ],
     "required_inputs": [
       { "key": "V2-I1", "label": "Diagnostic report and advisor recommendations", "source": "Held in Trinity" },
       { "key": "V2-I2", "label": "Owner's stated goals, growth constraint and \"fix one thing\" response", "source": "Held in Trinity" },
@@ -419,17 +431,23 @@
       "Communication pathways are mapped in both directions.",
       "A meeting rhythm exists, with agendas and a named owner for each meeting."
     ],
-    "module_notes": [
+    "notes": [
       {
         "key": "no-leadership-layer",
         "title": "Where there is no leadership layer",
         "text": "Many clients have no managers. The module still runs. Leadership expectations become the owner's own operating standard, decision rights identify what could be delegated and to whom, and the rhythm may be a single weekly team meeting. Where the business needs a leadership layer it does not yet have, that becomes an input to V4 and V9 rather than something invented in this session."
+      },
+      {
+        "key": "no-live-tool-use",
+        "section": "recommended_tools",
+        "text": "No Trinity use during the live session."
+      },
+      {
+        "key": "three-outputs-only",
+        "section": "deliverables",
+        "text": "No optional deliverables. The Playbook is explicit that this module stays at three outputs, with no additional frameworks."
       }
     ],
-    "section_notes": {
-      "recommended_tools": "No Trinity use during the live session.",
-      "deliverables": "No optional deliverables. The Playbook is explicit that this module stays at three outputs, with no additional frameworks."
-    },
     "required_inputs": [
       { "key": "V3-I1", "label": "Diagnostic report, V3 module assessment", "source": "Held in Trinity" },
       { "key": "V3-I2", "label": "Diagnostic responses on management meetings, team meetings and director alignment", "source": "Held in Trinity" },
@@ -577,15 +595,201 @@
     "module_code": "V4",
     "display_order": 4,
     "title": "People & Structure",
-    "purpose": "PLACEHOLDER: Build a people module that works whether or not the owner has a team.",
+    "focus": "The right people in the right roles, with clear accountability, and a structure that matches where the business is going.",
+    "purpose": "V4 aligns team, roles, structure and capability with the direction of the business. The focus is clarity and accountability: who does what, which tasks should move, where the gaps are, and what the owner is still carrying that someone else should.\n\nThe module runs whether or not the business has an HR function, a leadership team, or more than a handful of staff. Where it surfaces a need for leadership development, HR support or recruitment, those needs are real and important. They are referred to the Talent team rather than delivered inside this module.",
+    "core_outcomes": [
+      "Current and intended structure are documented and the difference between them is understood.",
+      "Every key role has clear responsibilities, with each task tested for retain, lose or gain.",
+      "Capability gaps are identified, with a decision on build, hire or outsource for each.",
+      "Key person and retention risks are named, with a view on whether each is addressable.",
+      "Position descriptions exist, or the client can produce them."
+    ],
+    "notes": [
+      {
+        "key": "very-small-team",
+        "title": "Where the team is very small",
+        "text": "Many clients have two or three staff, or none. The module still runs. Structure becomes who does what and what the owner is still holding personally. Role clarity may cover two roles. Capability gaps often point at the owner rather than the team. Where the finding is that the business needs people it cannot currently afford, that belongs in V1 and V2 rather than being solved here."
+      },
+      {
+        "key": "pack-generator-prefill",
+        "section": "recommended_tools",
+        "text": "Before the session the pack generator asks whether existing position descriptions are available. Where they are, the advisor loads them, and the tool examines them and pre-fills the roles and responsibilities matrix ready for the workshop. After the session it produces the deliverables. The Position Description generator is also made available to the client directly."
+      },
+      {
+        "key": "single-activity-outputs",
+        "section": "deliverables",
+        "text": "D2 and D3 both come out of the single role clarity activity, which also informs the intended structure in D1. The advisor produces the first two position descriptions as worked examples, and the client generates the remainder in Trinity, so module completion does not wait on the client."
+      },
+      {
+        "key": "talent-referral",
+        "section": "guardrails",
+        "title": "Referral to the Talent team",
+        "text": "People issues are not out of scope for this module and must not be avoided. Leadership development, HR support and recruitment are services BBA delivers through the Talent team. Where the module surfaces a need in any of these areas, the advisor names it, records it, and refers the client, rather than either delivering it here or leaving it unaddressed. Employment law matters are handled case by case."
+      }
+    ],
+    "required_inputs": [
+      { "key": "V4-I1", "label": "Diagnostic report, V4 module assessment", "source": "Held in Trinity" },
+      { "key": "V4-I2", "label": "Diagnostic HR responses: headcount, contracts, policies, position descriptions, retention and recruitment flags", "source": "Held in Trinity" },
+      {
+        "key": "V4-I3",
+        "label": "V2 Strategic Business Plan and priorities",
+        "source": "From an earlier module",
+        "source_note": "where available",
+        "fallback": "Where V2 has not run, the owner's stated goals from the diagnostic serve in place of the strategic priorities."
+      },
+      {
+        "key": "V4-I4",
+        "label": "V3 Leadership Alignment Summary and decision rights",
+        "source": "From an earlier module",
+        "source_note": "where available",
+        "fallback": "Where V3 has not run, decision rights are established here at role level only."
+      },
+      { "key": "V4-I5", "label": "Current team list with roles and reporting lines", "source": "Advisor to upload" },
+      { "key": "V4-I6", "label": "Existing position descriptions", "source": "Advisor to upload" },
+      { "key": "V4-I7", "label": "Existing organisational chart", "source": "Advisor to upload" }
+    ],
+    "preparation_summary": { "owner": "Advisor", "duration": "45 to 60 minutes" },
     "preparation_checklist": [
-      { "key": "review-org", "text": "PLACEHOLDER: Review current team structure, if any" }
+      { "key": "review-hr-responses", "text": "Review the diagnostic HR responses, particularly the retention and recruitment flags, policy gaps and contract status." },
+      { "key": "draft-current-structure", "text": "Draft the current structure from the team list and any existing organisational chart." },
+      { "key": "run-pack-generator", "text": "Run the pack generator. Where the client has existing position descriptions, load them so the tool can pre-fill the roles and responsibilities matrix, and session time goes on testing tasks rather than listing them." },
+      { "key": "identify-structural-issues", "text": "Identify structural issues to test: overlapping responsibilities, gaps with no owner, unclear reporting lines, and work the owner is doing that someone else should." },
+      { "key": "review-strategic-priorities", "text": "Where V2 is complete, review the strategic priorities. The intended structure should be the one that delivers them." }
+    ],
+    "sessions": [
+      {
+        "key": "V4-S1",
+        "title": "People & Structure Workshop",
+        "duration": "Target 105 to 125 minutes",
+        "format": "In person or online",
+        "agenda": [
+          {
+            "key": "V4-S1-A1",
+            "title": "Frame the session",
+            "duration": "5 minutes",
+            "detail": "Explain that this session is about roles and structure, not individual performance, and that no one will be assessed personally."
+          },
+          {
+            "key": "V4-S1-A2",
+            "title": "Current structure review",
+            "duration": "20 to 25 minutes",
+            "detail": "Walk the draft structure. Confirm who actually does what, as opposed to what the chart says. Identify overlaps, gaps, unclear reporting and work sitting with the owner.",
+            "questions": [
+              "Who actually decides here?",
+              "What falls between two people?",
+              "What has no owner at all?",
+              "What are you doing that someone on this list should be doing?"
+            ]
+          },
+          {
+            "key": "V4-S1-A3",
+            "title": "Retention and key person risk",
+            "duration": "15 minutes",
+            "detail": "Identify who the business cannot afford to lose, and who is at risk of leaving. Establish whether each risk is addressable and how quickly. Held before the role work, because a departure changes what can be planned.",
+            "questions": [
+              "If one person resigned tomorrow, who would hurt most, and why?",
+              "Is anyone unsettled right now? What is driving that, and is it something you can act on?",
+              "What would we lose that only exists in that person's head?"
+            ]
+          },
+          {
+            "key": "V4-S1-A4",
+            "title": "Roles, responsibilities and task review",
+            "duration": "60 to 75 minutes",
+            "detail": "The core activity of the module. Work role by role. For each role, list the actual tasks, then test every task against three options.\n\nRun across every role, this single activity delivers structure, role clarity, capability and gaps in one pass. Tasks with no home expose structural gaps. Tasks nobody can do expose capability gaps. Tasks the owner cannot put down expose the dependency V9 addresses.\n\nStart with the owner's own role. It is usually the most overloaded, and doing it first sets the tone for honest answers about everyone else.",
+            "options": [
+              { "key": "retain", "term": "Retain", "definition": "stays with this role and is being done well enough" },
+              { "key": "lose", "term": "Lose", "definition": "should move off this role, to another role, to a system, to an outsourced provider, or stopped entirely" },
+              { "key": "gain", "term": "Gain", "definition": "should be picked up by this role, whether it currently sits with the owner, sits nowhere, or is not being done at all" }
+            ],
+            "questions": [
+              "What does this person actually spend their week on?",
+              "Which of these can only they do?",
+              "What is on this list because they have always done it?",
+              "What is being done twice?",
+              "What is on nobody's list?"
+            ],
+            "note": "Record against each role: responsibilities retained, tasks moving off, tasks moving on, decision rights, reporting line, and any capability gap the changes create."
+          },
+          {
+            "key": "V4-S1-A5",
+            "title": "Close",
+            "duration": "5 minutes",
+            "detail": "Confirm the first change and who owns it."
+          }
+        ]
+      }
     ],
     "recommended_tools": [
-      { "tool_key": "bba", "label": "Recommendations Report Builder" }
+      { "tool_key": "people_structure_pack", "label": "People & Structure Pack generator", "when": "pre, post", "status": "To build, Feature 3" },
+      { "tool_key": "position_description", "label": "Position Description generator", "when": "post", "status": "To build, Feature 3" }
     ],
     "deliverables": [
-      { "key": "V4-D1", "title": "PLACEHOLDER: People Plan", "is_mandatory": true }
+      {
+        "key": "V4-D1",
+        "title": "Org Structure, current and intended",
+        "is_mandatory": true,
+        "produced_by": "advisor",
+        "feeds": ["V5", "V9"]
+      },
+      {
+        "key": "V4-D2",
+        "title": "Role Clarity Map, with task retain, lose and gain",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": ["V5", "V9"]
+      },
+      {
+        "key": "V4-D3",
+        "title": "Capability & Gap Summary",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": ["V9"]
+      },
+      {
+        "key": "V4-D4",
+        "title": "Position Descriptions, first two",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-generated"
+      },
+      {
+        "key": "V4-D5",
+        "title": "Performance Rhythm",
+        "is_mandatory": false,
+        "produced_by": "advisor"
+      }
+    ],
+    "post_session_actions": {
+      "owner": "Advisor",
+      "duration": "45 to 60 minutes",
+      "items": [
+        "Finalise the structure pack and issue it to the client.",
+        "Generate the first two position descriptions as worked examples, then show the client how to produce the rest.",
+        "Refer any leadership development, HR or recruitment need to the Talent team, and record the referral.",
+        "Record key person risks as evidence for V9.",
+        "Note any capability gap with a cost implication, so it carries into the financial and strategic work rather than being agreed in isolation."
+      ]
+    },
+    "guardrails": {
+      "must_not": [
+        "conduct performance management or assess individuals",
+        "become involved in disciplinary matters",
+        "provide employment law advice, or draft contracts, policies or workplace agreements",
+        "benchmark salaries, unless separately engaged to do so",
+        "deliver leadership development, HR or recruitment services inside this module"
+      ],
+      "note": "These are boundaries of profession, not boundaries of module. Where V4 surfaces an issue whose home module is elsewhere, the advisor addresses it and records the output against that module."
+    },
+    "quality_standards": [
+      "Every key role has been through retain, lose and gain against its actual tasks, starting with the owner's.",
+      "At least one task has moved off the owner's role.",
+      "The intended structure is achievable rather than aspirational, and the owner can say what changes first.",
+      "Capability gaps carry a decision, not just a description.",
+      "Key person risks are named, each with a stated position on whether it can be addressed.",
+      "Any leadership, HR or recruitment need has been referred to the Talent team and recorded."
     ]
   },
   {

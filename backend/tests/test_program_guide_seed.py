@@ -354,30 +354,26 @@ class TestDerivedLegacyColumn:
                 "deliverables": [], "preparation_summary": {"duration": "1 hour"},
             }])
 
-    def test_section_notes_round_trip(self, db_session, write_fixture, program_type):
-        notes = {
-            "required_inputs": "Upload is optional but strongly recommended.",
-            "deliverables": "The plan template already covers priorities.",
-        }
-        seed_from_file(write_fixture([_module(section_notes=notes, deliverables=[])]), db=db_session)
+    def test_every_note_combination_round_trips(self, db_session, write_fixture, program_type):
+        """
+        `title` and `section` are independently optional, and all four
+        combinations occur. The titled-AND-section-attached case is the one that
+        forced the merge: notes lived in two columns until "Referral to the
+        Talent team" arrived, which neither could hold.
+        """
+        notes = [
+            {"key": "both", "section": "guardrails", "title": "Referral to the Talent team",
+             "text": "People issues are not out of scope for this module."},
+            {"key": "titled-only", "title": "Where the team is very small",
+             "text": "Many clients have two or three staff, or none."},
+            {"key": "section-only", "section": "deliverables",
+             "text": "The plan template already covers priorities."},
+            {"key": "neither", "text": "A plain note belonging to nothing in particular."},
+        ]
+        seed_from_file(write_fixture([_module(notes=notes, deliverables=[])]), db=db_session)
 
         item = ProgramModuleContentItem.model_validate(_card(db_session, program_type))
-        assert item.section_notes == notes
-
-    def test_module_notes_round_trip(self, db_session, write_fixture, program_type):
-        """
-        Titled guidance about the whole module. The title is content, not a
-        label - "Where there is no leadership layer" frames everything under it.
-        """
-        notes = [{
-            "key": "no-leadership-layer",
-            "title": "Where there is no leadership layer",
-            "text": "Many clients have no managers. The module still runs.",
-        }]
-        seed_from_file(write_fixture([_module(module_notes=notes, deliverables=[])]), db=db_session)
-
-        item = ProgramModuleContentItem.model_validate(_card(db_session, program_type))
-        assert item.module_notes == notes
+        assert item.notes == notes
 
     def test_agenda_note_round_trips(self, db_session, write_fixture, program_type):
         """
@@ -550,45 +546,74 @@ class TestFixtureValidation:
                 "deliverables": [], section: value,
             }])
 
-    def test_unknown_section_note_key_is_rejected(self):
+    def test_unknown_note_section_is_rejected(self):
         """
-        A typo'd key would store a note nothing ever renders. Silently losing
-        authored content is the failure worth guarding against.
+        A typo'd section would store a note nothing ever renders. Silently
+        losing authored content is the failure worth guarding against.
         """
-        with pytest.raises(FixtureError, match="section_notes key 'delivrables' not in"):
+        with pytest.raises(FixtureError, match="section 'delivrables' not in"):
             validate_fixture([{
                 "program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
-                "deliverables": [], "section_notes": {"delivrables": "Typo in the key."},
-            }])
-
-    def test_empty_section_note_is_rejected(self):
-        with pytest.raises(FixtureError, match="section_notes\\['deliverables'\\] must be a non-empty string"):
-            validate_fixture([{
-                "program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
-                "deliverables": [], "section_notes": {"deliverables": "   "},
+                "deliverables": [],
+                "notes": [{"key": "k", "section": "delivrables", "text": "Typo in the section."}],
             }])
 
     @pytest.mark.parametrize("note,expected", [
-        ({"title": "T", "text": "X"}, r"module_notes\[0\] missing 'key'"),
-        ({"key": "k", "text": "X"}, r"module_notes\[0\] missing 'title'"),
-        ({"key": "k", "title": "T"}, r"module_notes\[0\] missing 'text'"),
-        ({"key": "k", "title": "T", "text": "   "}, r"module_notes\[0\] missing 'text'"),
+        ({"text": "X"}, r"notes\[0\] missing 'key'"),
+        ({"key": "k"}, r"notes\[0\] missing 'text'"),
+        ({"key": "k", "text": "   "}, r"notes\[0\] missing 'text'"),
+        ({"key": "k", "text": "X", "title": "  "}, r"notes\[0\] 'title' must be a non-empty string"),
     ])
-    def test_malformed_module_notes_are_rejected(self, note, expected):
+    def test_malformed_notes_are_rejected(self, note, expected):
         with pytest.raises(FixtureError, match=expected):
             validate_fixture([{
                 "program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
-                "deliverables": [], "module_notes": [note],
+                "deliverables": [], "notes": [note],
             }])
 
-    def test_duplicate_module_note_keys_are_rejected(self):
-        with pytest.raises(FixtureError, match="duplicate module note key"):
+    def test_a_note_needs_neither_title_nor_section(self):
+        """Only `text` is required - the other two are independently optional."""
+        validate_fixture([{
+            "program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
+            "deliverables": [], "notes": [{"key": "k", "text": "Just prose."}],
+        }])
+
+    def test_duplicate_note_keys_are_rejected(self):
+        with pytest.raises(FixtureError, match="duplicate note key"):
             validate_fixture([{
                 "program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
-                "deliverables": [], "module_notes": [
-                    {"key": "k", "title": "One", "text": "X"},
-                    {"key": "k", "title": "Two", "text": "Y"},
+                "deliverables": [], "notes": [
+                    {"key": "k", "text": "X"},
+                    {"key": "k", "text": "Y"},
                 ],
+            }])
+
+    @pytest.mark.parametrize("option,expected", [
+        ({"term": "Retain", "definition": "d"}, r"options\[0\] missing 'key'"),
+        ({"key": "retain", "definition": "d"}, r"options\[0\] missing 'term'"),
+        ({"key": "retain", "term": "Retain"}, r"options\[0\] missing 'definition'"),
+    ])
+    def test_malformed_agenda_options_are_rejected(self, option, expected):
+        with pytest.raises(FixtureError, match=expected):
+            validate_fixture([{
+                "program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
+                "deliverables": [],
+                "sessions": [{"key": "S1", "title": "T", "agenda": [
+                    {"key": "A1", "title": "Task review", "options": [option]},
+                ]}],
+            }])
+
+    def test_duplicate_agenda_option_keys_are_rejected(self):
+        with pytest.raises(FixtureError, match="duplicate option key"):
+            validate_fixture([{
+                "program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
+                "deliverables": [],
+                "sessions": [{"key": "S1", "title": "T", "agenda": [
+                    {"key": "A1", "title": "Task review", "options": [
+                        {"key": "retain", "term": "Retain", "definition": "a"},
+                        {"key": "retain", "term": "Repeat", "definition": "b"},
+                    ]},
+                ]}],
             }])
 
     def test_duplicate_session_and_agenda_keys_are_rejected(self):
@@ -716,7 +741,7 @@ class TestModuleNameAliases:
         # Part C states an owner but no duration for either phase.
         assert "duration" not in v2["preparation_summary"]
         assert "duration" not in v2["post_session_actions"]
-        assert set(v2["section_notes"]) <= VALID_NOTE_SECTIONS
+        assert {n["section"] for n in v2["notes"]} <= VALID_NOTE_SECTIONS
 
         intro = next(
             a for a in v2["sessions"][0]["agenda"] if a["key"] == "V2-S1-A5"
@@ -753,9 +778,10 @@ class TestModuleNameAliases:
 
         assert "PLACEHOLDER" not in json.dumps(v3), "V3 still contains placeholder text"
 
-        note = v3["module_notes"][0]
+        note = next(n for n in v3["notes"] if n.get("title"))
         assert note["title"] == "Where there is no leadership layer"
         assert "no managers" in note["text"]
+        assert "section" not in note, "the leadership-layer note is module-wide, not section-attached"
 
         decision_rights = next(
             a for a in v3["sessions"][0]["agenda"] if a["key"] == "V3-S1-A3"
@@ -766,6 +792,33 @@ class TestModuleNameAliases:
         assert keys == ["V3-D1", "V3-D2", "V3-D3"]
         assert all(d["is_mandatory"] for d in v3["deliverables"]), "Part D states no optional deliverables"
         assert all(d["produced_by"] == "trinity_tool" for d in v3["deliverables"])
+
+    def test_v4_is_transcribed_from_part_e(self):
+        """
+        V4 introduced the Retain/Lose/Gain options and the note that is both
+        titled and section-attached - the case that merged the two notes fields.
+        """
+        with open(DEFAULT_FIXTURE, "r", encoding="utf-8") as f:
+            v4 = next(m for m in json.load(f) if m["module_code"] == "V4")
+
+        assert "PLACEHOLDER" not in json.dumps(v4), "V4 still contains placeholder text"
+
+        task_review = next(a for a in v4["sessions"][0]["agenda"] if a["key"] == "V4-S1-A4")
+        assert [o["term"] for o in task_review["options"]] == ["Retain", "Lose", "Gain"]
+        assert task_review["note"].startswith("Record against each role:")
+
+        talent = next(n for n in v4["notes"] if n["key"] == "talent-referral")
+        assert talent["title"] == "Referral to the Talent team"
+        assert talent["section"] == "guardrails"
+
+        by_key = {d["key"]: d for d in v4["deliverables"]}
+        assert list(by_key) == ["V4-D1", "V4-D2", "V4-D3", "V4-D4", "V4-D5"]
+        assert not by_key["V4-D5"]["is_mandatory"]
+        assert all(by_key[k]["is_mandatory"] for k in by_key if k != "V4-D5")
+        # Part E's Feeds column is "-" for D4 and D5.
+        assert "feeds" not in by_key["V4-D4"] and "feeds" not in by_key["V4-D5"]
+        # The pack generator is the first tool used at two points in a module.
+        assert any(t["when"] == "pre, post" for t in v4["recommended_tools"])
 
     def test_fixture_titles_match_the_scoring_taxonomy(self):
         """

@@ -1082,6 +1082,35 @@ class TestModuleNameAliases:
         assert by_key["V8-D3"]["feeds"] == ["V7"], "V8-D3 feeds backwards to V7"
         assert not any("session" in d for d in v8["deliverables"]), "V8 runs one session"
 
+    def test_v9_is_transcribed_from_part_j(self):
+        """
+        V9 needed no schema change. Both its labelled sets - the three
+        dependency categories and the three absence horizons - reuse `options`,
+        the field built for V4's Retain/Lose/Gain, on content that looks nothing
+        like it.
+        """
+        with open(DEFAULT_FIXTURE, "r", encoding="utf-8") as f:
+            v9 = next(m for m in json.load(f) if m["module_code"] == "V9")
+
+        assert "PLACEHOLDER" not in json.dumps(v9), "V9 still contains placeholder text"
+
+        agenda = {a["key"]: a for a in v9["sessions"][0]["agenda"]}
+        assert [o["term"] for o in agenda["V9-S1-A2"]["options"]] == [
+            "Knowledge", "Relationships", "Decisions",
+        ]
+        assert [o["term"] for o in agenda["V9-S1-A3"]["options"]] == [
+            "Two weeks away", "Three months, unplanned", "Permanently",
+        ]
+
+        before = next(n for n in v9["notes"] if n["key"] == "before-you-start")
+        assert "after V4 and V5" in before["text"]
+
+        by_key = {d["key"]: d for d in v9["deliverables"]}
+        assert list(by_key) == ["V9-D1", "V9-D2", "V9-D3"]
+        assert all(d["is_mandatory"] for d in v9["deliverables"])
+        assert by_key["V9-D3"]["feeds"] == ["V4", "V10"], "V9-D3 feeds V4 backwards"
+        assert not any("session" in d for d in v9["deliverables"]), "V9 runs one session"
+
     def test_feeds_may_point_backwards(self):
         """
         `feeds` is a dependency graph, not a sequence. V6-D5 feeds V1 and V6-D3

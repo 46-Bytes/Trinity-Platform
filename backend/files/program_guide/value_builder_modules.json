@@ -2634,25 +2634,254 @@
     "module_code": "V9",
     "display_order": 9,
     "title": "Owner Independence",
-    "purpose": "PLACEHOLDER: Reduce owner dependency so the business can run without the owner in the room.",
+    "focus": "Whether the business survives without the owner, and what it would take.",
+    "purpose": "V9 addresses the single most common reason a business is discounted, or cannot be sold at all. Owner dependency is not only a transaction issue: it caps growth, prevents the owner taking leave, and puts the business at risk if anything happens to them.\n\nThis is not a repeat of V4. V4 moves tasks off the owner and is about structure and efficiency. V9 is about risk and transferability, and it deals with what cannot simply be delegated: knowledge that exists only in the owner's head, relationships held personally, and decisions nobody else is trusted to make. A business can delegate every task on the owner's list and still collapse if they leave, because the relationships and the knowledge went with them.",
+    "core_outcomes": [
+      "Knowledge, relationships and decisions held personally by the owner are identified.",
+      "The business's exposure at two weeks, three months and permanently is understood.",
+      "A continuity position exists for an unplanned absence.",
+      "A realistic plan reduces dependency, sequenced and costed."
+    ],
+    "notes": [
+      {
+        "key": "before-you-start",
+        "title": "Before you start",
+        "text": "V9 works considerably better after V4 and V5. V4's role work establishes what the owner does and who could absorb it, and V5's workflow maps show precisely where the owner appears in the running of the business. Where neither has run, the module works from the diagnostic owner duties matrix and the session covers more ground.\n\nBusiness model shape matters here. In account-based businesses the owner frequently is the relationship with each key account, which is the sharpest form of owner dependency and the hardest to unwind. Where V7 has established the shape as account-based, expect this module to be dominated by relationship transfer."
+      },
+      {
+        "key": "tool-two-phase",
+        "section": "recommended_tools",
+        "text": "Before the session it drafts the Owner Dependency Map from the diagnostic duties matrix, the V4 role outputs and the V5 workflow maps, and flags where no cover exists.\n\nAfter the session it produces the dependency map, continuity position and independence plan."
+      },
+      {
+        "key": "continuity-not-legal",
+        "section": "deliverables",
+        "text": "The Continuity Position records what happens in an unplanned absence and what is missing. It is not a legal succession document."
+      }
+    ],
+    "required_inputs": [
+      {
+        "key": "V9-I1",
+        "label": "Diagnostic owner duties matrix: day to day duties, periodic duties, hours per week",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V9-I2",
+        "label": "Diagnostic responses on operating without the owner, reliance level, cover in the event of incapacity, succession plan, divisional structure, scalability, owner-managed customer relationships, and estimated customer loss if the owner left",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V9-I3",
+        "label": "V4 Role Clarity Map and Capability & Gap Summary",
+        "source": "From an earlier module",
+        "source_note": "where available",
+        "fallback": "Where neither V4 nor V5 has run, the module works from the diagnostic owner duties matrix and the session covers more ground."
+      },
+      {
+        "key": "V9-I4",
+        "label": "V5 workflow maps, showing where the owner appears in each process",
+        "source": "From an earlier module",
+        "source_note": "where available"
+      },
+      {
+        "key": "V9-I5",
+        "label": "V7 business model shape",
+        "source": "From an earlier module",
+        "source_note": "where available"
+      },
+      {
+        "key": "V9-I6",
+        "label": "List of key relationships: customers, suppliers, bank, landlord, insurer, accountant",
+        "source": "Advisor to upload"
+      }
+    ],
+    "preparation_summary": {
+      "owner": "Advisor",
+      "duration": "45 to 60 minutes"
+    },
     "preparation_checklist": [
       {
-        "key": "list-owner-tasks",
-        "text": "PLACEHOLDER: List tasks only the owner currently does"
+        "key": "review-duties-matrix",
+        "text": "Review the diagnostic owner duties matrix and the dependency responses."
+      },
+      {
+        "key": "mark-owner-in-workflows",
+        "text": "Where V5 has run, work through the workflow maps and mark every point the owner appears. This is usually more revealing than anything the owner reports, because they stop noticing."
+      },
+      {
+        "key": "review-v4-role-moves",
+        "text": "Where V4 has run, review what was moved off the owner's role and what stayed, and why."
+      },
+      {
+        "key": "load-into-independence-tool",
+        "text": "Load everything into the independence tool, which drafts the Owner Dependency Map across knowledge, relationships and decisions, and flags where the business has no cover."
+      },
+      {
+        "key": "bring-draft-to-session",
+        "text": "Bring the draft to the session for the owner to correct and expand."
+      }
+    ],
+    "sessions": [
+      {
+        "key": "V9-S1",
+        "title": "Owner Independence Workshop",
+        "duration": "Target 90 to 115 minutes",
+        "format": "In person or online",
+        "agenda": [
+          {
+            "key": "V9-S1-A1",
+            "title": "Frame the session",
+            "duration": "5 minutes",
+            "detail": "This is about what would happen without them, not about how hard they work. Owners can hear this as criticism, so be explicit that dependency is normal, expected, and the direct result of having built the thing."
+          },
+          {
+            "key": "V9-S1-A2",
+            "title": "The dependency map",
+            "duration": "30 to 35 minutes",
+            "detail": "Work through the draft across three categories. Tasks were covered in V4 and are not revisited.",
+            "options": [
+              {
+                "key": "knowledge",
+                "term": "Knowledge",
+                "definition": "What does the owner know that nobody else does? Pricing judgement, supplier history, why things are done a certain way, which customers are difficult, what went wrong last time."
+              },
+              {
+                "key": "relationships",
+                "term": "Relationships",
+                "definition": "Which relationships are personally theirs? Key customers, suppliers, the bank, the landlord, the accountant, the long-serving staff member who joined because of them."
+              },
+              {
+                "key": "decisions",
+                "term": "Decisions",
+                "definition": "What still comes to them? What is the largest decision anyone else makes alone? What are they unwilling to hand over, and why?"
+              }
+            ],
+            "questions": [
+              {
+                "items": [
+                  "What do people ring you about?",
+                  "What question gets asked when you are on holiday?",
+                  "Which customer would ask for you by name?",
+                  "What would someone have to learn to do your job, that is not written down anywhere?"
+                ]
+              }
+            ]
+          },
+          {
+            "key": "V9-S1-A3",
+            "title": "The absence test",
+            "duration": "20 to 25 minutes",
+            "detail": "Three horizons, because each exposes something different.",
+            "options": [
+              {
+                "key": "two-weeks",
+                "term": "Two weeks away",
+                "definition": "What actually breaks? This exposes operational dependency, and most owners have some answer here."
+              },
+              {
+                "key": "three-months",
+                "term": "Three months, unplanned",
+                "definition": "Who makes the decisions? Who do the key customers deal with? What stops being done at all? This exposes decision and relationship dependency, and it is usually where the conversation gets uncomfortable."
+              },
+              {
+                "key": "permanently",
+                "term": "Permanently",
+                "definition": "Could someone buy this business and run it? What would they be buying if the owner did not come with it? This is the transferability question and it is the one that sets the value."
+              }
+            ]
+          },
+          {
+            "key": "V9-S1-A4",
+            "title": "Cover and succession",
+            "duration": "20 to 25 minutes",
+            "detail": "Identify who could hold the business together in an unplanned absence, what they would need in order to do it, and what is missing today.",
+            "note": "Where there is no internal candidate, that is the finding. Do not invent one. The action becomes either developing someone, which links to V4, or establishing external cover.\n\nPlanned succession and exit are a separate conversation and are referred, not run here."
+          },
+          {
+            "key": "V9-S1-A5",
+            "title": "Independence plan",
+            "duration": "15 to 20 minutes",
+            "detail": "Three to five actions, sequenced and realistic. Each should name what is being transferred, to whom, and by when.",
+            "note": "Relationship transfer is slow and cannot be rushed, so start it first. Documenting knowledge is faster but is usually the thing that never gets done, so it needs a date and an owner rather than good intentions.\n\nWhere reducing dependency requires hiring, cost it and pass it to V1 rather than agreeing to it in isolation."
+          },
+          {
+            "key": "V9-S1-A6",
+            "title": "Close",
+            "duration": "5 minutes",
+            "detail": "Confirm the first relationship being shared and the first piece of knowledge being written down."
+          }
+        ]
       }
     ],
     "recommended_tools": [
       {
-        "tool_key": "bba",
-        "label": "Recommendations Report Builder"
+        "tool_key": "owner_independence",
+        "label": "Owner Independence tool",
+        "when": "pre, post",
+        "status": "To build, Feature 3"
       }
     ],
     "deliverables": [
       {
         "key": "V9-D1",
-        "title": "PLACEHOLDER: Owner Independence Plan",
-        "is_mandatory": true
+        "title": "Owner Dependency Map",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V10"
+        ]
+      },
+      {
+        "key": "V9-D2",
+        "title": "Continuity Position",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V11"
+        ]
+      },
+      {
+        "key": "V9-D3",
+        "title": "Independence Plan",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V4",
+          "V10"
+        ]
       }
+    ],
+    "post_session_actions": {
+      "owner": "Advisor",
+      "duration": "45 to 60 minutes",
+      "items": [
+        "Finalise the map, continuity position and plan, then issue them.",
+        "Where no internal cover exists, record it as a continuity risk and pass it to V11.",
+        "Where dependency reduction needs a hire or a capability build, cost it and pass it to V1 and V4.",
+        "Refer planned succession, ownership transfer or sale to the appropriate BBA service or external specialist.",
+        "Record the transferability position for V10, since it is a primary driver of enterprise value."
+      ]
+    },
+    "guardrails": {
+      "must_not": [
+        "draft wills, powers of attorney or any succession legal document",
+        "advise on tax or structuring for ownership transfer",
+        "mediate family succession disputes",
+        "appraise the business or advise on sale price within this module",
+        "act as the owner's cover themselves"
+      ],
+      "note": "Succession planning, exit and sale are separate engagements. This module establishes the dependency position and reduces it. It does not plan the exit.\n\nThese are boundaries of profession, not boundaries of module. Where V9 surfaces an issue whose home module is elsewhere, the advisor addresses it and records the output against that module."
+    },
+    "quality_standards": [
+      "Every relationship held personally by the owner is named, not summarised.",
+      "At least one relationship has a plan and a date to be shared.",
+      "At least one piece of owner-held knowledge has a documentation owner and a date.",
+      "The continuity position works if the owner is unavailable tomorrow, not in five years.",
+      "Where no internal successor exists, that was recorded rather than invented.",
+      "Actions requiring money were costed, not assumed."
     ]
   },
   {

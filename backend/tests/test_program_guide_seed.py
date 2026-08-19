@@ -903,6 +903,55 @@ class TestModuleNameAliases:
         assert [d["key"] for d in v5["deliverables"]] == ["V5-D1", "V5-D2", "V5-D3", "V5-D4"]
         assert all(d["is_mandatory"] for d in v5["deliverables"])
 
+    def test_v6_is_transcribed_from_part_g(self):
+        """
+        V6 needed no schema change at all - the first part for which the answer
+        was simply to transcribe it. It is also the first module with an agenda
+        item carrying questions but no detail.
+        """
+        with open(DEFAULT_FIXTURE, "r", encoding="utf-8") as f:
+            v6 = next(m for m in json.load(f) if m["module_code"] == "V6")
+
+        assert "PLACEHOLDER" not in json.dumps(v6), "V6 still contains placeholder text"
+
+        by_key = {d["key"]: d for d in v6["deliverables"]}
+        assert list(by_key) == ["V6-D1", "V6-D2", "V6-D3", "V6-D4", "V6-D5", "V6-D6"]
+        assert not by_key["V6-D6"]["is_mandatory"]
+        assert all(by_key[k]["is_mandatory"] for k in by_key if k != "V6-D6")
+        assert by_key["V6-D3"]["produced_by_note"] == "advisor-selected"
+
+        vendor = next(n for n in v6["notes"] if n["key"] == "vendor-liaison")
+        assert vendor["title"] == "Vendor liaison and implementation project management"
+        assert vendor["section"] == "guardrails"
+
+        manual_work = next(a for a in v6["sessions"][0]["agenda"] if a["key"] == "V6-S1-A5")
+        assert manual_work["questions"], "agenda item 5 carries questions"
+        assert "detail" not in manual_work, "and deliberately has no detail - detail is optional"
+
+        v5_input = next(i for i in v6["required_inputs"] if i["key"] == "V6-I2")
+        assert "run V5 first" in v5_input["fallback"]
+        assert "high level only" in v5_input["fallback"]
+
+    def test_feeds_may_point_backwards(self):
+        """
+        `feeds` is a dependency graph, not a sequence. V6-D5 feeds V1 and V6-D3
+        feeds V5, while V5 feeds V6 - a genuine two-way edge. Pinned here so a
+        later "feeds must point forward" assumption fails against real content
+        rather than shipping.
+        """
+        with open(DEFAULT_FIXTURE, "r", encoding="utf-8") as f:
+            fixture = json.load(f)
+
+        order = {m["module_code"]: m["display_order"] for m in fixture}
+        backward = [
+            (m["module_code"], d["key"], target)
+            for m in fixture
+            for d in m.get("deliverables") or []
+            for target in d.get("feeds") or []
+            if order[target] < order[m["module_code"]]
+        ]
+        assert backward, "expected at least one backward feed; V6-D5 feeds V1"
+
     def test_no_module_still_uses_the_pre_grouping_question_shape(self):
         """Every agenda item's questions are groups, not bare strings."""
         with open(DEFAULT_FIXTURE, "r", encoding="utf-8") as f:

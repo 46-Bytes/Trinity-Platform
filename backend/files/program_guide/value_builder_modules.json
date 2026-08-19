@@ -1404,25 +1404,274 @@
     "module_code": "V6",
     "display_order": 6,
     "title": "Technology",
-    "purpose": "PLACEHOLDER: Assess the business's technology stack and identify improvement opportunities.",
+    "focus": "Technology that supports how the business actually works, rather than getting in its way.",
+    "purpose": "V6 simplifies the technology environment and aligns it to the way work actually flows. It clarifies what each system is for, finds duplication and subscription waste, and identifies where manual effort exists because the technology does not handle it.\n\nThis is a strategic alignment module. Advisors do not perform IT consulting, configuration or vendor work. The output is a clear roadmap the client implements with their own providers.",
+    "core_outcomes": [
+      "Every system in use is documented, with its purpose and its users.",
+      "Duplication, redundancy and subscription waste are identified.",
+      "A simple conceptual future stack is agreed, defining what each system is for.",
+      "Manual work caused by technology gaps is documented.",
+      "A short improvement plan is agreed, with ownership and any vendor support required."
+    ],
+    "notes": [
+      {
+        "key": "how-module-runs",
+        "section": "sessions",
+        "title": "How this module runs",
+        "text": "The workshop is short, but the improvement plan runs 30 to 60 days and is implemented by the client and their vendors. That work sits in the background while you start the next module with the client."
+      },
+      {
+        "key": "single-spreadsheet-request",
+        "section": "required_inputs",
+        "text": "Request this a week before the session, as a single spreadsheet with everything on it. Scattered lists, screenshots and part-answers make the pre-session analysis worthless. Ask for the charges from the accounts as well as the client's own list, because clients routinely forget what they are paying for and the gap between the two lists is often the finding."
+      },
+      {
+        "key": "structure-not-answers",
+        "section": "preparation",
+        "text": "Trinity provides structure at this stage, not answers. The insight comes from the workshop, and the analysis comes afterwards."
+      },
+      {
+        "key": "tool-two-phase",
+        "section": "recommended_tools",
+        "text": "Before the session it categorises the systems, drafts the current stack map, flags category overlaps, prepares non-technical talking points, and produces the pre-filled Technology Alignment Worksheet the advisor works through in the session.\n\nAfter the session it analyses the stack, the workflows and the captured pain points and manual steps, then generates integration opportunities, automation opportunities and simplification suggestions. The advisor reviews and selects what is useful.\n\nThe analytical work sits after the workshop, not before it. Advisors should not expect the tool to supply answers during preparation."
+      },
+      {
+        "key": "subscription-waste-audit",
+        "section": "deliverables",
+        "text": "The Subscription Waste Audit lists every subscription being paid for with its annual cost, identifying what is unused, duplicated, over-licensed (paying for more seats than are used) or forgotten, with a cancel, downgrade or consolidate recommendation against each and a total annual saving. The charges are already being supplied as pre-work, so the audit costs little to produce and gives the client a hard number early."
+      },
+      {
+        "key": "vendor-liaison",
+        "section": "guardrails",
+        "title": "Vendor liaison and implementation project management",
+        "text": "BBA provides these services, and advisors frequently act as in-house project manager for a client's technology implementation. That work sits outside this module and is scoped and engaged separately. Within V6 the advisor produces the roadmap. Delivering it is a separate engagement."
+      }
+    ],
+    "required_inputs": [
+      {
+        "key": "V6-I1",
+        "label": "Single spreadsheet listing every system and subscription in use, with the corresponding charges from the accounts",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V6-I2",
+        "label": "V5 process documents: workflow maps, Friction & Handling Map",
+        "source": "From an earlier module",
+        "source_note": "where available",
+        "fallback": "Aligning technology to workflows requires the workflows to be mapped. Either run V5 first and pause V6 until the process work is done, which is the better outcome, or proceed with step 3 covering work flow at a high level only. Make the choice deliberately with the client rather than defaulting to the shallower version."
+      },
+      {
+        "key": "V6-I3",
+        "label": "Diagnostic report, V6 module assessment",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V6-I4",
+        "label": "Diagnostic technology responses: tech stack, system sync, IT support access, self-rating against competitors, automation tools, ERP use and effectiveness, connected stores and warehousing, ecommerce and marketplace channels, CRM and customer data use",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V6-I5",
+        "label": "V4 Org Structure and Role Clarity Map",
+        "source": "From an earlier module",
+        "source_note": "where available"
+      },
+      {
+        "key": "V6-I6",
+        "label": "Notes on technology frustrations and workarounds",
+        "source": "Advisor to upload"
+      }
+    ],
+    "preparation_summary": {
+      "owner": "Advisor",
+      "duration": "30 to 45 minutes"
+    },
     "preparation_checklist": [
       {
-        "key": "list-tech-stack",
-        "text": "PLACEHOLDER: List the current technology stack"
+        "key": "request-spreadsheet",
+        "text": "Request the system and subscription spreadsheet a week before the session."
+      },
+      {
+        "key": "load-into-technology-tool",
+        "text": "Load it into the technology tool along with any V5 process documents. It categorises the systems, produces a draft current stack map, flags category overlaps such as two systems doing the same job, and prepares non-technical talking points."
+      },
+      {
+        "key": "bring-alignment-worksheet",
+        "text": "The tool also produces a pre-filled Technology Alignment Worksheet in Excel, populated with the system inventory, the workflow alignment questions and the known frustrations. The advisor brings this to the session and works through it live."
+      },
+      {
+        "key": "list-known-frustrations",
+        "text": "List the technology frustrations already raised by the owner or the team in earlier work, and put them into the worksheet. The client validates and expands the list in the session rather than being asked to recall them cold."
+      }
+    ],
+    "sessions": [
+      {
+        "key": "V6-S1",
+        "title": "Technology Alignment Workshop",
+        "duration": "Target 60 to 90 minutes",
+        "format": "In person or online",
+        "agenda": [
+          {
+            "key": "V6-S1-A1",
+            "title": "Frame the session",
+            "duration": "5 minutes",
+            "detail": "The goal is clarity and simplification. No configuration, vendor selection or technical work happens here. The output is a roadmap the client implements with their own providers."
+          },
+          {
+            "key": "V6-S1-A2",
+            "title": "Review the current stack",
+            "duration": "15 to 20 minutes",
+            "detail": "For each system: what it is used for, who uses it, how often, what works, what frustrates people, and whether anything else does the same job.",
+            "note": "Understand what exists. Do not solve technical problems."
+          },
+          {
+            "key": "V6-S1-A3",
+            "title": "Compare technology to how work flows",
+            "duration": "15 to 20 minutes",
+            "detail": "Work through the pre-filled Technology Alignment Worksheet. Start with the known frustrations already listed and have the client validate and expand them, then move to alignment.",
+            "questions": [
+              {
+                "items": [
+                  "Does this system support how the work actually flows?",
+                  "Where do people enter the same information twice?",
+                  "Where are people unsure which system to use?",
+                  "Where does information get lost or re-keyed?",
+                  "Where do you step in because the system will not handle it?"
+                ]
+              }
+            ],
+            "note": "Capture misalignment only. Do not propose solutions."
+          },
+          {
+            "key": "V6-S1-A4",
+            "title": "Design the future stack",
+            "duration": "15 to 20 minutes",
+            "detail": "Conceptual only. Which systems are core, which may be redundant, where consolidation is possible, and what each system should be responsible for.",
+            "note": "Statements should look like one CRM as the single source of truth, or the job system manages delivery and the CRM manages leads. No vendor names, no configuration, no technical detail."
+          },
+          {
+            "key": "V6-S1-A5",
+            "title": "Manual work and pain points",
+            "duration": "15 to 20 minutes",
+            "questions": [
+              {
+                "items": [
+                  "Where are you doing repetitive manual work?",
+                  "Where is the same information entered more than once?",
+                  "Which follow-ups or reminders are easy to forget?",
+                  "Where do tasks get delayed or missed?",
+                  "Where do you step in because the system does not do it?"
+                ]
+              }
+            ],
+            "note": "Document the pain points thoroughly. The advisor does not identify integrations or automations. Trinity produces those after the session from the stack, the workflows and these pain points."
+          },
+          {
+            "key": "V6-S1-A6",
+            "title": "Improvement priorities",
+            "duration": "10 to 15 minutes",
+            "detail": "Agree which problems matter most, who owns each change, what vendor support will be needed and the rough timeframe. The full plan is finalised after the session, once the opportunities list has been generated.",
+            "note": "Be explicit with the client: implementation belongs to them and their vendors. The advisor's role is clarity, not configuration."
+          },
+          {
+            "key": "V6-S1-A7",
+            "title": "Close",
+            "duration": "5 minutes",
+            "detail": "Confirm the first change and its owner."
+          }
+        ]
       }
     ],
     "recommended_tools": [
       {
-        "tool_key": "bba",
-        "label": "Recommendations Report Builder"
+        "tool_key": "technology_stack_automation",
+        "label": "Technology Stack & Automation tool",
+        "when": "pre, post",
+        "status": "To build, Feature 3"
       }
     ],
     "deliverables": [
       {
         "key": "V6-D1",
-        "title": "PLACEHOLDER: Technology Improvement Plan",
-        "is_mandatory": true
+        "title": "Current Tech Stack Map",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V7"
+        ]
+      },
+      {
+        "key": "V6-D2",
+        "title": "Future Tech Stack Map, conceptual",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V7"
+        ]
+      },
+      {
+        "key": "V6-D3",
+        "title": "Integration & Automation Opportunities",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-selected",
+        "feeds": [
+          "V5",
+          "V9"
+        ]
+      },
+      {
+        "key": "V6-D4",
+        "title": "Technology Improvement Plan, 30 to 60 days",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined"
+      },
+      {
+        "key": "V6-D5",
+        "title": "Subscription Waste Audit",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V1"
+        ]
+      },
+      {
+        "key": "V6-D6",
+        "title": "AI Readiness Snapshot",
+        "is_mandatory": false,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined"
       }
+    ],
+    "post_session_actions": {
+      "owner": "Advisor",
+      "duration": "45 to 60 minutes",
+      "items": [
+        "Run the analysis and review the generated integration, automation and simplification suggestions. Select what is genuinely useful and discard the rest.",
+        "Finalise the stack maps and the improvement plan, then issue them.",
+        "Where subscription waste was found, quantify the annual saving and pass it to V1.",
+        "Note any pain point that is a process problem rather than a technology problem, as evidence for V5."
+      ]
+    },
+    "guardrails": {
+      "must_not": [
+        "configure systems or build automations",
+        "migrate data",
+        "provide security or infrastructure advice",
+        "recommend a specific vendor without disclosing any commercial relationship with them"
+      ],
+      "note": "Stay strategic, not technical, within the module itself. These are boundaries of profession, not boundaries of module. Where V6 surfaces an issue whose home module is elsewhere, the advisor addresses it and records the output against that module."
+    },
+    "quality_standards": [
+      "Every system in use is documented, including the ones nobody mentioned until the charges were checked.",
+      "The future stack is conceptual and names no vendors.",
+      "Manual work and duplication are documented specifically enough for the tool to work from.",
+      "The improvement plan is realistic, owned, and clear about what needs vendor support.",
+      "The client understands that implementation is theirs."
     ]
   },
   {

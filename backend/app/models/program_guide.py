@@ -61,10 +61,19 @@ class ProgramModuleContent(Base):
     notes = Column(
         JSONB,
         nullable=True,
-        comment="[{key, title, text, section}] prose that is not part of any list. `title` and `section` "
-                "are both optional and independent: a note may be titled or not, and attached to a named "
-                "section or to the module as a whole. Started as two columns until a note arrived that was "
-                "both titled AND section-attached, which neither could hold",
+        comment="[{key, title, text, items, section}] prose that is not part of any list. `title` and "
+                "`section` are both optional and independent: a note may be titled or not, and attached to "
+                "a named section or to the module as a whole. `items` carries a bulleted body. Started as "
+                "two columns until a note arrived that was both titled AND section-attached, which neither "
+                "could hold",
+    )
+    tables = Column(
+        JSONB,
+        nullable=True,
+        comment="[{key, title, intro, section, columns: [{key, label}], rows: [{key, label, cells: [text]}]}] "
+                "reference matrices the advisor reads, e.g. the four business model shapes against the "
+                "dimensions that vary by shape. Cells align to columns by index, so every row carries "
+                "exactly as many cells as there are columns",
     )
 
     guardrails = Column(
@@ -122,6 +131,7 @@ class ProgramModuleContent(Base):
             "between_sessions": self.between_sessions,
             "post_session_actions": self.post_session_actions,
             "notes": self.notes,
+            "tables": self.tables,
             "guardrails": self.guardrails,
             "quality_standards": self.quality_standards,
             "recommended_tools": self.recommended_tools,

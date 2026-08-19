@@ -66,7 +66,15 @@ class ProgramModuleDeliverable(Base):
         JSONB,
         nullable=True,
         comment="[module_code, ...] later modules that consume this deliverable. The reason the spec's "
-                "deliverable ids are stable: these are cross-references between modules, not display text.",
+                "deliverable ids are stable: these are cross-references between modules, not display text. "
+                "May point backwards - it is a dependency graph, not a sequence.",
+    )
+    session = Column(
+        String(50),
+        nullable=True,
+        comment="Which session of a multi-session module produces this, e.g. '1', '3'. Free text rather "
+                "than a reference to a session key, because the spec also uses 'pre-1' and '2 or 3', "
+                "neither of which is a session",
     )
 
     display_order = Column(Integer, nullable=False, comment="Author-defined sequence within (program_type, module_code)")
@@ -92,6 +100,7 @@ class ProgramModuleDeliverable(Base):
             "produced_by": self.produced_by,
             "produced_by_note": self.produced_by_note,
             "feeds": self.feeds,
+            "session": self.session,
             "display_order": self.display_order,
             "is_active": self.is_active,
         }

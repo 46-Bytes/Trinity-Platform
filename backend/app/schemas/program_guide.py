@@ -25,6 +25,7 @@ class ProgramModuleContentItem(BaseModel):
     guardrails: Optional[Dict[str, Any]] = None
     quality_standards: Optional[List[str]] = None
     notes: Optional[List[Dict[str, Any]]] = None
+    tables: Optional[List[Dict[str, Any]]] = None
     recommended_tools: Optional[List[Dict[str, Any]]] = None
     required_inputs: Optional[List[Dict[str, Any]]] = None
     # Display-only labels, derived by the seed script from the preset titles.

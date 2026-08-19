@@ -68,6 +68,9 @@ VALID_NOTE_SECTIONS = {
     "post_session_actions",
     "guardrails",
     "quality_standards",
+    # A card section that is neither a list field nor prose: a reference matrix
+    # plus the notes explaining how to read it.
+    "business_model_shape",
 }
 
 # Card sections copied straight through to the row. Listed once so adding a
@@ -86,6 +89,7 @@ _PASSTHROUGH_FIELDS = (
     "recommended_tools",
     "required_inputs",
     "notes",
+    "tables",
 )
 
 
@@ -316,6 +320,78 @@ def _check_notes(problems, where, notes) -> None:
         if section is not None and section not in VALID_NOTE_SECTIONS:
             problems.append(f"{at} section {section!r} not in {sorted(VALID_NOTE_SECTIONS)}")
 
+        # Some notes carry a bulleted body rather than prose.
+        _check_text_list(problems, at, "items", note.get("items"))
+
+
+def _check_tables(problems, where, tables) -> None:
+    """
+    Reference matrices, e.g. four business model shapes against the dimensions
+    that vary by shape.
+
+    Cells align to columns by index, so a row carrying the wrong number of cells
+    would render misaligned against its headings - silently, and only visibly
+    wrong to someone who knows the source. That is the check worth having here.
+    """
+    if tables is None:
+        return
+    if not isinstance(tables, list):
+        problems.append(f"{where}: tables must be a list")
+        return
+
+    seen = set()
+    for i, table in enumerate(tables):
+        at = f"{where}: tables[{i}]"
+        if not isinstance(table, dict):
+            problems.append(f"{at} must be an object")
+            continue
+
+        key = table.get("key")
+        if not key:
+            problems.append(f"{at} missing 'key'")
+        elif key in seen:
+            problems.append(f"{at} duplicate table key {key!r}")
+        else:
+            seen.add(key)
+
+        if not table.get("title"):
+            problems.append(f"{at} missing 'title'")
+
+        section = table.get("section")
+        if section is not None and section not in VALID_NOTE_SECTIONS:
+            problems.append(f"{at} section {section!r} not in {sorted(VALID_NOTE_SECTIONS)}")
+
+        columns = table.get("columns")
+        if not columns or not isinstance(columns, list):
+            problems.append(f"{at} missing 'columns'")
+            continue
+        for j, column in enumerate(columns):
+            if not isinstance(column, dict) or not column.get("key") or not column.get("label"):
+                problems.append(f"{at}.columns[{j}] needs a key and a label")
+
+        rows = table.get("rows")
+        if not rows or not isinstance(rows, list):
+            problems.append(f"{at} missing 'rows'")
+            continue
+        for j, row in enumerate(rows):
+            spot = f"{at}.rows[{j}]"
+            if not isinstance(row, dict):
+                problems.append(f"{spot} must be an object")
+                continue
+            if not row.get("key"):
+                problems.append(f"{spot} missing 'key'")
+            if not row.get("label"):
+                problems.append(f"{spot} missing 'label'")
+            cells = row.get("cells")
+            if not isinstance(cells, list):
+                problems.append(f"{spot} missing 'cells'")
+            elif len(cells) != len(columns):
+                problems.append(
+                    f"{spot} has {len(cells)} cells for {len(columns)} columns"
+                )
+            else:
+                _check_text_list(problems, spot, "cells", cells)
+
 
 def _check_guardrails(problems, where, guardrails) -> None:
     if guardrails is None:
@@ -397,6 +473,7 @@ def validate_fixture(modules) -> None:
             problems, where, "post_session_actions", entry.get("post_session_actions"), require_items=True
         )
         _check_notes(problems, where, entry.get("notes"))
+        _check_tables(problems, where, entry.get("tables"))
         _check_preparation_checklist(problems, where, entry.get("preparation_checklist"))
         _check_sessions(problems, where, entry.get("sessions"))
         _check_guardrails(problems, where, entry.get("guardrails"))
@@ -517,6 +594,7 @@ def _sync_deliverables(db, entry) -> dict:
             produced_by=item.get("produced_by"),
             produced_by_note=item.get("produced_by_note"),
             feeds=item.get("feeds"),
+            session=item.get("session"),
             # Position in the fixture array IS the order, so reordering the
             # array reorders the card with no renumbering by hand.
             display_order=position,

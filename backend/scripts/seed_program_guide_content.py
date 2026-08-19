@@ -126,6 +126,73 @@ def _check_owner_duration(problems, where, field, value, require_items=False) ->
         _check_text_list(problems, where, f"{field}.items", value.get("items"))
 
 
+def _check_questions(problems, where, questions) -> None:
+    """
+    An agenda item's prompt script, as a list of groups.
+
+    Groups may be labelled ("Pain points", "Manual handling and duplication")
+    or not. This started as a flat list of strings plus a single
+    `questions_intro`; that intro was only ever the label for the one group, so
+    when a module arrived with three labelled sets it was absorbed here rather
+    than kept alongside.
+    """
+    if questions is None:
+        return
+    if not isinstance(questions, list):
+        problems.append(f"{where}: questions must be a list of groups")
+        return
+
+    for i, group in enumerate(questions):
+        at = f"{where}: questions[{i}]"
+        if not isinstance(group, dict):
+            problems.append(
+                f"{at} must be an object with items - a bare string is the pre-grouping shape"
+            )
+            continue
+        label = group.get("label")
+        if label is not None and (not isinstance(label, str) or not label.strip()):
+            problems.append(f"{at} 'label' must be a non-empty string when present")
+        if not group.get("items"):
+            problems.append(f"{at} missing 'items'")
+        _check_text_list(problems, at, "items", group.get("items"))
+
+
+def _check_preparation_checklist(problems, where, checklist) -> None:
+    """
+    The advisor's tick-off list.
+
+    `key` matters more than it looks: engagement_module_checklist_item.
+    checklist_item_key matches it, so a duplicate or missing key silently
+    breaks per-engagement tick-off state. This went unvalidated until the
+    entries grew structure.
+    """
+    if checklist is None:
+        return
+    if not isinstance(checklist, list):
+        problems.append(f"{where}: preparation_checklist must be a list")
+        return
+
+    seen = set()
+    for i, item in enumerate(checklist):
+        at = f"{where}: preparation_checklist[{i}]"
+        if not isinstance(item, dict):
+            problems.append(f"{at} must be an object")
+            continue
+        key = item.get("key")
+        if not key:
+            problems.append(f"{at} missing 'key'")
+        elif key in seen:
+            problems.append(f"{at} duplicate checklist key {key!r}")
+        else:
+            seen.add(key)
+        if not item.get("text"):
+            problems.append(f"{at} missing 'text'")
+        title = item.get("title")
+        if title is not None and (not isinstance(title, str) or not title.strip()):
+            problems.append(f"{at} 'title' must be a non-empty string when present")
+        _check_text_list(problems, at, "items", item.get("items"))
+
+
 def _check_options(problems, where, options) -> None:
     """
     A named choice set inside an agenda item, e.g. testing every task against
@@ -202,7 +269,7 @@ def _check_sessions(problems, where, sessions) -> None:
                 seen_agenda.add(item_key)
             if not item.get("title"):
                 problems.append(f"{spot} missing 'title'")
-            _check_text_list(problems, spot, "questions", item.get("questions"))
+            _check_questions(problems, spot, item.get("questions"))
             _check_options(problems, spot, item.get("options"))
 
 
@@ -330,6 +397,7 @@ def validate_fixture(modules) -> None:
             problems, where, "post_session_actions", entry.get("post_session_actions"), require_items=True
         )
         _check_notes(problems, where, entry.get("notes"))
+        _check_preparation_checklist(problems, where, entry.get("preparation_checklist"))
         _check_sessions(problems, where, entry.get("sessions"))
         _check_guardrails(problems, where, entry.get("guardrails"))
         _check_tools(problems, where, entry.get("recommended_tools"))

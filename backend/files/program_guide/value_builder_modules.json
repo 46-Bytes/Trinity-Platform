@@ -2374,25 +2374,259 @@
     "module_code": "V8",
     "display_order": 8,
     "title": "Brand, IP & Protection",
-    "purpose": "PLACEHOLDER: Clarify what makes the business defensible and differentiated.",
+    "focus": "What the business owns, what protects it, and whether it can be copied.",
+    "purpose": "V8 establishes what the business actually owns and could transfer, whether its advantage is protected, and how consistently it presents itself.\n\nThe advantage itself is identified in V2 and communicated through V7. V8 does not re-examine what it is. It asks only whether anything protects it, and whether it would survive a change of owner.\n\nUnprotected intangibles suppress value and create risk. Assets the business does not legally own cannot be sold with it.",
+    "core_outcomes": [
+      "Every brand and digital asset is identified, with ownership confirmed or a gap recorded.",
+      "The stated competitive advantage is checked for whether anything actually protects it.",
+      "Brand consistency gaps are identified.",
+      "A protection and strengthening plan is agreed, separating what needs a lawyer from what the business can do itself."
+    ],
+    "notes": [
+      {
+        "key": "before-you-start",
+        "title": "Before you start",
+        "text": "V8 takes the competitive advantage as already identified. Normally that comes from V2's Strategic Business Plan, and where V2 has not run, from the diagnostic free-text responses on strongest advantage and barriers to entry. The module does not identify or debate the advantage. That work belongs to V2."
+      },
+      {
+        "key": "prepared-outside-in",
+        "section": "preparation",
+        "text": "This module is prepared from the outside in. Most of the value comes from what the advisor finds before the session, not from what the client reports."
+      },
+      {
+        "key": "tool-lookups-not-opinions",
+        "section": "recommended_tools",
+        "text": "Before the session it compiles the draft Brand & IP Asset Register from the external review and the diagnostic responses, and flags where ownership is unclear or unstated. After the session it produces the register and the plan.\n\nThe trademark and domain checks are lookups against live registers, not recall. Where the tool cannot perform the lookup, the advisor does it manually. The tool must never state whether a mark is registrable or available, which is a legal opinion."
+      },
+      {
+        "key": "plan-covers-what-protects",
+        "section": "deliverables",
+        "text": "The Protection & Strengthening Plan includes a short section on what currently protects the stated advantage, and what does not."
+      }
+    ],
+    "required_inputs": [
+      {
+        "key": "V8-I1",
+        "label": "Diagnostic responses on style guide, website, brand consistency, trademarks, digital asset ownership, proprietary methods, premises presentation, competitive advantage, barriers to entry and replication difficulty",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V8-I2",
+        "label": "Diagnostic SWOT, competitor and industry responses",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V8-I3",
+        "label": "Website address, social accounts, Google Business listing",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V8-I4",
+        "label": "Style guide and brand files, where any exist",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V8-I5",
+        "label": "Trademark and domain registration details, where known",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V8-I6",
+        "label": "V2 competitive analysis and SWOT",
+        "source": "From an earlier module",
+        "source_note": "where available",
+        "fallback": "Where V2 has not run, the competitive advantage comes from the diagnostic free-text responses on strongest advantage and barriers to entry. V8 does not identify or debate the advantage either way."
+      },
+      {
+        "key": "V8-I7",
+        "label": "V7 value proposition themes and positioning",
+        "source": "From an earlier module",
+        "source_note": "where available"
+      }
+    ],
+    "preparation_summary": {
+      "owner": "Advisor",
+      "duration": "45 to 60 minutes"
+    },
     "preparation_checklist": [
       {
-        "key": "list-ip-assets",
-        "text": "PLACEHOLDER: List brand and IP assets"
+        "key": "search-the-business-name",
+        "text": "Search the business name and see what actually comes up."
+      },
+      {
+        "key": "review-the-website",
+        "text": "Review the website: when it was last updated, whether it is consistent, and what claims it makes."
+      },
+      {
+        "key": "review-social-accounts",
+        "text": "Review the social accounts: activity, consistency, and whose name they appear to sit under."
+      },
+      {
+        "key": "check-google-listing",
+        "text": "Check the Google Business listing exists, is claimed, and is accurate."
+      },
+      {
+        "key": "check-trademark-register",
+        "text": "Check the trademark register for the business name and any trading names. This is a factual check on what is registered, not a legal clearance opinion."
+      },
+      {
+        "key": "look-up-domain-registrant",
+        "text": "Look up the domain registration and note the registrant."
+      },
+      {
+        "key": "load-into-brand-tool",
+        "text": "Load everything into the brand tool, which compiles the draft Brand & IP Asset Register and flags where ownership is unclear."
+      },
+      {
+        "key": "bring-draft-register",
+        "text": "Bring the draft register to the session. Confirming and correcting a list is faster and more revealing than asking an owner to recall what they own."
+      }
+    ],
+    "sessions": [
+      {
+        "key": "V8-S1",
+        "title": "Brand, IP & Protection Workshop",
+        "duration": "Target 85 to 100 minutes",
+        "format": "In person or online",
+        "agenda": [
+          {
+            "key": "V8-S1-A1",
+            "title": "Frame the session",
+            "duration": "5 minutes",
+            "detail": "This session covers what the business owns, whether it is protected, and how it presents. It does not revisit the strategy. Nothing here is a legal opinion."
+          },
+          {
+            "key": "V8-S1-A2",
+            "title": "Asset register and ownership",
+            "duration": "30 to 35 minutes",
+            "detail": "Walk the draft register. For every item, confirm what it is, who legally owns it, and who can access it.\n\nCover: business and trading names, domains, website, hosting, email, social accounts, Google Business listing, logos and brand files, photography, written content, customer lists and databases, proprietary methods, templates and tools, supplier agreements and exclusivity.",
+            "questions": [
+              {
+                "items": [
+                  "Whose name is the domain in?",
+                  "Who set up the Facebook page, and can you get into it?",
+                  "Who holds the original logo files?",
+                  "If your web developer disappeared tomorrow, what would you lose?",
+                  "Who has the passwords?"
+                ]
+              }
+            ],
+            "note": "Ownership gaps are the most common finding in this module and the most damaging. A domain registered to a web developer who has moved on, a social account under a former employee's personal login, a Google listing nobody can access, logo files that exist only on a designer's machine. Each is an operational risk now and a transaction problem later. Record every one."
+          },
+          {
+            "key": "V8-S1-A3",
+            "title": "What protects the advantage",
+            "duration": "15 minutes",
+            "detail": "Take the advantage as already stated in the strategy. Do not reopen what it is. Ask only what protects it and whether it survives a change of owner.",
+            "questions": [
+              {
+                "items": [
+                  "What stops a competitor doing this?",
+                  "Is any of it registered, contracted or documented?",
+                  "Does it live in a system, or in one person's head?",
+                  "If you sold tomorrow, would the buyer still have it?"
+                ]
+              }
+            ],
+            "note": "Where an advantage rests on something unprotected and undocumented, that is the finding and it becomes an action."
+          },
+          {
+            "key": "V8-S1-A4",
+            "title": "Brand consistency",
+            "duration": "15 to 20 minutes",
+            "detail": "Review how the business presents across every touchpoint: website, social, signage, vehicles, uniforms, quotes and invoices, email signatures, premises.",
+            "questions": [
+              {
+                "items": [
+                  "Does this look like one business?",
+                  "Where does it look like three?",
+                  "What has not been updated in years?",
+                  "What would a new customer see first?"
+                ]
+              }
+            ]
+          },
+          {
+            "key": "V8-S1-A5",
+            "title": "Protection and strengthening actions",
+            "duration": "15 to 20 minutes",
+            "detail": "Agree the actions, separated into three groups: ownership transfers the business can do itself, matters requiring a lawyer or trade marks attorney, and brand work requiring a designer."
+          },
+          {
+            "key": "V8-S1-A6",
+            "title": "Close",
+            "duration": "5 minutes",
+            "detail": "Confirm the first ownership gap being closed and who is closing it."
+          }
+        ]
       }
     ],
     "recommended_tools": [
       {
-        "tool_key": "bba",
-        "label": "Recommendations Report Builder"
+        "tool_key": "brand_ip_audit",
+        "label": "Brand & IP Audit tool",
+        "when": "pre, post",
+        "status": "To build, Feature 3"
       }
     ],
     "deliverables": [
       {
         "key": "V8-D1",
-        "title": "PLACEHOLDER: Competitive Advantage Summary",
-        "is_mandatory": true
+        "title": "Brand & IP Asset Register, with ownership status",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V10",
+          "V11"
+        ]
+      },
+      {
+        "key": "V8-D2",
+        "title": "Protection & Strengthening Plan",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V10"
+        ]
+      },
+      {
+        "key": "V8-D3",
+        "title": "Brand Consistency Review",
+        "is_mandatory": false,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V7"
+        ]
       }
+    ],
+    "post_session_actions": {
+      "owner": "Advisor",
+      "duration": "45 to 60 minutes",
+      "items": [
+        "Finalise the register, assessment and plan, then issue them.",
+        "Refer trademark registration, IP protection and any contractual matter to a trade marks attorney or commercial solicitor. Do not advise on them.",
+        "Where an asset is owned by a third party, make the transfer an action with a named owner and a date. These do not resolve themselves.",
+        "Pass unprotected or unowned assets to V11 as a risk item, and anything affecting durability of the advantage to V10 as a value driver."
+      ]
+    },
+    "guardrails": {
+      "must_not": [
+        "provide legal advice on trademarks, intellectual property or contracts",
+        "conduct a trademark clearance search, or advise on whether a mark is registrable",
+        "design logos, brand assets or marketing collateral",
+        "write website or marketing copy",
+        "place a value on the brand or intellectual property as a balance sheet item"
+      ],
+      "note": "The module identifies what exists, what is exposed and what should be done. Registration, legal protection and design work are referred.\n\nThese are boundaries of profession, not boundaries of module. Where V8 surfaces an issue whose home module is elsewhere, the advisor addresses it and records the output against that module."
+    },
+    "quality_standards": [
+      "Every domain, social account and digital asset has a confirmed owner, or is recorded as unresolved.",
+      "The stated advantage was checked for protection without being reopened or redebated.",
+      "The plan separates what needs a lawyer, what needs a designer, and what the business can do itself.",
+      "Nothing in the outputs reads as a legal opinion."
     ]
   },
   {

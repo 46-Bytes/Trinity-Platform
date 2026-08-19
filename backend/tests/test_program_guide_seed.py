@@ -18,6 +18,8 @@ holds.
 Run with: pytest tests/test_program_guide_seed.py -v
 """
 import json
+import pathlib
+import re
 import uuid
 
 import pytest
@@ -1058,6 +1060,28 @@ class TestModuleNameAliases:
         assert len(v7["notes"]) == 12
         assert any(n.get("items") for n in v7["notes"]), "some notes carry bulleted bodies"
 
+    def test_v8_is_transcribed_from_part_i(self):
+        """
+        V8 needed no schema change - every shape it uses already existed. Its
+        deliverables carry no `session`, which is the single-session case the
+        column is nullable for.
+        """
+        with open(DEFAULT_FIXTURE, "r", encoding="utf-8") as f:
+            v8 = next(m for m in json.load(f) if m["module_code"] == "V8")
+
+        assert "PLACEHOLDER" not in json.dumps(v8), "V8 still contains placeholder text"
+        assert v8["title"] == "Brand, IP & Protection", "renamed from Brand, IP & Competitive Advantage"
+
+        before = next(n for n in v8["notes"] if n["key"] == "before-you-start")
+        assert "belongs to V2" in before["text"], "V8 does not reopen the advantage"
+
+        by_key = {d["key"]: d for d in v8["deliverables"]}
+        assert list(by_key) == ["V8-D1", "V8-D2", "V8-D3"]
+        assert not by_key["V8-D3"]["is_mandatory"]
+        assert by_key["V8-D1"]["feeds"] == ["V10", "V11"]
+        assert by_key["V8-D3"]["feeds"] == ["V7"], "V8-D3 feeds backwards to V7"
+        assert not any("session" in d for d in v8["deliverables"]), "V8 runs one session"
+
     def test_feeds_may_point_backwards(self):
         """
         `feeds` is a dependency graph, not a sequence. V6-D5 feeds V1 and V6-D3
@@ -1091,6 +1115,37 @@ class TestModuleNameAliases:
                         assert isinstance(group, dict), (
                             f"{item['key']} still uses a flat question list"
                         )
+
+    def test_scoring_prompts_match_the_scoring_taxonomy(self):
+        """
+        The module list is held in two places - ScoringService and the prompts
+        the diagnostic sends to the model - and nothing compared them, so
+        renaming V4 and V8 in one left the other stale. Those prompts are loaded
+        at runtime by diagnostic_service for scoring AND report generation, so
+        the client's report named modules the Program Guide called something
+        else.
+
+        Scores were never at risk: the prompts key output by module code. It was
+        the report text that was wrong.
+        """
+        # DEFAULT_FIXTURE is files/program_guide/…, so parents[1] is files/.
+        prompts = pathlib.Path(DEFAULT_FIXTURE).parents[1] / "prompts" / "value-builder"
+        expected = {f"{code} {name}" for code, name in ScoringService.VALUE_BUILDER_MODULES.items()}
+
+        checked = 0
+        for path in sorted(prompts.glob("scoring_prompt*.md")):
+            text = path.read_text(encoding="utf-8")
+            listed = set(re.findall(r'"(V\d+ [^"]+)"', text))
+            if not listed:
+                continue
+            checked += 1
+            assert listed == expected, (
+                f"{path.name} module list disagrees with ScoringService.VALUE_BUILDER_MODULES: "
+                f"only in prompt {sorted(listed - expected)}, "
+                f"only in ScoringService {sorted(expected - listed)}"
+            )
+
+        assert checked == 3, f"expected 3 value-builder scoring prompts, found {checked}"
 
     def test_fixture_titles_match_the_scoring_taxonomy(self):
         """

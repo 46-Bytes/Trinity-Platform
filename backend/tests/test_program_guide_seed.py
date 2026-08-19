@@ -1135,6 +1135,68 @@ class TestModuleNameAliases:
             "V10 is terminal - no deliverable feeds another module"
         )
 
+    def test_v11_is_transcribed_from_part_l(self):
+        """
+        V11 is the last module and the smallest: two deliverables, both feeding
+        V10. Its "Boundary with V9" note is what keeps continuity from being
+        written twice.
+        """
+        with open(DEFAULT_FIXTURE, "r", encoding="utf-8") as f:
+            v11 = next(m for m in json.load(f) if m["module_code"] == "V11")
+
+        assert "PLACEHOLDER" not in json.dumps(v11), "V11 still contains placeholder text"
+
+        boundary = next(n for n in v11["notes"] if n["key"] == "boundary-with-v9")
+        assert boundary["title"] == "Boundary with V9"
+        assert "owner-specific continuity" in boundary["text"]
+
+        by_key = {d["key"]: d for d in v11["deliverables"]}
+        assert list(by_key) == ["V11-D1", "V11-D2"]
+        assert all(d["is_mandatory"] for d in v11["deliverables"])
+        assert all(d["feeds"] == ["V10"] for d in v11["deliverables"])
+
+    def test_only_v9_produces_a_continuity_deliverable(self):
+        """
+        Part J flagged that V9's Continuity Position might be duplicated by V11.
+        Part L resolved it: V9 owns owner-specific continuity, V11 owns business
+        continuity and produces no continuity document of its own. Pinned so a
+        later edit cannot reintroduce two deliverables that would each count
+        toward a different module's completion while describing the same work.
+        """
+        with open(DEFAULT_FIXTURE, "r", encoding="utf-8") as f:
+            fixture = json.load(f)
+
+        owners = {
+            m["module_code"]
+            for m in fixture
+            for d in m.get("deliverables") or []
+            if "continuity" in d["title"].lower()
+        }
+        assert owners == {"V9"}, f"continuity is owned by V9 alone, found {sorted(owners)}"
+
+    def test_every_working_module_carries_real_content(self):
+        """
+        V1-V11 are transcribed from specification Parts B-L. M0 and M12 are the
+        gateway and capstone, which those parts do not cover, so they remain on
+        placeholders until their own content arrives - stated here so the
+        remaining gap is explicit rather than assumed to be an oversight.
+        """
+        with open(DEFAULT_FIXTURE, "r", encoding="utf-8") as f:
+            fixture = json.load(f)
+
+        placeholders = {
+            m["module_code"] for m in fixture if "PLACEHOLDER" in json.dumps(m)
+        }
+        assert placeholders == {"M0", "M12"}, (
+            f"expected only the gateway and capstone to be unwritten, found {sorted(placeholders)}"
+        )
+
+        working = [m for m in fixture if m["module_code"].startswith("V")]
+        assert len(working) == 11
+        for module in working:
+            assert module.get("focus"), f"{module['module_code']} has no focus"
+            assert module.get("deliverables"), f"{module['module_code']} has no deliverables"
+
     def test_feeds_may_point_backwards(self):
         """
         `feeds` is a dependency graph, not a sequence. V6-D5 feeds V1 and V6-D3

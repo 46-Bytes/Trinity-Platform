@@ -3129,25 +3129,232 @@
     "module_code": "V11",
     "display_order": 11,
     "title": "Risk, Legal, Compliance & Property",
-    "purpose": "PLACEHOLDER: Identify and reduce legal, compliance, and property-related risk.",
+    "focus": "What could go wrong, what is not documented, and what nobody has looked at in years.",
+    "purpose": "V11 identifies and registers the legal, compliance, contractual and property exposures the business carries. Most of them are invisible day to day and surface only when something goes wrong or when someone tries to buy the business.\n\nThis module records and refers. It does not advise. The advisor cannot give legal, tax or insurance advice, and must not confirm that any compliance obligation has been met. The value is in finding the gaps, ranking them, and getting the right professional onto each.",
+    "core_outcomes": [
+      "A risk register exists, with severity, owner and next action against every item.",
+      "Agreement and documentation gaps are identified, including what is currently verbal.",
+      "Property and lease positions are recorded against the business's known plans.",
+      "Every item needing a professional has been referred to the right one."
+    ],
+    "notes": [
+      {
+        "key": "character-of-this-module",
+        "title": "Character of this module",
+        "text": "V11 differs from the others. Most of the answers already exist in the diagnostic and are matters of fact rather than judgement, so the session is validation and prioritisation, not discovery. It is the shortest module in the program and the least discursive, and that is correct.\n\nEverything here is self-reported unless a document was sighted. The advisor records what the client states and what the documents show. Nothing is confirmed as compliant on the advisor's assessment."
+      },
+      {
+        "key": "boundary-with-v9",
+        "title": "Boundary with V9",
+        "text": "V9 covers owner-specific continuity: what happens if the owner is absent, ill or gone. V11 covers business continuity more broadly: insurance, premises, supply, systems and data. Where V9 has identified that no cover exists for the owner's role, it appears in this register as a continuity risk rather than being reworked."
+      },
+      {
+        "key": "tool-records-does-not-assess",
+        "section": "recommended_tools",
+        "text": "Before the session it compiles the draft Risk Register and agreements gap list from the diagnostic, flags every item answered as unsure, and highlights lease expiries falling inside any stated plan. After the session it produces the register and the summary.\n\nThe tool must not state that an obligation is met, interpret a contract or lease, or assess whether insurance cover is adequate. It records status as reported and identifies gaps."
+      },
+      {
+        "key": "property-section-of-d2",
+        "section": "deliverables",
+        "text": "The Property section of D2 records each lease with expiry, options and intended position. It is brief where the business holds no property."
+      }
+    ],
+    "required_inputs": [
+      {
+        "key": "V11-I1",
+        "label": "Diagnostic legal and compliance responses: structure, shareholders and directors, licences, legal actions, regulatory obligations and correspondence, workplace incidents",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V11-I2",
+        "label": "Diagnostic tax and registration responses: tax returns, activity statements, payroll tax, ATO liabilities, Division 7A, PPSR, business registrations, insurance confirmation",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V11-I3",
+        "label": "Diagnostic agreement responses: shareholder agreements, supplier contracts, exclusivity, written customer agreements, contracts with key customers",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V11-I4",
+        "label": "Diagnostic property responses: owned and leased properties, the property detail matrix, upgrade requirements",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V11-I5",
+        "label": "Lease documents, where available",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V11-I6",
+        "label": "Insurance schedule",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V11-I7",
+        "label": "V8 Brand & IP Asset Register, for unowned or unprotected assets",
+        "source": "From an earlier module",
+        "source_note": "where available"
+      },
+      {
+        "key": "V11-I8",
+        "label": "V9 Continuity Position",
+        "source": "From an earlier module",
+        "source_note": "where available",
+        "fallback": "Where V9 has not run, business continuity is assessed here from the diagnostic alone. V9 owns owner-specific continuity; this register carries the broader position."
+      }
+    ],
+    "preparation_summary": {
+      "owner": "Advisor",
+      "duration": "30 to 45 minutes"
+    },
     "preparation_checklist": [
       {
-        "key": "review-contracts",
-        "text": "PLACEHOLDER: Review key contracts, leases, and compliance obligations"
+        "key": "load-into-risk-tool",
+        "text": "Load the diagnostic responses into the risk tool, which compiles the draft Risk Register and the agreements gap list."
+      },
+      {
+        "key": "read-property-matrix",
+        "text": "Read the property matrix carefully. Note every lease expiry, whether options exist, and what happens at expiry."
+      },
+      {
+        "key": "check-expiries-against-plans",
+        "text": "Check lease expiries against anything the business is planning. A lease expiring inside a sale window, an expansion, or a major investment decision is frequently the most urgent item in the whole engagement, and it is easy to read past."
+      },
+      {
+        "key": "note-not-sure-answers",
+        "text": "Note where the client answered \"not sure\" or left an item blank. Uncertainty is a finding."
+      },
+      {
+        "key": "pull-through-unowned-assets",
+        "text": "Where V8 has run, pull through any asset the business does not legally own."
+      }
+    ],
+    "sessions": [
+      {
+        "key": "V11-S1",
+        "title": "Risk & Compliance Review",
+        "duration": "Target 60 to 80 minutes",
+        "format": "In person or online",
+        "agenda": [
+          {
+            "key": "V11-S1-A1",
+            "title": "Frame the session",
+            "duration": "5 minutes",
+            "detail": "This session records exposures and gets the right people onto them. Nothing said here is legal, tax or insurance advice, and the advisor is not confirming that anything is compliant."
+          },
+          {
+            "key": "V11-S1-A2",
+            "title": "Validate the risk register",
+            "duration": "20 to 25 minutes",
+            "detail": "Walk the draft register. Confirm each item, correct what is wrong, and add what is missing.",
+            "note": "Give particular attention to anything the client marked as unsure. In the diagnostic, \"I'm not sure\" against a compliance question is a more serious finding than a plain \"no\", because nobody is watching it."
+          },
+          {
+            "key": "V11-S1-A3",
+            "title": "Agreements and documents",
+            "duration": "15 to 20 minutes",
+            "detail": "Establish what exists in writing, what is verbal, and what does not exist at all. Shareholder agreements, supplier contracts, customer agreements, exclusivity arrangements.",
+            "questions": [
+              {
+                "items": [
+                  "What is the arrangement with your biggest customer, and is any of it written down?",
+                  "If your co-director and you disagreed tomorrow, what document settles it?",
+                  "What have you agreed with suppliers that only exists in an email or a conversation?"
+                ]
+              }
+            ],
+            "note": "A business with two directors and no shareholder agreement is the most common serious gap in this module, and owners are routinely surprised it matters."
+          },
+          {
+            "key": "V11-S1-A4",
+            "title": "Property and leases",
+            "duration": "10 to 15 minutes",
+            "detail": "Confirm each lease: expiry, options, what happens at the end, and what the business intends to do. Test expiry against the plans.",
+            "questions": [
+              {
+                "items": [
+                  "Where do you expect to be when this expires?",
+                  "Does that work?",
+                  "What is your position if the landlord does not renew?"
+                ]
+              }
+            ]
+          },
+          {
+            "key": "V11-S1-A5",
+            "title": "Prioritise and refer",
+            "duration": "10 to 15 minutes",
+            "detail": "Rank the register. For each significant item, name the professional needed: commercial solicitor, accountant, insurance broker, or specialist.",
+            "note": "Separate what needs a professional from what the business can simply do, such as retrieving a document, checking a registration or filing something that exists but was never lodged."
+          },
+          {
+            "key": "V11-S1-A6",
+            "title": "Close",
+            "duration": "5 minutes",
+            "detail": "Confirm the first referral being made and by when."
+          }
+        ]
       }
     ],
     "recommended_tools": [
       {
-        "tool_key": "bba",
-        "label": "Recommendations Report Builder"
+        "tool_key": "risk_compliance",
+        "label": "Risk & Compliance tool",
+        "when": "pre, post",
+        "status": "To build, Feature 3"
       }
     ],
     "deliverables": [
       {
         "key": "V11-D1",
-        "title": "PLACEHOLDER: Risk & Compliance Summary",
-        "is_mandatory": true
+        "title": "Risk Register, with severity, owner, action and referral",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V10"
+        ]
+      },
+      {
+        "key": "V11-D2",
+        "title": "Agreements, Documents & Property Summary",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V10"
+        ]
       }
+    ],
+    "post_session_actions": {
+      "owner": "Advisor",
+      "duration": "30 to 45 minutes",
+      "items": [
+        "Finalise the register and summary, then issue them.",
+        "Make the referrals, or confirm the client is making them, and record which. An unactioned referral is the most common way this module quietly achieves nothing.",
+        "Pass unprotected or unowned assets back to V8, and any continuity gap to V9.",
+        "Record the risk position for V10, since unmanaged risk is a direct value detractor."
+      ]
+    },
+    "guardrails": {
+      "must_not": [
+        "provide legal advice of any kind",
+        "draft, review or interpret a contract, lease or agreement",
+        "provide tax advice",
+        "assess whether insurance cover is adequate or advise on cover levels",
+        "represent the client in a regulatory matter",
+        "confirm that a compliance obligation has been met"
+      ],
+      "note": "The module records what the client reports and what documents show, identifies gaps, and refers. Any statement that something is compliant, adequate or enforceable is outside the advisor's role and outside their insurance.\n\nThese are boundaries of profession, not boundaries of module. Where V11 surfaces an issue whose home module is elsewhere, the advisor addresses it and records the output against that module."
+    },
+    "quality_standards": [
+      "Every risk carries a severity, an owner and a next action.",
+      "Nothing was recorded as compliant on the advisor's own assessment.",
+      "Every \"not sure\" from the diagnostic was followed up or recorded as unresolved.",
+      "Lease expiries were tested against the business's stated plans.",
+      "Referrals name the type of professional required, not simply \"get advice\".",
+      "The client can distinguish what needs a professional from what they can do themselves."
     ]
   },
   {

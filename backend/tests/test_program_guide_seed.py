@@ -415,6 +415,48 @@ class TestDerivedLegacyColumn:
         item = ProgramModuleContentItem.model_validate(_card(db_session, program_type))
         assert item.sessions == sessions
 
+    def test_tables_round_trip(self, db_session, write_fixture, program_type):
+        tables = [{
+            "key": "business-model-shape",
+            "section": "business_model_shape",
+            "title": "Business model shape",
+            "intro": "Two independent axes: how many customers, and whether they buy again.",
+            "columns": [{"key": "volume", "label": "Volume"},
+                        {"key": "project", "label": "Project"}],
+            "rows": [{"key": "customers", "label": "Customers", "cells": ["Many", "Few"]},
+                     {"key": "risk", "label": "Biggest risk",
+                      "cells": ["Silent churn", "Pipeline gaps"]}],
+        }]
+        seed_from_file(write_fixture([_module(tables=tables, deliverables=[])]), db=db_session)
+
+        item = ProgramModuleContentItem.model_validate(_card(db_session, program_type))
+        assert item.tables == tables
+
+    def test_note_items_round_trip(self, db_session, write_fixture, program_type):
+        """Some notes carry a bulleted body rather than prose."""
+        notes = [{
+            "key": "how-module-runs", "section": "sessions", "title": "How this module runs",
+            "text": "V7 is the largest module in the program.",
+            "items": ["Three sessions.", "Work runs in the background between them."],
+        }]
+        seed_from_file(write_fixture([_module(notes=notes, deliverables=[])]), db=db_session)
+
+        item = ProgramModuleContentItem.model_validate(_card(db_session, program_type))
+        assert item.notes == notes
+
+    def test_deliverable_session_round_trips(self, db_session, write_fixture, program_type):
+        """
+        Free text, not a session key. The spec uses "pre-1" and "2 or 3",
+        neither of which names a session.
+        """
+        seed_from_file(write_fixture([_module(deliverables=[
+            _deliverable("V7-D1", session="pre-1"),
+            _deliverable("V7-D7", session="2 or 3"),
+        ])]), db=db_session)
+
+        rows = {r.deliverable_key: r.session for r in _presets(db_session, program_type)}
+        assert rows == {"V7-D1": "pre-1", "V7-D7": "2 or 3"}
+
     def test_preparation_checklist_structure_round_trips(self, db_session, write_fixture, program_type):
         checklist = [{
             "key": "send-pre-work-request",
@@ -638,6 +680,52 @@ class TestFixtureValidation:
                         {"key": "retain", "term": "Repeat", "definition": "b"},
                     ]},
                 ]}],
+            }])
+
+    def test_a_ragged_table_row_is_rejected(self):
+        """
+        Cells align to columns by index, so a row with the wrong count renders
+        misaligned against its headings - silently, and only visibly wrong to
+        someone who knows the source.
+        """
+        with pytest.raises(FixtureError, match="has 3 cells for 2 columns"):
+            validate_fixture([{
+                "program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
+                "deliverables": [],
+                "tables": [{
+                    "key": "t", "title": "T",
+                    "columns": [{"key": "a", "label": "A"}, {"key": "b", "label": "B"}],
+                    "rows": [{"key": "r", "label": "R", "cells": ["1", "2", "3"]}],
+                }],
+            }])
+
+    @pytest.mark.parametrize("table,expected", [
+        ({"title": "T", "columns": [{"key": "a", "label": "A"}],
+          "rows": [{"key": "r", "label": "R", "cells": ["1"]}]}, r"tables\[0\] missing 'key'"),
+        ({"key": "t", "columns": [{"key": "a", "label": "A"}],
+          "rows": [{"key": "r", "label": "R", "cells": ["1"]}]}, r"tables\[0\] missing 'title'"),
+        ({"key": "t", "title": "T",
+          "rows": [{"key": "r", "label": "R", "cells": ["1"]}]}, r"tables\[0\] missing 'columns'"),
+        ({"key": "t", "title": "T",
+          "columns": [{"key": "a", "label": "A"}]}, r"tables\[0\] missing 'rows'"),
+        ({"key": "t", "title": "T", "columns": [{"label": "No key"}],
+          "rows": [{"key": "r", "label": "R", "cells": ["1"]}]},
+         r"columns\[0\] needs a key and a label"),
+    ])
+    def test_malformed_tables_are_rejected(self, table, expected):
+        with pytest.raises(FixtureError, match=expected):
+            validate_fixture([{
+                "program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
+                "deliverables": [], "tables": [table],
+            }])
+
+    def test_duplicate_table_keys_are_rejected(self):
+        one = {"key": "t", "title": "One", "columns": [{"key": "a", "label": "A"}],
+               "rows": [{"key": "r", "label": "R", "cells": ["1"]}]}
+        with pytest.raises(FixtureError, match="duplicate table key"):
+            validate_fixture([{
+                "program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
+                "deliverables": [], "tables": [one, dict(one, title="Two")],
             }])
 
     def test_duplicate_checklist_keys_are_rejected(self):
@@ -931,6 +1019,44 @@ class TestModuleNameAliases:
         v5_input = next(i for i in v6["required_inputs"] if i["key"] == "V6-I2")
         assert "run V5 first" in v5_input["fallback"]
         assert "high level only" in v5_input["fallback"]
+
+    def test_v7_is_transcribed_from_part_h(self):
+        """
+        V7 is the largest module: three sessions, twenty agenda items, eight
+        deliverables mapped to sessions, twelve notes and a reference matrix.
+        """
+        with open(DEFAULT_FIXTURE, "r", encoding="utf-8") as f:
+            v7 = next(m for m in json.load(f) if m["module_code"] == "V7")
+
+        assert "PLACEHOLDER" not in json.dumps(v7), "V7 still contains placeholder text"
+
+        assert [s["key"] for s in v7["sessions"]] == ["V7-S1", "V7-S2", "V7-S3"]
+        assert sum(len(s["agenda"]) for s in v7["sessions"]) == 20
+
+        table = next(t for t in v7["tables"] if t["key"] == "business-model-shape")
+        assert [c["key"] for c in table["columns"]] == [
+            "volume", "transactional", "account_based", "project",
+        ]
+        assert len(table["rows"]) == 9
+        assert all(len(r["cells"]) == 4 for r in table["rows"])
+
+        # The per-shape variation reuses `options` rather than a new field.
+        shaped = [a["key"] for s in v7["sessions"] for a in s["agenda"] if a.get("options")]
+        assert shaped == ["V7-S1-A2", "V7-S2-A2", "V7-S3-A7"]
+
+        by_key = {d["key"]: d for d in v7["deliverables"]}
+        assert len(by_key) == 8
+        assert all(d.get("session") for d in v7["deliverables"]), "every deliverable names a session"
+        optional = {k for k, d in by_key.items() if not d["is_mandatory"]}
+        assert optional == {"V7-D6", "V7-D7", "V7-D8"}
+        assert by_key["V7-D5"]["feeds"] == ["V2", "V3", "V8", "V10"]
+
+        strategy = next(i for i in v7["required_inputs"] if i["key"] == "V7-I6")
+        assert strategy["source"] == "From an earlier module"
+        assert strategy["source_note"] == "or Advisor to upload"
+
+        assert len(v7["notes"]) == 12
+        assert any(n.get("items") for n in v7["notes"]), "some notes carry bulleted bodies"
 
     def test_feeds_may_point_backwards(self):
         """

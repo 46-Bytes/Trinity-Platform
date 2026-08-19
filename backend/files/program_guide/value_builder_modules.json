@@ -1679,25 +1679,694 @@
     "module_code": "V7",
     "display_order": 7,
     "title": "Sales & Marketing",
-    "purpose": "PLACEHOLDER: Sharpen the business's sales and marketing engine.",
+    "focus": "Making growth consistent and predictable rather than random.",
+    "purpose": "V7 builds the growth engine. It establishes where money is currently going and what it returns, clarifies which customer groups matter, maps how customers move through the business, defines a sales process staff can follow, and turns the marketing strategy into a plan with rhythms behind it.\n\nThe marketing strategy itself belongs to V2 and normally sits in the Strategic Business Plan. V7 translates it into activity.\n\nThe module gives structure, focus and direction. It does not turn the advisor into a marketing agency, and no campaign, copy or creative work happens inside it.",
+    "core_outcomes": [
+      "Marketing spend, lead sources and sale sources are understood, or the inability to answer is recorded as the finding.",
+      "The customer groups that matter are named, with what they buy and why.",
+      "The customer journey is mapped end to end, with the weak points identified.",
+      "A sales process exists that works with or without a CRM.",
+      "The existing marketing strategy is confirmed and translated into channel decisions.",
+      "A marketing plan converts the strategy into activity and budget.",
+      "Weekly, monthly and quarterly growth rhythms are agreed.",
+      "Three to five achievable actions are set for the next 90 days, each with an owner."
+    ],
+    "notes": [
+      {
+        "key": "before-you-start",
+        "title": "Before you start",
+        "text": "Do not run V7 without a marketing strategy in place. This module builds the marketing plan from the strategy. Without one, the module ends up inventing direction that belongs in V2, and the plan has nothing to be a plan for.\n\nNormally the strategy comes from V2's Strategic Business Plan. A client arriving with their own strategic or marketing plan, or one prepared by a previous advisor, may also satisfy this. The requirement is that a strategy exists, not that a particular module has been completed.\n\nThis is delivery practice, not a system rule."
+      },
+      {
+        "key": "determining-the-shape",
+        "section": "business_model_shape",
+        "title": "Determining the shape",
+        "text": "Both inputs are already in the diagnostic and require no new questions. Top 3 customers as a percentage of revenue sets the concentration axis, and repeat customers as a percentage of annual sales sets the repeat axis. As a rule of thumb, above 40% on either counts as high. Read the two answers rather than forming a judgement, so the shape lands the same way whichever advisor runs the module. Override where a business is genuinely hybrid, such as a builder running one-off new homes alongside repeat maintenance work."
+      },
+      {
+        "key": "account-based-adaptation",
+        "section": "business_model_shape",
+        "title": "Account-based businesses need the most adaptation",
+        "text": "With a dozen customers, marketing in the usual sense is close to irrelevant and the module becomes account management. Four things change materially.",
+        "items": [
+          "Share of wallet replaces acquisition as the growth question. The useful question is not how to find more builders, it is what proportion of each existing builder's electrical work the business currently gets, and why it is not more.",
+          "Concentration is a value issue, not just a risk. Losing one of twelve accounts removes roughly eight per cent of revenue overnight, and often far more if the account is large. This finding goes to V10 and directly affects enterprise value.",
+          "Key person risk runs both ways. The relationship usually sits between two individuals. If the client's estimator leaves, or the business's own account contact leaves, the account is exposed. That feeds V4 and V9.",
+          "Acquisition still matters, but as targeted business development. One or two new accounts a year is transformational rather than incremental. The output is a named target list with a relationship strategy for each, not a channel plan."
+        ]
+      },
+      {
+        "key": "request-inputs-a-week-ahead",
+        "section": "required_inputs",
+        "text": "Request these a week before the first session. Where lead records or source data cannot be produced, that is a finding rather than a blocker, and starting to capture it becomes an action."
+      },
+      {
+        "key": "de-identify-the-list",
+        "section": "required_inputs",
+        "title": "De-identify the customer list before it goes anywhere",
+        "text": "Strip names, contact details and addresses. Retain a sequential or hashed customer reference, first and last purchase date, total spend, transaction count, and product or service category. That is everything the analysis needs and none of what it does not."
+      },
+      {
+        "key": "how-module-runs",
+        "section": "sessions",
+        "title": "How this module runs",
+        "text": "V7 is the largest module in the program and will normally run across several months.",
+        "items": [
+          "Three sessions. Session 3 is long and can be split into two shorter sittings where the client prefers.",
+          "Work agreed in an earlier session runs in the background while later sessions are scheduled, and while you start other modules with the client."
+        ]
+      },
+      {
+        "key": "setting-expectations",
+        "section": "sessions",
+        "title": "Setting expectations",
+        "text": "Tell the client at the outset how many sessions there are and roughly over what period, and agree a finish date. An open-ended run is how a module ends up three-quarters complete and quietly abandoned once the initial enthusiasm passes."
+      },
+      {
+        "key": "every-session-ships",
+        "section": "sessions",
+        "title": "Every session must ship something",
+        "text": "Session 1 alone produces a customer analysis and a spend review the client can act on immediately. Reactivation, lead tracking or conversion work should start in the gap after each session, not wait for the plan at the end. Where the gaps between sessions are dead time, that is a delivery failure rather than a property of the module."
+      },
+      {
+        "key": "compressed-delivery",
+        "section": "sessions",
+        "title": "Compressed delivery",
+        "text": "Where a client wants it done quickly, run it as two half-days rather than four separate sessions. This is a legitimate variant and should be offered rather than improvised."
+      },
+      {
+        "key": "tool-two-phase-and-no-benchmarks",
+        "section": "recommended_tools",
+        "text": "Before session 1 it produces the Customer Analysis Report from the de-identified list, shaped to the business model, drafts candidate segments, journey stages and a starting sales process structure, and produces the pre-filled Growth Engine Worksheet. After each session it produces that session's deliverables.\n\nThe tool must not generate industry benchmarks or averages. A model will produce a confident figure with no source, benchmarks vary widely by definition, and the client will act on the number.\n\nV7 does not need them. The findings this module produces are absolute rather than comparative: there is no follow-up process, no one owns enquiries, ROI is not tracked, a given number of customers have gone quiet. None of those require an industry average to stand up. Where comparison genuinely matters it is margin and enterprise value, which belong to V1 and V10.\n\nWhere comparison is useful here, it is the client against themselves. Their own figures over time, and the movement shown at re-diagnostic, are more specific and more persuasive than an industry average an owner can dismiss as not applying to their market.\n\nThe drafted sales process is a logical starting sequence for the advisor and client to correct. It is not a claim about what the industry does."
+      },
+      {
+        "key": "plan-is-one-document",
+        "section": "deliverables",
+        "text": "V7-D5 is one document with four sections: strategy and positioning, channel and activity plan, growth rhythms, and the 90-day priorities. The strategy section carries through from the existing strategy document rather than being written again. These were separate deliverables and have been merged, because the client experiences them as the plan. Splitting them produces four files, four things to maintain, and a strategy document nobody opens because the plan restates it."
+      },
+      {
+        "key": "optional-deliverables-by-shape",
+        "section": "deliverables",
+        "text": "The Marketing Performance Review records spend by line, lead sources and sale sources, including where the client could not answer. The optional deliverables are shape-dependent: D6 suits volume businesses, D7 suits project and transactional businesses, D8 suits account-based ones. Most clients need one, not several."
+      }
+    ],
+    "tables": [
+      {
+        "key": "business-model-shape",
+        "section": "business_model_shape",
+        "title": "Business model shape",
+        "intro": "Determined in preparation. It changes what the analysis reports, what the journey work becomes, what the strategy session decides, and which actions are candidates. Two independent axes: how many customers, and whether they buy again.",
+        "columns": [
+          {
+            "key": "volume",
+            "label": "Volume"
+          },
+          {
+            "key": "transactional",
+            "label": "Transactional"
+          },
+          {
+            "key": "account_based",
+            "label": "Account-based"
+          },
+          {
+            "key": "project",
+            "label": "Project"
+          }
+        ],
+        "rows": [
+          {
+            "key": "customers",
+            "label": "Customers",
+            "cells": [
+              "Many",
+              "Many",
+              "Few",
+              "Few"
+            ]
+          },
+          {
+            "key": "purchase",
+            "label": "Purchase",
+            "cells": [
+              "Repeat",
+              "One-off",
+              "Repeat, high volume",
+              "One-off or rare"
+            ]
+          },
+          {
+            "key": "typical",
+            "label": "Typical",
+            "cells": [
+              "Salon, café, retail, domestic trades",
+              "Removalist, wedding services, conveyancing",
+              "Electrical contractor to builders, wholesaler to retailers",
+              "Architect, engineer, specialist consultant"
+            ]
+          },
+          {
+            "key": "analysis_reports",
+            "label": "Analysis reports",
+            "cells": [
+              "Frequency, spend distribution, lapse cohorts",
+              "Lead volume, source mix, conversion rate, seasonality",
+              "Revenue per account, trend per account, concentration, share of wallet",
+              "Pipeline, proposal win rate, cycle length, referral sources"
+            ]
+          },
+          {
+            "key": "journey_work",
+            "label": "Journey work becomes",
+            "cells": [
+              "Rebooking and frequency",
+              "Enquiry to booking, and the review tail",
+              "An account relationship map",
+              "Proposal conversion and referral"
+            ]
+          },
+          {
+            "key": "strategy_decides",
+            "label": "Strategy decides",
+            "cells": [
+              "Which segments to grow",
+              "Which lead channels to back",
+              "Which accounts to grow, protect or diversify away from",
+              "Which work to pursue and who refers it"
+            ]
+          },
+          {
+            "key": "plan_becomes",
+            "label": "Plan becomes",
+            "cells": [
+              "A marketing plan",
+              "A lead generation plan",
+              "An account plan with named targets",
+              "A referral and reputation plan"
+            ]
+          },
+          {
+            "key": "fastest_win",
+            "label": "Fastest win",
+            "cells": [
+              "Reactivating lapsed customers",
+              "Lifting conversion, systematising reviews",
+              "Growing share of wallet in existing accounts",
+              "Lifting win rate, formalising referral"
+            ]
+          },
+          {
+            "key": "biggest_risk",
+            "label": "Biggest risk",
+            "cells": [
+              "Silent churn",
+              "Dependence on a single lead channel",
+              "Losing one account",
+              "Pipeline gaps, feast and famine"
+            ]
+          }
+        ]
+      }
+    ],
+    "required_inputs": [
+      {
+        "key": "V7-I1",
+        "label": "De-identified customer or client list, including first and last purchase date, total spend, transaction count and product or service category",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V7-I2",
+        "label": "Itemised marketing spend for the last 12 months, online and offline",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V7-I3",
+        "label": "Lead and enquiry records, however held, including source where recorded",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V7-I4",
+        "label": "Diagnostic sales and marketing responses: strategy and plan, sales process, segmentation, budgets, ROI tracking, data capture and use, satisfaction rating",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V7-I5",
+        "label": "Diagnostic customer responses: repeat and new customer split, active customer count, contracts, customer service, pricing and product review",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V7-I6",
+        "label": "Marketing strategy and positioning. Normally the V2 Strategic Business Plan, otherwise the client's own strategic or marketing plan",
+        "source": "From an earlier module",
+        "source_note": "or Advisor to upload",
+        "fallback": "A client arriving with their own strategic or marketing plan, or one prepared by a previous advisor, satisfies this. The requirement is that a strategy exists, not that V2 has been completed."
+      },
+      {
+        "key": "V7-I7",
+        "label": "V6 tech stack maps, particularly CRM position",
+        "source": "From an earlier module",
+        "source_note": "where available"
+      },
+      {
+        "key": "V7-I8",
+        "label": "V5 workflow maps, particularly enquiry to delivery",
+        "source": "From an earlier module",
+        "source_note": "where available"
+      },
+      {
+        "key": "V7-I9",
+        "label": "V4 Role Clarity Map",
+        "source": "From an earlier module",
+        "source_note": "where available"
+      },
+      {
+        "key": "V7-I10",
+        "label": "Existing marketing material, website, past campaign results",
+        "source": "Advisor to upload"
+      }
+    ],
+    "preparation_summary": {
+      "owner": "Advisor",
+      "duration": "before session 1"
+    },
     "preparation_checklist": [
       {
-        "key": "review-pipeline",
-        "text": "PLACEHOLDER: Review current sales pipeline and marketing channels"
+        "key": "request-inputs",
+        "text": "Request the customer list, itemised marketing spend and lead records a week ahead."
+      },
+      {
+        "key": "determine-business-model-shape",
+        "text": "Determine the business model shape from the two diagnostic answers noted above. This sets the shape of everything that follows."
+      },
+      {
+        "key": "de-identify-and-load",
+        "text": "De-identify the customer list, then load everything into the growth tool."
+      },
+      {
+        "key": "issue-customer-analysis",
+        "text": "The tool produces a Customer Analysis Report. Issue this to the owner as well as keeping it for yourself, ahead of session 1. The owner should arrive having already seen their own numbers."
+      },
+      {
+        "key": "review-drafted-structures",
+        "text": "The tool also drafts candidate segment groups from the client's own data, candidate journey stages, and a starting sales process structure, and produces the pre-filled Growth Engine Worksheet. These are a starting structure to react to, not conclusions. Clients engage far better correcting a draft than facing a blank page."
+      },
+      {
+        "key": "identify-obvious-gaps",
+        "text": "Identify the obvious gaps: no consistent follow-up, no reactivation, no referral process, poor or absent reviews, enquiries with no owner."
+      }
+    ],
+    "sessions": [
+      {
+        "key": "V7-S1",
+        "title": "Marketing Review & Customer Analysis",
+        "duration": "Target 90 to 110 minutes",
+        "agenda": [
+          {
+            "key": "V7-S1-A1",
+            "title": "Frame",
+            "duration": "5 minutes",
+            "detail": "This session establishes what is actually happening now. No decisions are made about what to change."
+          },
+          {
+            "key": "V7-S1-A2",
+            "title": "Review the Customer Analysis Report",
+            "duration": "25 to 30 minutes",
+            "detail": "The owner has already received it. Work through what the data shows, and let them react.",
+            "options": [
+              {
+                "key": "volume",
+                "term": "Volume",
+                "definition": "frequency, spend distribution, and how many customers have gone quiet at 6, 12 and 24 months with the revenue that represents"
+              },
+              {
+                "key": "transactional",
+                "term": "Transactional",
+                "definition": "lead volume, source mix, conversion rate and seasonality"
+              },
+              {
+                "key": "account_based",
+                "term": "Account-based",
+                "definition": "revenue per account and its trend, concentration, and estimated share of each account's total spend"
+              },
+              {
+                "key": "project",
+                "term": "Project",
+                "definition": "pipeline shape, proposal win rate, cycle length, and where past clients have gone"
+              }
+            ]
+          },
+          {
+            "key": "V7-S1-A3",
+            "title": "Where the money goes",
+            "duration": "20 to 25 minutes",
+            "detail": "Work through the itemised marketing spend line by line.",
+            "questions": [
+              {
+                "items": [
+                  "What is this actually buying?",
+                  "Who decided to spend it?",
+                  "When did you last review it?",
+                  "What would happen if you stopped?"
+                ]
+              }
+            ]
+          },
+          {
+            "key": "V7-S1-A4",
+            "title": "Where leads come from",
+            "duration": "20 to 25 minutes",
+            "detail": "Establish the source of enquiries over the last twelve months, as far as the records allow.",
+            "questions": [
+              {
+                "items": [
+                  "Where did your last ten enquiries come from?",
+                  "How do you know?",
+                  "What proportion is referral?",
+                  "What proportion is repeat?",
+                  "What is paid, and what is organic?"
+                ]
+              }
+            ],
+            "note": "Where the client cannot answer, do not push. Record it. The inability to attribute leads is itself the finding, and starting to capture source becomes an action."
+          },
+          {
+            "key": "V7-S1-A5",
+            "title": "Where sales come from",
+            "duration": "15 to 20 minutes",
+            "detail": "Separate leads from revenue. The two rarely match, and the gap is the most useful thing in this session.",
+            "questions": [
+              {
+                "items": [
+                  "Of the work you actually won, where did it originate?",
+                  "Which source produces the best clients, not just the most enquiries?",
+                  "Where are you spending money that produces enquiries but no work?"
+                ]
+              }
+            ]
+          },
+          {
+            "key": "V7-S1-A6",
+            "title": "Confirm segments",
+            "duration": "10 to 15 minutes",
+            "detail": "Review the candidate groups the tool proposed and confirm, merge or reject them."
+          },
+          {
+            "key": "V7-S1-A7",
+            "title": "Close",
+            "duration": "5 minutes"
+          }
+        ]
+      },
+      {
+        "key": "V7-S2",
+        "title": "Customer Journey & Sales Process",
+        "duration": "Target 90 to 110 minutes",
+        "agenda": [
+          {
+            "key": "V7-S2-A1",
+            "title": "Frame",
+            "duration": "5 minutes"
+          },
+          {
+            "key": "V7-S2-A2",
+            "title": "Map the customer journey",
+            "duration": "30 to 40 minutes",
+            "detail": "Work from the drafted stages. For each: the touchpoints, who is responsible, what system is used, and where it is weak.",
+            "options": [
+              {
+                "key": "volume",
+                "term": "Volume",
+                "definition": "rebooking, retention, frequency"
+              },
+              {
+                "key": "transactional",
+                "term": "Transactional",
+                "definition": "enquiry to booking, and the review and referral tail"
+              },
+              {
+                "key": "account_based",
+                "term": "Account-based",
+                "definition": "build an account relationship map instead. For each account, who decides, who influences, who holds the relationship on both sides, what work you get, what work you do not, and why"
+              },
+              {
+                "key": "project",
+                "term": "Project",
+                "definition": "proposal conversion, referral, staying remembered between projects"
+              }
+            ]
+          },
+          {
+            "key": "V7-S2-A3",
+            "title": "Map the sales process",
+            "duration": "30 to 35 minutes",
+            "detail": "How a lead arrives, how it is qualified, the follow-up rhythm, when a quote or proposal goes out, how it is tracked, how it closes, and how a new client is handed to delivery.\n\nWhere a CRM exists, map these as pipeline stages. Where none exists, define the manual stages.\n\nFor project businesses, spend the time on proposal conversion and on follow-up over a long cycle. A proposal that goes out and is never followed up is the most common and most expensive failure in these businesses.\n\nFor account-based businesses, the sales process is quoting and winning individual jobs within existing accounts. Map that, and separately map how a new account is won, since the two are entirely different processes."
+          },
+          {
+            "key": "V7-S2-A4",
+            "title": "Find the leaks",
+            "duration": "15 to 20 minutes",
+            "questions": [
+              {
+                "items": [
+                  "Where do enquiries go unanswered?",
+                  "How long before someone responds?",
+                  "What happens to a quote that is not accepted?",
+                  "Who owns an enquiry once it arrives?",
+                  "Where does someone fall out of this process entirely?"
+                ]
+              }
+            ]
+          },
+          {
+            "key": "V7-S2-A5",
+            "title": "Close",
+            "duration": "5 minutes"
+          }
+        ]
+      },
+      {
+        "key": "V7-S3",
+        "title": "Strategy Translation, Plan & Rhythms",
+        "duration": "Target 105 to 135 minutes",
+        "note": "Can be split into two shorter sittings where the client prefers.",
+        "agenda": [
+          {
+            "key": "V7-S3-A1",
+            "title": "Frame",
+            "duration": "5 minutes",
+            "detail": "The strategy is already set. This session decides where the business competes for attention and turns that into activity."
+          },
+          {
+            "key": "V7-S3-A2",
+            "title": "Review the existing strategy",
+            "duration": "10 to 15 minutes",
+            "detail": "Review the positioning and proposition already set, normally in the Strategic Business Plan. Test it against what sessions 1 and 2 found. Where the data contradicts the stated position, raise it, but do not rewrite the strategy here. Note it back to its source document, or you end up with two strategies disagreeing with each other."
+          },
+          {
+            "key": "V7-S3-A3",
+            "title": "Channel strategy",
+            "duration": "20 to 25 minutes",
+            "detail": "Decide where the business will and will not compete for attention, informed by session 1's source data.",
+            "questions": [
+              {
+                "items": [
+                  "Which sources actually produce work?",
+                  "Which would you back if you doubled it?",
+                  "What are you doing because you always have?",
+                  "What are you not doing that your best clients would respond to?"
+                ]
+              }
+            ],
+            "note": "Fewer channels done properly beats more done badly. Push toward two or three. For account-based businesses this decides which accounts to grow, which to protect, whether concentration needs reducing, and which one or two new accounts to pursue by name."
+          },
+          {
+            "key": "V7-S3-A4",
+            "title": "Messaging direction",
+            "duration": "10 to 15 minutes",
+            "detail": "Direction only, not copy. The themes, the proof points, and what the business wants a client to remember."
+          },
+          {
+            "key": "V7-S3-A5",
+            "title": "Build the plan",
+            "duration": "25 to 35 minutes",
+            "detail": "Convert the strategy into activity: what happens, when, who does it, and what it costs. Reallocate the existing budget before proposing any increase."
+          },
+          {
+            "key": "V7-S3-A6",
+            "title": "Growth rhythms",
+            "duration": "15 minutes",
+            "detail": "Weekly: lead review, follow-ups, open opportunities. Monthly: marketing review, reactivation or referral activity, source review. Quarterly: segment review, messaging refresh, plan reset."
+          },
+          {
+            "key": "V7-S3-A7",
+            "title": "90-day priorities",
+            "duration": "15 to 20 minutes",
+            "detail": "Three to five achievable actions, each with an owner, a timeframe and an expected outcome.",
+            "options": [
+              {
+                "key": "volume",
+                "term": "Volume",
+                "definition": "where lapsed customers were identified, reactivation is usually the fastest win and should be tested first"
+              },
+              {
+                "key": "transactional",
+                "term": "Transactional",
+                "definition": "lifting conversion on existing lead flow beats buying more leads"
+              },
+              {
+                "key": "account_based",
+                "term": "Account-based",
+                "definition": "growing share of wallet in one or two existing accounts usually produces more, faster, than winning a new one"
+              },
+              {
+                "key": "project",
+                "term": "Project",
+                "definition": "formalising referral and lifting proposal follow-up usually produce more, faster, than any new channel"
+              }
+            ]
+          },
+          {
+            "key": "V7-S3-A8",
+            "title": "Close",
+            "duration": "5 minutes"
+          }
+        ]
       }
     ],
     "recommended_tools": [
       {
-        "tool_key": "bba",
-        "label": "Recommendations Report Builder"
+        "tool_key": "growth_engine",
+        "label": "Growth Engine tool",
+        "when": "pre, post",
+        "status": "To build, Feature 3"
       }
     ],
     "deliverables": [
       {
         "key": "V7-D1",
-        "title": "PLACEHOLDER: Sales & Marketing Plan",
-        "is_mandatory": true
+        "title": "Customer Analysis Report",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "session": "pre-1",
+        "feeds": [
+          "V10"
+        ]
+      },
+      {
+        "key": "V7-D2",
+        "title": "Marketing Performance Review",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "session": "1",
+        "feeds": [
+          "V1"
+        ]
+      },
+      {
+        "key": "V7-D3",
+        "title": "Customer Journey Map, including segment focus",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "session": "2",
+        "feeds": [
+          "V5",
+          "V10"
+        ]
+      },
+      {
+        "key": "V7-D4",
+        "title": "Sales Process Map",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "session": "2",
+        "feeds": [
+          "V5",
+          "V6"
+        ]
+      },
+      {
+        "key": "V7-D5",
+        "title": "Sales & Marketing Plan",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "session": "3",
+        "feeds": [
+          "V2",
+          "V3",
+          "V8",
+          "V10"
+        ]
+      },
+      {
+        "key": "V7-D6",
+        "title": "Retention & Reactivation Opportunities",
+        "is_mandatory": false,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "session": "1",
+        "feeds": [
+          "V10"
+        ]
+      },
+      {
+        "key": "V7-D7",
+        "title": "Referral Program Outline",
+        "is_mandatory": false,
+        "produced_by": "advisor",
+        "session": "2 or 3",
+        "feeds": [
+          "V10"
+        ]
+      },
+      {
+        "key": "V7-D8",
+        "title": "Account Plan, with named targets",
+        "is_mandatory": false,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "session": "3",
+        "feeds": [
+          "V10"
+        ]
       }
+    ],
+    "post_session_actions": {
+      "owner": "Advisor",
+      "duration": "after each session",
+      "items": [
+        "Produce and issue that session's deliverables before the next session is held.",
+        "Confirm the owner and date against each action.",
+        "Where the sales process depends on a system the business does not have, note it for V6 rather than specifying a product here.",
+        "Where a journey stage has no owner, note it for V4.",
+        "Where the client could not attribute leads or sales, make starting that capture an action in the 90-day plan."
+      ]
+    },
+    "guardrails": {
+      "must_not": [
+        "run advertising or manage campaigns",
+        "write copy or build funnels",
+        "configure CRM automation",
+        "design brand assets",
+        "perform marketing execution of any kind",
+        "assert an industry average or benchmark"
+      ],
+      "note": "The module produces the structure, the strategy and the plan. Execution belongs to the client, their suppliers, or a separately scoped engagement.\n\nThese are boundaries of profession, not boundaries of module. Where V7 surfaces an issue whose home module is elsewhere, the advisor addresses it and records the output against that module."
+    },
+    "quality_standards": [
+      "The business model shape was determined before session 1 and the module was run accordingly.",
+      "For account-based businesses, share of wallet was quantified per account and concentration was passed to V10.",
+      "Where leads and sales could not be attributed, that was recorded rather than estimated.",
+      "The sales process is simple enough that a new staff member could follow it tomorrow.",
+      "Every journey stage has a named owner.",
+      "No enquiry path ends without a defined next step.",
+      "The channel strategy names what the business will stop doing, not only what it will start.",
+      "The marketing plan reallocates existing budget before proposing any increase.",
+      "The 90-day plan has no more than five actions, each owned and dated.",
+      "Nothing in the outputs requires marketing capability the business does not have."
     ]
   },
   {

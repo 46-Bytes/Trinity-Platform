@@ -310,7 +310,7 @@ class TestDerivedLegacyColumn:
                 "agenda": [{
                     "key": "V1-S1-A3", "title": "Expenses review", "duration": "20 to 25 minutes",
                     "detail": "Work through the major expense lines.",
-                    "questions": ["What has grown fastest, and why?"],
+                    "questions": [{"items": ["What has grown fastest, and why?"]}],
                 }],
             }],
             "post_session_actions": {
@@ -384,7 +384,7 @@ class TestDerivedLegacyColumn:
             "key": "V3-S1", "title": "Leadership Alignment Workshop",
             "agenda": [{
                 "key": "V3-S1-A3", "title": "Decision rights",
-                "questions": ["What decisions come to you that should not?"],
+                "questions": [{"items": ["What decisions come to you that should not?"]}],
                 "note": "Record simply: decision, decider, threshold, escalates to.",
             }],
         }]
@@ -393,24 +393,41 @@ class TestDerivedLegacyColumn:
         item = ProgramModuleContentItem.model_validate(_card(db_session, program_type))
         assert item.sessions[0]["agenda"][0]["note"].startswith("Record simply:")
 
-    def test_session_note_and_questions_intro_round_trip(self, db_session, write_fixture, program_type):
+    def test_session_note_and_question_groups_round_trip(self, db_session, write_fixture, program_type):
         """
-        questions_intro keeps a lead-in like "For each claimed advantage:"
-        attached to the questions it introduces rather than buried in detail.
+        Questions are groups, labelled or not. The label replaced the old
+        questions_intro, which was only ever the label for a single group.
         """
         sessions = [{
-            "key": "V2-S1", "title": "Strategy Workshop",
-            "note": "Where two advisors are available, the lead facilitates and whiteboards.",
+            "key": "V5-S1", "title": "Workflow Mapping Workshop",
+            "note": "Work one complete workflow at a time.",
             "agenda": [{
-                "key": "V2-S1-A5", "title": "Competitive position",
-                "questions_intro": "For each claimed advantage:",
-                "questions": ["Would a customer notice if it disappeared?"],
+                "key": "V5-S1-A3", "title": "Interrogate the map",
+                "intro": "Steps 2 to 4 are one workflow. Repeat the sequence.",
+                "questions": [
+                    {"label": "Pain points", "items": ["Where does this break?"]},
+                    {"items": ["Who really does that step?"]},
+                ],
             }],
         }]
         seed_from_file(write_fixture([_module(sessions=sessions, deliverables=[])]), db=db_session)
 
         item = ProgramModuleContentItem.model_validate(_card(db_session, program_type))
         assert item.sessions == sessions
+
+    def test_preparation_checklist_structure_round_trips(self, db_session, write_fixture, program_type):
+        checklist = [{
+            "key": "send-pre-work-request",
+            "title": "Send the pre-work request",
+            "text": "Ask the client for three things:",
+            "items": ["Which workflows matter most.", "How each currently gets done."],
+        }]
+        seed_from_file(
+            write_fixture([_module(preparation_checklist=checklist, deliverables=[])]), db=db_session
+        )
+
+        item = ProgramModuleContentItem.model_validate(_card(db_session, program_type))
+        assert item.preparation_checklist == checklist
 
     def test_source_note_round_trips(self, db_session, write_fixture, program_type):
         """
@@ -535,8 +552,15 @@ class TestFixtureValidation:
         ("sessions", [{"key": "S1", "title": "T", "agenda": [{"title": "No key"}]}],
          r"agenda\[0\] missing 'key'"),
         ("sessions", [{"key": "S1", "title": "T",
-                       "agenda": [{"key": "A1", "title": "T", "questions": [""]}]}],
-         r"questions\[0\] must be a non-empty string"),
+                       "agenda": [{"key": "A1", "title": "T", "questions": [{"items": [""]}]}]}],
+         r"items\[0\] must be a non-empty string"),
+        ("sessions", [{"key": "S1", "title": "T",
+                       "agenda": [{"key": "A1", "title": "T", "questions": [{"label": "Pain points"}]}]}],
+         r"questions\[0\] missing 'items'"),
+        # The pre-grouping shape: a bare list of strings.
+        ("sessions", [{"key": "S1", "title": "T",
+                       "agenda": [{"key": "A1", "title": "T", "questions": ["Where does this break?"]}]}],
+         r"questions\[0\] must be an object with items"),
         ("recommended_tools", [{"label": "No key"}], r"recommended_tools\[0\] missing 'tool_key'"),
     ])
     def test_malformed_card_sections_are_rejected(self, section, value, expected):
@@ -614,6 +638,32 @@ class TestFixtureValidation:
                         {"key": "retain", "term": "Repeat", "definition": "b"},
                     ]},
                 ]}],
+            }])
+
+    def test_duplicate_checklist_keys_are_rejected(self):
+        """
+        engagement_module_checklist_item.checklist_item_key matches this key, so
+        a duplicate silently breaks per-engagement tick-off state.
+        """
+        with pytest.raises(FixtureError, match="duplicate checklist key"):
+            validate_fixture([{
+                "program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
+                "deliverables": [], "preparation_checklist": [
+                    {"key": "prep", "text": "One"},
+                    {"key": "prep", "text": "Two"},
+                ],
+            }])
+
+    @pytest.mark.parametrize("item,expected", [
+        ({"text": "No key"}, r"preparation_checklist\[0\] missing 'key'"),
+        ({"key": "k"}, r"preparation_checklist\[0\] missing 'text'"),
+        ({"key": "k", "text": "T", "items": [""]}, r"items\[0\] must be a non-empty string"),
+    ])
+    def test_malformed_checklist_entries_are_rejected(self, item, expected):
+        with pytest.raises(FixtureError, match=expected):
+            validate_fixture([{
+                "program_type": "p", "module_code": "V1", "display_order": 1, "title": "T",
+                "deliverables": [], "preparation_checklist": [item],
             }])
 
     def test_duplicate_session_and_agenda_keys_are_rejected(self):
@@ -743,10 +793,12 @@ class TestModuleNameAliases:
         assert "duration" not in v2["post_session_actions"]
         assert {n["section"] for n in v2["notes"]} <= VALID_NOTE_SECTIONS
 
-        intro = next(
+        # Was questions_intro before questions became labelled groups; the intro
+        # survived the conversion as the label of V2's single group.
+        groups = next(
             a for a in v2["sessions"][0]["agenda"] if a["key"] == "V2-S1-A5"
-        )["questions_intro"]
-        assert intro == "For each claimed advantage:"
+        )["questions"]
+        assert [g.get("label") for g in groups] == ["For each claimed advantage"]
 
         earlier = next(i for i in v2["required_inputs"] if i["source"] == "From an earlier module")
         assert earlier["source_note"] == "where available"
@@ -819,6 +871,51 @@ class TestModuleNameAliases:
         assert "feeds" not in by_key["V4-D4"] and "feeds" not in by_key["V4-D5"]
         # The pack generator is the first tool used at two points in a module.
         assert any(t["when"] == "pre, post" for t in v4["recommended_tools"])
+
+    def test_v5_is_transcribed_from_part_f(self):
+        """
+        V5 introduced labelled question groups, hierarchical preparation and a
+        leading agenda intro - and was the first module to need no migration.
+        """
+        with open(DEFAULT_FIXTURE, "r", encoding="utf-8") as f:
+            v5 = next(m for m in json.load(f) if m["module_code"] == "V5")
+
+        assert "PLACEHOLDER" not in json.dumps(v5), "V5 still contains placeholder text"
+
+        interrogate = next(a for a in v5["sessions"][0]["agenda"] if a["key"] == "V5-S1-A3")
+        assert [g["label"] for g in interrogate["questions"]] == [
+            "Pain points", "Manual handling and duplication", "Owner involvement",
+        ]
+
+        validate = next(a for a in v5["sessions"][0]["agenda"] if a["key"] == "V5-S1-A2")
+        assert validate["intro"].startswith("Steps 2 to 4 are one workflow")
+        # An unlabelled group - the common case, and what V1-V4 converted to.
+        assert "label" not in validate["questions"][0]
+
+        pre_work = next(c for c in v5["preparation_checklist"] if c["key"] == "send-pre-work-request")
+        assert pre_work["title"] == "Send the pre-work request"
+        assert len(pre_work["items"]) == 3
+
+        assert len(v5["notes"]) == 7, "V5 carries the most notes of any module"
+        tool_note = next(n for n in v5["notes"] if n["key"] == "tool-carries-expertise")
+        assert "not optional to the delivery" in tool_note["text"]
+
+        assert [d["key"] for d in v5["deliverables"]] == ["V5-D1", "V5-D2", "V5-D3", "V5-D4"]
+        assert all(d["is_mandatory"] for d in v5["deliverables"])
+
+    def test_no_module_still_uses_the_pre_grouping_question_shape(self):
+        """Every agenda item's questions are groups, not bare strings."""
+        with open(DEFAULT_FIXTURE, "r", encoding="utf-8") as f:
+            fixture = json.load(f)
+
+        assert "questions_intro" not in json.dumps(fixture), "questions_intro was absorbed as a label"
+        for module in fixture:
+            for session in module.get("sessions") or []:
+                for item in session.get("agenda") or []:
+                    for group in item.get("questions") or []:
+                        assert isinstance(group, dict), (
+                            f"{item['key']} still uses a flat question list"
+                        )
 
     def test_fixture_titles_match_the_scoring_taxonomy(self):
         """

@@ -6,13 +6,23 @@
     "title": "Diagnostic Gateway",
     "purpose": "PLACEHOLDER: Complete the Value Builder diagnostic so Trinity can generate your report, recommendations, and a personalised starting point and module path.",
     "preparation_checklist": [
-      { "key": "gather-key-documents", "text": "PLACEHOLDER: Gather key financial and operational documents" }
+      {
+        "key": "gather-key-documents",
+        "text": "PLACEHOLDER: Gather key financial and operational documents"
+      }
     ],
     "recommended_tools": [
-      { "tool_key": "diagnostic", "label": "Value Builder Diagnostic" }
+      {
+        "tool_key": "diagnostic",
+        "label": "Value Builder Diagnostic"
+      }
     ],
     "deliverables": [
-      { "key": "M0-D1", "title": "PLACEHOLDER: Diagnostic Report & Recommendations", "is_mandatory": true }
+      {
+        "key": "M0-D1",
+        "title": "PLACEHOLDER: Diagnostic Report & Recommendations",
+        "is_mandatory": true
+      }
     ]
   },
   {
@@ -30,26 +40,75 @@
       "A lightweight financial reporting rhythm is in place and owned."
     ],
     "required_inputs": [
-      { "key": "V1-I1", "label": "Diagnostic report, V1 module assessment", "source": "Held in Trinity" },
-      { "key": "V1-I2", "label": "Profit and loss, 3 years", "source": "Advisor to upload" },
-      { "key": "V1-I3", "label": "Balance sheet, current and prior", "source": "Advisor to upload" },
-      { "key": "V1-I4", "label": "Revenue breakdown by product, service or segment", "source": "Advisor to upload" },
-      { "key": "V1-I5", "label": "Aged receivables and current payment terms", "source": "Advisor to upload" },
-      { "key": "V1-I6", "label": "Accountant and bookkeeper contact details", "source": "Advisor to upload" },
-      { "key": "V1-I7", "label": "Existing budget or forecast, where one exists", "source": "Advisor to upload" }
+      {
+        "key": "V1-I1",
+        "label": "Diagnostic report, V1 module assessment",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V1-I2",
+        "label": "Profit and loss, 3 years",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V1-I3",
+        "label": "Balance sheet, current and prior",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V1-I4",
+        "label": "Revenue breakdown by product, service or segment",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V1-I5",
+        "label": "Aged receivables and current payment terms",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V1-I6",
+        "label": "Accountant and bookkeeper contact details",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V1-I7",
+        "label": "Existing budget or forecast, where one exists",
+        "source": "Advisor to upload"
+      }
     ],
     "preparation_summary": {
       "owner": "Advisor",
       "duration": "60 to 120 minutes depending on data quality"
     },
     "preparation_checklist": [
-      { "key": "load-financials", "text": "Load financial data into Trinity and generate the Financial Health Summary." },
-      { "key": "review-margin-trends", "text": "Review margin trends, revenue mix, labour and subcontractor ratios, overhead patterns." },
-      { "key": "identify-largest-expenses", "text": "Identify the largest expense lines and those that have grown fastest over the period." },
-      { "key": "review-debtors", "text": "Review the debtor position, average days to payment, and any work sitting uninvoiced." },
-      { "key": "identify-red-flags", "text": "Identify red flags: chronic low margin, structural under-pricing, excessive rework, negative equity, director loans, contingent liabilities." },
-      { "key": "note-improvement-levers", "text": "Note 3 to 5 suspected improvement levers to test in the session." },
-      { "key": "verify-not-sure-responses", "text": "Where the diagnostic returned \"not sure\" responses, list them for direct verification with the bookkeeper or accountant. Do not assume they are in order." }
+      {
+        "key": "load-financials",
+        "text": "Load financial data into Trinity and generate the Financial Health Summary."
+      },
+      {
+        "key": "review-margin-trends",
+        "text": "Review margin trends, revenue mix, labour and subcontractor ratios, overhead patterns."
+      },
+      {
+        "key": "identify-largest-expenses",
+        "text": "Identify the largest expense lines and those that have grown fastest over the period."
+      },
+      {
+        "key": "review-debtors",
+        "text": "Review the debtor position, average days to payment, and any work sitting uninvoiced."
+      },
+      {
+        "key": "identify-red-flags",
+        "text": "Identify red flags: chronic low margin, structural under-pricing, excessive rework, negative equity, director loans, contingent liabilities."
+      },
+      {
+        "key": "note-improvement-levers",
+        "text": "Note 3 to 5 suspected improvement levers to test in the session."
+      },
+      {
+        "key": "verify-not-sure-responses",
+        "text": "Where the diagnostic returned \"not sure\" responses, list them for direct verification with the bookkeeper or accountant. Do not assume they are in order."
+      }
     ],
     "sessions": [
       {
@@ -76,10 +135,14 @@
             "duration": "20 to 25 minutes",
             "detail": "Work through the major expense lines and test whether each still earns its place. Cover the three biggest costs, what has grown fastest, which costs are fixed versus flexible, and whether personal expenses are running through the business and properly separated.",
             "questions": [
-              "Walk me through your three biggest expense lines. Are they where you would expect them to be?",
-              "What has grown fastest over the last two years, and why?",
-              "What is in here that no longer earns its place?",
-              "Which of these could flex if revenue dropped?"
+              {
+                "items": [
+                  "Walk me through your three biggest expense lines. Are they where you would expect them to be?",
+                  "What has grown fastest over the last two years, and why?",
+                  "What is in here that no longer earns its place?",
+                  "Which of these could flex if revenue dropped?"
+                ]
+              }
             ]
           },
           {
@@ -88,12 +151,16 @@
             "duration": "15 to 20 minutes",
             "detail": "Review how and when invoices are raised, and where cash is being delayed by process rather than by customers. Late invoicing is one of the most common and most fixable cash constraints in an SME.",
             "questions": [
-              "How quickly after the work is done does the invoice go out?",
-              "Who raises invoices, and is it their priority or the last thing on their list?",
-              "What are your payment terms, and are they actually enforced?",
-              "How long are customers really taking to pay?",
-              "Who follows up overdue accounts?",
-              "How often does an invoice get queried or corrected?"
+              {
+                "items": [
+                  "How quickly after the work is done does the invoice go out?",
+                  "Who raises invoices, and is it their priority or the last thing on their list?",
+                  "What are your payment terms, and are they actually enforced?",
+                  "How long are customers really taking to pay?",
+                  "Who follows up overdue accounts?",
+                  "How often does an invoice get queried or corrected?"
+                ]
+              }
             ]
           },
           {
@@ -132,28 +199,37 @@
         "is_mandatory": true,
         "produced_by": "trinity_tool",
         "produced_by_note": "advisor-refined",
-        "feeds": ["V2", "V10"]
+        "feeds": [
+          "V2",
+          "V10"
+        ]
       },
       {
         "key": "V1-D2",
         "title": "Margin & Cost Improvement Plan",
         "is_mandatory": true,
         "produced_by": "advisor",
-        "feeds": ["V10"]
+        "feeds": [
+          "V10"
+        ]
       },
       {
         "key": "V1-D3",
         "title": "Invoicing & Cashflow Improvement Plan",
         "is_mandatory": true,
         "produced_by": "advisor",
-        "feeds": ["V5"]
+        "feeds": [
+          "V5"
+        ]
       },
       {
         "key": "V1-D4",
         "title": "Financial Rhythm & Reporting Plan",
         "is_mandatory": true,
         "produced_by": "advisor",
-        "feeds": ["V3"]
+        "feeds": [
+          "V3"
+        ]
       },
       {
         "key": "V1-D5",
@@ -161,7 +237,9 @@
         "is_mandatory": false,
         "produced_by": "client",
         "produced_by_note": "advisor-reviewed",
-        "feeds": ["V2"]
+        "feeds": [
+          "V2"
+        ]
       }
     ],
     "post_session_actions": {
@@ -222,15 +300,51 @@
       }
     ],
     "required_inputs": [
-      { "key": "V2-I1", "label": "Diagnostic report and advisor recommendations", "source": "Held in Trinity" },
-      { "key": "V2-I2", "label": "Owner's stated goals, growth constraint and \"fix one thing\" response", "source": "Held in Trinity" },
-      { "key": "V2-I3", "label": "SWOT, competitor and industry responses from the diagnostic", "source": "Held in Trinity" },
-      { "key": "V2-I4", "label": "Previous strategic plans or business plans", "source": "Advisor to upload" },
-      { "key": "V2-I5", "label": "Organisational chart", "source": "Advisor to upload" },
-      { "key": "V2-I6", "label": "Product and service documentation", "source": "Advisor to upload" },
-      { "key": "V2-I7", "label": "Financial reports: P&L, budgets, forecasts", "source": "Advisor to upload" },
-      { "key": "V2-I8", "label": "Competitor list or analysis", "source": "Advisor to upload" },
-      { "key": "V2-I9", "label": "Marketing material", "source": "Advisor to upload" },
+      {
+        "key": "V2-I1",
+        "label": "Diagnostic report and advisor recommendations",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V2-I2",
+        "label": "Owner's stated goals, growth constraint and \"fix one thing\" response",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V2-I3",
+        "label": "SWOT, competitor and industry responses from the diagnostic",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V2-I4",
+        "label": "Previous strategic plans or business plans",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V2-I5",
+        "label": "Organisational chart",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V2-I6",
+        "label": "Product and service documentation",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V2-I7",
+        "label": "Financial reports: P&L, budgets, forecasts",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V2-I8",
+        "label": "Competitor list or analysis",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V2-I9",
+        "label": "Marketing material",
+        "source": "Advisor to upload"
+      },
       {
         "key": "V2-I10",
         "label": "Outputs from any completed module",
@@ -239,13 +353,30 @@
         "fallback": "V2 does not assume any other module has run. It may be the first module a client starts with. Where V1 is complete, its financial outputs sharpen the session. Where it is not, the client's own financial reports serve the same purpose."
       }
     ],
-    "preparation_summary": { "owner": "Advisor" },
+    "preparation_summary": {
+      "owner": "Advisor"
+    },
     "preparation_checklist": [
-      { "key": "gather-source-material", "text": "Gather all available source material from the client and from Trinity." },
-      { "key": "run-workbook-generator", "text": "Run the Strategy Workbook generator. Trinity extracts vision, mission, values, goals, products and services, structure, competitors, financials, SWOT indicators, market segments, customer behaviour, growth opportunities and past initiatives, then produces a pre-filled workbook." },
-      { "key": "review-prefilled-workbook", "text": "Review the pre-filled workbook. Correct anything Trinity has misread and note the gaps that need the client to fill them." },
-      { "key": "read-free-text-responses", "text": "Read the owner's free-text diagnostic responses closely. Their own language should carry into the plan." },
-      { "key": "note-ambition-gaps", "text": "Note where the diagnostic or the financials disagree with the owner's stated ambition. That gap is the session's most useful material." }
+      {
+        "key": "gather-source-material",
+        "text": "Gather all available source material from the client and from Trinity."
+      },
+      {
+        "key": "run-workbook-generator",
+        "text": "Run the Strategy Workbook generator. Trinity extracts vision, mission, values, goals, products and services, structure, competitors, financials, SWOT indicators, market segments, customer behaviour, growth opportunities and past initiatives, then produces a pre-filled workbook."
+      },
+      {
+        "key": "review-prefilled-workbook",
+        "text": "Review the pre-filled workbook. Correct anything Trinity has misread and note the gaps that need the client to fill them."
+      },
+      {
+        "key": "read-free-text-responses",
+        "text": "Read the owner's free-text diagnostic responses closely. Their own language should carry into the plan."
+      },
+      {
+        "key": "note-ambition-gaps",
+        "text": "Note where the diagnostic or the financials disagree with the owner's stated ambition. That gap is the session's most useful material."
+      }
     ],
     "sessions": [
       {
@@ -273,10 +404,14 @@
             "duration": "40 to 50 minutes",
             "detail": "Vision, mission and values. Business goals and personal goals, kept distinct. Where the owner wants the business to be, and what they want their own life to look like alongside it.",
             "questions": [
-              "Where do you want this business to be in three years?",
-              "What does that look like on an ordinary Tuesday?",
-              "What do you want out of it personally?",
-              "What are you not willing to give up to get there?"
+              {
+                "items": [
+                  "Where do you want this business to be in three years?",
+                  "What does that look like on an ordinary Tuesday?",
+                  "What do you want out of it personally?",
+                  "What are you not willing to give up to get there?"
+                ]
+              }
             ]
           },
           {
@@ -285,9 +420,13 @@
             "duration": "40 to 50 minutes",
             "detail": "Products and services, divisions and structure, market segments, customer needs, trends and buying behaviour. What the business actually sells, to whom, and what genuinely drives revenue.",
             "questions": [
-              "Which customers do you want more of?",
-              "What do they actually buy, and why from you?",
-              "Where does the money really come from, and is that where your time goes?"
+              {
+                "items": [
+                  "Which customers do you want more of?",
+                  "What do they actually buy, and why from you?",
+                  "Where does the money really come from, and is that where your time goes?"
+                ]
+              }
             ]
           },
           {
@@ -295,11 +434,15 @@
             "title": "Competitive position and SWOT",
             "duration": "30 to 40 minutes",
             "detail": "Competitors, competitive advantage, barriers to entry, and the full SWOT. Test the owner's assessment rather than accepting it. Test in both directions. Owners routinely overclaim the soft advantages and underclaim the durable ones. \"Great service\" is not an advantage, it is table stakes and every competitor claims it. The advantages that genuinely hold in an SME are unglamorous: location, switching costs, an accumulated customer database, long relationships, a specific accreditation or licence, exclusive supply, or simply being the one everybody already knows. Where an owner rates the business as easy to replicate, check whether that is actually true before agreeing with them.",
-            "questions_intro": "For each claimed advantage:",
             "questions": [
-              "Could a competitor copy this within twelve months if they spent money on it?",
-              "Would a customer notice if it disappeared?",
-              "Does it change what someone pays or who they choose?"
+              {
+                "label": "For each claimed advantage",
+                "items": [
+                  "Could a competitor copy this within twelve months if they spent money on it?",
+                  "Would a customer notice if it disappeared?",
+                  "Does it change what someone pays or who they choose?"
+                ]
+              }
             ]
           },
           {
@@ -357,8 +500,18 @@
       ]
     },
     "recommended_tools": [
-      { "tool_key": "strategy_workbook", "label": "Strategy Workbook generator", "when": "pre", "status": "Existing Trinity tool" },
-      { "tool_key": "strategic_business_plan", "label": "Strategic Business Plan generator", "when": "between sessions", "status": "Existing Trinity tool" }
+      {
+        "tool_key": "strategy_workbook",
+        "label": "Strategy Workbook generator",
+        "when": "pre",
+        "status": "Existing Trinity tool"
+      },
+      {
+        "tool_key": "strategic_business_plan",
+        "label": "Strategic Business Plan generator",
+        "when": "between sessions",
+        "status": "Existing Trinity tool"
+      }
     ],
     "deliverables": [
       {
@@ -374,7 +527,11 @@
         "is_mandatory": true,
         "produced_by": "trinity_tool",
         "produced_by_note": "advisor-guided drafting",
-        "feeds": ["V3", "V4", "V10"]
+        "feeds": [
+          "V3",
+          "V4",
+          "V10"
+        ]
       },
       {
         "key": "V2-D3",
@@ -382,7 +539,9 @@
         "is_mandatory": true,
         "produced_by": "trinity_tool",
         "produced_by_note": "advisor-approved",
-        "feeds": ["V3"]
+        "feeds": [
+          "V3"
+        ]
       },
       {
         "key": "V2-D4",
@@ -449,9 +608,21 @@
       }
     ],
     "required_inputs": [
-      { "key": "V3-I1", "label": "Diagnostic report, V3 module assessment", "source": "Held in Trinity" },
-      { "key": "V3-I2", "label": "Diagnostic responses on management meetings, team meetings and director alignment", "source": "Held in Trinity" },
-      { "key": "V3-I3", "label": "Owner's stated goals and \"fix one thing\" response", "source": "Held in Trinity" },
+      {
+        "key": "V3-I1",
+        "label": "Diagnostic report, V3 module assessment",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V3-I2",
+        "label": "Diagnostic responses on management meetings, team meetings and director alignment",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V3-I3",
+        "label": "Owner's stated goals and \"fix one thing\" response",
+        "source": "Held in Trinity"
+      },
       {
         "key": "V3-I4",
         "label": "V2 Strategic Business Plan and priorities",
@@ -459,16 +630,42 @@
         "source_note": "where available",
         "fallback": "Where V2 has not run, the owner's stated goals from the diagnostic serve in place of the strategic priorities."
       },
-      { "key": "V3-I5", "label": "List of people in leadership or supervisory roles, or confirmation there are none", "source": "Advisor to upload" },
-      { "key": "V3-I6", "label": "Existing meeting agendas or terms of reference", "source": "Advisor to upload" }
+      {
+        "key": "V3-I5",
+        "label": "List of people in leadership or supervisory roles, or confirmation there are none",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V3-I6",
+        "label": "Existing meeting agendas or terms of reference",
+        "source": "Advisor to upload"
+      }
     ],
-    "preparation_summary": { "owner": "Advisor", "duration": "30 to 45 minutes" },
+    "preparation_summary": {
+      "owner": "Advisor",
+      "duration": "30 to 45 minutes"
+    },
     "preparation_checklist": [
-      { "key": "review-meeting-diagnostics", "text": "Review the diagnostic responses on meeting rhythms, management and team meetings, and director alignment." },
-      { "key": "review-strategic-priorities", "text": "Where V2 is complete, review the strategic priorities. Leadership behaviour should be defined against what the strategy actually requires." },
-      { "key": "establish-leadership-roles", "text": "Establish who is genuinely in a leadership role. This often does not match job titles." },
-      { "key": "identify-recurring-patterns", "text": "Identify the recurring patterns to test in the session: inconsistent communication, unclear decision-making, reactive leadership, the owner as bottleneck." },
-      { "key": "prepare-discussion-notes", "text": "Prepare discussion notes: questions to ask, areas to clarify, and specific examples observed in earlier work." }
+      {
+        "key": "review-meeting-diagnostics",
+        "text": "Review the diagnostic responses on meeting rhythms, management and team meetings, and director alignment."
+      },
+      {
+        "key": "review-strategic-priorities",
+        "text": "Where V2 is complete, review the strategic priorities. Leadership behaviour should be defined against what the strategy actually requires."
+      },
+      {
+        "key": "establish-leadership-roles",
+        "text": "Establish who is genuinely in a leadership role. This often does not match job titles."
+      },
+      {
+        "key": "identify-recurring-patterns",
+        "text": "Identify the recurring patterns to test in the session: inconsistent communication, unclear decision-making, reactive leadership, the owner as bottleneck."
+      },
+      {
+        "key": "prepare-discussion-notes",
+        "text": "Prepare discussion notes: questions to ask, areas to clarify, and specific examples observed in earlier work."
+      }
     ],
     "sessions": [
       {
@@ -489,10 +686,14 @@
             "duration": "15 to 20 minutes",
             "detail": "Define what leaders must consistently do, and what staff should be able to expect from them.",
             "questions": [
-              "What behaviours must leaders here consistently demonstrate?",
-              "What should any staff member be able to expect from a leader?",
-              "Where do leaders currently undermine each other, even unintentionally?",
-              "How should the direction of the business be presented to teams?"
+              {
+                "items": [
+                  "What behaviours must leaders here consistently demonstrate?",
+                  "What should any staff member be able to expect from a leader?",
+                  "Where do leaders currently undermine each other, even unintentionally?",
+                  "How should the direction of the business be presented to teams?"
+                ]
+              }
             ]
           },
           {
@@ -501,10 +702,14 @@
             "duration": "15 to 20 minutes",
             "detail": "Establish who decides what, at what threshold, and what must escalate. This is where owner bottlenecks are named and removed.",
             "questions": [
-              "What decisions come to you that should not?",
-              "What is the largest decision someone else can make without asking you?",
-              "What are you afraid will happen if you let go of that?",
-              "What must always come to you, and why?"
+              {
+                "items": [
+                  "What decisions come to you that should not?",
+                  "What is the largest decision someone else can make without asking you?",
+                  "What are you afraid will happen if you let go of that?",
+                  "What must always come to you, and why?"
+                ]
+              }
             ],
             "note": "Record simply: decision, decider, threshold, escalates to."
           },
@@ -544,7 +749,10 @@
         "is_mandatory": true,
         "produced_by": "trinity_tool",
         "produced_by_note": "advisor-refined",
-        "feeds": ["V4", "V9"]
+        "feeds": [
+          "V4",
+          "V9"
+        ]
       },
       {
         "key": "V3-D2",
@@ -552,7 +760,9 @@
         "is_mandatory": true,
         "produced_by": "trinity_tool",
         "produced_by_note": "advisor-refined",
-        "feeds": ["V4"]
+        "feeds": [
+          "V4"
+        ]
       },
       {
         "key": "V3-D3",
@@ -560,7 +770,9 @@
         "is_mandatory": true,
         "produced_by": "trinity_tool",
         "produced_by_note": "advisor-refined",
-        "feeds": ["V9"]
+        "feeds": [
+          "V9"
+        ]
       }
     ],
     "post_session_actions": {
@@ -628,8 +840,16 @@
       }
     ],
     "required_inputs": [
-      { "key": "V4-I1", "label": "Diagnostic report, V4 module assessment", "source": "Held in Trinity" },
-      { "key": "V4-I2", "label": "Diagnostic HR responses: headcount, contracts, policies, position descriptions, retention and recruitment flags", "source": "Held in Trinity" },
+      {
+        "key": "V4-I1",
+        "label": "Diagnostic report, V4 module assessment",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V4-I2",
+        "label": "Diagnostic HR responses: headcount, contracts, policies, position descriptions, retention and recruitment flags",
+        "source": "Held in Trinity"
+      },
       {
         "key": "V4-I3",
         "label": "V2 Strategic Business Plan and priorities",
@@ -644,17 +864,47 @@
         "source_note": "where available",
         "fallback": "Where V3 has not run, decision rights are established here at role level only."
       },
-      { "key": "V4-I5", "label": "Current team list with roles and reporting lines", "source": "Advisor to upload" },
-      { "key": "V4-I6", "label": "Existing position descriptions", "source": "Advisor to upload" },
-      { "key": "V4-I7", "label": "Existing organisational chart", "source": "Advisor to upload" }
+      {
+        "key": "V4-I5",
+        "label": "Current team list with roles and reporting lines",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V4-I6",
+        "label": "Existing position descriptions",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V4-I7",
+        "label": "Existing organisational chart",
+        "source": "Advisor to upload"
+      }
     ],
-    "preparation_summary": { "owner": "Advisor", "duration": "45 to 60 minutes" },
+    "preparation_summary": {
+      "owner": "Advisor",
+      "duration": "45 to 60 minutes"
+    },
     "preparation_checklist": [
-      { "key": "review-hr-responses", "text": "Review the diagnostic HR responses, particularly the retention and recruitment flags, policy gaps and contract status." },
-      { "key": "draft-current-structure", "text": "Draft the current structure from the team list and any existing organisational chart." },
-      { "key": "run-pack-generator", "text": "Run the pack generator. Where the client has existing position descriptions, load them so the tool can pre-fill the roles and responsibilities matrix, and session time goes on testing tasks rather than listing them." },
-      { "key": "identify-structural-issues", "text": "Identify structural issues to test: overlapping responsibilities, gaps with no owner, unclear reporting lines, and work the owner is doing that someone else should." },
-      { "key": "review-strategic-priorities", "text": "Where V2 is complete, review the strategic priorities. The intended structure should be the one that delivers them." }
+      {
+        "key": "review-hr-responses",
+        "text": "Review the diagnostic HR responses, particularly the retention and recruitment flags, policy gaps and contract status."
+      },
+      {
+        "key": "draft-current-structure",
+        "text": "Draft the current structure from the team list and any existing organisational chart."
+      },
+      {
+        "key": "run-pack-generator",
+        "text": "Run the pack generator. Where the client has existing position descriptions, load them so the tool can pre-fill the roles and responsibilities matrix, and session time goes on testing tasks rather than listing them."
+      },
+      {
+        "key": "identify-structural-issues",
+        "text": "Identify structural issues to test: overlapping responsibilities, gaps with no owner, unclear reporting lines, and work the owner is doing that someone else should."
+      },
+      {
+        "key": "review-strategic-priorities",
+        "text": "Where V2 is complete, review the strategic priorities. The intended structure should be the one that delivers them."
+      }
     ],
     "sessions": [
       {
@@ -675,10 +925,14 @@
             "duration": "20 to 25 minutes",
             "detail": "Walk the draft structure. Confirm who actually does what, as opposed to what the chart says. Identify overlaps, gaps, unclear reporting and work sitting with the owner.",
             "questions": [
-              "Who actually decides here?",
-              "What falls between two people?",
-              "What has no owner at all?",
-              "What are you doing that someone on this list should be doing?"
+              {
+                "items": [
+                  "Who actually decides here?",
+                  "What falls between two people?",
+                  "What has no owner at all?",
+                  "What are you doing that someone on this list should be doing?"
+                ]
+              }
             ]
           },
           {
@@ -687,9 +941,13 @@
             "duration": "15 minutes",
             "detail": "Identify who the business cannot afford to lose, and who is at risk of leaving. Establish whether each risk is addressable and how quickly. Held before the role work, because a departure changes what can be planned.",
             "questions": [
-              "If one person resigned tomorrow, who would hurt most, and why?",
-              "Is anyone unsettled right now? What is driving that, and is it something you can act on?",
-              "What would we lose that only exists in that person's head?"
+              {
+                "items": [
+                  "If one person resigned tomorrow, who would hurt most, and why?",
+                  "Is anyone unsettled right now? What is driving that, and is it something you can act on?",
+                  "What would we lose that only exists in that person's head?"
+                ]
+              }
             ]
           },
           {
@@ -698,16 +956,32 @@
             "duration": "60 to 75 minutes",
             "detail": "The core activity of the module. Work role by role. For each role, list the actual tasks, then test every task against three options.\n\nRun across every role, this single activity delivers structure, role clarity, capability and gaps in one pass. Tasks with no home expose structural gaps. Tasks nobody can do expose capability gaps. Tasks the owner cannot put down expose the dependency V9 addresses.\n\nStart with the owner's own role. It is usually the most overloaded, and doing it first sets the tone for honest answers about everyone else.",
             "options": [
-              { "key": "retain", "term": "Retain", "definition": "stays with this role and is being done well enough" },
-              { "key": "lose", "term": "Lose", "definition": "should move off this role, to another role, to a system, to an outsourced provider, or stopped entirely" },
-              { "key": "gain", "term": "Gain", "definition": "should be picked up by this role, whether it currently sits with the owner, sits nowhere, or is not being done at all" }
+              {
+                "key": "retain",
+                "term": "Retain",
+                "definition": "stays with this role and is being done well enough"
+              },
+              {
+                "key": "lose",
+                "term": "Lose",
+                "definition": "should move off this role, to another role, to a system, to an outsourced provider, or stopped entirely"
+              },
+              {
+                "key": "gain",
+                "term": "Gain",
+                "definition": "should be picked up by this role, whether it currently sits with the owner, sits nowhere, or is not being done at all"
+              }
             ],
             "questions": [
-              "What does this person actually spend their week on?",
-              "Which of these can only they do?",
-              "What is on this list because they have always done it?",
-              "What is being done twice?",
-              "What is on nobody's list?"
+              {
+                "items": [
+                  "What does this person actually spend their week on?",
+                  "Which of these can only they do?",
+                  "What is on this list because they have always done it?",
+                  "What is being done twice?",
+                  "What is on nobody's list?"
+                ]
+              }
             ],
             "note": "Record against each role: responsibilities retained, tasks moving off, tasks moving on, decision rights, reporting line, and any capability gap the changes create."
           },
@@ -721,8 +995,18 @@
       }
     ],
     "recommended_tools": [
-      { "tool_key": "people_structure_pack", "label": "People & Structure Pack generator", "when": "pre, post", "status": "To build, Feature 3" },
-      { "tool_key": "position_description", "label": "Position Description generator", "when": "post", "status": "To build, Feature 3" }
+      {
+        "tool_key": "people_structure_pack",
+        "label": "People & Structure Pack generator",
+        "when": "pre, post",
+        "status": "To build, Feature 3"
+      },
+      {
+        "tool_key": "position_description",
+        "label": "Position Description generator",
+        "when": "post",
+        "status": "To build, Feature 3"
+      }
     ],
     "deliverables": [
       {
@@ -730,7 +1014,10 @@
         "title": "Org Structure, current and intended",
         "is_mandatory": true,
         "produced_by": "advisor",
-        "feeds": ["V5", "V9"]
+        "feeds": [
+          "V5",
+          "V9"
+        ]
       },
       {
         "key": "V4-D2",
@@ -738,7 +1025,10 @@
         "is_mandatory": true,
         "produced_by": "trinity_tool",
         "produced_by_note": "advisor-refined",
-        "feeds": ["V5", "V9"]
+        "feeds": [
+          "V5",
+          "V9"
+        ]
       },
       {
         "key": "V4-D3",
@@ -746,7 +1036,9 @@
         "is_mandatory": true,
         "produced_by": "trinity_tool",
         "produced_by_note": "advisor-refined",
-        "feeds": ["V9"]
+        "feeds": [
+          "V9"
+        ]
       },
       {
         "key": "V4-D4",
@@ -797,15 +1089,314 @@
     "module_code": "V5",
     "display_order": 5,
     "title": "Systems & Processes",
-    "purpose": "PLACEHOLDER: Document and improve the systems and processes that keep the business running.",
+    "focus": "How work actually flows, where it breaks, and how it should run.",
+    "purpose": "V5 clarifies and standardises how work moves through the business. The client describes their key workflows before the session, Trinity analyses those descriptions for red flags and bottlenecks, and the workshop maps each workflow live, interrogates it, and redraws it as it should operate.\n\nThe emphasis is on pain points, manual handling and duplicated effort. It improves operational clarity without deep process engineering, and it gives the business something that survives a staff departure.",
+    "core_outcomes": [
+      "The workflows nominated for the session are mapped as they actually run.",
+      "Pain points, manual handling and double handling are identified and recorded.",
+      "Each workflow is redrawn as it should operate.",
+      "A short improvement plan is agreed, with an owner against each item."
+    ],
+    "notes": [
+      {
+        "key": "nothing-documented",
+        "title": "Where nothing is documented",
+        "text": "This is the common case and not a barrier. The module starts from what people actually do rather than from existing documentation. Where the business runs on tribal knowledge, that is the finding, and mapping even two workflows is a material improvement."
+      },
+      {
+        "key": "importance-vs-frustration",
+        "section": "preparation",
+        "text": "Importance and frustration are asked separately on purpose. Selecting on frustration alone surfaces pet grievances and hides the important workflow the owner assumes is fine."
+      },
+      {
+        "key": "pre-work-compulsory",
+        "section": "preparation",
+        "title": "The pre-work is compulsory",
+        "text": "The session does not run without it. Set this expectation when the module is scheduled, not when the pre-work is chased. Where the client has not returned their process descriptions, reschedule. Running the session anyway wastes the analysis step, produces a weaker map, and teaches the client that the pre-work was optional.\n\nTrinity should treat pre-work received as a condition on booking the session."
+      },
+      {
+        "key": "where-expertise-sits",
+        "section": "preparation",
+        "title": "Where the expertise sits",
+        "text": "Advisors are not workflow specialists and are not expected to be. The domain expertise sits in the tool and in the question sets. The advisor facilitates, draws, captures and works the questions provided. Diagnosis comes from the analysis, not from the advisor's own process knowledge, which is why the question sets are worked in full rather than sampled."
+      },
+      {
+        "key": "how-module-runs",
+        "section": "sessions",
+        "title": "How this module runs",
+        "text": "Remember, this is a module, not a month. It will often run across several months, covering one or two workflows at a time, with sessions spaced weeks or months apart. It also runs well in parallel: improvements agreed in an earlier session can be underway in the background while you start the next module with the client."
+      },
+      {
+        "key": "tool-carries-expertise",
+        "section": "recommended_tools",
+        "text": "This tool carries the domain expertise for the module and is not optional to the delivery.\n\nBefore the session it analyses the client's written process descriptions and returns a draft map of each workflow, red flags, likely bottlenecks, indicators of manual handling and duplication, and a specific question set for the advisor to work through. The draft map is what goes on the board. The question set is printed and used during the session as a prepared document.\n\nAfter the session it produces the maps and documents from the whiteboard photographs and session notes, and reviews the redrawn future state against the current state to confirm the duplication and bottlenecks identified have actually been removed. This second check matters because the advisor is not a workflow specialist and may otherwise accept a target state that has fixed little.\n\nWhere an improvement needs external help, the tool identifies the category of provider required."
+      },
+      {
+        "key": "friction-map-scope",
+        "section": "deliverables",
+        "text": "The Friction & Handling Map records pain points, manual handling and every instance of duplicated effort found. Handovers are visible on the workflow maps themselves and are not documented separately."
+      }
+    ],
+    "required_inputs": [
+      {
+        "key": "V5-I1",
+        "label": "Client's written description of each nominated workflow",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V5-I2",
+        "label": "Diagnostic report, V5 module assessment",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V5-I3",
+        "label": "Diagnostic responses on process documentation, operational reporting, automation tools and document organisation",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V5-I4",
+        "label": "V4 Role Clarity Map and Org Structure",
+        "source": "From an earlier module",
+        "source_note": "where available",
+        "fallback": "Where V4 has not run, workflow ownership is established during the session instead of being drawn from the Role Clarity Map."
+      },
+      {
+        "key": "V5-I5",
+        "label": "Known operational issues and complaints",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V5-I6",
+        "label": "Any existing process documentation",
+        "source": "Advisor to upload"
+      }
+    ],
+    "preparation_summary": {
+      "owner": "Advisor"
+    },
     "preparation_checklist": [
-      { "key": "list-core-processes", "text": "PLACEHOLDER: List the business's core operating processes" }
+      {
+        "key": "send-pre-work-request",
+        "title": "Send the pre-work request",
+        "text": "Ask the client for three things, keeping the first two as separate questions:",
+        "items": [
+          "Which workflows matter most to the business. Ask for three to five.",
+          "For each, a bullet-point description of how it currently gets done, step by step, and who does what.",
+          "Against each, anything that frustrates them, causes rework, or gets done more than once."
+        ]
+      },
+      {
+        "key": "brief-client-on-reality",
+        "title": "Brief the client to describe reality, not the intended process",
+        "text": "This is the difference between a useful analysis and a useless one, and it is set in the wording of the request. Tell the client explicitly:",
+        "items": [
+          "Describe what actually happens, not what is supposed to happen.",
+          "Include the workarounds: steps people take because a system will not do something, work done outside the process, things corrected manually afterwards.",
+          "Where different people do the same step differently, say so.",
+          "If something regularly goes wrong, include it.",
+          "Each workflow should be described by the person who actually does it, not only by the owner."
+        ]
+      },
+      {
+        "key": "run-the-analysis",
+        "title": "Run the analysis",
+        "text": "Load the client's descriptions into the workflow tool. It returns red flags, likely bottlenecks, indicators of manual handling and duplication, and a set of specific questions for the advisor to ask in the session."
+      },
+      {
+        "key": "prepare-draft-maps",
+        "title": "Prepare the draft maps",
+        "text": "Confirm which workflows the session will cover, then produce a draft map of each from the client's description and the tool's analysis, ready to put on the board. Prepare the question set for each."
+      }
+    ],
+    "sessions": [
+      {
+        "key": "V5-S1",
+        "title": "Workflow Mapping Workshop",
+        "duration": "Maximum 180 minutes",
+        "format": "In person strongly preferred, as the work is done on a whiteboard. A digital whiteboard is fine where the session has to run online.",
+        "note": "Work one complete workflow at a time. Once a workflow is finished and time remains, start the next using the same process. Book another session for any that remain.\n\nWhere a single workflow takes a long time, that is itself a finding. A slow, difficult map usually means a workflow carrying many issues. Do not compress it to fit more in. Five large workflows in one session is not realistic.",
+        "agenda": [
+          {
+            "key": "V5-S1-A1",
+            "title": "Frame the session",
+            "duration": "5 to 10 minutes",
+            "detail": "Explain that each workflow will be drawn as it runs today, pulled apart, then redrawn as it should run. Nothing is being judged, and no one is being assessed."
+          },
+          {
+            "key": "V5-S1-A2",
+            "title": "Present and validate the mapped workflow",
+            "duration": "30 to 40 minutes",
+            "intro": "Steps 2 to 4 are one workflow. Repeat the sequence for each workflow the session covers.",
+            "detail": "The advisor puts up the workflow as already mapped from the client's description and the tool's interpretation of it. The client then walks through it, correcting, clarifying and filling gaps. Mark every correction on the board. A correction usually points to a step the client did not think worth mentioning, which is often where the problem lives.",
+            "questions": [
+              {
+                "items": [
+                  "Is this how it actually runs?",
+                  "What have we got wrong?",
+                  "What is missing?",
+                  "Who really does that step?",
+                  "What happens when it does not go this way?"
+                ]
+              }
+            ],
+            "note": "Photograph the board before erasing."
+          },
+          {
+            "key": "V5-S1-A3",
+            "title": "Interrogate the map",
+            "duration": "20 to 25 minutes",
+            "detail": "Work through the prepared questions from the analysis, then the standing set below.",
+            "questions": [
+              {
+                "label": "Pain points",
+                "items": [
+                  "Where does this break?",
+                  "Where do you get complaints?",
+                  "What step causes the most rework?",
+                  "Where do things sit waiting?"
+                ]
+              },
+              {
+                "label": "Manual handling and duplication",
+                "items": [
+                  "Where is information entered more than once?",
+                  "What gets printed and then re-keyed?",
+                  "What starts on paper and ends in a system?",
+                  "Where does someone re-type what another system already holds?",
+                  "What is copied between spreadsheets?",
+                  "Where does the same information exist in two places that have to be kept in step?"
+                ]
+              },
+              {
+                "label": "Owner involvement",
+                "items": [
+                  "Where are you in this workflow, and does it need you?"
+                ]
+              }
+            ],
+            "note": "Mark every instance of double or triple handling on the board. It is the highest-value finding in this module and the hardest for the client to see from inside."
+          },
+          {
+            "key": "V5-S1-A4",
+            "title": "Redraw how it should operate",
+            "duration": "20 to 25 minutes",
+            "detail": "Draw a fresh map on a clean board. Do not amend the current-state map. Starting blank is what stops the target state inheriting the existing mess.",
+            "questions": [
+              {
+                "items": [
+                  "If we were setting this up today, what would it look like?",
+                  "Which steps disappear?",
+                  "Where does the duplication go?",
+                  "Who owns it end to end?"
+                ]
+              }
+            ],
+            "note": "The workflow is now complete. Where time remains, return to step 2 and begin the next one. Do not start a workflow that cannot be finished in the time left."
+          },
+          {
+            "key": "V5-S1-A5",
+            "title": "Agree improvements",
+            "duration": "20 to 25 minutes",
+            "detail": "Five to seven improvements maximum across all workflows mapped.",
+            "questions": [
+              {
+                "items": [
+                  "If we fixed only three of these in the next two months, which?",
+                  "Who owns each?",
+                  "Which are quick wins and which need outside help?"
+                ]
+              }
+            ],
+            "note": "Where an improvement needs a system, a tool or an external provider, record it as such. The advisor may assist in identifying and shortlisting providers."
+          },
+          {
+            "key": "V5-S1-A6",
+            "title": "Close",
+            "duration": "5 minutes",
+            "detail": "Confirm the first improvement and its owner."
+          }
+        ]
+      }
     ],
     "recommended_tools": [
-      { "tool_key": "bba", "label": "Recommendations Report Builder" }
+      {
+        "tool_key": "workflow_analysis_mapping",
+        "label": "Workflow Analysis & Mapping tool",
+        "when": "pre, post",
+        "status": "To build, Feature 3"
+      }
     ],
     "deliverables": [
-      { "key": "V5-D1", "title": "PLACEHOLDER: Systems & Processes Plan", "is_mandatory": true }
+      {
+        "key": "V5-D1",
+        "title": "Current State Workflow Maps",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V6",
+          "V9"
+        ]
+      },
+      {
+        "key": "V5-D2",
+        "title": "Future State Workflow Maps",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V6",
+          "V9"
+        ]
+      },
+      {
+        "key": "V5-D3",
+        "title": "Friction & Handling Map",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V6"
+        ]
+      },
+      {
+        "key": "V5-D4",
+        "title": "Improvement Plan",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined"
+      }
+    ],
+    "post_session_actions": {
+      "owner": "Advisor",
+      "items": [
+        "Generate the maps and documents from the whiteboard photographs and session notes, then issue them.",
+        "Confirm the owner and date against each improvement.",
+        "Where an improvement needs an external solution or provider, identify options and provide a shortlist.",
+        "Note any friction caused by technology rather than process, as evidence for V6.",
+        "Note any workflow only one person can run, as evidence for V9."
+      ]
+    },
+    "guardrails": {
+      "must_not": [
+        "build full SOP manuals",
+        "configure, implement or integrate systems",
+        "attempt to map every workflow in the business",
+        "run detailed process engineering",
+        "do the technical implementation work themselves",
+        "recommend a provider without disclosing any commercial relationship with them"
+      ],
+      "note": "This module stays light and focused. These are boundaries of profession, not boundaries of module. Where V5 surfaces an issue whose home module is elsewhere, the advisor addresses it and records the output against that module."
+    },
+    "quality_standards": [
+      "The full question set was worked through, not sampled.",
+      "Every instance of double or triple handling found has been recorded explicitly.",
+      "The future state map was drawn fresh, not marked up over the current state.",
+      "The future state has been checked against the current state to confirm the duplication and bottlenecks are actually gone.",
+      "Workflow maps are simple enough that a new staff member could follow them.",
+      "Pain points are specific, not general complaints.",
+      "The improvement plan has no more than seven items, each with an owner and a date.",
+      "The client can see which of their daily frustrations the plan actually addresses."
     ]
   },
   {
@@ -815,13 +1406,23 @@
     "title": "Technology",
     "purpose": "PLACEHOLDER: Assess the business's technology stack and identify improvement opportunities.",
     "preparation_checklist": [
-      { "key": "list-tech-stack", "text": "PLACEHOLDER: List the current technology stack" }
+      {
+        "key": "list-tech-stack",
+        "text": "PLACEHOLDER: List the current technology stack"
+      }
     ],
     "recommended_tools": [
-      { "tool_key": "bba", "label": "Recommendations Report Builder" }
+      {
+        "tool_key": "bba",
+        "label": "Recommendations Report Builder"
+      }
     ],
     "deliverables": [
-      { "key": "V6-D1", "title": "PLACEHOLDER: Technology Improvement Plan", "is_mandatory": true }
+      {
+        "key": "V6-D1",
+        "title": "PLACEHOLDER: Technology Improvement Plan",
+        "is_mandatory": true
+      }
     ]
   },
   {
@@ -831,13 +1432,23 @@
     "title": "Sales & Marketing",
     "purpose": "PLACEHOLDER: Sharpen the business's sales and marketing engine.",
     "preparation_checklist": [
-      { "key": "review-pipeline", "text": "PLACEHOLDER: Review current sales pipeline and marketing channels" }
+      {
+        "key": "review-pipeline",
+        "text": "PLACEHOLDER: Review current sales pipeline and marketing channels"
+      }
     ],
     "recommended_tools": [
-      { "tool_key": "bba", "label": "Recommendations Report Builder" }
+      {
+        "tool_key": "bba",
+        "label": "Recommendations Report Builder"
+      }
     ],
     "deliverables": [
-      { "key": "V7-D1", "title": "PLACEHOLDER: Sales & Marketing Plan", "is_mandatory": true }
+      {
+        "key": "V7-D1",
+        "title": "PLACEHOLDER: Sales & Marketing Plan",
+        "is_mandatory": true
+      }
     ]
   },
   {
@@ -847,13 +1458,23 @@
     "title": "Brand, IP & Protection",
     "purpose": "PLACEHOLDER: Clarify what makes the business defensible and differentiated.",
     "preparation_checklist": [
-      { "key": "list-ip-assets", "text": "PLACEHOLDER: List brand and IP assets" }
+      {
+        "key": "list-ip-assets",
+        "text": "PLACEHOLDER: List brand and IP assets"
+      }
     ],
     "recommended_tools": [
-      { "tool_key": "bba", "label": "Recommendations Report Builder" }
+      {
+        "tool_key": "bba",
+        "label": "Recommendations Report Builder"
+      }
     ],
     "deliverables": [
-      { "key": "V8-D1", "title": "PLACEHOLDER: Competitive Advantage Summary", "is_mandatory": true }
+      {
+        "key": "V8-D1",
+        "title": "PLACEHOLDER: Competitive Advantage Summary",
+        "is_mandatory": true
+      }
     ]
   },
   {
@@ -863,13 +1484,23 @@
     "title": "Owner Independence",
     "purpose": "PLACEHOLDER: Reduce owner dependency so the business can run without the owner in the room.",
     "preparation_checklist": [
-      { "key": "list-owner-tasks", "text": "PLACEHOLDER: List tasks only the owner currently does" }
+      {
+        "key": "list-owner-tasks",
+        "text": "PLACEHOLDER: List tasks only the owner currently does"
+      }
     ],
     "recommended_tools": [
-      { "tool_key": "bba", "label": "Recommendations Report Builder" }
+      {
+        "tool_key": "bba",
+        "label": "Recommendations Report Builder"
+      }
     ],
     "deliverables": [
-      { "key": "V9-D1", "title": "PLACEHOLDER: Owner Independence Plan", "is_mandatory": true }
+      {
+        "key": "V9-D1",
+        "title": "PLACEHOLDER: Owner Independence Plan",
+        "is_mandatory": true
+      }
     ]
   },
   {
@@ -879,13 +1510,23 @@
     "title": "Value & Growth",
     "purpose": "PLACEHOLDER: Focus on the retention, concentration, and recurring-revenue drivers of business value and growth.",
     "preparation_checklist": [
-      { "key": "review-revenue-quality", "text": "PLACEHOLDER: Review customer concentration and revenue quality" }
+      {
+        "key": "review-revenue-quality",
+        "text": "PLACEHOLDER: Review customer concentration and revenue quality"
+      }
     ],
     "recommended_tools": [
-      { "tool_key": "bba", "label": "Recommendations Report Builder" }
+      {
+        "tool_key": "bba",
+        "label": "Recommendations Report Builder"
+      }
     ],
     "deliverables": [
-      { "key": "V10-D1", "title": "PLACEHOLDER: Value & Growth Plan", "is_mandatory": true }
+      {
+        "key": "V10-D1",
+        "title": "PLACEHOLDER: Value & Growth Plan",
+        "is_mandatory": true
+      }
     ]
   },
   {
@@ -895,13 +1536,23 @@
     "title": "Risk, Legal, Compliance & Property",
     "purpose": "PLACEHOLDER: Identify and reduce legal, compliance, and property-related risk.",
     "preparation_checklist": [
-      { "key": "review-contracts", "text": "PLACEHOLDER: Review key contracts, leases, and compliance obligations" }
+      {
+        "key": "review-contracts",
+        "text": "PLACEHOLDER: Review key contracts, leases, and compliance obligations"
+      }
     ],
     "recommended_tools": [
-      { "tool_key": "bba", "label": "Recommendations Report Builder" }
+      {
+        "tool_key": "bba",
+        "label": "Recommendations Report Builder"
+      }
     ],
     "deliverables": [
-      { "key": "V11-D1", "title": "PLACEHOLDER: Risk & Compliance Summary", "is_mandatory": true }
+      {
+        "key": "V11-D1",
+        "title": "PLACEHOLDER: Risk & Compliance Summary",
+        "is_mandatory": true
+      }
     ]
   },
   {
@@ -911,13 +1562,23 @@
     "title": "Re-Diagnostic Capstone",
     "purpose": "PLACEHOLDER: Re-run the diagnostic, see the value movement since the last one, and get routed back through the module library with a refreshed focus.",
     "preparation_checklist": [
-      { "key": "review-progress", "text": "PLACEHOLDER: Review progress made across the modules since the last diagnostic" }
+      {
+        "key": "review-progress",
+        "text": "PLACEHOLDER: Review progress made across the modules since the last diagnostic"
+      }
     ],
     "recommended_tools": [
-      { "tool_key": "diagnostic", "label": "Value Builder Diagnostic" }
+      {
+        "tool_key": "diagnostic",
+        "label": "Value Builder Diagnostic"
+      }
     ],
     "deliverables": [
-      { "key": "M12-D1", "title": "PLACEHOLDER: Value Movement Report", "is_mandatory": true }
+      {
+        "key": "M12-D1",
+        "title": "PLACEHOLDER: Value Movement Report",
+        "is_mandatory": true
+      }
     ]
   }
 ]

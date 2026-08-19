@@ -1111,6 +1111,30 @@ class TestModuleNameAliases:
         assert by_key["V9-D3"]["feeds"] == ["V4", "V10"], "V9-D3 feeds V4 backwards"
         assert not any("session" in d for d in v9["deliverables"]), "V9 runs one session"
 
+    def test_v10_is_transcribed_from_part_k(self):
+        """
+        V10 is the first terminal module: everything feeds into the value
+        synthesis and nothing feeds out, so every deliverable's Feeds column is
+        empty. That is a property of the module, not an omission.
+        """
+        with open(DEFAULT_FIXTURE, "r", encoding="utf-8") as f:
+            v10 = next(m for m in json.load(f) if m["module_code"] == "V10")
+
+        assert "PLACEHOLDER" not in json.dumps(v10), "V10 still contains placeholder text"
+
+        agenda = {a["key"]: a for a in v10["sessions"][0]["agenda"]}
+        assert [o["term"] for o in agenda["V10-S1-A2"]["options"]] == [
+            "Recurring revenue", "Concentration", "Product and service relevance",
+            "Margin position", "Scalability",
+        ]
+        assert [o["term"] for o in agenda["V10-S1-A4"]["options"]] == ["Gaps", "Leaks"]
+
+        assert [d["key"] for d in v10["deliverables"]] == ["V10-D1", "V10-D2", "V10-D3"]
+        assert all(d["is_mandatory"] for d in v10["deliverables"])
+        assert not any(d.get("feeds") for d in v10["deliverables"]), (
+            "V10 is terminal - no deliverable feeds another module"
+        )
+
     def test_feeds_may_point_backwards(self):
         """
         `feeds` is a dependency graph, not a sequence. V6-D5 feeds V1 and V6-D3

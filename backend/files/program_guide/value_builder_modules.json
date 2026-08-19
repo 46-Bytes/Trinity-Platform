@@ -2889,25 +2889,239 @@
     "module_code": "V10",
     "display_order": 10,
     "title": "Value & Growth",
-    "purpose": "PLACEHOLDER: Focus on the retention, concentration, and recurring-revenue drivers of business value and growth.",
+    "focus": "Building an asset rather than running a business.",
+    "purpose": "V10 shifts the conversation from operating to asset building. It establishes where the business creates value, where it leaks or limits it, what is missing for scalability, and what to do about it over the next twelve months.\n\nIt also covers the revenue quality questions that sit nowhere else: recurring revenue, customer concentration, product and service relevance, margin position and scalability.\n\nThis is not a valuation conversation. No sale price, no multiple, no dollar figure on enterprise value. The module works in capabilities and risk, not in numbers a buyer would put on the business. Appraisal and sale are separate BBA engagements.",
+    "core_outcomes": [
+      "Revenue quality is understood: recurring proportion, concentration, product relevance, margin position.",
+      "Value drivers are assessed across capability areas, weighted for this business.",
+      "Value gaps and value leaks are identified in capability terms.",
+      "A twelve-month plan sets five to seven initiatives with owners and checkpoints."
+    ],
+    "notes": [
+      {
+        "key": "before-you-start",
+        "title": "Before you start",
+        "text": "V10 is the most module-dependent card in the set. Every completed module feeds it, and where several have run the assessment is far richer and can show movement rather than only position.\n\nWhere none have run, V10 still works. The diagnostic already scores eleven capability areas, which is itself a value driver assessment, and this module builds on it rather than rebuilding it."
+      },
+      {
+        "key": "no-valuation-in-preparation",
+        "section": "preparation",
+        "text": "The advisor does not produce a valuation or a sale estimate at any point in this preparation."
+      },
+      {
+        "key": "tool-no-valuation-no-benchmarks",
+        "section": "recommended_tools",
+        "text": "Before the session it drafts the value driver assessment from the diagnostic and all completed module outputs, identifies likely value leaks, and suggests candidate initiatives. Trinity does the structuring, the advisor refines and confirms. After the session it produces the assessment, the gaps and leaks summary and the plan.\n\nThe tool must not produce a valuation, a multiple or a sale price estimate, and must not generate industry margin benchmarks. Where a margin comparison is genuinely needed it comes from a real and citable source, and the source is stated. See Program notes."
+      },
+      {
+        "key": "playbook-outputs-removed",
+        "section": "deliverables",
+        "text": "The Playbook lists an Owner Dependency Map, a lite risk register and an exit readiness snapshot as optional outputs. All three have been removed. Dependency is now V9-D1, risk is V11, and exit readiness belongs to the separate Sale Ready program rather than sitting as an afterthought here."
+      }
+    ],
+    "required_inputs": [
+      {
+        "key": "V10-I1",
+        "label": "Diagnostic module scores and rankings across all eleven areas",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V10-I2",
+        "label": "Diagnostic responses on recurring revenue, supplier accessibility, new product and service activity, margin position, product and service relevance and mix, scalability",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V10-I3",
+        "label": "Customer concentration: largest customer, top three, active customers, repeat and new split",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V10-I4",
+        "label": "Outputs from every completed module",
+        "source": "From an earlier module",
+        "source_note": "where available",
+        "fallback": "Where no modules have run, V10 still works. The diagnostic already scores eleven capability areas, which is itself a value driver assessment, and this module builds on it rather than rebuilding it."
+      },
+      {
+        "key": "V10-I5",
+        "label": "V7 business model shape",
+        "source": "From an earlier module",
+        "source_note": "where available"
+      },
+      {
+        "key": "V10-I6",
+        "label": "V9 Owner Dependency Map",
+        "source": "From an earlier module",
+        "source_note": "where available"
+      }
+    ],
+    "preparation_summary": {
+      "owner": "Advisor",
+      "duration": "45 to 60 minutes"
+    },
     "preparation_checklist": [
       {
-        "key": "review-revenue-quality",
-        "text": "PLACEHOLDER: Review customer concentration and revenue quality"
+        "key": "load-into-value-tool",
+        "text": "Load the diagnostic and all completed module outputs into the value tool. It drafts the value driver assessment, identifies likely value leaks from accumulated module data, and suggests candidate initiatives."
+      },
+      {
+        "key": "review-improvement-to-date",
+        "text": "Review where improvement has already occurred. Where a module has been completed, the assessment should show movement, not just current position."
+      },
+      {
+        "key": "note-immature-areas",
+        "text": "Note the areas still short of maturity, typically owner dependency, leadership depth, systems, and revenue concentration."
+      },
+      {
+        "key": "weight-the-drivers",
+        "text": "Weight the drivers for this business. They do not matter equally. In an account-based business concentration dominates. In an owner-operated service business, dependency dominates. In a capital-heavy business, scalability does. Do not present eleven drivers as equally important."
+      }
+    ],
+    "sessions": [
+      {
+        "key": "V10-S1",
+        "title": "Value Building Workshop",
+        "duration": "Target 95 to 120 minutes",
+        "format": "In person or online",
+        "agenda": [
+          {
+            "key": "V10-S1-A1",
+            "title": "Frame the session",
+            "duration": "5 minutes",
+            "detail": "This is about building long-term value whether or not the owner ever sells. It covers capabilities that increase value, reduce risk and improve scalability. Say plainly that it is not a valuation or sale conversation, because owners will otherwise assume it is."
+          },
+          {
+            "key": "V10-S1-A2",
+            "title": "Revenue quality and scalability",
+            "duration": "25 to 30 minutes",
+            "detail": "The concrete ground this module owns.",
+            "options": [
+              {
+                "key": "recurring-revenue",
+                "term": "Recurring revenue",
+                "definition": "What proportion is contracted, repeating or predictable, and what could be? Recurring revenue is the single most reliable lift to value in most SMEs."
+              },
+              {
+                "key": "concentration",
+                "term": "Concentration",
+                "definition": "What proportion sits with the largest customer and the top three? What would happen if the largest left?"
+              },
+              {
+                "key": "relevance",
+                "term": "Product and service relevance",
+                "definition": "When was the range last reviewed? Will it still be right in two years? Does the mix need to change?"
+              },
+              {
+                "key": "margin-position",
+                "term": "Margin position",
+                "definition": "Where the owner does not know how their margins compare, record that as the finding rather than guessing."
+              },
+              {
+                "key": "scalability",
+                "term": "Scalability",
+                "definition": "Could the business take on significantly more work without proportionate additional investment? Where is the ceiling, and what is it made of?"
+              }
+            ]
+          },
+          {
+            "key": "V10-S1-A3",
+            "title": "Value driver review",
+            "duration": "25 to 30 minutes",
+            "detail": "Work across the capability areas: financial performance, growth potential, systems and scalability, people and leadership, customer base quality, recurring revenue, technology and data, brand and positioning, risk profile, owner dependency.",
+            "note": "Use the weighting from preparation. Spend the time on the drivers that actually move value for this business, and move quickly through those that do not.\n\nWhere modules have been completed, show the movement. That is the most motivating part of the session and it is easy to skip."
+          },
+          {
+            "key": "V10-S1-A4",
+            "title": "Value gaps and leaks",
+            "duration": "20 to 25 minutes",
+            "detail": "The value gap is the distance between the business's current capabilities and those of a scalable, low-risk, high-value company. No dollar figures.",
+            "options": [
+              {
+                "key": "gaps",
+                "term": "Gaps",
+                "definition": "Missing capability: no management layer, immature systems, no reporting, weak customer diversification, low recurring revenue, owner bottleneck."
+              },
+              {
+                "key": "leaks",
+                "term": "Leaks",
+                "definition": "Value being lost through current operation: rework, poor pricing discipline, unmanaged risk, reliance on a few customers, outdated technology, inconsistent sales rhythm."
+              }
+            ]
+          },
+          {
+            "key": "V10-S1-A5",
+            "title": "The twelve-month plan",
+            "duration": "20 to 25 minutes",
+            "detail": "Five to seven initiatives, high level. No detailed project plans. For each: what it is, who owns it, the timeframe, the major checkpoints, and how progress will be seen.",
+            "note": "Each initiative must be meaningful, realistic, aligned to strategy, and value-focused. Where an initiative requires money the business does not have, it is not realistic and does not belong in the plan."
+          },
+          {
+            "key": "V10-S1-A6",
+            "title": "Close",
+            "duration": "5 minutes",
+            "detail": "Confirm the first initiative and its owner."
+          }
+        ]
       }
     ],
     "recommended_tools": [
       {
-        "tool_key": "bba",
-        "label": "Recommendations Report Builder"
+        "tool_key": "value_building",
+        "label": "Value Building tool",
+        "when": "pre, post",
+        "status": "To build, Feature 3"
       }
     ],
     "deliverables": [
       {
         "key": "V10-D1",
-        "title": "PLACEHOLDER: Value & Growth Plan",
-        "is_mandatory": true
+        "title": "Value Driver Assessment",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined"
+      },
+      {
+        "key": "V10-D2",
+        "title": "Value Gap & Leaks Summary",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined"
+      },
+      {
+        "key": "V10-D3",
+        "title": "12-Month Value Building Plan",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined"
       }
+    ],
+    "post_session_actions": {
+      "owner": "Advisor",
+      "duration": "45 to 60 minutes",
+      "items": [
+        "Finalise the assessment, summary and plan, then issue them.",
+        "Check the plan against the financial position and the strategy. An initiative the business cannot fund or that pulls against the strategy should not survive to the final document.",
+        "Where the owner raises sale, exit or valuation, record the interest and refer it to the appropriate BBA engagement. Do not begin it here."
+      ]
+    },
+    "guardrails": {
+      "must_not": [
+        "provide a valuation or estimate a sale price",
+        "state or imply an enterprise value multiple",
+        "give tax or legal advice",
+        "offer transaction or exit-related guidance",
+        "promise an increase in enterprise value",
+        "assert an industry margin benchmark"
+      ],
+      "note": "This module builds business maturity and reduces risk. It is not exit advisory, and it is not an appraisal.\n\nThese are boundaries of profession, not boundaries of module. Where V10 surfaces an issue whose home module is elsewhere, the advisor addresses it and records the output against that module."
+    },
+    "quality_standards": [
+      "The owner leaves with a clear view of capability strengths and weaknesses.",
+      "Value drivers were weighted for this business rather than presented as an equal list.",
+      "Where modules had been completed, movement was shown, not just current position.",
+      "Gaps and leaks are specific and traceable to something observed.",
+      "The plan has five to seven initiatives, each owned, timed and affordable.",
+      "No dollar figure was placed on the business at any point."
     ]
   },
   {

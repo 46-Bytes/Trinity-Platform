@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 
 from app.models.engagement import Engagement
 from app.models.program_deliverable import EngagementModuleDeliverable, ProgramModuleDeliverable
+from app.models.task import Task
 
 # Derived module status values. Matches the vocabulary used by the persisted
 # status columns elsewhere (Task, Diagnostic, Engagement, BBA, SBP all use
@@ -39,6 +40,11 @@ MODULE_STATUS_COMPLETED = "completed"
 
 DELIVERABLE_SOURCE_PRESET = "preset"
 DELIVERABLE_SOURCE_ADVISOR = "advisor"
+
+# Task.task_type for a task generated from a deliverable. Sits alongside the
+# existing 'manual' and 'diagnostic_generated' values so these are separable in
+# the task list without reading source_deliverable_id.
+TASK_TYPE_DELIVERABLE = "deliverable_generated"
 
 # Sort sentinel: presets carry a real library display_order, advisor-added
 # deliverables get this so they always fall after the presets in a module.
@@ -66,6 +72,11 @@ class DeliverableState(NamedTuple):
     The identity fields default so that a DeliverableState can still be built
     from the three status booleans alone - which is how derive_module_status is
     unit-tested, with no database and no identity to invent.
+
+    `task_count` is how many tasks have been generated from this deliverable. It
+    is display state only and is deliberately absent from derive_module_status:
+    Part A is explicit that task completion and deliverable completion never
+    move each other.
     """
     mandatory: bool
     in_scope: bool
@@ -74,6 +85,7 @@ class DeliverableState(NamedTuple):
     source: str = DELIVERABLE_SOURCE_PRESET
     title: str = ""
     description: Optional[str] = None
+    task_count: int = 0
 
 
 def derive_module_status(states: Sequence[DeliverableState]) -> str:
@@ -238,6 +250,7 @@ class ProgramDeliverableService:
         )
 
         rows = self.db.execute(union_all(preset_leg, advisor_leg)).all()
+        task_counts = self._task_counts_by_deliverable(engagement.id)
 
         by_module: Dict[str, List[DeliverableState]] = {}
         for row in sorted(rows, key=lambda r: (r.sort_order, r.sort_time)):
@@ -250,9 +263,31 @@ class ProgramDeliverableService:
                     source=row.source,
                     title=row.title,
                     description=row.description,
+                    task_count=task_counts.get(row.deliverable_id, 0),
                 )
             )
         return by_module
+
+    def _task_counts_by_deliverable(self, engagement_id: UUID) -> Dict[UUID, int]:
+        """
+        Tasks generated per deliverable on this engagement.
+
+        Keyed by the same polymorphic id the rest of this service addresses a
+        deliverable by, which is exactly what Task.source_deliverable_id holds.
+        Soft-deleted tasks are excluded so deleting a task lets the advisor
+        regenerate it, matching what "Create tasks" reads as on the card.
+        """
+        rows = (
+            self.db.query(Task.source_deliverable_id, func.count(Task.id))
+            .filter(
+                Task.engagement_id == engagement_id,
+                Task.source_deliverable_id.isnot(None),
+                Task.is_deleted == False,  # noqa: E712
+            )
+            .group_by(Task.source_deliverable_id)
+            .all()
+        )
+        return {deliverable_id: int(count) for deliverable_id, count in rows}
 
     # ------------------------------------------------------------------
     # Derived status
@@ -560,6 +595,64 @@ class ProgramDeliverableService:
         self.db.commit()
         self.db.refresh(instance)
         return instance
+
+    # ------------------------------------------------------------------
+    # Task generation
+    # ------------------------------------------------------------------
+    def generate_tasks_for_module(
+        self,
+        engagement: Engagement,
+        module_code: str,
+        user_id: UUID,
+    ) -> List[Task]:
+        """
+        Create one task per deliverable in a module that does not have one yet.
+
+        Part A's rules, and where each is enforced:
+
+        - Nothing is automatic. This only ever runs from the advisor's explicit
+          "Create tasks" click; no mutation path calls it.
+        - One deliverable may carry several tasks. Nothing here is unique, so an
+          advisor can add more by hand afterwards; this method simply declines to
+          create a *second* generated one, which is what makes the button
+          idempotent rather than a duplicate factory.
+        - Task state and deliverable state never move each other. Nothing below
+          reads or writes is_complete, and derive_module_status never reads
+          task_count.
+
+        Scoped-out deliverables are skipped: they are excluded from completion,
+        so generating work for them would contradict the advisor's own decision.
+        Already-complete deliverables are skipped too - a task to do something
+        already done is noise. Both remain reachable by hand.
+
+        Returns the tasks created, which is empty when there was nothing to do.
+        """
+        module_code = normalize_module_code(module_code)
+        states = self.get_deliverable_states_by_module(engagement).get(module_code, [])
+
+        created: List[Task] = []
+        for state in states:
+            if state.task_count or not state.in_scope or state.complete:
+                continue
+            task = Task(
+                engagement_id=engagement.id,
+                created_by_user_id=user_id,
+                title=state.title,
+                description=state.description,
+                task_type=TASK_TYPE_DELIVERABLE,
+                status="pending",
+                priority="high" if state.mandatory else "medium",
+                module_reference=module_code,
+                source_deliverable_id=state.deliverable_id,
+            )
+            self.db.add(task)
+            created.append(task)
+
+        if created:
+            self.db.commit()
+            for task in created:
+                self.db.refresh(task)
+        return created
 
 
 def get_program_deliverable_service(db: Session) -> ProgramDeliverableService:

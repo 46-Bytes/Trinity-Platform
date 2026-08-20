@@ -29,6 +29,7 @@ from app.schemas.program_deliverable import (
     DeliverableCompleteUpdate,
     DeliverableScopeUpdate,
     DeliverableView,
+    TaskGenerationResult,
 )
 from app.utils.auth import get_current_user
 
@@ -82,6 +83,7 @@ def _build_view(engagement: Engagement, db: Session) -> dict:
                     "is_mandatory": s.mandatory,
                     "is_in_scope": s.in_scope,
                     "is_complete": s.complete,
+                    "task_count": s.task_count,
                 }
                 for s in states
             ],
@@ -199,3 +201,34 @@ async def remove_advisor_deliverable(
     except ValueError as e:
         raise _invalid("Failed to remove advisor deliverable", e)
     return _build_view(engagement, db)
+
+
+@router.post(
+    "/engagements/{engagement_id}/modules/{module_code}/tasks",
+    response_model=TaskGenerationResult,
+    status_code=status.HTTP_201_CREATED,
+)
+async def generate_module_tasks(
+    module_code: str,
+    engagement: Engagement = Depends(require_deliverable_write),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Create one task per deliverable in this module that does not have one yet.
+
+    201 even when nothing was created. Zero is a real outcome here - every
+    deliverable already carries a task - not a failure, and the caller reads
+    created_count to tell the difference.
+    """
+    service = get_program_deliverable_service(db)
+    try:
+        before = len(service.get_deliverable_states_by_module(engagement).get(module_code.strip(), []))
+        created = service.generate_tasks_for_module(engagement, module_code, current_user.id)
+    except ValueError as e:
+        raise _invalid("Failed to generate tasks", e)
+    return {
+        "created_count": len(created),
+        "skipped_count": max(before - len(created), 0),
+        "view": _build_view(engagement, db),
+    }

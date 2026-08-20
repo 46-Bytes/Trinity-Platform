@@ -5,7 +5,7 @@
  * otherwise create (optionally from the most recent completed diagnostic)
  * and navigate to the tool's dedicated route.
  *
- * Extracted from FollowUpToolsTab.tsx so ModuleCard.tsx (Program Guide) can
+ * Extracted from FollowUpToolsTab.tsx so the Program Guide module card can
  * reuse the exact same behavior instead of re-implementing it.
  */
 import { useState } from 'react';

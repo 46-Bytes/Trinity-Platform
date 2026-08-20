@@ -230,3 +230,104 @@ class TestDashboardProgress:
             body["completed_modules"] + body["in_progress_modules"] + body["not_started_modules"]
             == body["total_modules"]
         )
+
+
+@pytest.fixture
+def second_module(db_session):
+    """
+    A second card, so ordering has something to reorder.
+
+    The guide view only lists modules that actually have a content row, so a
+    reorder naming a code with no card would move nothing and assert nothing.
+    """
+    card = ProgramModuleContent(
+        program_type="value_builder",
+        module_code="V11",
+        display_order=11,
+        title="Risk, Legal, Compliance & Property",
+        purpose="Register the exposures the business carries",
+    )
+    db_session.add(card)
+    db_session.flush()
+    return card
+
+
+class TestModuleOrdering:
+    """
+    The reorder endpoints, which had no coverage at all and were both broken.
+
+    Each declares response_model=ProgramGuideView but returned the service's
+    order dict ({source, order, bba_id, ...}), so FastAPI's response validation
+    raised and every call 500'd. The frontend has shipped the reorder buttons
+    since ModuleReorderControls landed, which is how a feature can be visibly
+    present and entirely non-functional at the same time.
+    """
+
+    def test_reorder_returns_the_guide_view(self, api, advisor, test_engagement, module, second_module):
+        resp = api.as_user(advisor).put(
+            f"{BASE}/{test_engagement.id}/order",
+            json={"module_order": ["V11", "V1"]},
+        )
+        assert resp.status_code == 200, resp.text
+
+        body = resp.json()
+        assert body["order_source"] == "custom"
+        assert "modules" in body
+
+    def test_reorder_moves_the_module(self, api, advisor, test_engagement, module, second_module):
+        body = api.as_user(advisor).put(
+            f"{BASE}/{test_engagement.id}/order",
+            json={"module_order": ["V11", "V1"]},
+        ).json()
+
+        ranks = {m["module_code"]: m["effective_rank"] for m in body["modules"]}
+        assert ranks["V11"] == 1
+        assert ranks["V1"] == 2
+
+    def test_a_partial_order_keeps_every_module(self, api, advisor, test_engagement, module, second_module):
+        """
+        The order may be partial; unnamed modules are appended rather than
+        dropped, so the guide is never gated.
+        """
+        body = api.as_user(advisor).put(
+            f"{BASE}/{test_engagement.id}/order",
+            json={"module_order": ["V11"]},
+        ).json()
+
+        assert body["modules"][0]["module_code"] == "V11"
+        assert len(body["modules"]) == len(
+            api.as_user(advisor).get(f"{BASE}/{test_engagement.id}").json()["modules"]
+        )
+
+    def test_reset_returns_the_guide_view(self, api, advisor, test_engagement, module, second_module):
+        client = api.as_user(advisor)
+        client.put(f"{BASE}/{test_engagement.id}/order", json={"module_order": ["V11", "V1"]})
+
+        resp = client.post(f"{BASE}/{test_engagement.id}/order/reset")
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["order_source"] != "custom"
+
+    def test_reset_restores_the_recommended_order(self, api, advisor, test_engagement, module, second_module):
+        client = api.as_user(advisor)
+        before = client.get(f"{BASE}/{test_engagement.id}").json()
+        client.put(f"{BASE}/{test_engagement.id}/order", json={"module_order": ["V11", "V1"]})
+        after = client.post(f"{BASE}/{test_engagement.id}/order/reset").json()
+
+        assert [m["module_code"] for m in after["modules"]] == [
+            m["module_code"] for m in before["modules"]
+        ]
+
+    def test_owner_cannot_reorder(self, api, owner, test_engagement, module, second_module):
+        assert api.as_user(owner).put(
+            f"{BASE}/{test_engagement.id}/order",
+            json={"module_order": ["V11", "V1"]},
+        ).status_code == 403
+
+    def test_owner_cannot_reset(self, api, owner, test_engagement, module, second_module):
+        assert api.as_user(owner).post(f"{BASE}/{test_engagement.id}/order/reset").status_code == 403
+
+    def test_outsider_cannot_reorder(self, api, outsider, test_engagement, module, second_module):
+        assert api.as_user(outsider).put(
+            f"{BASE}/{test_engagement.id}/order",
+            json={"module_order": ["V11", "V1"]},
+        ).status_code == 403

@@ -112,3 +112,76 @@ class ValueMovementResponse(BaseModel):
     overall_score_current: Optional[float] = None
     overall_score_delta: Optional[float] = None
     module_movements: List[ModuleMovement] = Field(default_factory=list)
+
+
+class ModuleFinding(BaseModel):
+    """
+    One BBA draft finding, as attributed to a module.
+
+    These are the same findings that decide the module order, surfaced rather
+    than only consumed. `priority_area` is carried through verbatim so an
+    advisor can see the freeform text that was matched, not just the module it
+    landed on - the matching is documented as fragile across renames, and a
+    finding that reads wrong on a module is the signal that it mismatched.
+    """
+    rank: Optional[int] = None
+    title: str
+    summary: Optional[str] = None
+    impact: Optional[str] = Field(None, description="'high' | 'medium' | 'low', as authored by BBA")
+    urgency: Optional[str] = Field(None, description="'immediate' | 'short-term' | 'medium-term'")
+    priority_area: Optional[str] = Field(None, description="The raw text this finding was matched on")
+
+
+class ModuleInsight(BaseModel):
+    """
+    Per-engagement diagnostic state for one module.
+
+    Deliberately separate from ProgramGuideModuleItem, which is authored library
+    content plus a position. Everything here is specific to one client and comes
+    from a different source - the diagnostic and the BBA - so joining it into
+    the card schema would put per-engagement findings inside the object the
+    owner-facing dashboard narrows from. Keeping them apart is what keeps that
+    narrowing safe.
+    """
+    module_code: str
+    module_name: str
+    score: Optional[float] = Field(None, description="Module average, 0-5, from the latest completed diagnostic")
+    rag: Optional[str] = Field(None, description="'Red' | 'Amber' | 'Green'")
+    severity: Optional[str] = Field(None, description="'Critical' | 'High' | 'Moderate' | 'Low' | 'Strong'")
+    answered_questions: Optional[int] = Field(
+        None,
+        description="How many diagnostic questions actually scored to this module. A module scored on three answers is not comparable to one scored on eighteen",
+    )
+    effective_rank: Optional[int] = Field(None, description="1-based position in this engagement's module order")
+    findings: List[ModuleFinding] = Field(
+        default_factory=list,
+        description="BBA findings matched to this module, best rank first",
+    )
+
+
+class ProgramGuideInsightsView(BaseModel):
+    """
+    The diagnostic layer of the Program Guide, for every module at once.
+
+    Advisor-only: Part A puts per-module scores and diagnostic findings in the
+    owner's "No" column, which is why this is its own route rather than fields
+    on the guide.
+
+    Both sources are optional and independent. An engagement with a completed
+    diagnostic and no BBA gets scores with no findings; one with a BBA and no
+    completed diagnostic gets findings with no scores. `modules` always carries
+    all eleven entries either way, so the caller never has to guess whether a
+    module was omitted or simply has nothing yet.
+    """
+    program_type: str
+    has_scores: bool
+    has_findings: bool
+    diagnostic_id: Optional[str] = None
+    diagnostic_completed_at: Optional[datetime] = None
+    overall_score: Optional[float] = None
+    source_bba_id: Optional[str] = None
+    unmatched_findings: List[ModuleFinding] = Field(
+        default_factory=list,
+        description="Findings whose priority_area matched no module. Surfaced rather than dropped - they are the visible symptom of a degraded module order",
+    )
+    modules: List[ModuleInsight] = Field(default_factory=list)

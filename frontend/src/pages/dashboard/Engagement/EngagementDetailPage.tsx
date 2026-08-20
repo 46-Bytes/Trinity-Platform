@@ -742,7 +742,7 @@ export default function EngagementDetailPage() {
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
             <TabsTrigger value="diagnostic">Diagnostic</TabsTrigger>
             {canViewProgramGuide && (
-              <TabsTrigger value="program-guide">Program Guide</TabsTrigger>
+              <TabsTrigger value="program-guide">Value Builder</TabsTrigger>
             )}
             <TabsTrigger value="tools">Tools</TabsTrigger>
             <TabsTrigger value="chatbot">Chat Bot</TabsTrigger>

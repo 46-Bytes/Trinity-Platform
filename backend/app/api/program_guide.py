@@ -16,6 +16,7 @@ from app.services.program_guide_service import get_program_guide_service
 from app.schemas.program_guide import (
     ProgramModuleContentItem,
     ProgramGuideDashboardView,
+    ProgramGuideInsightsView,
     ProgramGuideView,
     ProgramGuideOrderUpdate,
     ValueMovementResponse,
@@ -125,7 +126,12 @@ async def update_module_order(
     _check_access(engagement, current_user, db, require_advisor=True)
 
     service = get_program_guide_service(db)
-    return service.set_custom_order(engagement, body.module_order, current_user.id)
+    service.set_custom_order(engagement, body.module_order, current_user.id)
+    # set_custom_order returns the order dict ({source, order, bba_id, ...}),
+    # which is not a ProgramGuideView and fails response validation. The view is
+    # also what the caller wants: it re-ranks and re-sorts the module list, so
+    # the client can replace state wholesale instead of reordering it itself.
+    return service.get_program_guide_view(engagement)
 
 
 @router.post("/engagements/{engagement_id}/order/reset", response_model=ProgramGuideView)
@@ -138,7 +144,10 @@ async def reset_module_order(
     _check_access(engagement, current_user, db, require_advisor=True)
 
     service = get_program_guide_service(db)
-    return service.reset_custom_order(engagement)
+    service.reset_custom_order(engagement)
+    # Same as update_module_order above: the service returns the order dict, the
+    # endpoint has to answer with the composed view.
+    return service.get_program_guide_view(engagement)
 
 
 @router.get("/engagements/{engagement_id}/value-movement", response_model=ValueMovementResponse)
@@ -154,3 +163,25 @@ async def get_value_movement(
 
     service = get_program_guide_service(db)
     return service.compute_value_movement(engagement_id)
+
+
+@router.get("/engagements/{engagement_id}/insights", response_model=ProgramGuideInsightsView)
+async def get_module_insights(
+    engagement_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Per-module score, RAG, severity and BBA findings for this engagement.
+
+    Same guard and the same reason as value-movement: Part A puts per-module
+    scores and diagnostic findings in the owner's No column. Unlike that route,
+    this one answers from a single completed diagnostic, which is what most
+    engagements actually have.
+    """
+    engagement = _get_engagement_or_404(engagement_id, db)
+    _check_access(engagement, current_user, db, require_advisor=True)
+    _require_value_builder(engagement)
+
+    service = get_program_guide_service(db)
+    return service.compute_module_insights(engagement)

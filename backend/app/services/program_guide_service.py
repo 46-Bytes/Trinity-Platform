@@ -299,6 +299,113 @@ class ProgramGuideService:
     # ------------------------------------------------------------------
     # M12: value movement
     # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Diagnostic insights
+    # ------------------------------------------------------------------
+    def _get_latest_completed_diagnostic(self, engagement_id: UUID) -> Optional[Diagnostic]:
+        return (
+            self.db.query(Diagnostic)
+            .filter(
+                Diagnostic.engagement_id == engagement_id,
+                Diagnostic.status == "completed",
+                Diagnostic.is_deleted == False,  # noqa: E712
+            )
+            .order_by(Diagnostic.completed_at.desc())
+            .first()
+        )
+
+    def compute_module_insights(self, engagement: Engagement) -> Dict[str, Any]:
+        """
+        Per-module diagnostic state: score, RAG, severity and the BBA findings
+        attributed to each module.
+
+        This is the read that compute_value_movement cannot serve. That one is a
+        comparison and returns nothing at all below two completed diagnostics,
+        which is the ordinary case - most engagements have exactly one. The
+        scores are sitting in Diagnostic.module_scores either way; this exposes
+        the current position without requiring a prior one to subtract from.
+
+        Findings are attributed with the same matcher that computes the module
+        order, so what an advisor reads on a module card is exactly what ranked
+        it. Anything that fails to match is returned in unmatched_findings
+        rather than dropped - a finding that matched nothing is precisely the
+        thing that silently degraded the order.
+        """
+        canonical = ScoringService.VALUE_BUILDER_MODULES
+        if engagement.tool != "value_builder":
+            return {
+                "program_type": engagement.tool,
+                "has_scores": False,
+                "has_findings": False,
+                "modules": [],
+                "unmatched_findings": [],
+            }
+
+        diagnostic = self._get_latest_completed_diagnostic(engagement.id)
+        raw_modules: Dict[str, Any] = {}
+        if diagnostic:
+            modules_blob = (diagnostic.module_scores or {}).get("modules")
+            if isinstance(modules_blob, dict):
+                raw_modules = modules_blob
+
+        bba = self._get_latest_bba_with_findings(engagement.id)
+        findings_by_module: Dict[str, List[Dict[str, Any]]] = {}
+        unmatched: List[Dict[str, Any]] = []
+        if bba:
+            findings = sorted(
+                (bba.draft_findings or {}).get("findings", []) or [],
+                key=lambda f: f.get("rank", 999),
+            )
+            for finding in findings:
+                payload = {
+                    "rank": finding.get("rank"),
+                    "title": finding.get("title") or "Untitled finding",
+                    "summary": finding.get("summary"),
+                    "impact": finding.get("impact"),
+                    "urgency": finding.get("urgency"),
+                    "priority_area": finding.get("priority_area"),
+                }
+                code = self._match_priority_area_to_module(finding.get("priority_area"), canonical)
+                if code:
+                    findings_by_module.setdefault(code, []).append(payload)
+                else:
+                    unmatched.append(payload)
+
+        rank_by_code = {
+            code: i + 1 for i, code in enumerate(self.get_effective_order(engagement)["order"])
+        }
+
+        modules = []
+        for code, name in canonical.items():
+            entry = raw_modules.get(code) or {}
+            score = entry.get("score")
+            score = float(score) if isinstance(score, (int, float)) else None
+            count = entry.get("count")
+            modules.append({
+                "module_code": code,
+                "module_name": name,
+                "score": score,
+                "rag": ScoringService.determine_rag_status(score) if score is not None else None,
+                "severity": ScoringService.determine_severity(score) if score is not None else None,
+                "answered_questions": int(count) if isinstance(count, int) else None,
+                "effective_rank": rank_by_code.get(code),
+                "findings": findings_by_module.get(code, []),
+            })
+
+        return {
+            "program_type": engagement.tool,
+            "has_scores": any(m["score"] is not None for m in modules),
+            "has_findings": bool(findings_by_module or unmatched),
+            "diagnostic_id": str(diagnostic.id) if diagnostic else None,
+            "diagnostic_completed_at": diagnostic.completed_at if diagnostic else None,
+            "overall_score": float(diagnostic.overall_score)
+            if diagnostic and diagnostic.overall_score is not None
+            else None,
+            "source_bba_id": str(bba.id) if bba else None,
+            "unmatched_findings": unmatched,
+            "modules": modules,
+        }
+
     def compute_value_movement(self, engagement_id: UUID) -> Dict[str, Any]:
         recent = (
             self.db.query(Diagnostic)

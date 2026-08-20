@@ -18,6 +18,10 @@ class DeliverableItem(BaseModel):
     is_mandatory: bool
     is_in_scope: bool = Field(..., description="False means scoped out: retained but excluded from completion")
     is_complete: bool
+    task_count: int = Field(
+        0,
+        description="Tasks generated from this deliverable. Display state only - a task's status never affects is_complete, and vice versa",
+    )
 
 
 class ModuleDeliverables(BaseModel):
@@ -38,6 +42,20 @@ class DeliverableView(BaseModel):
         default_factory=list,
         description="Only modules that have at least one deliverable, ordered by module_code",
     )
+
+
+class TaskGenerationResult(BaseModel):
+    """
+    The outcome of an advisor's "Create tasks" click, plus the refreshed view.
+
+    `view` is the whole DeliverableView so the caller can replace state in one
+    go, exactly as every mutation on this router already does. `created_count`
+    is separate because zero is a legitimate, non-error outcome worth reporting
+    back - every deliverable already had a task, or all were scoped out.
+    """
+    created_count: int = Field(..., description="Tasks actually created by this call")
+    skipped_count: int = Field(..., description="Deliverables passed over: already tasked, scoped out, or complete")
+    view: DeliverableView
 
 
 # ----------------------------------------------------------------------

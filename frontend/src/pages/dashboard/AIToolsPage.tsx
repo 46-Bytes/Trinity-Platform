@@ -33,13 +33,14 @@ const aiTools: AITool[] = [
     category: 'Strategy',
     popular: true
   },
-  { 
-    id: 'position-description', 
-    name: 'Position Description Generator', 
-    description: 'Create detailed job descriptions with KPIs, capabilities, and reporting lines',
+  {
+    id: 'position-description',
+    name: 'PD & Role Scorecards',
+    description: 'Turn a completed roles matrix into position descriptions and half-yearly scorecards',
     icon: Users,
     category: 'HR',
-    popular: true
+    popular: true,
+    route: '/dashboard/ai-tools/pd-scorecard',
   },
   { 
     id: 'org-redesign', 

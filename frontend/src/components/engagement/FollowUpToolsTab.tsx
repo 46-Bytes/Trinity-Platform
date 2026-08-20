@@ -9,6 +9,7 @@ import { useAppDispatch } from '@/store/hooks';
 import { clearWorkbook } from '@/store/slices/strategyWorkbookReducer';
 import { clearPlan } from '@/store/slices/strategicBusinessPlanReducer';
 import { clearMatrix } from '@/store/slices/rolesMatrixReducer';
+import { clearBuild } from '@/store/slices/pdScorecardReducer';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -20,7 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { BookOpen, FileText, Loader2, Wrench, ClipboardList, Users } from 'lucide-react';
+import { BookOpen, FileText, Loader2, Wrench, ClipboardList, Users, FileSignature } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -328,6 +329,15 @@ export function FollowUpToolsTab({
     navigate(`/dashboard/engagements/${engagementId}/roles-matrix`);
   };
 
+  const runPDScorecard = () => {
+    const token = getAuthToken();
+    if (!token) return;
+
+    // The build page runs its own pre-flight and offers continue vs start fresh
+    dispatch(clearBuild());
+    navigate(`/dashboard/engagements/${engagementId}/pd-scorecard`);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -454,6 +464,46 @@ export function FollowUpToolsTab({
             title={isClient ? 'Only your advisor can run this tool' : undefined}
           >
             <Users className="h-4 w-4 mr-2" />
+            Run
+          </Button>
+        </div>
+
+        {/* PD & Role Scorecards — visible to clients but not runnable by them */}
+        <div
+          className={cn(
+            'flex items-center justify-between gap-4 p-4 transition-colors',
+            isClient ? 'opacity-60' : 'hover:bg-muted/30'
+          )}
+        >
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="flex-shrink-0 p-2 rounded-md bg-muted">
+              <FileSignature className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="font-medium text-sm">PD &amp; Role Scorecards</p>
+                {isClient && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                    Advisor only
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {isClient
+                  ? 'Your advisor uses this to write position descriptions and scorecards for your roles.'
+                  : 'Turn the completed roles matrix into position descriptions and half-yearly scorecards.'}
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-shrink-0"
+            disabled={anyLoading || isClient}
+            onClick={runPDScorecard}
+            title={isClient ? 'Only your advisor can run this tool' : undefined}
+          >
+            <FileSignature className="h-4 w-4 mr-2" />
             Run
           </Button>
         </div>

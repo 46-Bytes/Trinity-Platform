@@ -56,6 +56,7 @@ class Engagement(Base):
     strategy_workbooks = relationship("StrategyWorkbook", back_populates="engagement")
     strategic_business_plans = relationship("StrategicBusinessPlan", back_populates="engagement", cascade="all, delete-orphan")
     roles_matrices = relationship("RolesMatrix", back_populates="engagement")
+    pd_scorecards = relationship("PDScorecard", back_populates="engagement")
     
     def __repr__(self):
         return f"<Engagement(id={self.id}, name='{self.engagement_name}', client_id={self.client_id})>"

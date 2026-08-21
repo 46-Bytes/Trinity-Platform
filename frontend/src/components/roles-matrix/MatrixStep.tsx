@@ -20,7 +20,6 @@ import {
 } from '@/components/ui/table';
 import {
   ArrowLeft,
-  Copy,
   Download,
   Loader2,
   Plus,
@@ -83,8 +82,15 @@ export function MatrixStep({ matrix, isGenerating, isSaving, isExporting, onBack
     setIsDirty(true);
   };
 
-  const addRow = () => {
-    setRows((prev) => [...prev, { ...EMPTY_ROW }]);
+  /**
+   * Insert directly beneath a row so the new responsibility stays inside that
+   */
+  const insertRowBelow = (rowIndex: number) => {
+    setRows((prev) => [
+      ...prev.slice(0, rowIndex + 1),
+      { ...EMPTY_ROW },
+      ...prev.slice(rowIndex + 1),
+    ]);
     setIsDirty(true);
   };
 
@@ -125,19 +131,6 @@ export function MatrixStep({ matrix, isGenerating, isSaving, isExporting, onBack
     }
   };
 
-  const handleCopy = async () => {
-    const header = COLUMNS.map((column) => column.label).join('\t');
-    const body = rows
-      .map((row) => COLUMNS.map((column) => row[column.key] ?? '').join('\t'))
-      .join('\n');
-    try {
-      await navigator.clipboard.writeText(`${header}\n${body}`);
-      toast.success('Matrix copied — paste straight into Excel');
-    } catch {
-      toast.error('Could not copy to the clipboard');
-    }
-  };
-
   return (
     <div className="space-y-6">
       <Card>
@@ -173,11 +166,11 @@ export function MatrixStep({ matrix, isGenerating, isSaving, isExporting, onBack
                   )}
                   Save changes
                 </Button>
-                <Button variant="outline" onClick={handleCopy}>
-                  <Copy className="w-4 h-4 mr-2" />
-                  Copy for Excel
-                </Button>
-                <Button onClick={handleExport} disabled={isExporting}>
+                <Button
+                  onClick={handleExport}
+                  disabled={isExporting || isDirty}
+                  title={isDirty ? 'Save your changes before exporting' : undefined}
+                >
                   {isExporting ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   ) : (
@@ -209,7 +202,7 @@ export function MatrixStep({ matrix, isGenerating, isSaving, isExporting, onBack
                         {column.label}
                       </TableHead>
                     ))}
-                    <TableHead className="w-12" />
+                    <TableHead className="w-24" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -225,26 +218,32 @@ export function MatrixStep({ matrix, isGenerating, isSaving, isExporting, onBack
                           />
                         </TableCell>
                       ))}
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeRow(rowIndex)}
-                          aria-label={`Remove row ${rowIndex + 1}`}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                      <TableCell className="w-24">
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => insertRowBelow(rowIndex)}
+                            aria-label={`Insert a row below row ${rowIndex + 1}`}
+                            title="Add a responsibility below this row"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeRow(rowIndex)}
+                            aria-label={`Remove row ${rowIndex + 1}`}
+                            title="Remove this row"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-            </div>
-            <div className="p-4 border-t">
-              <Button variant="outline" size="sm" onClick={addRow}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add row
-              </Button>
             </div>
           </CardContent>
         </Card>

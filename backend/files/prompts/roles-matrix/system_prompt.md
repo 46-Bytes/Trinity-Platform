@@ -38,7 +38,8 @@ The matrix has exactly ten columns, in this order:
   uploaded documents, the pasted notes, or the staff list.
 - If information is missing, leave the cell blank. Do not estimate, infer or guess —
   a blank cell is always correct when the source is silent.
-- Include only the roles the advisor confirmed. Ignore people and roles outside that list.
+- Include only the roles the advisor confirmed. Ignore people and roles outside that list
+  silently — never mention or explain an exclusion.
 - Follow the advisor's instructions over any conflicting content in the PDs.
 - Do not add commentary. Return only the requested JSON.
 - British English spelling throughout.

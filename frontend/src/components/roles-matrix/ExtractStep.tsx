@@ -18,7 +18,6 @@ export function ExtractStep({ matrix, isExtracting, onComplete, onBack }: Extrac
 
   const extracted = matrix.extracted_responsibilities;
   const people = extracted?.people || [];
-  const unmatched = extracted?.unmatched_notes || [];
   const hasExtraction = people.length > 0;
 
   const handleExtract = async () => {
@@ -98,24 +97,6 @@ export function ExtractStep({ matrix, isExtracting, onComplete, onBack }: Extrac
               </CardContent>
             </Card>
           ))}
-
-          {unmatched.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Not attributed to a person</CardTitle>
-                <CardDescription>
-                  These were found in the source material but could not be matched to a confirmed role.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
-                  {unmatched.map((note, index) => (
-                    <li key={index}>{note}</li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          )}
         </div>
       )}
 

@@ -82,6 +82,10 @@ export function FollowUpToolsTab({
   const [showSbpDialog, setShowSbpDialog] = useState(false);
   const [existingSbpPlanId, setExistingSbpPlanId] = useState<string | null>(null);
   const [existingSbpStatus, setExistingSbpStatus] = useState<string>('');
+  const [rmLoading, setRmLoading] = useState(false);
+  const [showRmDialog, setShowRmDialog] = useState(false);
+  const [existingRmMatrixId, setExistingRmMatrixId] = useState<string | null>(null);
+  const [existingRmStatus, setExistingRmStatus] = useState<string>('');
 
   const completedDiagnostics = diagnostics.filter(
     (d) => (d.status || (d as any).status) === 'completed'
@@ -101,7 +105,7 @@ export function FollowUpToolsTab({
   // Auto-use the most recent completed diagnostic as context (if any)
   const effectiveDiagnosticId = visibleDiagnostics.length > 0 ? visibleDiagnostics[0].id : null;
 
-  const anyLoading = bbaLoading || swLoading || sbpLoading;
+  const anyLoading = bbaLoading || swLoading || sbpLoading || rmLoading;
 
   const getAuthToken = () => {
     const token = localStorage.getItem('auth_token');
@@ -320,13 +324,78 @@ export function FollowUpToolsTab({
     await launchStrategicBusinessPlan();
   };
 
-  const runRolesMatrix = () => {
+  const launchRolesMatrix = async (forceNew: boolean = false) => {
+    setRmLoading(true);
+    try {
+      const token = getAuthToken();
+      if (!token) return;
+
+      // Start Fresh discards the previous matrix so the pre-flight stops finding it
+      if (forceNew && existingRmMatrixId) {
+        await fetch(`${API_BASE_URL}/api/roles-matrix/${existingRmMatrixId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
+        });
+      }
+
+      const res = await fetch(
+        `${API_BASE_URL}/api/roles-matrix/create-project?engagement_id=${engagementId}`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Failed to create roles matrix' }));
+        toast.error(err.detail || 'Failed to start Roles & Responsibilities Matrix');
+        return;
+      }
+      const data = await res.json();
+      const matrixId = data.matrix_id;
+      if (matrixId) {
+        dispatch(clearMatrix());
+        navigate(`/dashboard/engagements/${engagementId}/roles-matrix`, { state: { matrixId } });
+      } else {
+        toast.error('Invalid response from server');
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to start Roles & Responsibilities Matrix');
+    } finally {
+      setRmLoading(false);
+    }
+  };
+
+  const runRolesMatrix = async () => {
     const token = getAuthToken();
     if (!token) return;
 
-    // The matrix page runs its own pre-flight and offers continue vs start fresh
-    dispatch(clearMatrix());
-    navigate(`/dashboard/engagements/${engagementId}/roles-matrix`);
+    setRmLoading(true);
+    // Pre-check for an existing matrix so the choice is made here, not after navigating
+    try {
+      const listRes = await fetch(
+        `${API_BASE_URL}/api/roles-matrix/?engagement_id=${engagementId}`,
+        { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' }
+      );
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        const matrices: Array<{ id: string; status: string }> = listData.matrices || [];
+        const existing = matrices[0]; // most recent, ordered by updated_at desc
+        if (existing) {
+          setExistingRmStatus(existing.status);
+          setExistingRmMatrixId(existing.id);
+          setShowRmDialog(true);
+          setRmLoading(false);
+          return;
+        }
+      }
+    } catch {
+      // If the pre-check fails, fall through to normal creation
+    }
+
+    await launchRolesMatrix();
   };
 
   const runPDScorecard = () => {
@@ -463,7 +532,7 @@ export function FollowUpToolsTab({
             onClick={runRolesMatrix}
             title={isClient ? 'Only your advisor can run this tool' : undefined}
           >
-            <Users className="h-4 w-4 mr-2" />
+            {rmLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Users className="h-4 w-4 mr-2" />}
             Run
           </Button>
         </div>
@@ -631,6 +700,50 @@ export function FollowUpToolsTab({
               onClick={() => {
                 setShowSwDialog(false);
                 launchSwWorkbook(true);
+              }}
+            >
+              Start Fresh
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation dialog when a roles matrix already exists */}
+      <AlertDialog open={showRmDialog} onOpenChange={setShowRmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Existing Roles Matrix Found</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have an existing Roles &amp; Responsibilities Matrix (Status:{' '}
+              {existingRmStatus.charAt(0).toUpperCase() + existingRmStatus.slice(1).replace(/_/g, ' ')}).
+              Would you like to continue where you left off, or start fresh?
+            </AlertDialogDescription>
+            <p className="text-sm text-destructive mt-2 font-medium">
+              Starting fresh will permanently delete all uploaded files and extracted data.
+            </p>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowRmDialog(false);
+                dispatch(clearMatrix());
+                if (existingRmMatrixId) {
+                  navigate(`/dashboard/engagements/${engagementId}/roles-matrix`, {
+                    state: { matrixId: existingRmMatrixId },
+                  });
+                } else {
+                  launchRolesMatrix();
+                }
+              }}
+            >
+              Continue Existing
+            </AlertDialogAction>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                setShowRmDialog(false);
+                launchRolesMatrix(true);
               }}
             >
               Start Fresh

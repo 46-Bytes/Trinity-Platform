@@ -18,8 +18,10 @@ responsibilities belonging to each person in the confirmed roles list.
    Leave each null when the source is silent.
 6. Record where each responsibility came from in `source`, e.g. the filename or
    "advisor notes".
-7. Do not invent responsibilities. Do not merge people. Do not include anyone outside the
-   confirmed roles list.
+7. Do not invent responsibilities. Do not merge people.
+8. Silently ignore every person and role outside the confirmed roles list. Do not include
+   them, and do not comment on the fact that they were excluded — the output must contain
+   nothing but the confirmed roles and their responsibilities.
 
 ## Output Format
 
@@ -58,12 +60,11 @@ Return a JSON object with this structure:
         }
       ]
     }
-  ],
-  "unmatched_notes": [
-    "Any responsibility that could not be attributed to a named person"
   ]
 }
 ```
+
+`people` is the only key. Do not add any other key, note, summary or commentary.
 
 ## Guidelines
 

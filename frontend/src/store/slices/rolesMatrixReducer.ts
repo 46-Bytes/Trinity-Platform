@@ -45,7 +45,6 @@ export interface ExtractedPerson {
 
 export interface ExtractedResponsibilities {
   people?: ExtractedPerson[];
-  unmatched_notes?: string[];
 }
 
 export interface RolesMatrix {

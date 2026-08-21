@@ -12,7 +12,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, ArrowLeft, CheckCircle2, Loader2, Plus, Users } from 'lucide-react';
-import { toast } from 'sonner';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -138,13 +137,6 @@ export default function RolesMatrixPage() {
     setLaunchState('ready');
   };
 
-  const handleStartOver = () => {
-    dispatch(clearMatrix());
-    lastLoadedId.current = null;
-    setCurrentStep(1);
-    toast.info('Starting a new matrix');
-  };
-
   if (launchState === 'checking') {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -194,20 +186,16 @@ export default function RolesMatrixPage() {
         {engagementId ? 'Back to Engagement' : 'Back to AI Tools'}
       </Button>
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-            Roles &amp; Responsibilities Matrix
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Turn position descriptions and notes into a matrix that matches the HR Planning Tool.
-          </p>
-        </div>
-        {currentMatrix && (
-          <Button variant="outline" onClick={handleStartOver}>
-            Start New Matrix
-          </Button>
-        )}
+      {/* Starting a new matrix is owned by the Tools tab dialog, which also
+          discards the previous one — duplicating it here would destroy work
+          without confirmation. */}
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+          Roles &amp; Responsibilities Matrix
+        </h1>
+        <p className="text-muted-foreground mt-2">
+          Turn position descriptions and notes into a matrix that matches the HR Planning Tool.
+        </p>
       </div>
 
       {error && (

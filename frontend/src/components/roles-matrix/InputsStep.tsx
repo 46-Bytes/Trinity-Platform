@@ -68,22 +68,25 @@ export function InputsStep({ matrix, isUploading, isSaving, onComplete }: Inputs
     [matrix?.file_mappings]
   );
 
-  // Candidate roles are the names/titles the advisor has entered
+  // The roles themselves, not the people. Two staff sharing a title yield one
+  // entry; a member with no title falls back to their name so they stay selectable.
   const roleCandidates = useMemo(() => {
+    const seen = new Set<string>();
     const candidates: string[] = [];
     staff.forEach((member) => {
-      const label = member.name?.trim();
-      if (!label) return;
-      const title = member.role_title?.trim();
-      candidates.push(title ? `${label} — ${title}` : label);
+      const role = member.role_title?.trim() || member.name?.trim();
+      if (!role || seen.has(role)) return;
+      seen.add(role);
+      candidates.push(role);
     });
     return candidates;
   }, [staff]);
 
   // Drop confirmed roles that no longer match any staff entry
-  const roleCandidatesKey = roleCandidates.join('|');
+  const roleCandidatesKey = roleCandidates.join('||');
   useEffect(() => {
-    setIncludedRoles((prev) => prev.filter((role) => roleCandidatesKey.split('|').includes(role)));
+    const valid = new Set(roleCandidatesKey.split('||').filter(Boolean));
+    setIncludedRoles((prev) => prev.filter((role) => valid.has(role)));
   }, [roleCandidatesKey]);
 
   const handleFileSelect = (selectedFiles: FileList | null) => {

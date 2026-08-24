@@ -21,7 +21,7 @@ class Firm(Base):
     firm_name = Column(String(255),nullable=False,comment="Name of the firm/organization")
     
     # Firm Admin (the primary user who manages the firm)
-    firm_admin_id = Column(UUID(as_uuid=True), nullable=False,unique=True,index=True,comment="Foreign key to users (the Firm Admin)")  
+    firm_admin_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False,unique=True,index=True,comment="Foreign key to users (the Firm Admin)")
     
     # Subscription & Billing
     subscription_id = Column(UUID(as_uuid=True), ForeignKey("subscriptions.id", ondelete="SET NULL"), nullable=True, index=True, comment="Foreign key to subscriptions")

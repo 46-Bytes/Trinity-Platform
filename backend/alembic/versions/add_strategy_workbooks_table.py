@@ -40,11 +40,14 @@ def upgrade() -> None:
             sa.UniqueConstraint('id')
         )
     
-    # Create index if table exists and index doesn't
-    if 'strategy_workbooks' in tables:
-        indexes = [idx['name'] for idx in inspector.get_indexes('strategy_workbooks')]
-        if 'ix_strategy_workbooks_status' not in indexes:
-            op.create_index(op.f('ix_strategy_workbooks_status'), 'strategy_workbooks', ['status'], unique=False)
+    # Create index if it doesn't exist. Re-inspect first: `tables` was captured
+    # before the create_table above, so on a fresh database it does not list
+    # strategy_workbooks and this block would be skipped, leaving the index
+    # missing on new installs while existing databases had it.
+    inspector = inspect(conn)
+    indexes = [idx['name'] for idx in inspector.get_indexes('strategy_workbooks')]
+    if 'ix_strategy_workbooks_status' not in indexes:
+        op.create_index(op.f('ix_strategy_workbooks_status'), 'strategy_workbooks', ['status'], unique=False)
 
 
 def downgrade() -> None:

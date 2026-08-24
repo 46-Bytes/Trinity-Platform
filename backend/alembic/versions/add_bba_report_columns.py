@@ -19,7 +19,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 # revision identifiers, used by Alembic.
 revision = 'add_bba_report_columns'
-down_revision = 'remove_unique_sub_id'
+down_revision = 'create_orphan_tables'
 branch_labels = None
 depends_on = None
 

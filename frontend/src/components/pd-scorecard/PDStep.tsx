@@ -110,6 +110,17 @@ export function PDStep({
   const busy = isGenerating || isSaving || isExporting;
   const hasDraft = Boolean(role?.pd_content);
 
+  // The export is generated server-side from the saved record, so unsaved edits
+  // would silently download stale content. Block it until the draft is saved.
+  const isDirty =
+    hasDraft && JSON.stringify(draft) !== JSON.stringify({ ...emptyPD(), ...role?.pd_content });
+
+  // Download requires an approved PD, not just a saved one. Saving only persists
+  // the draft; approval is the separate, explicit step that unlocks the file.
+  // Editing an approved PD reverts pd_status to 'draft' on save, which re-locks
+  // this automatically.
+  const canDownload = role?.pd_status === 'approved' && !isDirty;
+
   const handleGenerate = async () => {
     if (!build || !role) return;
     try {
@@ -137,8 +148,16 @@ export function PDStep({
       await dispatch(savePD({ buildId: build.id, roleId: role.id, pdContent: draft })).unwrap();
       await dispatch(approvePD({ buildId: build.id, roleId: role.id })).unwrap();
       // This toast lands on the "Create the scorecard" button, so keep it brief
-      // and dismissible rather than blocking the next step.
-      toast.success('Position description approved', { duration: 2000, closeButton: true });
+      // and dismissible rather than blocking the next step. Sonner puts the close
+      // button top-left by default; these variables move it to the top-right.
+      toast.success('Position description approved', {
+        duration: 2000,
+        closeButton: true,
+        classNames: {
+          toast:
+            '[--toast-close-button-start:unset] [--toast-close-button-end:0] [--toast-close-button-transform:translate(35%,-35%)]',
+        },
+      });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to approve');
     }
@@ -363,7 +382,18 @@ export function PDStep({
                     <CheckCircle2 className="h-4 w-4 mr-2" />
                     {role.pd_status === 'approved' ? 'Re-approve' : 'Approve'}
                   </Button>
-                  <Button variant="outline" onClick={handleExport} disabled={busy}>
+                  <Button
+                    variant="outline"
+                    onClick={handleExport}
+                    disabled={busy || !canDownload}
+                    title={
+                      isDirty
+                        ? 'Save and approve the draft before downloading'
+                        : !canDownload
+                        ? 'Approve the position description before downloading'
+                        : undefined
+                    }
+                  >
                     {isExporting ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     ) : (
@@ -371,6 +401,13 @@ export function PDStep({
                     )}
                     Download Word
                   </Button>
+                  {!canDownload && (
+                    <p className="text-sm text-muted-foreground sm:self-center">
+                      {isDirty
+                        ? 'Save and approve the draft to enable the download.'
+                        : 'Approve the position description to enable the download.'}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </>

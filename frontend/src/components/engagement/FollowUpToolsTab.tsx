@@ -86,6 +86,10 @@ export function FollowUpToolsTab({
   const [showRmDialog, setShowRmDialog] = useState(false);
   const [existingRmMatrixId, setExistingRmMatrixId] = useState<string | null>(null);
   const [existingRmStatus, setExistingRmStatus] = useState<string>('');
+  const [pdLoading, setPdLoading] = useState(false);
+  const [showPdDialog, setShowPdDialog] = useState(false);
+  const [existingPdBuildId, setExistingPdBuildId] = useState<string | null>(null);
+  const [existingPdStatus, setExistingPdStatus] = useState<string>('');
 
   const completedDiagnostics = diagnostics.filter(
     (d) => (d.status || (d as any).status) === 'completed'
@@ -105,7 +109,7 @@ export function FollowUpToolsTab({
   // Auto-use the most recent completed diagnostic as context (if any)
   const effectiveDiagnosticId = visibleDiagnostics.length > 0 ? visibleDiagnostics[0].id : null;
 
-  const anyLoading = bbaLoading || swLoading || sbpLoading || rmLoading;
+  const anyLoading = bbaLoading || swLoading || sbpLoading || rmLoading || pdLoading;
 
   const getAuthToken = () => {
     const token = localStorage.getItem('auth_token');
@@ -398,13 +402,78 @@ export function FollowUpToolsTab({
     await launchRolesMatrix();
   };
 
-  const runPDScorecard = () => {
+  const launchPDScorecard = async (forceNew: boolean = false) => {
+    setPdLoading(true);
+    try {
+      const token = getAuthToken();
+      if (!token) return;
+
+      // Start Fresh discards the previous build so the pre-flight stops finding it
+      if (forceNew && existingPdBuildId) {
+        await fetch(`${API_BASE_URL}/api/pd-scorecard/${existingPdBuildId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
+        });
+      }
+
+      const res = await fetch(
+        `${API_BASE_URL}/api/pd-scorecard/create-project?engagement_id=${engagementId}`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Failed to create PD & scorecard build' }));
+        toast.error(err.detail || 'Failed to start PD & Role Scorecards');
+        return;
+      }
+      const data = await res.json();
+      const buildId = data.build_id;
+      if (buildId) {
+        dispatch(clearBuild());
+        navigate(`/dashboard/engagements/${engagementId}/pd-scorecard`, { state: { buildId } });
+      } else {
+        toast.error('Invalid response from server');
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to start PD & Role Scorecards');
+    } finally {
+      setPdLoading(false);
+    }
+  };
+
+  const runPDScorecard = async () => {
     const token = getAuthToken();
     if (!token) return;
 
-    // The build page runs its own pre-flight and offers continue vs start fresh
-    dispatch(clearBuild());
-    navigate(`/dashboard/engagements/${engagementId}/pd-scorecard`);
+    setPdLoading(true);
+    // Pre-check for an existing build so the choice is made here, not after navigating
+    try {
+      const listRes = await fetch(
+        `${API_BASE_URL}/api/pd-scorecard/?engagement_id=${engagementId}`,
+        { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' }
+      );
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        const builds: Array<{ id: string; status: string }> = listData.builds || [];
+        const existing = builds[0]; // most recent, ordered by updated_at desc
+        if (existing) {
+          setExistingPdStatus(existing.status);
+          setExistingPdBuildId(existing.id);
+          setShowPdDialog(true);
+          setPdLoading(false);
+          return;
+        }
+      }
+    } catch {
+      // If the pre-check fails, fall through to normal creation
+    }
+
+    await launchPDScorecard();
   };
 
   return (
@@ -572,7 +641,7 @@ export function FollowUpToolsTab({
             onClick={runPDScorecard}
             title={isClient ? 'Only your advisor can run this tool' : undefined}
           >
-            <FileSignature className="h-4 w-4 mr-2" />
+            {pdLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileSignature className="h-4 w-4 mr-2" />}
             Run
           </Button>
         </div>
@@ -744,6 +813,50 @@ export function FollowUpToolsTab({
               onClick={() => {
                 setShowRmDialog(false);
                 launchRolesMatrix(true);
+              }}
+            >
+              Start Fresh
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation dialog when a PD & scorecard build already exists */}
+      <AlertDialog open={showPdDialog} onOpenChange={setShowPdDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Existing PD &amp; Scorecard Build Found</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have an existing PD &amp; Role Scorecards build (Status:{' '}
+              {existingPdStatus.charAt(0).toUpperCase() + existingPdStatus.slice(1).replace(/_/g, ' ')}).
+              Would you like to continue where you left off, or start fresh?
+            </AlertDialogDescription>
+            <p className="text-sm text-destructive mt-2 font-medium">
+              Starting fresh will permanently delete all uploaded files, roles and approved drafts.
+            </p>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowPdDialog(false);
+                dispatch(clearBuild());
+                if (existingPdBuildId) {
+                  navigate(`/dashboard/engagements/${engagementId}/pd-scorecard`, {
+                    state: { buildId: existingPdBuildId },
+                  });
+                } else {
+                  launchPDScorecard();
+                }
+              }}
+            >
+              Continue Existing
+            </AlertDialogAction>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                setShowPdDialog(false);
+                launchPDScorecard(true);
               }}
             >
               Start Fresh

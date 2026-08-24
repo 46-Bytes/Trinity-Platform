@@ -75,6 +75,18 @@ export function ScorecardStep({
   const hasDraft = Boolean(role?.scorecard_content);
   const pdApproved = role?.pd_status === 'approved';
 
+  // The export is generated server-side from the saved record, so unsaved edits
+  // would silently download stale content. Block it until the draft is saved.
+  const isDirty =
+    hasDraft &&
+    JSON.stringify(draft) !== JSON.stringify({ ...emptyScorecard(), ...role?.scorecard_content });
+
+  // Download requires an approved scorecard, not just a saved one. Saving only
+  // persists the draft; approval is the separate, explicit step that unlocks the
+  // file. Editing an approved scorecard reverts scorecard_status to 'draft' on
+  // save, which re-locks this automatically.
+  const canDownload = role?.scorecard_status === 'approved' && !isDirty;
+
   const handleGenerate = async () => {
     if (!build || !role) return;
     try {
@@ -117,6 +129,10 @@ export function ScorecardStep({
       await dispatch(
         exportScorecard({ buildId: build.id, roleId: role.id, roleTitle: role.role_title })
       ).unwrap();
+      // The role's scorecard is done — send the advisor back to pick the next role.
+      // This navigation is automatic, so say why the page just moved.
+      toast.success(`${role.role_title} complete — pick the next role`);
+      onBack();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Export failed');
     }
@@ -452,7 +468,18 @@ export function ScorecardStep({
                     <CheckCircle2 className="h-4 w-4 mr-2" />
                     {role.scorecard_status === 'approved' ? 'Re-approve' : 'Approve'}
                   </Button>
-                  <Button variant="outline" onClick={handleExport} disabled={busy}>
+                  <Button
+                    variant="outline"
+                    onClick={handleExport}
+                    disabled={busy || !canDownload}
+                    title={
+                      isDirty
+                        ? 'Save and approve the draft before downloading'
+                        : !canDownload
+                        ? 'Approve the scorecard before downloading'
+                        : undefined
+                    }
+                  >
                     {isExporting ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     ) : (
@@ -460,6 +487,13 @@ export function ScorecardStep({
                     )}
                     Download Excel
                   </Button>
+                  {!canDownload && (
+                    <p className="text-sm text-muted-foreground sm:self-center">
+                      {isDirty
+                        ? 'Save and approve the draft to enable the download.'
+                        : 'Approve the scorecard to enable the download.'}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </>

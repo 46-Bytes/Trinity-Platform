@@ -13,7 +13,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, ArrowLeft, CheckCircle2, FileSignature, Loader2, Plus } from 'lucide-react';
-import { toast } from 'sonner';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -127,6 +126,9 @@ export default function PDScorecardPage() {
 
   const goToStep = (step: Step) => {
     setCurrentStep(step);
+    // The page can be scrolled deep into a role's form; jump to the top so a
+    // step change is visible rather than looking like nothing happened.
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     if (currentBuild) {
       dispatch(
         updateStepProgress({
@@ -152,13 +154,6 @@ export default function PDScorecardPage() {
     lastLoadedId.current = null;
     setCurrentStep(1);
     setLaunchState('ready');
-  };
-
-  const handleStartOver = () => {
-    dispatch(clearBuild());
-    lastLoadedId.current = null;
-    setCurrentStep(1);
-    toast.info('Starting a new PD & scorecard build');
   };
 
   if (launchState === 'checking') {
@@ -212,21 +207,12 @@ export default function PDScorecardPage() {
         {engagementId ? 'Back to Engagement' : 'Back to AI Tools'}
       </Button>
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-            PD &amp; Role Scorecards
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Turn a completed roles matrix into a position description and a half-yearly scorecard,
-            one role at a time.
-          </p>
-        </div>
-        {currentBuild && (
-          <Button variant="outline" onClick={handleStartOver}>
-            Start New Build
-          </Button>
-        )}
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">PD &amp; Role Scorecards</h1>
+        <p className="text-muted-foreground mt-2">
+          Turn a completed roles matrix into a position description and a half-yearly scorecard, one
+          role at a time.
+        </p>
       </div>
 
       {error && (

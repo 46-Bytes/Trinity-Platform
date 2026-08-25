@@ -41,7 +41,8 @@ class Firm(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow,nullable=False,comment="When the firm was last updated")
     
     # Relationships
-    advisors = relationship("User", back_populates="firm")
+    # firm_admin_id is a second users<->firms FK path, so this join must be explicit
+    advisors = relationship("User", back_populates="firm", foreign_keys="User.firm_id")
     engagements = relationship("Engagement", back_populates="firm")
     subscription = relationship("Subscription", uselist=False, primaryjoin="Firm.subscription_id == Subscription.id")
     

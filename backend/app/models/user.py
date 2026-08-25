@@ -257,7 +257,7 @@ class User(Base):
     )
     
     # Relationships
-    firm = relationship("Firm", back_populates="advisors")
+    firm = relationship("Firm", back_populates="advisors", foreign_keys="User.firm_id")
     media = relationship("Media", back_populates="user")
     conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
     

@@ -5,6 +5,7 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from alembic import context
+from alembic.operations import ops as alembic_ops
 import os
 import sys
 
@@ -30,6 +31,43 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def _is_comment_only(op) -> bool:
+    """True only for ops whose sole change is a table or column comment.
+
+    An AlterColumnOp that also changes type, nullability, server default or
+    name is NOT comment-only and must stay visible.
+    """
+    if isinstance(op, (alembic_ops.CreateTableCommentOp, alembic_ops.DropTableCommentOp)):
+        return True
+    if isinstance(op, alembic_ops.AlterColumnOp):
+        return (
+            op.modify_comment is not False
+            and op.modify_nullable is None
+            and op.modify_server_default is False
+            and op.modify_name is None
+            and op.modify_type is None
+        )
+    return False
+
+
+def strip_comment_directives(_context, _revision, directives) -> None:
+    """Drop comment-only diffs so autogenerate and `alembic check` report
+    structural drift only. Comments carry no enforcement, and several tables
+    were created by guarded migrations that never applied theirs.
+    """
+    for script in directives:
+        for upgrade_ops in script.upgrade_ops_list:
+            kept = []
+            for op in upgrade_ops.ops:
+                if isinstance(op, alembic_ops.ModifyTableOps):
+                    op.ops = [o for o in op.ops if not _is_comment_only(o)]
+                    if op.ops:
+                        kept.append(op)
+                elif not _is_comment_only(op):
+                    kept.append(op)
+            upgrade_ops.ops = kept
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
     url = config.get_main_option("sqlalchemy.url")
@@ -38,6 +76,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        process_revision_directives=strip_comment_directives,
     )
 
     with context.begin_transaction():
@@ -55,7 +94,8 @@ def run_migrations_online() -> None:
     with connectable.connect() as connection:
         context.configure(
             connection=connection,
-            target_metadata=target_metadata
+            target_metadata=target_metadata,
+            process_revision_directives=strip_comment_directives,
         )
 
         with context.begin_transaction():

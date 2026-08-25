@@ -17,7 +17,7 @@ class Engagement(Base):
     __tablename__ = "engagements"
     
     # Primary key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
     
     # Relationships to firms and users
     firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id", ondelete="SET NULL"), nullable=True, index=True, comment="Foreign key to firms (NULL for solo advisors)")

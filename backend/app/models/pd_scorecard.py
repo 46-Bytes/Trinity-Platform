@@ -21,7 +21,7 @@ class PDScorecard(Base):
     __tablename__ = "pd_scorecards"
 
     # Primary key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
 
     # Relationships
     engagement_id = Column(UUID(as_uuid=True), ForeignKey('engagements.id', ondelete='SET NULL'), nullable=True, index=True,
@@ -113,7 +113,7 @@ class PDScorecardRole(Base):
     __tablename__ = "pd_scorecard_roles"
 
     # Primary key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
 
     # Parent
     pd_scorecard_id = Column(UUID(as_uuid=True), ForeignKey('pd_scorecards.id', ondelete='CASCADE'), nullable=False, index=True)

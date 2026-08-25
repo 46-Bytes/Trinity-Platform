@@ -16,7 +16,7 @@ class AIFieldPrivacy(Base):
     """
     __tablename__ = "ai_field_privacy"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
 
     questionnaire_type = Column(String(50), nullable=False, index=True,
                                 comment="sale_ready | value_builder")

@@ -16,7 +16,7 @@ class Subscription(Base):
     __tablename__ = "subscriptions"
     
     # Primary Key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False, comment="Unique identifier for the subscription")
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False, comment="Unique identifier for the subscription")
     plan_name = Column(String(50), nullable=False, comment="Subscription plan name (e.g., 'professional', 'enterprise')")
     seat_count = Column( Integer,nullable=False,comment="Number of seats in the subscription")  
     monthly_price = Column( Numeric(10, 2), nullable=False, comment="Monthly subscription price")

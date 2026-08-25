@@ -37,9 +37,11 @@ class StrategyWorkbook(Base):
                                 comment="Array of Media IDs for uploaded documents")
     template_path = Column(Text, nullable=True, 
                           comment="Path to the template file used")
-    generated_workbook_path = Column(Text, nullable=True, 
+    generated_workbook_path = Column(Text, nullable=True,
                                     comment="Path to the generated workbook file")
-    
+    drive_file_id = Column(Text, nullable=True,
+                          comment="Google Drive file ID for the generated workbook")
+
     # Extracted data
     extracted_data = Column(JSONB, nullable=True, 
                            comment="Structured extracted content from documents")
@@ -76,6 +78,7 @@ class StrategyWorkbook(Base):
             "uploaded_media_ids": [str(mid) for mid in (self.uploaded_media_ids or [])],
             "template_path": self.template_path,
             "generated_workbook_path": self.generated_workbook_path,
+            "drive_file_id": self.drive_file_id,
             "extracted_data": self.extracted_data,
             "notes": self.notes,
             "created_at": self.created_at.isoformat() if self.created_at else None,

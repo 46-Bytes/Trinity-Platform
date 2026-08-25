@@ -1,7 +1,8 @@
 """
 User model for PostgreSQL database.
 """
-from sqlalchemy import Column, String, DateTime, Boolean, Text, Enum, ForeignKey, TypeDecorator
+from sqlalchemy import Column, String, DateTime, Boolean, Text, Enum, ForeignKey, Index, TypeDecorator
+from sqlalchemy import text as sa_text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -106,7 +107,16 @@ class User(Base):
     application-specific data.
     """
     __tablename__ = "users"
-    
+
+    __table_args__ = (
+        Index(
+            'ix_users_email_active',
+            'email',
+            unique=True,
+            postgresql_where=sa_text('is_deleted = false'),
+        ),
+    )
+
     # Primary Key
     id = Column(
         UUID(as_uuid=True),
@@ -134,11 +144,12 @@ class User(Base):
     )
     
     # Basic Information
+    # Uniqueness is enforced by the partial index declared in __table_args__
+    # (ix_users_email_active), which only covers non-deleted users so an address
+    # can be re-registered after a soft delete. See partial_unique_email_active_users.
     email = Column(
         String(255),
-        unique=True,
         nullable=False,
-        index=True,
         comment="User's email address"
     )
     

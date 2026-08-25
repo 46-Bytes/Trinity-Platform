@@ -809,6 +809,7 @@ export default function EngagementDetailPage() {
               diagnosticTags={diagnosticTags}
               currentUserId={user?.id}
               isAdmin={isAdmin}
+              isClient={isClient}
             />
           </div>
         </TabsContent>

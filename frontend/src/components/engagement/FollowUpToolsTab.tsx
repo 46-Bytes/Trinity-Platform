@@ -8,6 +8,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '@/store/hooks';
 import { clearWorkbook } from '@/store/slices/strategyWorkbookReducer';
 import { clearPlan } from '@/store/slices/strategicBusinessPlanReducer';
+import { clearMatrix } from '@/store/slices/rolesMatrixReducer';
+import { clearBuild } from '@/store/slices/pdScorecardReducer';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -19,8 +21,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { BookOpen, FileText, Loader2, Wrench, ClipboardList } from 'lucide-react';
+import { BookOpen, FileText, Loader2, Wrench, ClipboardList, Users, FileSignature } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -54,6 +57,7 @@ export interface FollowUpToolsTabProps {
   diagnosticTags?: Record<string, string>;
   currentUserId?: string | null;
   isAdmin?: boolean;
+  isClient?: boolean;
 }
 
 export function FollowUpToolsTab({
@@ -62,6 +66,7 @@ export function FollowUpToolsTab({
   diagnosticTags = {},
   currentUserId,
   isAdmin = false,
+  isClient = false,
 }: FollowUpToolsTabProps) {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -77,6 +82,14 @@ export function FollowUpToolsTab({
   const [showSbpDialog, setShowSbpDialog] = useState(false);
   const [existingSbpPlanId, setExistingSbpPlanId] = useState<string | null>(null);
   const [existingSbpStatus, setExistingSbpStatus] = useState<string>('');
+  const [rmLoading, setRmLoading] = useState(false);
+  const [showRmDialog, setShowRmDialog] = useState(false);
+  const [existingRmMatrixId, setExistingRmMatrixId] = useState<string | null>(null);
+  const [existingRmStatus, setExistingRmStatus] = useState<string>('');
+  const [pdLoading, setPdLoading] = useState(false);
+  const [showPdDialog, setShowPdDialog] = useState(false);
+  const [existingPdBuildId, setExistingPdBuildId] = useState<string | null>(null);
+  const [existingPdStatus, setExistingPdStatus] = useState<string>('');
 
   const completedDiagnostics = diagnostics.filter(
     (d) => (d.status || (d as any).status) === 'completed'
@@ -96,7 +109,7 @@ export function FollowUpToolsTab({
   // Auto-use the most recent completed diagnostic as context (if any)
   const effectiveDiagnosticId = visibleDiagnostics.length > 0 ? visibleDiagnostics[0].id : null;
 
-  const anyLoading = bbaLoading || swLoading || sbpLoading;
+  const anyLoading = bbaLoading || swLoading || sbpLoading || rmLoading || pdLoading;
 
   const getAuthToken = () => {
     const token = localStorage.getItem('auth_token');
@@ -315,6 +328,154 @@ export function FollowUpToolsTab({
     await launchStrategicBusinessPlan();
   };
 
+  const launchRolesMatrix = async (forceNew: boolean = false) => {
+    setRmLoading(true);
+    try {
+      const token = getAuthToken();
+      if (!token) return;
+
+      // Start Fresh discards the previous matrix so the pre-flight stops finding it
+      if (forceNew && existingRmMatrixId) {
+        await fetch(`${API_BASE_URL}/api/roles-matrix/${existingRmMatrixId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
+        });
+      }
+
+      const res = await fetch(
+        `${API_BASE_URL}/api/roles-matrix/create-project?engagement_id=${engagementId}`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Failed to create roles matrix' }));
+        toast.error(err.detail || 'Failed to start Roles & Responsibilities Matrix');
+        return;
+      }
+      const data = await res.json();
+      const matrixId = data.matrix_id;
+      if (matrixId) {
+        dispatch(clearMatrix());
+        navigate(`/dashboard/engagements/${engagementId}/roles-matrix`, { state: { matrixId } });
+      } else {
+        toast.error('Invalid response from server');
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to start Roles & Responsibilities Matrix');
+    } finally {
+      setRmLoading(false);
+    }
+  };
+
+  const runRolesMatrix = async () => {
+    const token = getAuthToken();
+    if (!token) return;
+
+    setRmLoading(true);
+    // Pre-check for an existing matrix so the choice is made here, not after navigating
+    try {
+      const listRes = await fetch(
+        `${API_BASE_URL}/api/roles-matrix/?engagement_id=${engagementId}`,
+        { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' }
+      );
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        const matrices: Array<{ id: string; status: string }> = listData.matrices || [];
+        const existing = matrices[0]; // most recent, ordered by updated_at desc
+        if (existing) {
+          setExistingRmStatus(existing.status);
+          setExistingRmMatrixId(existing.id);
+          setShowRmDialog(true);
+          setRmLoading(false);
+          return;
+        }
+      }
+    } catch {
+      // If the pre-check fails, fall through to normal creation
+    }
+
+    await launchRolesMatrix();
+  };
+
+  const launchPDScorecard = async (forceNew: boolean = false) => {
+    setPdLoading(true);
+    try {
+      const token = getAuthToken();
+      if (!token) return;
+
+      // Start Fresh discards the previous build so the pre-flight stops finding it
+      if (forceNew && existingPdBuildId) {
+        await fetch(`${API_BASE_URL}/api/pd-scorecard/${existingPdBuildId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
+        });
+      }
+
+      const res = await fetch(
+        `${API_BASE_URL}/api/pd-scorecard/create-project?engagement_id=${engagementId}`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Failed to create PD & scorecard build' }));
+        toast.error(err.detail || 'Failed to start PD & Role Scorecards');
+        return;
+      }
+      const data = await res.json();
+      const buildId = data.build_id;
+      if (buildId) {
+        dispatch(clearBuild());
+        navigate(`/dashboard/engagements/${engagementId}/pd-scorecard`, { state: { buildId } });
+      } else {
+        toast.error('Invalid response from server');
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to start PD & Role Scorecards');
+    } finally {
+      setPdLoading(false);
+    }
+  };
+
+  const runPDScorecard = async () => {
+    const token = getAuthToken();
+    if (!token) return;
+
+    setPdLoading(true);
+    // Pre-check for an existing build so the choice is made here, not after navigating
+    try {
+      const listRes = await fetch(
+        `${API_BASE_URL}/api/pd-scorecard/?engagement_id=${engagementId}`,
+        { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' }
+      );
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        const builds: Array<{ id: string; status: string }> = listData.builds || [];
+        const existing = builds[0]; // most recent, ordered by updated_at desc
+        if (existing) {
+          setExistingPdStatus(existing.status);
+          setExistingPdBuildId(existing.id);
+          setShowPdDialog(true);
+          setPdLoading(false);
+          return;
+        }
+      }
+    } catch {
+      // If the pre-check fails, fall through to normal creation
+    }
+
+    await launchPDScorecard();
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -401,6 +562,86 @@ export function FollowUpToolsTab({
             onClick={runStrategicBusinessPlan}
           >
             {sbpLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ClipboardList className="h-4 w-4 mr-2" />}
+            Run
+          </Button>
+        </div>
+
+        {/* Roles & Responsibilities Matrix — visible to clients but not runnable by them */}
+        <div
+          className={cn(
+            'flex items-center justify-between gap-4 p-4 transition-colors',
+            isClient ? 'opacity-60' : 'hover:bg-muted/30'
+          )}
+        >
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="flex-shrink-0 p-2 rounded-md bg-muted">
+              <Users className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="font-medium text-sm">Roles &amp; Responsibilities Matrix</p>
+                {isClient && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                    Advisor only
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {isClient
+                  ? 'Your advisor uses this to build your roles and responsibilities matrix.'
+                  : 'Turn position descriptions and notes into an HR Planning Tool matrix for this engagement.'}
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-shrink-0"
+            disabled={anyLoading || isClient}
+            onClick={runRolesMatrix}
+            title={isClient ? 'Only your advisor can run this tool' : undefined}
+          >
+            {rmLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Users className="h-4 w-4 mr-2" />}
+            Run
+          </Button>
+        </div>
+
+        {/* PD & Role Scorecards — visible to clients but not runnable by them */}
+        <div
+          className={cn(
+            'flex items-center justify-between gap-4 p-4 transition-colors',
+            isClient ? 'opacity-60' : 'hover:bg-muted/30'
+          )}
+        >
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="flex-shrink-0 p-2 rounded-md bg-muted">
+              <FileSignature className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="font-medium text-sm">PD &amp; Role Scorecards</p>
+                {isClient && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                    Advisor only
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {isClient
+                  ? 'Your advisor uses this to write position descriptions and scorecards for your roles.'
+                  : 'Turn the completed roles matrix into position descriptions and half-yearly scorecards.'}
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-shrink-0"
+            disabled={anyLoading || isClient}
+            onClick={runPDScorecard}
+            title={isClient ? 'Only your advisor can run this tool' : undefined}
+          >
+            {pdLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileSignature className="h-4 w-4 mr-2" />}
             Run
           </Button>
         </div>
@@ -528,6 +769,94 @@ export function FollowUpToolsTab({
               onClick={() => {
                 setShowSwDialog(false);
                 launchSwWorkbook(true);
+              }}
+            >
+              Start Fresh
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation dialog when a roles matrix already exists */}
+      <AlertDialog open={showRmDialog} onOpenChange={setShowRmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Existing Roles Matrix Found</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have an existing Roles &amp; Responsibilities Matrix (Status:{' '}
+              {existingRmStatus.charAt(0).toUpperCase() + existingRmStatus.slice(1).replace(/_/g, ' ')}).
+              Would you like to continue where you left off, or start fresh?
+            </AlertDialogDescription>
+            <p className="text-sm text-destructive mt-2 font-medium">
+              Starting fresh will permanently delete all uploaded files and extracted data.
+            </p>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowRmDialog(false);
+                dispatch(clearMatrix());
+                if (existingRmMatrixId) {
+                  navigate(`/dashboard/engagements/${engagementId}/roles-matrix`, {
+                    state: { matrixId: existingRmMatrixId },
+                  });
+                } else {
+                  launchRolesMatrix();
+                }
+              }}
+            >
+              Continue Existing
+            </AlertDialogAction>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                setShowRmDialog(false);
+                launchRolesMatrix(true);
+              }}
+            >
+              Start Fresh
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation dialog when a PD & scorecard build already exists */}
+      <AlertDialog open={showPdDialog} onOpenChange={setShowPdDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Existing PD &amp; Scorecard Build Found</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have an existing PD &amp; Role Scorecards build (Status:{' '}
+              {existingPdStatus.charAt(0).toUpperCase() + existingPdStatus.slice(1).replace(/_/g, ' ')}).
+              Would you like to continue where you left off, or start fresh?
+            </AlertDialogDescription>
+            <p className="text-sm text-destructive mt-2 font-medium">
+              Starting fresh will permanently delete all uploaded files, roles and approved drafts.
+            </p>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowPdDialog(false);
+                dispatch(clearBuild());
+                if (existingPdBuildId) {
+                  navigate(`/dashboard/engagements/${engagementId}/pd-scorecard`, {
+                    state: { buildId: existingPdBuildId },
+                  });
+                } else {
+                  launchPDScorecard();
+                }
+              }}
+            >
+              Continue Existing
+            </AlertDialogAction>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                setShowPdDialog(false);
+                launchPDScorecard(true);
               }}
             >
               Start Fresh

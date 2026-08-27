@@ -12,6 +12,8 @@ import subscriptionReducer from './slices/subscriptionReducer';
 import clientReducer from './slices/clientReducer';
 import strategyWorkbookReducer from './slices/strategyWorkbookReducer';
 import strategicBusinessPlanReducer from './slices/strategicBusinessPlanReducer';
+import rolesMatrixReducer from './slices/rolesMatrixReducer';
+import pdScorecardReducer from './slices/pdScorecardReducer';
 // Import other reducers as you create them
 // import appReducer from './slices/appSlice';
 
@@ -30,6 +32,8 @@ export const store = configureStore({
     client: clientReducer,
     strategyWorkbook: strategyWorkbookReducer,
     strategicBusinessPlan: strategicBusinessPlanReducer,
+    rolesMatrix: rolesMatrixReducer,
+    pdScorecard: pdScorecardReducer,
     // Add other reducers here
     // app: appReducer,
   },

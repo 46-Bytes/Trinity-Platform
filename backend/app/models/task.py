@@ -23,6 +23,13 @@ class Task(Base):
     engagement_id = Column(UUID(as_uuid=True), ForeignKey('engagements.id', ondelete='CASCADE'), nullable=False, index=True)
     diagnostic_id = Column(UUID(as_uuid=True), ForeignKey('diagnostics.id', ondelete='SET NULL'), nullable=True, index=True,
                           comment="If auto-generated from diagnostic")
+    # Polymorphic and deliberately unconstrained - see add_task_source_deliverable.
+    # Holds the library id for a preset deliverable and the instance id for an
+    # advisor-added one, which is two tables and therefore no single FK. The
+    # absence of a constraint is what lets a task outlive its deliverable being
+    # scoped out or retired, as Part A requires.
+    source_deliverable_id = Column(UUID(as_uuid=True), nullable=True, index=True,
+                                   comment="Deliverable this task was generated from, if any")
     assigned_to_user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
     assigned_to_user_ids = Column(ARRAY(UUID(as_uuid=True)), nullable=True, index=True,
                                   comment="Array of user IDs assigned to this task (for multiple assignments, e.g., all advisors in engagement)")

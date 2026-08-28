@@ -36,11 +36,11 @@ IMPORTANT CONTEXT: This is a diagnostic assessment, not an action plan. The repo
     "V1 Financial Management",
     "V2 Strategy & Planning",
     "V3 Leadership & Communications",
-    "V4 People",
+    "V4 People & Structure",
     "V5 Systems & Processes",
     "V6 Technology",
     "V7 Sales & Marketing",
-    "V8 Brand, IP & Competitive Advantage",
+    "V8 Brand, IP & Protection",
     "V9 Owner Independence",
     "V10 Value & Growth",
     "V11 Risk, Legal, Compliance & Property"
@@ -161,7 +161,7 @@ Must contain the following sub-sections using bold labels:
 
 When recommending module order, consider these dependencies:
 - V9 (Owner Independence) and V1 (Financial Management) are usually the first priorities - owner dependency constrains everything and financial visibility enables informed decisions.
-- V3 (Leadership & Communications) should precede V4 (People) - leadership alignment makes role restructuring smoother.
+- V3 (Leadership & Communications) should precede V4 (People & Structure) - leadership alignment makes role restructuring smoother.
 - V5 (Systems & Processes) should precede V6 (Technology) - map workflows before aligning technology to them.
 - V2 (Strategy & Planning) is best addressed after operational foundations (V9, V1, V3, V4) are in place - strategy built before foundations exist will be ignored.
 - V7 (Sales & Marketing), V6 (Technology), V10 (Value & Growth), and V8 (Brand) are growth accelerators - address once operational foundations are solid.

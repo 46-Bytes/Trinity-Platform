@@ -3,14 +3,6 @@
  * Always shows BBA Builder and Strategy Workbook tools.
  * If a completed diagnostic exists, it can optionally be used as context.
  */
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAppDispatch } from '@/store/hooks';
-import { clearWorkbook } from '@/store/slices/strategyWorkbookReducer';
-import { clearPlan } from '@/store/slices/strategicBusinessPlanReducer';
-import { clearMatrix } from '@/store/slices/rolesMatrixReducer';
-import { clearBuild } from '@/store/slices/pdScorecardReducer';
-import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,39 +13,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 import { BookOpen, FileText, Loader2, Wrench, ClipboardList, Users, FileSignature } from 'lucide-react';
-import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-
-function normalizeUUID(uuid: string | null | undefined): string | null {
-  if (!uuid) return null;
-  const str = String(uuid).trim().toLowerCase();
-  return str.replace(/^["'{]|["'}]$/g, '');
-}
-
-function formatDate(value: string | null | undefined): string {
-  if (!value) return '—';
-  try {
-    const d = new Date(value);
-    return isNaN(d.getTime()) ? '—' : d.toLocaleDateString(undefined, { dateStyle: 'medium' });
-  } catch {
-    return '—';
-  }
-}
+import { useToolLaunchers, type DiagnosticSummary } from '@/hooks/useToolLaunchers';
 
 export interface FollowUpToolsTabProps {
   engagementId: string;
-  diagnostics: Array<{
-    id: string;
-    status?: string;
-    completed_at?: string | null;
-    created_by_user_id?: string | null;
-    completed_by_user_id?: string | null;
-    tag?: string | null;
-    [key: string]: unknown;
-  }>;
+  diagnostics: DiagnosticSummary[];
   diagnosticTags?: Record<string, string>;
   currentUserId?: string | null;
   isAdmin?: boolean;
@@ -63,418 +30,16 @@ export interface FollowUpToolsTabProps {
 export function FollowUpToolsTab({
   engagementId,
   diagnostics,
-  diagnosticTags = {},
   currentUserId,
   isAdmin = false,
   isClient = false,
 }: FollowUpToolsTabProps) {
-  const navigate = useNavigate();
-  const dispatch = useAppDispatch();
-  const [bbaLoading, setBbaLoading] = useState(false);
-  const [swLoading, setSwLoading] = useState(false);
-  const [sbpLoading, setSbpLoading] = useState(false);
-  const [showBbaDialog, setShowBbaDialog] = useState(false);
-  const [existingBbaStep, setExistingBbaStep] = useState<number>(0);
-  const [existingBbaProjectId, setExistingBbaProjectId] = useState<string | null>(null);
-  const [showSwDialog, setShowSwDialog] = useState(false);
-  const [existingSwWorkbookId, setExistingSwWorkbookId] = useState<string | null>(null);
-  const [existingSwStatus, setExistingSwStatus] = useState<string>('');
-  const [showSbpDialog, setShowSbpDialog] = useState(false);
-  const [existingSbpPlanId, setExistingSbpPlanId] = useState<string | null>(null);
-  const [existingSbpStatus, setExistingSbpStatus] = useState<string>('');
-  const [rmLoading, setRmLoading] = useState(false);
-  const [showRmDialog, setShowRmDialog] = useState(false);
-  const [existingRmMatrixId, setExistingRmMatrixId] = useState<string | null>(null);
-  const [existingRmStatus, setExistingRmStatus] = useState<string>('');
-  const [pdLoading, setPdLoading] = useState(false);
-  const [showPdDialog, setShowPdDialog] = useState(false);
-  const [existingPdBuildId, setExistingPdBuildId] = useState<string | null>(null);
-  const [existingPdStatus, setExistingPdStatus] = useState<string>('');
-
-  const completedDiagnostics = diagnostics.filter(
-    (d) => (d.status || (d as any).status) === 'completed'
+  const { effectiveDiagnosticId, anyLoading, tools } = useToolLaunchers(
+    engagementId,
+    diagnostics,
+    currentUserId,
+    isAdmin
   );
-
-  const canSeeDiagnostic = (d: (typeof completedDiagnostics)[0]) => {
-    if (!isAdmin) return true;
-    if (!currentUserId) return false;
-    const createdBy = normalizeUUID(d.created_by_user_id ?? (d as any).createdByUserId);
-    const completedBy = normalizeUUID(d.completed_by_user_id ?? (d as any).completedByUserId);
-    const uid = normalizeUUID(currentUserId);
-    return (createdBy && createdBy === uid) || (completedBy && completedBy === uid);
-  };
-
-  const visibleDiagnostics = completedDiagnostics.filter(canSeeDiagnostic);
-
-  // Auto-use the most recent completed diagnostic as context (if any)
-  const effectiveDiagnosticId = visibleDiagnostics.length > 0 ? visibleDiagnostics[0].id : null;
-
-  const anyLoading = bbaLoading || swLoading || sbpLoading || rmLoading || pdLoading;
-
-  const getAuthToken = () => {
-    const token = localStorage.getItem('auth_token');
-    if (!token) {
-      toast.error('Not authenticated');
-      return null;
-    }
-    return token;
-  };
-
-  const launchBba = async (forceNew: boolean = false) => {
-    setBbaLoading(true);
-    try {
-      const token = getAuthToken();
-      if (!token) return;
-
-      let url: string;
-      if (effectiveDiagnosticId) {
-        url = `${API_BASE_URL}/api/poc/create-from-diagnostic?diagnostic_id=${effectiveDiagnosticId}${forceNew ? '&force_new=true' : ''}`;
-      } else {
-        url = `${API_BASE_URL}/api/poc/create-project?engagement_id=${engagementId}`;
-      }
-
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        credentials: 'include',
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: 'Failed to create BBA project' }));
-        toast.error(err.detail || 'Failed to start BBA Builder');
-        return;
-      }
-      const data = await res.json();
-      const projectId = data.project_id;
-      if (projectId) {
-        navigate(`/dashboard/engagements/${engagementId}/bba`, { state: { bbaProjectId: projectId } });
-      } else {
-        toast.error('Invalid response from server');
-      }
-    } catch (e) {
-      console.error(e);
-      toast.error('Failed to start BBA Builder');
-    } finally {
-      setBbaLoading(false);
-    }
-  };
-
-  const runBbaBuilder = async () => {
-    const token = getAuthToken();
-    if (!token) return;
-
-    setBbaLoading(true);
-    // Check for existing progressed BBA before creating/navigating
-    try {
-      const listRes = await fetch(`${API_BASE_URL}/api/poc?engagement_id=${engagementId}`, {
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        credentials: 'include',
-      });
-      if (listRes.ok) {
-        const listData = await listRes.json();
-        const projects = listData.projects || [];
-        const progressed = projects.find(
-          (p: { max_step_reached?: number }) => (p.max_step_reached || 0) >= 2
-        );
-        if (progressed) {
-          // Show confirmation dialog — user has work in progress
-          setExistingBbaStep(progressed.max_step_reached || 0);
-          setExistingBbaProjectId(progressed.id);
-          setShowBbaDialog(true);
-          setBbaLoading(false);
-          return;
-        }
-      }
-    } catch {
-      // If pre-check fails, fall through to normal flow
-    }
-
-    await launchBba();
-  };
-
-  const launchSwWorkbook = async (forceNew: boolean = false) => {
-    setSwLoading(true);
-    try {
-      const token = getAuthToken();
-      if (!token) return;
-
-      let url: string;
-      if (effectiveDiagnosticId) {
-        url = `${API_BASE_URL}/api/strategy-workbook/create-from-diagnostic?diagnostic_id=${effectiveDiagnosticId}${forceNew ? '&force_new=true' : ''}`;
-      } else {
-        url = `${API_BASE_URL}/api/strategy-workbook/create-project?engagement_id=${engagementId}`;
-      }
-
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        credentials: 'include',
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: 'Failed to create strategy workbook' }));
-        toast.error(err.detail || 'Failed to start Strategy Workbook');
-        return;
-      }
-      const data = await res.json();
-      const workbookId = data.workbook_id;
-      if (workbookId) {
-        dispatch(clearWorkbook());
-        navigate(`/dashboard/engagements/${engagementId}/strategy-workbook`, { state: { workbookId } });
-      } else {
-        toast.error('Invalid response from server');
-      }
-    } catch (e) {
-      console.error(e);
-      toast.error('Failed to start Strategy Workbook');
-    } finally {
-      setSwLoading(false);
-    }
-  };
-
-  const runStrategyWorkbook = async () => {
-    const token = getAuthToken();
-    if (!token) return;
-
-    setSwLoading(true);
-    // Pre-check for an existing workbook with meaningful progress
-    try {
-      const listRes = await fetch(
-        `${API_BASE_URL}/api/strategy-workbook/?engagement_id=${engagementId}`,
-        { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' }
-      );
-      if (listRes.ok) {
-        const listData = await listRes.json();
-        const workbooks: Array<{ id: string; status: string }> = listData.workbooks || [];
-        const existing = workbooks[0]; // most recent, ordered by updated_at desc
-        if (existing) {
-          setExistingSwStatus(existing.status);
-          setExistingSwWorkbookId(existing.id);
-          setShowSwDialog(true);
-          setSwLoading(false);
-          return;
-        }
-      }
-    } catch {
-      // If pre-check fails, fall through to normal creation
-    }
-
-    await launchSwWorkbook();
-  };
-
-  const launchStrategicBusinessPlan = async (forceNew: boolean = false) => {
-    setSbpLoading(true);
-    try {
-      const token = getAuthToken();
-      if (!token) return;
-
-      let url: string;
-      if (effectiveDiagnosticId) {
-        url = `${API_BASE_URL}/api/strategic-business-plan/create-from-diagnostic?diagnostic_id=${effectiveDiagnosticId}${forceNew ? '&force_new=true' : ''}`;
-      } else {
-        url = `${API_BASE_URL}/api/strategic-business-plan/create?engagement_id=${engagementId}${forceNew ? '&force_new=true' : ''}`;
-      }
-
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        credentials: 'include',
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: 'Failed to create strategic business plan' }));
-        toast.error(err.detail || 'Failed to start Strategic Business Plan');
-        return;
-      }
-      const data = await res.json();
-      const planId = data.plan_id;
-      if (planId) {
-        dispatch(clearPlan());
-        navigate(`/dashboard/engagements/${engagementId}/strategic-business-plan`, { state: { sbpPlanId: planId } });
-      } else {
-        toast.error('Invalid response from server');
-      }
-    } catch (e) {
-      console.error(e);
-      toast.error('Failed to start Strategic Business Plan');
-    } finally {
-      setSbpLoading(false);
-    }
-  };
-
-  const runStrategicBusinessPlan = async () => {
-    const token = getAuthToken();
-    if (!token) return;
-
-    setSbpLoading(true);
-    // Pre-check for an existing plan with meaningful progress
-    try {
-      const listRes = await fetch(`${API_BASE_URL}/api/strategic-business-plan/?engagement_id=${engagementId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        credentials: 'include',
-      });
-      if (listRes.ok) {
-        const plans: Array<{ id: string; status?: string; updated_at?: string }> = await listRes.json();
-        if (plans.length > 0) {
-          const existing = plans[0];
-          setExistingSbpStatus(existing.status || 'in_progress');
-          setExistingSbpPlanId(existing.id);
-          setShowSbpDialog(true);
-          setSbpLoading(false);
-          return;
-        }
-      }
-    } catch {
-      // If pre-check fails, fall through to normal creation
-    }
-
-    await launchStrategicBusinessPlan();
-  };
-
-  const launchRolesMatrix = async (forceNew: boolean = false) => {
-    setRmLoading(true);
-    try {
-      const token = getAuthToken();
-      if (!token) return;
-
-      // Start Fresh discards the previous matrix so the pre-flight stops finding it
-      if (forceNew && existingRmMatrixId) {
-        await fetch(`${API_BASE_URL}/api/roles-matrix/${existingRmMatrixId}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
-          credentials: 'include',
-        });
-      }
-
-      const res = await fetch(
-        `${API_BASE_URL}/api/roles-matrix/create-project?engagement_id=${engagementId}`,
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          credentials: 'include',
-        }
-      );
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: 'Failed to create roles matrix' }));
-        toast.error(err.detail || 'Failed to start Roles & Responsibilities Matrix');
-        return;
-      }
-      const data = await res.json();
-      const matrixId = data.matrix_id;
-      if (matrixId) {
-        dispatch(clearMatrix());
-        navigate(`/dashboard/engagements/${engagementId}/roles-matrix`, { state: { matrixId } });
-      } else {
-        toast.error('Invalid response from server');
-      }
-    } catch (e) {
-      console.error(e);
-      toast.error('Failed to start Roles & Responsibilities Matrix');
-    } finally {
-      setRmLoading(false);
-    }
-  };
-
-  const runRolesMatrix = async () => {
-    const token = getAuthToken();
-    if (!token) return;
-
-    setRmLoading(true);
-    // Pre-check for an existing matrix so the choice is made here, not after navigating
-    try {
-      const listRes = await fetch(
-        `${API_BASE_URL}/api/roles-matrix/?engagement_id=${engagementId}`,
-        { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' }
-      );
-      if (listRes.ok) {
-        const listData = await listRes.json();
-        const matrices: Array<{ id: string; status: string }> = listData.matrices || [];
-        const existing = matrices[0]; // most recent, ordered by updated_at desc
-        if (existing) {
-          setExistingRmStatus(existing.status);
-          setExistingRmMatrixId(existing.id);
-          setShowRmDialog(true);
-          setRmLoading(false);
-          return;
-        }
-      }
-    } catch {
-      // If the pre-check fails, fall through to normal creation
-    }
-
-    await launchRolesMatrix();
-  };
-
-  const launchPDScorecard = async (forceNew: boolean = false) => {
-    setPdLoading(true);
-    try {
-      const token = getAuthToken();
-      if (!token) return;
-
-      // Start Fresh discards the previous build so the pre-flight stops finding it
-      if (forceNew && existingPdBuildId) {
-        await fetch(`${API_BASE_URL}/api/pd-scorecard/${existingPdBuildId}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
-          credentials: 'include',
-        });
-      }
-
-      const res = await fetch(
-        `${API_BASE_URL}/api/pd-scorecard/create-project?engagement_id=${engagementId}`,
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          credentials: 'include',
-        }
-      );
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: 'Failed to create PD & scorecard build' }));
-        toast.error(err.detail || 'Failed to start PD & Role Scorecards');
-        return;
-      }
-      const data = await res.json();
-      const buildId = data.build_id;
-      if (buildId) {
-        dispatch(clearBuild());
-        navigate(`/dashboard/engagements/${engagementId}/pd-scorecard`, { state: { buildId } });
-      } else {
-        toast.error('Invalid response from server');
-      }
-    } catch (e) {
-      console.error(e);
-      toast.error('Failed to start PD & Role Scorecards');
-    } finally {
-      setPdLoading(false);
-    }
-  };
-
-  const runPDScorecard = async () => {
-    const token = getAuthToken();
-    if (!token) return;
-
-    setPdLoading(true);
-    // Pre-check for an existing build so the choice is made here, not after navigating
-    try {
-      const listRes = await fetch(
-        `${API_BASE_URL}/api/pd-scorecard/?engagement_id=${engagementId}`,
-        { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' }
-      );
-      if (listRes.ok) {
-        const listData = await listRes.json();
-        const builds: Array<{ id: string; status: string }> = listData.builds || [];
-        const existing = builds[0]; // most recent, ordered by updated_at desc
-        if (existing) {
-          setExistingPdStatus(existing.status);
-          setExistingPdBuildId(existing.id);
-          setShowPdDialog(true);
-          setPdLoading(false);
-          return;
-        }
-      }
-    } catch {
-      // If the pre-check fails, fall through to normal creation
-    }
-
-    await launchPDScorecard();
-  };
 
   return (
     <div className="space-y-6">
@@ -509,9 +74,9 @@ export function FollowUpToolsTab({
             size="sm"
             className="flex-shrink-0"
             disabled={anyLoading}
-            onClick={runBbaBuilder}
+            onClick={tools.bba.run}
           >
-            {bbaLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileText className="h-4 w-4 mr-2" />}
+            {tools.bba.loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileText className="h-4 w-4 mr-2" />}
             Run
           </Button>
         </div>
@@ -534,9 +99,9 @@ export function FollowUpToolsTab({
             size="sm"
             className="flex-shrink-0"
             disabled={anyLoading}
-            onClick={runStrategyWorkbook}
+            onClick={tools.strategy_workbook.run}
           >
-            {swLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <BookOpen className="h-4 w-4 mr-2" />}
+            {tools.strategy_workbook.loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <BookOpen className="h-4 w-4 mr-2" />}
             Run
           </Button>
         </div>
@@ -559,9 +124,9 @@ export function FollowUpToolsTab({
             size="sm"
             className="flex-shrink-0"
             disabled={anyLoading}
-            onClick={runStrategicBusinessPlan}
+            onClick={tools.strategic_business_plan.run}
           >
-            {sbpLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ClipboardList className="h-4 w-4 mr-2" />}
+            {tools.strategic_business_plan.loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ClipboardList className="h-4 w-4 mr-2" />}
             Run
           </Button>
         </div>
@@ -598,10 +163,10 @@ export function FollowUpToolsTab({
             size="sm"
             className="flex-shrink-0"
             disabled={anyLoading || isClient}
-            onClick={runRolesMatrix}
+            onClick={tools.roles_matrix.run}
             title={isClient ? 'Only your advisor can run this tool' : undefined}
           >
-            {rmLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Users className="h-4 w-4 mr-2" />}
+            {tools.roles_matrix.loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Users className="h-4 w-4 mr-2" />}
             Run
           </Button>
         </div>
@@ -638,50 +203,29 @@ export function FollowUpToolsTab({
             size="sm"
             className="flex-shrink-0"
             disabled={anyLoading || isClient}
-            onClick={runPDScorecard}
+            onClick={tools.pd_scorecard.run}
             title={isClient ? 'Only your advisor can run this tool' : undefined}
           >
-            {pdLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileSignature className="h-4 w-4 mr-2" />}
+            {tools.pd_scorecard.loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileSignature className="h-4 w-4 mr-2" />}
             Run
           </Button>
         </div>
       </div>
 
       {/* Confirmation dialog when a progressed BBA already exists */}
-      <AlertDialog open={showBbaDialog} onOpenChange={setShowBbaDialog}>
+      <AlertDialog open={tools.bba.dialog.open} onOpenChange={(open) => !open && tools.bba.cancelDialog()}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Existing Report In Progress</AlertDialogTitle>
-            <AlertDialogDescription>
-              You have an existing BBA report in progress (Step {existingBbaStep} of 9).
-              Would you like to continue where you left off, or start fresh?
-            </AlertDialogDescription>
-            <p className="text-sm text-destructive mt-2 font-medium">
-              Starting fresh will permanently delete all existing report data including uploaded files, findings, and plans.
-            </p>
+            <AlertDialogTitle>{tools.bba.dialog.title}</AlertDialogTitle>
+            <AlertDialogDescription>{tools.bba.dialog.description}</AlertDialogDescription>
+            <p className="text-sm text-destructive mt-2 font-medium">{tools.bba.dialog.warning}</p>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setShowBbaDialog(false);
-                if (existingBbaProjectId) {
-                  navigate(`/dashboard/engagements/${engagementId}/bba`, {
-                    state: { bbaProjectId: existingBbaProjectId },
-                  });
-                } else {
-                  launchBba();
-                }
-              }}
-            >
-              Continue Existing
-            </AlertDialogAction>
+            <AlertDialogCancel onClick={tools.bba.cancelDialog}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={tools.bba.continueExisting}>Continue Existing</AlertDialogAction>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                setShowBbaDialog(false);
-                launchBba(true);
-              }}
+              onClick={tools.bba.startFresh}
             >
               Start Fresh
             </AlertDialogAction>
@@ -690,42 +234,19 @@ export function FollowUpToolsTab({
       </AlertDialog>
 
       {/* Confirmation dialog when a strategic business plan already exists */}
-      <AlertDialog open={showSbpDialog} onOpenChange={setShowSbpDialog}>
+      <AlertDialog open={tools.strategic_business_plan.dialog.open} onOpenChange={(open) => !open && tools.strategic_business_plan.cancelDialog()}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Existing Strategic Business Plan Found</AlertDialogTitle>
-            <AlertDialogDescription>
-              You have an existing Strategic Business Plan (Status:{' '}
-              {existingSbpStatus.charAt(0).toUpperCase() + existingSbpStatus.slice(1).replace(/_/g, ' ')}).
-              Would you like to continue where you left off, or start fresh?
-            </AlertDialogDescription>
-            <p className="text-sm text-destructive mt-2 font-medium">
-              Starting fresh will permanently delete all existing plan data.
-            </p>
+            <AlertDialogTitle>{tools.strategic_business_plan.dialog.title}</AlertDialogTitle>
+            <AlertDialogDescription>{tools.strategic_business_plan.dialog.description}</AlertDialogDescription>
+            <p className="text-sm text-destructive mt-2 font-medium">{tools.strategic_business_plan.dialog.warning}</p>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setShowSbpDialog(false);
-                if (existingSbpPlanId) {
-                  dispatch(clearPlan());
-                  navigate(`/dashboard/engagements/${engagementId}/strategic-business-plan`, {
-                    state: { sbpPlanId: existingSbpPlanId },
-                  });
-                } else {
-                  launchStrategicBusinessPlan();
-                }
-              }}
-            >
-              Continue Existing
-            </AlertDialogAction>
+            <AlertDialogCancel onClick={tools.strategic_business_plan.cancelDialog}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={tools.strategic_business_plan.continueExisting}>Continue Existing</AlertDialogAction>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                setShowSbpDialog(false);
-                launchStrategicBusinessPlan(true);
-              }}
+              onClick={tools.strategic_business_plan.startFresh}
             >
               Start Fresh
             </AlertDialogAction>
@@ -734,42 +255,19 @@ export function FollowUpToolsTab({
       </AlertDialog>
 
       {/* Confirmation dialog when a strategy workbook already exists */}
-      <AlertDialog open={showSwDialog} onOpenChange={setShowSwDialog}>
+      <AlertDialog open={tools.strategy_workbook.dialog.open} onOpenChange={(open) => !open && tools.strategy_workbook.cancelDialog()}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Existing Strategy Workbook Found</AlertDialogTitle>
-            <AlertDialogDescription>
-              You have an existing Strategy Workbook (Status:{' '}
-              {existingSwStatus.charAt(0).toUpperCase() + existingSwStatus.slice(1)}).
-              Would you like to continue where you left off, or start fresh?
-            </AlertDialogDescription>
-            <p className="text-sm text-destructive mt-2 font-medium">
-              Starting fresh will permanently delete all uploaded files and extracted data.
-            </p>
+            <AlertDialogTitle>{tools.strategy_workbook.dialog.title}</AlertDialogTitle>
+            <AlertDialogDescription>{tools.strategy_workbook.dialog.description}</AlertDialogDescription>
+            <p className="text-sm text-destructive mt-2 font-medium">{tools.strategy_workbook.dialog.warning}</p>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setShowSwDialog(false);
-                dispatch(clearWorkbook());
-                if (existingSwWorkbookId) {
-                  navigate(`/dashboard/engagements/${engagementId}/strategy-workbook`, {
-                    state: { workbookId: existingSwWorkbookId },
-                  });
-                } else {
-                  launchSwWorkbook();
-                }
-              }}
-            >
-              Continue Existing
-            </AlertDialogAction>
+            <AlertDialogCancel onClick={tools.strategy_workbook.cancelDialog}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={tools.strategy_workbook.continueExisting}>Continue Existing</AlertDialogAction>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                setShowSwDialog(false);
-                launchSwWorkbook(true);
-              }}
+              onClick={tools.strategy_workbook.startFresh}
             >
               Start Fresh
             </AlertDialogAction>
@@ -778,42 +276,19 @@ export function FollowUpToolsTab({
       </AlertDialog>
 
       {/* Confirmation dialog when a roles matrix already exists */}
-      <AlertDialog open={showRmDialog} onOpenChange={setShowRmDialog}>
+      <AlertDialog open={tools.roles_matrix.dialog.open} onOpenChange={(open) => !open && tools.roles_matrix.cancelDialog()}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Existing Roles Matrix Found</AlertDialogTitle>
-            <AlertDialogDescription>
-              You have an existing Roles &amp; Responsibilities Matrix (Status:{' '}
-              {existingRmStatus.charAt(0).toUpperCase() + existingRmStatus.slice(1).replace(/_/g, ' ')}).
-              Would you like to continue where you left off, or start fresh?
-            </AlertDialogDescription>
-            <p className="text-sm text-destructive mt-2 font-medium">
-              Starting fresh will permanently delete all uploaded files and extracted data.
-            </p>
+            <AlertDialogTitle>{tools.roles_matrix.dialog.title}</AlertDialogTitle>
+            <AlertDialogDescription>{tools.roles_matrix.dialog.description}</AlertDialogDescription>
+            <p className="text-sm text-destructive mt-2 font-medium">{tools.roles_matrix.dialog.warning}</p>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setShowRmDialog(false);
-                dispatch(clearMatrix());
-                if (existingRmMatrixId) {
-                  navigate(`/dashboard/engagements/${engagementId}/roles-matrix`, {
-                    state: { matrixId: existingRmMatrixId },
-                  });
-                } else {
-                  launchRolesMatrix();
-                }
-              }}
-            >
-              Continue Existing
-            </AlertDialogAction>
+            <AlertDialogCancel onClick={tools.roles_matrix.cancelDialog}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={tools.roles_matrix.continueExisting}>Continue Existing</AlertDialogAction>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                setShowRmDialog(false);
-                launchRolesMatrix(true);
-              }}
+              onClick={tools.roles_matrix.startFresh}
             >
               Start Fresh
             </AlertDialogAction>
@@ -822,42 +297,19 @@ export function FollowUpToolsTab({
       </AlertDialog>
 
       {/* Confirmation dialog when a PD & scorecard build already exists */}
-      <AlertDialog open={showPdDialog} onOpenChange={setShowPdDialog}>
+      <AlertDialog open={tools.pd_scorecard.dialog.open} onOpenChange={(open) => !open && tools.pd_scorecard.cancelDialog()}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Existing PD &amp; Scorecard Build Found</AlertDialogTitle>
-            <AlertDialogDescription>
-              You have an existing PD &amp; Role Scorecards build (Status:{' '}
-              {existingPdStatus.charAt(0).toUpperCase() + existingPdStatus.slice(1).replace(/_/g, ' ')}).
-              Would you like to continue where you left off, or start fresh?
-            </AlertDialogDescription>
-            <p className="text-sm text-destructive mt-2 font-medium">
-              Starting fresh will permanently delete all uploaded files, roles and approved drafts.
-            </p>
+            <AlertDialogTitle>{tools.pd_scorecard.dialog.title}</AlertDialogTitle>
+            <AlertDialogDescription>{tools.pd_scorecard.dialog.description}</AlertDialogDescription>
+            <p className="text-sm text-destructive mt-2 font-medium">{tools.pd_scorecard.dialog.warning}</p>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setShowPdDialog(false);
-                dispatch(clearBuild());
-                if (existingPdBuildId) {
-                  navigate(`/dashboard/engagements/${engagementId}/pd-scorecard`, {
-                    state: { buildId: existingPdBuildId },
-                  });
-                } else {
-                  launchPDScorecard();
-                }
-              }}
-            >
-              Continue Existing
-            </AlertDialogAction>
+            <AlertDialogCancel onClick={tools.pd_scorecard.cancelDialog}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={tools.pd_scorecard.continueExisting}>Continue Existing</AlertDialogAction>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                setShowPdDialog(false);
-                launchPDScorecard(true);
-              }}
+              onClick={tools.pd_scorecard.startFresh}
             >
               Start Fresh
             </AlertDialogAction>

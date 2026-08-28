@@ -17,7 +17,7 @@ class Task(Base):
     __tablename__ = "tasks"
     
     # Primary key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)  
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)  
     
     # Relationships
     engagement_id = Column(UUID(as_uuid=True), ForeignKey('engagements.id', ondelete='CASCADE'), nullable=False, index=True)

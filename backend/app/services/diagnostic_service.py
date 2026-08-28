@@ -15,6 +15,7 @@ import os
 from app.models.diagnostic import Diagnostic
 from app.models.task import Task
 from app.models.engagement import Engagement
+from app.utils.diagnostic_utils import get_ai_excluded_fields
 # from app.services.openai_service import openai_service  # Preserved for rollback
 from app.services.claude_service import claude_service
 from app.services.scoring_service import scoring_service
@@ -344,7 +345,27 @@ class DiagnosticService:
 
         task_library = load_task_library()
         logger.info(f"[Pipeline] Data files loaded successfully")
-        
+
+        # Apply AI field privacy — strip excluded fields from the payload sent to Claude.
+        # user_responses is always read from diagnostic.user_responses above; we shadow it here
+        # so the original (complete) responses remain saved in the DB.
+        excluded_fields = get_ai_excluded_fields(self.db, engagement_type)
+        if excluded_fields:
+            logger.info(f"[Pipeline] AI privacy: excluding {len(excluded_fields)} field(s) from AI payload")
+            user_responses = {k: v for k, v in user_responses.items() if k not in excluded_fields}
+            diagnostic_questions = {
+                "pages": [
+                    {
+                        **page,
+                        "elements": [
+                            el for el in page.get("elements", [])
+                            if el.get("name") not in excluded_fields
+                        ],
+                    }
+                    for page in diagnostic_questions.get("pages", [])
+                ]
+            }
+
         # ===== STEP 1: Generate Q&A Extract =====
         step1_start = time_module.time()
         logger.info(f"[Pipeline] ========== STEP 1: JSON Extract Started ==========")
@@ -396,7 +417,7 @@ class DiagnosticService:
         
         # Get files that are CURRENTLY in user_responses (not stale files)
         # Only use files that the user has explicitly included in their current responses
-        attached_files = self._get_current_files_from_responses(diagnostic)
+        attached_files = self._get_current_files_from_responses(diagnostic, user_responses_override=user_responses)
         logger.info(f"[Scoring] Found {len(attached_files)} current files from user_responses for diagnostic {diagnostic.id}")
         
         # Log which files are being used
@@ -830,20 +851,22 @@ class DiagnosticService:
         logger.info(f"[Pipeline]   - Step 7 (Save): {save_elapsed:.2f}s")
         logger.info("=" * 60)
     
-    def _get_current_files_from_responses(self, diagnostic: Diagnostic) -> List:
+    def _get_current_files_from_responses(self, diagnostic: Diagnostic, user_responses_override: dict | None = None) -> List:
         """
         Get only the files that are currently referenced in user_responses.
         This ensures we don't use stale/old files that were previously attached.
-        
+
         Args:
             diagnostic: Diagnostic model with user_responses
-            
+            user_responses_override: pre-filtered responses dict (e.g. with AI-privacy-excluded fields removed).
+                                     If None, falls back to diagnostic.user_responses.
+
         Returns:
             List of Media objects that are currently in user_responses
         """
         from app.models.media import Media
-        
-        user_responses = diagnostic.user_responses or {}
+
+        user_responses = user_responses_override if user_responses_override is not None else (diagnostic.user_responses or {})
         
         # Collect all media_ids from user_responses
         # Files can be stored as:

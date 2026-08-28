@@ -26,7 +26,8 @@ class ReportService:
         user: Any,
         question_text_map: Dict[str, str],
         structured_question_map: Optional[Dict[str, Any]] = None,
-        advisor_name: str = ""
+        advisor_name: str = "",
+        user_responses_override: Optional[Dict[str, Any]] = None
     ) -> bytes:
         """
         Generate PDF report for a diagnostic.
@@ -38,6 +39,9 @@ class ReportService:
             structured_question_map: Mapping of question keys to field definitions
                 for matrixdynamic/multipletext questions
             advisor_name: Name of the lead advisor for the cover page
+            user_responses_override: Pre-filtered responses to render instead of
+                diagnostic.user_responses (e.g. with AI-privacy-excluded fields removed).
+                When None, the diagnostic's stored responses are used unchanged.
 
         Returns:
             PDF bytes
@@ -57,7 +61,8 @@ class ReportService:
             user=user,
             question_text_map=question_text_map,
             structured_question_map=structured_question_map,
-            advisor_name=advisor_name
+            advisor_name=advisor_name,
+            user_responses_override=user_responses_override
         )
         logger.debug("HTML report built; length=%s characters", len(html_content or ""))
 
@@ -77,14 +82,21 @@ class ReportService:
         user: Any,
         question_text_map: Dict[str, str],
         structured_question_map: Optional[Dict[str, Any]] = None,
-        advisor_name: str = ""
+        advisor_name: str = "",
+        user_responses_override: Optional[Dict[str, Any]] = None
     ) -> str:
         """Build HTML report content."""
-        
+
         # Extract data from diagnostic
         ai_analysis = diagnostic.ai_analysis or {}
         scoring_data = diagnostic.scoring_data or {}
-        user_responses = diagnostic.user_responses or {}
+        # Use the pre-filtered responses when provided (e.g. AI-privacy-excluded
+        # fields removed for exports); otherwise fall back to the stored responses.
+        user_responses = (
+            user_responses_override
+            if user_responses_override is not None
+            else (diagnostic.user_responses or {})
+        )
         
         # Get summary, advice, roadmap, etc.
         # These fields are generated as Markdown by the LLM, so we convert them to HTML.

@@ -1,4 +1,4 @@
-import { Mail, CheckCircle, XCircle, Calendar } from 'lucide-react';
+import { Mail, CheckCircle, XCircle, Calendar, Building2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -106,6 +106,16 @@ export function UserDetailDialog({ open, onOpenChange, user }: UserDetailDialogP
                 </p>
               </div>
             </div>
+
+            {user.role === 'client' && (
+              <div className="space-y-1 sm:col-span-2">
+                <Label className="text-xs text-muted-foreground">Business Name</Label>
+                <div className="flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-muted-foreground" />
+                  <p className="text-sm font-medium">{user.business_name || 'N/A'}</p>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-1 sm:col-span-2">
               <Label className="text-xs text-muted-foreground">Email</Label>

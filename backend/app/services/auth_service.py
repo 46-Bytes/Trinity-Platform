@@ -33,6 +33,9 @@ class AuthService:
             server_metadata_url=f'https://{settings.AUTH0_DOMAIN}/.well-known/openid-configuration',
             client_kwargs={
                 'scope': 'openid profile email',  # Only request user info, not Management API
+                # Slow/cold DNS can push the Auth0 metadata fetch past httpx's 5s
+                # default connect timeout and 500 the login. Give it generous headroom.
+                'timeout': 30.0,
             },
             # Don't set audience - this prevents API consent screen
             # audience=None  # Explicitly no API access

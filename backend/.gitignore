@@ -33,6 +33,7 @@ wheels/
 trinity-platform-*.json
 *service-account*.json
 *service_account*.json
+*.serviceaccount.json
 *credentials*.json
 gcp-key*.json
 
@@ -42,6 +43,9 @@ gcp-key*.json
 *.swp
 *.swo
 *~
+
+# Office lock/owner files (created while a workbook or document is open)
+~$*
 
 # Database
 *.db

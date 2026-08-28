@@ -148,6 +148,7 @@ export default function UsersPage() {
         id: editingUser.id,
         name: newUserName,
         role: newUserRole,
+        business_name: newUserRole === 'client' ? newUserBusinessName : undefined,
       })).unwrap();
       
       toast.success('User updated successfully');

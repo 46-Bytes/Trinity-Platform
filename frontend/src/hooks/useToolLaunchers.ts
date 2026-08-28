@@ -1,9 +1,9 @@
 /**
  * Shared "run this tool" launch logic for BBA / Strategy Workbook / Strategic
- * Business Plan: check for an existing in-progress project for the
- * engagement, surface a "Continue vs Start Fresh" confirmation when found,
- * otherwise create (optionally from the most recent completed diagnostic)
- * and navigate to the tool's dedicated route.
+ * Business Plan / Roles Matrix / PD Scorecard: check for an existing
+ * in-progress project for the engagement, surface a "Continue vs Start
+ * Fresh" confirmation when found, otherwise create (optionally from the
+ * most recent completed diagnostic) and navigate to the tool's route.
  *
  * Extracted from FollowUpToolsTab.tsx so the Program Guide module card can
  * reuse the exact same behavior instead of re-implementing it.
@@ -13,11 +13,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '@/store/hooks';
 import { clearWorkbook } from '@/store/slices/strategyWorkbookReducer';
 import { clearPlan } from '@/store/slices/strategicBusinessPlanReducer';
+import { clearMatrix } from '@/store/slices/rolesMatrixReducer';
+import { clearBuild } from '@/store/slices/pdScorecardReducer';
 import { toast } from 'sonner';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
-export type ToolKey = 'bba' | 'strategy_workbook' | 'strategic_business_plan';
+export type ToolKey = 'bba' | 'strategy_workbook' | 'strategic_business_plan' | 'roles_matrix' | 'pd_scorecard';
 
 export interface ToolDialogState {
   open: boolean;
@@ -83,6 +85,16 @@ export function useToolLaunchers(
   const [existingSbpPlanId, setExistingSbpPlanId] = useState<string | null>(null);
   const [existingSbpStatus, setExistingSbpStatus] = useState<string>('');
 
+  const [rmLoading, setRmLoading] = useState(false);
+  const [showRmDialog, setShowRmDialog] = useState(false);
+  const [existingRmMatrixId, setExistingRmMatrixId] = useState<string | null>(null);
+  const [existingRmStatus, setExistingRmStatus] = useState<string>('');
+
+  const [pdLoading, setPdLoading] = useState(false);
+  const [showPdDialog, setShowPdDialog] = useState(false);
+  const [existingPdBuildId, setExistingPdBuildId] = useState<string | null>(null);
+  const [existingPdStatus, setExistingPdStatus] = useState<string>('');
+
   const completedDiagnostics = diagnostics.filter((d) => d.status === 'completed');
 
   const canSeeDiagnostic = (d: DiagnosticSummary) => {
@@ -99,7 +111,7 @@ export function useToolLaunchers(
   const visibleDiagnostics = completedDiagnostics.filter(canSeeDiagnostic);
   const effectiveDiagnosticId = visibleDiagnostics.length > 0 ? visibleDiagnostics[0].id : null;
 
-  const anyLoading = bbaLoading || swLoading || sbpLoading;
+  const anyLoading = bbaLoading || swLoading || sbpLoading || rmLoading || pdLoading;
 
   // ---- BBA ----
   const launchBba = async (forceNew: boolean = false) => {
@@ -297,6 +309,150 @@ export function useToolLaunchers(
     await launchSbp();
   };
 
+  // ---- Roles & Responsibilities Matrix ----
+  const launchRolesMatrix = async (forceNew: boolean = false) => {
+    setRmLoading(true);
+    try {
+      const token = getAuthToken();
+      if (!token) return;
+
+      // Start Fresh discards the previous matrix so the pre-flight stops finding it
+      if (forceNew && existingRmMatrixId) {
+        await fetch(`${API_BASE_URL}/api/roles-matrix/${existingRmMatrixId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
+        });
+      }
+
+      const res = await fetch(`${API_BASE_URL}/api/roles-matrix/create-project?engagement_id=${engagementId}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Failed to create roles matrix' }));
+        toast.error(err.detail || 'Failed to start Roles & Responsibilities Matrix');
+        return;
+      }
+      const data = await res.json();
+      const matrixId = data.matrix_id;
+      if (matrixId) {
+        dispatch(clearMatrix());
+        navigate(`/dashboard/engagements/${engagementId}/roles-matrix`, { state: { matrixId } });
+      } else {
+        toast.error('Invalid response from server');
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to start Roles & Responsibilities Matrix');
+    } finally {
+      setRmLoading(false);
+    }
+  };
+
+  const runRolesMatrix = async () => {
+    const token = getAuthToken();
+    if (!token) return;
+
+    setRmLoading(true);
+    // Pre-check for an existing matrix so the choice is made here, not after navigating
+    try {
+      const listRes = await fetch(`${API_BASE_URL}/api/roles-matrix/?engagement_id=${engagementId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
+      });
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        const matrices: Array<{ id: string; status: string }> = listData.matrices || [];
+        const existing = matrices[0]; // most recent, ordered by updated_at desc
+        if (existing) {
+          setExistingRmStatus(existing.status);
+          setExistingRmMatrixId(existing.id);
+          setShowRmDialog(true);
+          setRmLoading(false);
+          return;
+        }
+      }
+    } catch {
+      // If the pre-check fails, fall through to normal creation
+    }
+
+    await launchRolesMatrix();
+  };
+
+  // ---- PD & Role Scorecards ----
+  const launchPDScorecard = async (forceNew: boolean = false) => {
+    setPdLoading(true);
+    try {
+      const token = getAuthToken();
+      if (!token) return;
+
+      // Start Fresh discards the previous build so the pre-flight stops finding it
+      if (forceNew && existingPdBuildId) {
+        await fetch(`${API_BASE_URL}/api/pd-scorecard/${existingPdBuildId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
+        });
+      }
+
+      const res = await fetch(`${API_BASE_URL}/api/pd-scorecard/create-project?engagement_id=${engagementId}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Failed to create PD & scorecard build' }));
+        toast.error(err.detail || 'Failed to start PD & Role Scorecards');
+        return;
+      }
+      const data = await res.json();
+      const buildId = data.build_id;
+      if (buildId) {
+        dispatch(clearBuild());
+        navigate(`/dashboard/engagements/${engagementId}/pd-scorecard`, { state: { buildId } });
+      } else {
+        toast.error('Invalid response from server');
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to start PD & Role Scorecards');
+    } finally {
+      setPdLoading(false);
+    }
+  };
+
+  const runPDScorecard = async () => {
+    const token = getAuthToken();
+    if (!token) return;
+
+    setPdLoading(true);
+    // Pre-check for an existing build so the choice is made here, not after navigating
+    try {
+      const listRes = await fetch(`${API_BASE_URL}/api/pd-scorecard/?engagement_id=${engagementId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
+      });
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        const builds: Array<{ id: string; status: string }> = listData.builds || [];
+        const existing = builds[0]; // most recent, ordered by updated_at desc
+        if (existing) {
+          setExistingPdStatus(existing.status);
+          setExistingPdBuildId(existing.id);
+          setShowPdDialog(true);
+          setPdLoading(false);
+          return;
+        }
+      }
+    } catch {
+      // If the pre-check fails, fall through to normal creation
+    }
+
+    await launchPDScorecard();
+  };
+
   return {
     effectiveDiagnosticId,
     anyLoading,
@@ -375,6 +531,58 @@ export function useToolLaunchers(
           launchSbp(true);
         },
         cancelDialog: () => setShowSbpDialog(false),
+      },
+      roles_matrix: {
+        loading: rmLoading,
+        run: runRolesMatrix,
+        dialog: {
+          open: showRmDialog,
+          title: 'Existing Roles Matrix Found',
+          description: `You have an existing Roles & Responsibilities Matrix (Status: ${
+            existingRmStatus ? existingRmStatus.charAt(0).toUpperCase() + existingRmStatus.slice(1).replace(/_/g, ' ') : ''
+          }). Would you like to continue where you left off, or start fresh?`,
+          warning: 'Starting fresh will permanently delete all uploaded files and extracted data.',
+        },
+        continueExisting: () => {
+          setShowRmDialog(false);
+          dispatch(clearMatrix());
+          if (existingRmMatrixId) {
+            navigate(`/dashboard/engagements/${engagementId}/roles-matrix`, { state: { matrixId: existingRmMatrixId } });
+          } else {
+            launchRolesMatrix();
+          }
+        },
+        startFresh: () => {
+          setShowRmDialog(false);
+          launchRolesMatrix(true);
+        },
+        cancelDialog: () => setShowRmDialog(false),
+      },
+      pd_scorecard: {
+        loading: pdLoading,
+        run: runPDScorecard,
+        dialog: {
+          open: showPdDialog,
+          title: 'Existing PD & Scorecard Build Found',
+          description: `You have an existing PD & Role Scorecards build (Status: ${
+            existingPdStatus ? existingPdStatus.charAt(0).toUpperCase() + existingPdStatus.slice(1).replace(/_/g, ' ') : ''
+          }). Would you like to continue where you left off, or start fresh?`,
+          warning: 'Starting fresh will permanently delete all uploaded files, roles and approved drafts.',
+        },
+        continueExisting: () => {
+          setShowPdDialog(false);
+          dispatch(clearBuild());
+          if (existingPdBuildId) {
+            navigate(`/dashboard/engagements/${engagementId}/pd-scorecard`, { state: { buildId: existingPdBuildId } });
+          } else {
+            launchPDScorecard();
+          }
+        },
+        startFresh: () => {
+          setShowPdDialog(false);
+          launchPDScorecard(true);
+        },
+        cancelDialog: () => setShowPdDialog(false),
       },
     },
   };

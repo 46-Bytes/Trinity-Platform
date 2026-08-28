@@ -111,7 +111,7 @@ export const createUser = createAsyncThunk(
 
 export const updateUser = createAsyncThunk(
   'user/updateUser',
-  async (userData: { id: string; name?: string; role?: UserRole; is_active?: boolean }, { rejectWithValue }) => {
+  async (userData: { id: string; name?: string; role?: UserRole; is_active?: boolean; business_name?: string }, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem('auth_token');
       if (!token) {
@@ -122,6 +122,7 @@ export const updateUser = createAsyncThunk(
       if (userData.name !== undefined) body.name = userData.name;
       if (userData.role !== undefined) body.role = userData.role;
       if (userData.is_active !== undefined) body.is_active = userData.is_active;
+      if (userData.business_name !== undefined) body.business_name = userData.business_name;
 
       const response = await fetch(`${API_BASE_URL}/api/users/${userData.id}`, {
         method: 'PATCH',

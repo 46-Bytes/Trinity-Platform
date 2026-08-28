@@ -19,6 +19,9 @@ from .document_template import DocumentTemplate
 from .strategic_business_plan import StrategicBusinessPlan
 from .program_guide import ProgramModuleContent, EngagementProgramModuleState, EngagementModuleChecklistItem
 from .program_deliverable import ProgramModuleDeliverable, EngagementModuleDeliverable
+from .ai_field_privacy import AIFieldPrivacy
+from .roles_matrix import RolesMatrix
+from .pd_scorecard import PDScorecard, PDScorecardRole
 
 __all__ = [
     "User",
@@ -42,6 +45,10 @@ __all__ = [
     "EngagementModuleChecklistItem",
     "ProgramModuleDeliverable",
     "EngagementModuleDeliverable",
+    "AIFieldPrivacy",
+    "RolesMatrix",
+    "PDScorecard",
+    "PDScorecardRole",
 ]
 
 

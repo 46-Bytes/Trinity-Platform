@@ -26,7 +26,7 @@ class ProgramModuleContent(Base):
     """
     __tablename__ = "program_module_content"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
 
     program_type = Column(String(100), nullable=False, comment="e.g. 'value_builder' - matches Engagement.tool")
     module_code = Column(String(20), nullable=False, comment="e.g. 'M0', 'V1'..'V11', 'M12'")
@@ -149,7 +149,7 @@ class EngagementProgramModuleState(Base):
     """
     __tablename__ = "engagement_program_module_state"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
 
     engagement_id = Column(UUID(as_uuid=True), ForeignKey('engagements.id', ondelete='CASCADE'), nullable=False, unique=True, index=True)
     program_type = Column(String(100), nullable=False)
@@ -171,7 +171,7 @@ class EngagementModuleChecklistItem(Base):
     """
     __tablename__ = "engagement_module_checklist_item"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
 
     engagement_id = Column(UUID(as_uuid=True), ForeignKey('engagements.id', ondelete='CASCADE'), nullable=False, index=True)
     module_code = Column(String(20), nullable=False)

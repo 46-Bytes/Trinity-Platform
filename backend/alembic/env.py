@@ -31,6 +31,34 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+# Redundant UNIQUE (id) constraints that duplicate each table's primary key.
+# drop_redundant_uniques deliberately left these in place: a foreign key is
+# bound to each one's index rather than to the primary key, so dropping them
+# would fail or force ~56 foreign keys to be rebuilt. They are real in the
+# database and intentionally absent from the models, which autogenerate would
+# otherwise report as drift on every run. Exempted here rather than declared on
+# the models so a database built from metadata does not inherit the redundancy.
+EXEMPT_UNIQUE_CONSTRAINTS = {
+    ("conversations", "conversations_id_key"),
+    ("diagnostics", "diagnostics_id_key"),
+    ("engagements", "engagements_id_key"),
+    ("firms", "firms_id_key"),
+    ("media", "media_id_key"),
+    ("subscriptions", "subscriptions_id_key"),
+    ("tasks", "tasks_id_key"),
+    ("users", "users_id_key"),
+}
+
+
+def include_object(object_, name, type_, reflected, compare_to) -> bool:
+    """Exclude the exempt redundant unique constraints from autogenerate."""
+    if type_ == "unique_constraint":
+        table_name = getattr(getattr(object_, "table", None), "name", None)
+        if (table_name, name) in EXEMPT_UNIQUE_CONSTRAINTS:
+            return False
+    return True
+
+
 def _is_comment_only(op) -> bool:
     """True only for ops whose sole change is a table or column comment.
 
@@ -76,6 +104,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=include_object,
         process_revision_directives=strip_comment_directives,
     )
 
@@ -95,6 +124,7 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
+            include_object=include_object,
             process_revision_directives=strip_comment_directives,
         )
 

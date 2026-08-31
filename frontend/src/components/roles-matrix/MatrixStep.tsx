@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAppDispatch } from '@/store/hooks';
 import {
   generateMatrix,
@@ -10,6 +10,13 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import {
   Table,
   TableBody,
@@ -51,6 +58,9 @@ const COLUMNS: { key: keyof MatrixRow; label: string; width: string }[] = [
   { key: 'when', label: 'When', width: 'min-w-[8rem]' },
 ];
 
+/** Same columns, minus Name — Name is shown once per role as the accordion header instead. */
+const DETAIL_COLUMNS = COLUMNS.filter((column) => column.key !== 'name');
+
 const EMPTY_ROW: MatrixRow = {
   name: '',
   role_description: '',
@@ -76,6 +86,33 @@ export function MatrixStep({ matrix, isGenerating, isSaving, isExporting, onBack
   }, [matrix.matrix_rows]);
 
   const hasRows = rows.length > 0;
+
+  /**
+   * Group the flat row list into one block per role, splitting wherever a row
+   * carries a name — mirrors the existing "name on first row of the block" convention.
+   */
+  const roleGroups = useMemo(() => {
+    const groups: { key: string; indices: number[] }[] = [];
+    rows.forEach((row, index) => {
+      if (row.name?.trim() || groups.length === 0) {
+        groups.push({ key: `role-${index}`, indices: [index] });
+      } else {
+        groups[groups.length - 1].indices.push(index);
+      }
+    });
+    return groups;
+  }, [rows]);
+
+  // Look up each role's job title from the staff list gathered during Inputs.
+  const titleByName = useMemo(() => {
+    const map = new Map<string, string>();
+    (matrix.staff || []).forEach((member) => {
+      if (member.name && member.role_title) {
+        map.set(member.name.trim().toLowerCase(), member.role_title);
+      }
+    });
+    return map;
+  }, [matrix.staff]);
 
   const updateCell = (rowIndex: number, key: keyof MatrixRow, value: string) => {
     setRows((prev) => prev.map((row, i) => (i === rowIndex ? { ...row, [key]: value } : row)));
@@ -192,59 +229,92 @@ export function MatrixStep({ matrix, isGenerating, isSaving, isExporting, onBack
 
       {hasRows && (
         <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    {COLUMNS.map((column) => (
-                      <TableHead key={column.key} className={column.width}>
-                        {column.label}
-                      </TableHead>
-                    ))}
-                    <TableHead className="w-24" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((row, rowIndex) => (
-                    <TableRow key={rowIndex}>
-                      {COLUMNS.map((column) => (
-                        <TableCell key={column.key} className={column.width}>
-                          <Input
-                            value={row[column.key] ?? ''}
-                            onChange={(e) => updateCell(rowIndex, column.key, e.target.value)}
-                            className="h-9 border-transparent hover:border-input focus-visible:border-input"
-                            aria-label={`${column.label} row ${rowIndex + 1}`}
-                          />
-                        </TableCell>
-                      ))}
-                      <TableCell className="w-24">
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => insertRowBelow(rowIndex)}
-                            aria-label={`Insert a row below row ${rowIndex + 1}`}
-                            title="Add a responsibility below this row"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeRow(rowIndex)}
-                            aria-label={`Remove row ${rowIndex + 1}`}
-                            title="Remove this row"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+          <CardContent className="pt-6">
+            <Accordion type="multiple" className="w-full space-y-3">
+              {roleGroups.map((group) => {
+                const nameIndex = group.indices[0];
+                const name = rows[nameIndex]?.name?.trim() || '';
+                const title = name ? titleByName.get(name.toLowerCase()) : undefined;
+                const displayLabel = title || name || 'Unnamed role';
+                return (
+                  <AccordionItem
+                    key={group.key}
+                    value={group.key}
+                    className="border rounded-md bg-background px-4"
+                  >
+                    <AccordionTrigger className="hover:no-underline">
+                      <span className="font-semibold text-base text-foreground truncate pr-3">
+                        {displayLabel}
+                      </span>
+                    </AccordionTrigger>
+                    <AccordionContent className="space-y-4 p-2 pt-4">
+                      <div className="max-w-sm">
+                        <Label htmlFor={`role-name-${nameIndex}`}>Name</Label>
+                        <Input
+                          id={`role-name-${nameIndex}`}
+                          value={rows[nameIndex]?.name ?? ''}
+                          onChange={(e) => updateCell(nameIndex, 'name', e.target.value)}
+                          className="h-9 mt-1"
+                        />
+                      </div>
+
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              {DETAIL_COLUMNS.map((column) => (
+                                <TableHead key={column.key} className={column.width}>
+                                  {column.label}
+                                </TableHead>
+                              ))}
+                              <TableHead className="w-24" />
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {group.indices.map((rowIndex) => (
+                              <TableRow key={rowIndex}>
+                                {DETAIL_COLUMNS.map((column) => (
+                                  <TableCell key={column.key} className={column.width}>
+                                    <Input
+                                      value={rows[rowIndex][column.key] ?? ''}
+                                      onChange={(e) => updateCell(rowIndex, column.key, e.target.value)}
+                                      className="h-9 border-black"
+                                      aria-label={`${column.label} row ${rowIndex + 1}`}
+                                    />
+                                  </TableCell>
+                                ))}
+                                <TableCell className="w-24">
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => insertRowBelow(rowIndex)}
+                                      aria-label={`Insert a row below row ${rowIndex + 1}`}
+                                      title="Add a responsibility below this row"
+                                    >
+                                      <Plus className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => removeRow(rowIndex)}
+                                      aria-label={`Remove row ${rowIndex + 1}`}
+                                      title="Remove this row"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                );
+              })}
+            </Accordion>
           </CardContent>
         </Card>
       )}

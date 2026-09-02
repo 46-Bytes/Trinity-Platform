@@ -1,0 +1,3386 @@
+[
+  {
+    "program_type": "value_builder",
+    "module_code": "M0",
+    "display_order": 0,
+    "title": "Diagnostic Gateway",
+    "purpose": "PLACEHOLDER: Complete the Value Builder diagnostic so Trinity can generate your report, recommendations, and a personalised starting point and module path.",
+    "preparation_checklist": [
+      {
+        "key": "gather-key-documents",
+        "text": "PLACEHOLDER: Gather key financial and operational documents"
+      }
+    ],
+    "recommended_tools": [
+      {
+        "tool_key": "diagnostic",
+        "label": "Value Builder Diagnostic"
+      }
+    ],
+    "deliverables": [
+      {
+        "key": "M0-D1",
+        "title": "PLACEHOLDER: Diagnostic Report & Recommendations",
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "program_type": "value_builder",
+    "module_code": "V1",
+    "display_order": 1,
+    "title": "Financial Management",
+    "focus": "Financial clarity, cost and margin performance, and a reporting rhythm the owner will actually maintain.",
+    "purpose": "V1 establishes the financial foundation for every other module. The owner gains a clear, plain-language understanding of how the business performs, where money is being lost through cost structure and slow invoicing, and what to watch month to month. Almost every other module depends on the outputs produced here. This module is about commercial clarity, not accounting technicalities.",
+    "core_outcomes": [
+      "The owner can explain their financial position in simple terms.",
+      "Major expense lines are reviewed and cost adjustments identified.",
+      "The invoicing process is reviewed and cash-timing improvements agreed.",
+      "Margin leaks are identified and a small number of high-impact actions are agreed.",
+      "A lightweight financial reporting rhythm is in place and owned."
+    ],
+    "required_inputs": [
+      {
+        "key": "V1-I1",
+        "label": "Diagnostic report, V1 module assessment",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V1-I2",
+        "label": "Profit and loss, 3 years",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V1-I3",
+        "label": "Balance sheet, current and prior",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V1-I4",
+        "label": "Revenue breakdown by product, service or segment",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V1-I5",
+        "label": "Aged receivables and current payment terms",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V1-I6",
+        "label": "Accountant and bookkeeper contact details",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V1-I7",
+        "label": "Existing budget or forecast, where one exists",
+        "source": "Advisor to upload"
+      }
+    ],
+    "preparation_summary": {
+      "owner": "Advisor",
+      "duration": "60 to 120 minutes depending on data quality"
+    },
+    "preparation_checklist": [
+      {
+        "key": "load-financials",
+        "text": "Load financial data into Trinity and generate the Financial Health Summary."
+      },
+      {
+        "key": "review-margin-trends",
+        "text": "Review margin trends, revenue mix, labour and subcontractor ratios, overhead patterns."
+      },
+      {
+        "key": "identify-largest-expenses",
+        "text": "Identify the largest expense lines and those that have grown fastest over the period."
+      },
+      {
+        "key": "review-debtors",
+        "text": "Review the debtor position, average days to payment, and any work sitting uninvoiced."
+      },
+      {
+        "key": "identify-red-flags",
+        "text": "Identify red flags: chronic low margin, structural under-pricing, excessive rework, negative equity, director loans, contingent liabilities."
+      },
+      {
+        "key": "note-improvement-levers",
+        "text": "Note 3 to 5 suspected improvement levers to test in the session."
+      },
+      {
+        "key": "verify-not-sure-responses",
+        "text": "Where the diagnostic returned \"not sure\" responses, list them for direct verification with the bookkeeper or accountant. Do not assume they are in order."
+      }
+    ],
+    "sessions": [
+      {
+        "key": "V1-S1",
+        "title": "Financial Workshop",
+        "duration": "Target 95 to 130 minutes",
+        "format": "In person or online",
+        "agenda": [
+          {
+            "key": "V1-S1-A1",
+            "title": "Frame the session",
+            "duration": "5 minutes",
+            "detail": "Clarify that the advisor is not the accountant or bookkeeper. Position the session as improving profitability, improving decision-making, and reducing financial stress."
+          },
+          {
+            "key": "V1-S1-A2",
+            "title": "Review the Financial Health Summary",
+            "duration": "20 to 30 minutes",
+            "detail": "Present in plain language: gross margin, net margin, revenue trend, major cost drivers. Check understanding continuously. Avoid jargon."
+          },
+          {
+            "key": "V1-S1-A3",
+            "title": "Expenses review and adjustment",
+            "duration": "20 to 25 minutes",
+            "detail": "Work through the major expense lines and test whether each still earns its place. Cover the three biggest costs, what has grown fastest, which costs are fixed versus flexible, and whether personal expenses are running through the business and properly separated.",
+            "questions": [
+              {
+                "items": [
+                  "Walk me through your three biggest expense lines. Are they where you would expect them to be?",
+                  "What has grown fastest over the last two years, and why?",
+                  "What is in here that no longer earns its place?",
+                  "Which of these could flex if revenue dropped?"
+                ]
+              }
+            ]
+          },
+          {
+            "key": "V1-S1-A4",
+            "title": "Invoicing process review",
+            "duration": "15 to 20 minutes",
+            "detail": "Review how and when invoices are raised, and where cash is being delayed by process rather than by customers. Late invoicing is one of the most common and most fixable cash constraints in an SME.",
+            "questions": [
+              {
+                "items": [
+                  "How quickly after the work is done does the invoice go out?",
+                  "Who raises invoices, and is it their priority or the last thing on their list?",
+                  "What are your payment terms, and are they actually enforced?",
+                  "How long are customers really taking to pay?",
+                  "Who follows up overdue accounts?",
+                  "How often does an invoice get queried or corrected?"
+                ]
+              }
+            ]
+          },
+          {
+            "key": "V1-S1-A5",
+            "title": "Margin leaks and cost structure",
+            "duration": "15 to 20 minutes",
+            "detail": "Identify low-margin offerings, delivery inefficiency and rework, overuse of subcontractors or casuals, operational waste, structural cost issues. Help the owner choose a small number of high-impact changes, not an overwhelming list."
+          },
+          {
+            "key": "V1-S1-A6",
+            "title": "Financial rhythm and reporting",
+            "duration": "15 to 20 minutes",
+            "detail": "Define the cadence: weekly or fortnightly metric check, monthly financial review, quarterly accountant engagement. Confirm who produces the numbers and who reviews them. Keep it light enough that the owner will sustain it."
+          },
+          {
+            "key": "V1-S1-A7",
+            "title": "Close and link forward",
+            "duration": "5 to 10 minutes",
+            "detail": "Show how financial improvement funds hiring, supports systems work, and strengthens enterprise value. Name the next module in this client's sequence."
+          }
+        ]
+      }
+    ],
+    "recommended_tools": [
+      {
+        "tool_key": "financial_health_summary",
+        "label": "Financial Health Summary generator",
+        "when": "pre",
+        "status": "To build, Feature 3"
+      }
+    ],
+    "deliverables": [
+      {
+        "key": "V1-D1",
+        "title": "Financial Health Summary",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V2",
+          "V10"
+        ]
+      },
+      {
+        "key": "V1-D2",
+        "title": "Margin & Cost Improvement Plan",
+        "is_mandatory": true,
+        "produced_by": "advisor",
+        "feeds": [
+          "V10"
+        ]
+      },
+      {
+        "key": "V1-D3",
+        "title": "Invoicing & Cashflow Improvement Plan",
+        "is_mandatory": true,
+        "produced_by": "advisor",
+        "feeds": [
+          "V5"
+        ]
+      },
+      {
+        "key": "V1-D4",
+        "title": "Financial Rhythm & Reporting Plan",
+        "is_mandatory": true,
+        "produced_by": "advisor",
+        "feeds": [
+          "V3"
+        ]
+      },
+      {
+        "key": "V1-D5",
+        "title": "Budget or Forecast Outline",
+        "is_mandatory": false,
+        "produced_by": "client",
+        "produced_by_note": "advisor-reviewed",
+        "feeds": [
+          "V2"
+        ]
+      }
+    ],
+    "post_session_actions": {
+      "owner": "Advisor",
+      "duration": "45 to 60 minutes",
+      "items": [
+        "Finalise the Financial Health Summary and the Margin & Cost Improvement Plan.",
+        "Document the invoicing changes agreed, with a named owner and a start date.",
+        "Confirm the reporting rhythm and the metrics to be tracked.",
+        "Note any financial constraint that will affect later modules, particularly V2 Strategy, V4 People hiring capacity, and V6 Technology spend."
+      ]
+    },
+    "guardrails": {
+      "must_not": [
+        "redo bookkeeping or rebuild the accounts",
+        "build detailed three-way forecasts",
+        "provide tax, BAS or compliance advice",
+        "configure accounting or invoicing software directly; the advisor designs the process, the client or their bookkeeper makes the system change",
+        "promise specific profit outcomes"
+      ],
+      "note": "These are boundaries of profession, not boundaries of module. Where V1 surfaces an issue whose home module is elsewhere, the advisor addresses it and records the output against that module."
+    },
+    "quality_standards": [
+      "The owner can explain their financial position in their own words.",
+      "Expense and margin actions are few, specific and realistic.",
+      "Invoicing changes are practical and have a named owner.",
+      "A reporting rhythm exists and has a named owner."
+    ]
+  },
+  {
+    "program_type": "value_builder",
+    "module_code": "V2",
+    "display_order": 2,
+    "title": "Strategy & Planning",
+    "focus": "Direction for the next one to five years, captured in a workshop and written up as a strategic business plan the owner owns.",
+    "purpose": "V2 is where the owner stops reacting and starts leading. A facilitated workshop works through the Strategy Workbook to capture direction, business model, competitive position and priorities. Trinity then drafts the Strategic Business Plan from those inputs, the advisor walks the client through it, and the client takes it away to adjust and make their own.",
+    "core_outcomes": [
+      "A completed Strategy Workbook capturing the client's strategic inputs.",
+      "A written Strategic Business Plan is created.",
+      "The owner can state where the business is going, and why, in their own words.",
+      "The owner has the plan in hand, understands it, and knows what they want to change."
+    ],
+    "notes": [
+      {
+        "key": "upload-recommended",
+        "section": "required_inputs",
+        "text": "Upload is optional but strongly recommended. The more source material Trinity receives, the more of the workbook it pre-fills, and the less workshop time is spent on data entry rather than strategy."
+      },
+      {
+        "key": "plan-template-coverage",
+        "section": "deliverables",
+        "text": "The plan template already covers priorities, key actions and positioning, so no separate priorities map or value proposition document is produced."
+      },
+      {
+        "key": "tools-already-exist",
+        "section": "recommended_tools",
+        "text": "Both tools already exist in Trinity. V2 requires no new tool build and should not draw on the Feature 3 allocation."
+      }
+    ],
+    "required_inputs": [
+      {
+        "key": "V2-I1",
+        "label": "Diagnostic report and advisor recommendations",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V2-I2",
+        "label": "Owner's stated goals, growth constraint and \"fix one thing\" response",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V2-I3",
+        "label": "SWOT, competitor and industry responses from the diagnostic",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V2-I4",
+        "label": "Previous strategic plans or business plans",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V2-I5",
+        "label": "Organisational chart",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V2-I6",
+        "label": "Product and service documentation",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V2-I7",
+        "label": "Financial reports: P&L, budgets, forecasts",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V2-I8",
+        "label": "Competitor list or analysis",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V2-I9",
+        "label": "Marketing material",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V2-I10",
+        "label": "Outputs from any completed module",
+        "source": "From an earlier module",
+        "source_note": "where available",
+        "fallback": "V2 does not assume any other module has run. It may be the first module a client starts with. Where V1 is complete, its financial outputs sharpen the session. Where it is not, the client's own financial reports serve the same purpose."
+      }
+    ],
+    "preparation_summary": {
+      "owner": "Advisor"
+    },
+    "preparation_checklist": [
+      {
+        "key": "gather-source-material",
+        "text": "Gather all available source material from the client and from Trinity."
+      },
+      {
+        "key": "run-workbook-generator",
+        "text": "Run the Strategy Workbook generator. Trinity extracts vision, mission, values, goals, products and services, structure, competitors, financials, SWOT indicators, market segments, customer behaviour, growth opportunities and past initiatives, then produces a pre-filled workbook."
+      },
+      {
+        "key": "review-prefilled-workbook",
+        "text": "Review the pre-filled workbook. Correct anything Trinity has misread and note the gaps that need the client to fill them."
+      },
+      {
+        "key": "read-free-text-responses",
+        "text": "Read the owner's free-text diagnostic responses closely. Their own language should carry into the plan."
+      },
+      {
+        "key": "note-ambition-gaps",
+        "text": "Note where the diagnostic or the financials disagree with the owner's stated ambition. That gap is the session's most useful material."
+      }
+    ],
+    "sessions": [
+      {
+        "key": "V2-S1",
+        "title": "Strategy Workshop",
+        "duration": "Target 3 to 4 hours",
+        "format": "In person preferred",
+        "note": "The pre-filled Strategy Workbook is the capture tool for the session. Where two advisors are available, the lead facilitates and whiteboards while the second types summaries into the workbook and photographs each whiteboard before it is erased.",
+        "agenda": [
+          {
+            "key": "V2-S1-A1",
+            "title": "Frame the session",
+            "duration": "10 minutes",
+            "detail": "Explain that this session sets direction, not operational detail, and that the workbook captures everything for the plan that follows."
+          },
+          {
+            "key": "V2-S1-A2",
+            "title": "Review the pre-filled workbook",
+            "duration": "20 minutes",
+            "detail": "Walk the client through what Trinity has already extracted. Confirm, correct, and identify what is missing. This sets the pace and shows the client the work already done."
+          },
+          {
+            "key": "V2-S1-A3",
+            "title": "Vision, values and goals",
+            "duration": "40 to 50 minutes",
+            "detail": "Vision, mission and values. Business goals and personal goals, kept distinct. Where the owner wants the business to be, and what they want their own life to look like alongside it.",
+            "questions": [
+              {
+                "items": [
+                  "Where do you want this business to be in three years?",
+                  "What does that look like on an ordinary Tuesday?",
+                  "What do you want out of it personally?",
+                  "What are you not willing to give up to get there?"
+                ]
+              }
+            ]
+          },
+          {
+            "key": "V2-S1-A4",
+            "title": "Business model, products and customers",
+            "duration": "40 to 50 minutes",
+            "detail": "Products and services, divisions and structure, market segments, customer needs, trends and buying behaviour. What the business actually sells, to whom, and what genuinely drives revenue.",
+            "questions": [
+              {
+                "items": [
+                  "Which customers do you want more of?",
+                  "What do they actually buy, and why from you?",
+                  "Where does the money really come from, and is that where your time goes?"
+                ]
+              }
+            ]
+          },
+          {
+            "key": "V2-S1-A5",
+            "title": "Competitive position and SWOT",
+            "duration": "30 to 40 minutes",
+            "detail": "Competitors, competitive advantage, barriers to entry, and the full SWOT. Test the owner's assessment rather than accepting it. Test in both directions. Owners routinely overclaim the soft advantages and underclaim the durable ones. \"Great service\" is not an advantage, it is table stakes and every competitor claims it. The advantages that genuinely hold in an SME are unglamorous: location, switching costs, an accumulated customer database, long relationships, a specific accreditation or licence, exclusive supply, or simply being the one everybody already knows. Where an owner rates the business as easy to replicate, check whether that is actually true before agreeing with them.",
+            "questions": [
+              {
+                "label": "For each claimed advantage",
+                "items": [
+                  "Could a competitor copy this within twelve months if they spent money on it?",
+                  "Would a customer notice if it disappeared?",
+                  "Does it change what someone pays or who they choose?"
+                ]
+              }
+            ]
+          },
+          {
+            "key": "V2-S1-A6",
+            "title": "Growth opportunities and priorities",
+            "duration": "40 to 50 minutes",
+            "detail": "Growth opportunities, past initiatives and what happened to them, and the priorities for the next twelve months. Push toward a focused set rather than a wishlist."
+          },
+          {
+            "key": "V2-S1-A7",
+            "title": "Close",
+            "duration": "10 minutes",
+            "detail": "Confirm the workbook is complete enough. Explain that the plan will be drafted and presented at the next meeting."
+          }
+        ]
+      },
+      {
+        "key": "V2-S2",
+        "title": "Plan Walkthrough",
+        "duration": "Target 1 hour",
+        "agenda": [
+          {
+            "key": "V2-S2-A1",
+            "title": "Purpose",
+            "duration": "5 minutes",
+            "detail": "This session is to walk the client through the drafted plan, not to rewrite it live."
+          },
+          {
+            "key": "V2-S2-A2",
+            "title": "Walk the plan",
+            "duration": "35 to 40 minutes",
+            "detail": "Section by section, in plain language. Check the owner recognises their own business and their own words in it."
+          },
+          {
+            "key": "V2-S2-A3",
+            "title": "Priorities and 90-day actions",
+            "duration": "10 to 15 minutes",
+            "detail": "Confirm the twelve-month priorities and the first ninety days of action, with owners against each."
+          },
+          {
+            "key": "V2-S2-A4",
+            "title": "Handover",
+            "duration": "5 minutes",
+            "detail": "Hand the plan to the client to review, adjust and make their own. Agree a date for the adjusted version to come back."
+          }
+        ]
+      }
+    ],
+    "between_sessions": {
+      "owner": "Advisor",
+      "items": [
+        "Run the Strategic Business Plan generator, uploading the completed workbook, whiteboard photographs and any supporting documents.",
+        "Generate the One-Page Summary where the client will use it.",
+        "Read the plan in full before the walkthrough."
+      ]
+    },
+    "recommended_tools": [
+      {
+        "tool_key": "strategy_workbook",
+        "label": "Strategy Workbook generator",
+        "when": "pre",
+        "status": "Existing Trinity tool"
+      },
+      {
+        "tool_key": "strategic_business_plan",
+        "label": "Strategic Business Plan generator",
+        "when": "between sessions",
+        "status": "Existing Trinity tool"
+      }
+    ],
+    "deliverables": [
+      {
+        "key": "V2-D1",
+        "title": "Strategy Workbook, completed",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "pre-filled, completed in workshop"
+      },
+      {
+        "key": "V2-D2",
+        "title": "Strategic Business Plan",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-guided drafting",
+        "feeds": [
+          "V3",
+          "V4",
+          "V10"
+        ]
+      },
+      {
+        "key": "V2-D3",
+        "title": "One-Page Strategy Summary",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-approved",
+        "feeds": [
+          "V3"
+        ]
+      },
+      {
+        "key": "V2-D4",
+        "title": "Business Model Canvas",
+        "is_mandatory": false,
+        "produced_by": "advisor"
+      }
+    ],
+    "post_session_actions": {
+      "owner": "Advisor",
+      "items": [
+        "Issue the plan and the one-pager to the client.",
+        "Confirm the date the client will return their adjusted version.",
+        "Note any priority that will require work in a later module, so it is not lost when that module opens."
+      ]
+    },
+    "guardrails": {
+      "must_not": [
+        "write the plan by hand rather than through the tool",
+        "complete the workbook on the client's behalf; the content must be the client's",
+        "produce detailed market research or industry analysis",
+        "drift into operational or project planning",
+        "forecast or promise the financial outcome of a strategic option",
+        "rewrite the plan live during the walkthrough"
+      ],
+      "note": "These are boundaries of profession, not boundaries of module. Where V2 surfaces an issue whose home module is elsewhere, the advisor addresses it and records the output against that module."
+    },
+    "quality_standards": [
+      "The workbook is complete enough that the plan can be drafted without going back to the client.",
+      "The plan reads as the owner's business, in the owner's language.",
+      "The owner can state the direction of the business in a sentence or two without reading it back.",
+      "Twelve-month priorities are focused, with a named owner against each.",
+      "The client returns an adjusted plan rather than filing it untouched."
+    ]
+  },
+  {
+    "program_type": "value_builder",
+    "module_code": "V3",
+    "display_order": 3,
+    "title": "Leadership & Communications",
+    "focus": "How leaders behave, who decides what, and how information moves.",
+    "purpose": "V3 defines how the business is led day to day: what leaders are expected to do, who holds which decisions, how information travels up, down and out, and what rhythm holds it all together. Strategy and structure both fail without this. It is a light module in advisor effort and consistently high in value.",
+    "core_outcomes": [
+      "Leadership behaviours and expectations are defined and written down.",
+      "Decision rights are clear: who decides what, and what escalates.",
+      "Communication pathways are mapped in both directions.",
+      "A meeting rhythm exists, with agendas and a named owner for each meeting."
+    ],
+    "notes": [
+      {
+        "key": "no-leadership-layer",
+        "title": "Where there is no leadership layer",
+        "text": "Many clients have no managers. The module still runs. Leadership expectations become the owner's own operating standard, decision rights identify what could be delegated and to whom, and the rhythm may be a single weekly team meeting. Where the business needs a leadership layer it does not yet have, that becomes an input to V4 and V9 rather than something invented in this session."
+      },
+      {
+        "key": "no-live-tool-use",
+        "section": "recommended_tools",
+        "text": "No Trinity use during the live session."
+      },
+      {
+        "key": "three-outputs-only",
+        "section": "deliverables",
+        "text": "No optional deliverables. The Playbook is explicit that this module stays at three outputs, with no additional frameworks."
+      }
+    ],
+    "required_inputs": [
+      {
+        "key": "V3-I1",
+        "label": "Diagnostic report, V3 module assessment",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V3-I2",
+        "label": "Diagnostic responses on management meetings, team meetings and director alignment",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V3-I3",
+        "label": "Owner's stated goals and \"fix one thing\" response",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V3-I4",
+        "label": "V2 Strategic Business Plan and priorities",
+        "source": "From an earlier module",
+        "source_note": "where available",
+        "fallback": "Where V2 has not run, the owner's stated goals from the diagnostic serve in place of the strategic priorities."
+      },
+      {
+        "key": "V3-I5",
+        "label": "List of people in leadership or supervisory roles, or confirmation there are none",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V3-I6",
+        "label": "Existing meeting agendas or terms of reference",
+        "source": "Advisor to upload"
+      }
+    ],
+    "preparation_summary": {
+      "owner": "Advisor",
+      "duration": "30 to 45 minutes"
+    },
+    "preparation_checklist": [
+      {
+        "key": "review-meeting-diagnostics",
+        "text": "Review the diagnostic responses on meeting rhythms, management and team meetings, and director alignment."
+      },
+      {
+        "key": "review-strategic-priorities",
+        "text": "Where V2 is complete, review the strategic priorities. Leadership behaviour should be defined against what the strategy actually requires."
+      },
+      {
+        "key": "establish-leadership-roles",
+        "text": "Establish who is genuinely in a leadership role. This often does not match job titles."
+      },
+      {
+        "key": "identify-recurring-patterns",
+        "text": "Identify the recurring patterns to test in the session: inconsistent communication, unclear decision-making, reactive leadership, the owner as bottleneck."
+      },
+      {
+        "key": "prepare-discussion-notes",
+        "text": "Prepare discussion notes: questions to ask, areas to clarify, and specific examples observed in earlier work."
+      }
+    ],
+    "sessions": [
+      {
+        "key": "V3-S1",
+        "title": "Leadership Alignment Workshop",
+        "duration": "Target 65 to 85 minutes",
+        "format": "In person or online",
+        "agenda": [
+          {
+            "key": "V3-S1-A1",
+            "title": "Frame the session",
+            "duration": "5 minutes",
+            "detail": "Explain that strategy and structure both fail without aligned leadership, and that this session defines how leaders behave, decide and communicate."
+          },
+          {
+            "key": "V3-S1-A2",
+            "title": "Leadership expectations",
+            "duration": "15 to 20 minutes",
+            "detail": "Define what leaders must consistently do, and what staff should be able to expect from them.",
+            "questions": [
+              {
+                "items": [
+                  "What behaviours must leaders here consistently demonstrate?",
+                  "What should any staff member be able to expect from a leader?",
+                  "Where do leaders currently undermine each other, even unintentionally?",
+                  "How should the direction of the business be presented to teams?"
+                ]
+              }
+            ]
+          },
+          {
+            "key": "V3-S1-A3",
+            "title": "Decision rights",
+            "duration": "15 to 20 minutes",
+            "detail": "Establish who decides what, at what threshold, and what must escalate. This is where owner bottlenecks are named and removed.",
+            "questions": [
+              {
+                "items": [
+                  "What decisions come to you that should not?",
+                  "What is the largest decision someone else can make without asking you?",
+                  "What are you afraid will happen if you let go of that?",
+                  "What must always come to you, and why?"
+                ]
+              }
+            ],
+            "note": "Record simply: decision, decider, threshold, escalates to."
+          },
+          {
+            "key": "V3-S1-A4",
+            "title": "Communication pathways",
+            "duration": "15 to 20 minutes",
+            "detail": "Map how information moves down, up and out. What escalates, how staff raise issues, how leaders update teams, and who speaks externally."
+          },
+          {
+            "key": "V3-S1-A5",
+            "title": "Meeting rhythm",
+            "duration": "10 to 15 minutes",
+            "detail": "Confirm the cadence and scale it to the size of the business. Typically a weekly huddle, a monthly management meeting and a quarterly strategy review. Confirm who runs each, who attends, and the standing agenda."
+          },
+          {
+            "key": "V3-S1-A6",
+            "title": "Close",
+            "duration": "5 minutes",
+            "detail": "Confirm what changes on Monday."
+          }
+        ]
+      }
+    ],
+    "recommended_tools": [
+      {
+        "tool_key": "leadership_communications_pack",
+        "label": "Leadership & Communications Pack generator",
+        "when": "post",
+        "status": "To build, Feature 3"
+      }
+    ],
+    "deliverables": [
+      {
+        "key": "V3-D1",
+        "title": "Leadership Alignment Summary",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V4",
+          "V9"
+        ]
+      },
+      {
+        "key": "V3-D2",
+        "title": "Communication Pathway Map",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V4"
+        ]
+      },
+      {
+        "key": "V3-D3",
+        "title": "Meeting Cadence & Agenda Pack",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V9"
+        ]
+      }
+    ],
+    "post_session_actions": {
+      "owner": "Advisor",
+      "duration": "30 to 45 minutes",
+      "items": [
+        "Finalise the three documents and issue them to the client.",
+        "Confirm the first date each meeting in the new cadence will run, and who owns it.",
+        "Where a decision right has moved away from the owner, note it as evidence for V9."
+      ]
+    },
+    "guardrails": {
+      "must_not": [
+        "coach individuals",
+        "mediate conflict between people",
+        "address individual performance issues",
+        "draft or rewrite HR policy",
+        "run the client's meetings on their behalf"
+      ],
+      "note": "This module is alignment-focused, not HR or coaching. These are boundaries of profession, not boundaries of module. Where V3 surfaces an issue whose home module is elsewhere, the advisor addresses it and records the output against that module."
+    },
+    "quality_standards": [
+      "Leadership expectations are in plain language and specific enough to act on.",
+      "Decision rights name a person, not a role the business does not have.",
+      "At least one decision has moved away from the owner.",
+      "The meeting rhythm is scaled to the business, with a named owner for each meeting.",
+      "Nothing in the outputs assumes a leadership layer the business does not have."
+    ]
+  },
+  {
+    "program_type": "value_builder",
+    "module_code": "V4",
+    "display_order": 4,
+    "title": "People & Structure",
+    "focus": "The right people in the right roles, with clear accountability, and a structure that matches where the business is going.",
+    "purpose": "V4 aligns team, roles, structure and capability with the direction of the business. The focus is clarity and accountability: who does what, which tasks should move, where the gaps are, and what the owner is still carrying that someone else should.\n\nThe module runs whether or not the business has an HR function, a leadership team, or more than a handful of staff. Where it surfaces a need for leadership development, HR support or recruitment, those needs are real and important. They are referred to the Talent team rather than delivered inside this module.",
+    "core_outcomes": [
+      "Current and intended structure are documented and the difference between them is understood.",
+      "Every key role has clear responsibilities, with each task tested for retain, lose or gain.",
+      "Capability gaps are identified, with a decision on build, hire or outsource for each.",
+      "Key person and retention risks are named, with a view on whether each is addressable.",
+      "Position descriptions exist, or the client can produce them."
+    ],
+    "notes": [
+      {
+        "key": "very-small-team",
+        "title": "Where the team is very small",
+        "text": "Many clients have two or three staff, or none. The module still runs. Structure becomes who does what and what the owner is still holding personally. Role clarity may cover two roles. Capability gaps often point at the owner rather than the team. Where the finding is that the business needs people it cannot currently afford, that belongs in V1 and V2 rather than being solved here."
+      },
+      {
+        "key": "pack-generator-prefill",
+        "section": "recommended_tools",
+        "text": "Before the session the pack generator asks whether existing position descriptions are available. Where they are, the advisor loads them, and the tool examines them and pre-fills the roles and responsibilities matrix ready for the workshop. After the session it produces the deliverables. The Position Description generator is also made available to the client directly."
+      },
+      {
+        "key": "single-activity-outputs",
+        "section": "deliverables",
+        "text": "D2 and D3 both come out of the single role clarity activity, which also informs the intended structure in D1. The advisor produces the first two position descriptions as worked examples, and the client generates the remainder in Trinity, so module completion does not wait on the client."
+      },
+      {
+        "key": "talent-referral",
+        "section": "guardrails",
+        "title": "Referral to the Talent team",
+        "text": "People issues are not out of scope for this module and must not be avoided. Leadership development, HR support and recruitment are services BBA delivers through the Talent team. Where the module surfaces a need in any of these areas, the advisor names it, records it, and refers the client, rather than either delivering it here or leaving it unaddressed. Employment law matters are handled case by case."
+      }
+    ],
+    "required_inputs": [
+      {
+        "key": "V4-I1",
+        "label": "Diagnostic report, V4 module assessment",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V4-I2",
+        "label": "Diagnostic HR responses: headcount, contracts, policies, position descriptions, retention and recruitment flags",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V4-I3",
+        "label": "V2 Strategic Business Plan and priorities",
+        "source": "From an earlier module",
+        "source_note": "where available",
+        "fallback": "Where V2 has not run, the owner's stated goals from the diagnostic serve in place of the strategic priorities."
+      },
+      {
+        "key": "V4-I4",
+        "label": "V3 Leadership Alignment Summary and decision rights",
+        "source": "From an earlier module",
+        "source_note": "where available",
+        "fallback": "Where V3 has not run, decision rights are established here at role level only."
+      },
+      {
+        "key": "V4-I5",
+        "label": "Current team list with roles and reporting lines",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V4-I6",
+        "label": "Existing position descriptions",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V4-I7",
+        "label": "Existing organisational chart",
+        "source": "Advisor to upload"
+      }
+    ],
+    "preparation_summary": {
+      "owner": "Advisor",
+      "duration": "45 to 60 minutes"
+    },
+    "preparation_checklist": [
+      {
+        "key": "review-hr-responses",
+        "text": "Review the diagnostic HR responses, particularly the retention and recruitment flags, policy gaps and contract status."
+      },
+      {
+        "key": "draft-current-structure",
+        "text": "Draft the current structure from the team list and any existing organisational chart."
+      },
+      {
+        "key": "run-pack-generator",
+        "text": "Run the pack generator. Where the client has existing position descriptions, load them so the tool can pre-fill the roles and responsibilities matrix, and session time goes on testing tasks rather than listing them."
+      },
+      {
+        "key": "identify-structural-issues",
+        "text": "Identify structural issues to test: overlapping responsibilities, gaps with no owner, unclear reporting lines, and work the owner is doing that someone else should."
+      },
+      {
+        "key": "review-strategic-priorities",
+        "text": "Where V2 is complete, review the strategic priorities. The intended structure should be the one that delivers them."
+      }
+    ],
+    "sessions": [
+      {
+        "key": "V4-S1",
+        "title": "People & Structure Workshop",
+        "duration": "Target 105 to 125 minutes",
+        "format": "In person or online",
+        "agenda": [
+          {
+            "key": "V4-S1-A1",
+            "title": "Frame the session",
+            "duration": "5 minutes",
+            "detail": "Explain that this session is about roles and structure, not individual performance, and that no one will be assessed personally."
+          },
+          {
+            "key": "V4-S1-A2",
+            "title": "Current structure review",
+            "duration": "20 to 25 minutes",
+            "detail": "Walk the draft structure. Confirm who actually does what, as opposed to what the chart says. Identify overlaps, gaps, unclear reporting and work sitting with the owner.",
+            "questions": [
+              {
+                "items": [
+                  "Who actually decides here?",
+                  "What falls between two people?",
+                  "What has no owner at all?",
+                  "What are you doing that someone on this list should be doing?"
+                ]
+              }
+            ]
+          },
+          {
+            "key": "V4-S1-A3",
+            "title": "Retention and key person risk",
+            "duration": "15 minutes",
+            "detail": "Identify who the business cannot afford to lose, and who is at risk of leaving. Establish whether each risk is addressable and how quickly. Held before the role work, because a departure changes what can be planned.",
+            "questions": [
+              {
+                "items": [
+                  "If one person resigned tomorrow, who would hurt most, and why?",
+                  "Is anyone unsettled right now? What is driving that, and is it something you can act on?",
+                  "What would we lose that only exists in that person's head?"
+                ]
+              }
+            ]
+          },
+          {
+            "key": "V4-S1-A4",
+            "title": "Roles, responsibilities and task review",
+            "duration": "60 to 75 minutes",
+            "detail": "The core activity of the module. Work role by role. For each role, list the actual tasks, then test every task against three options.\n\nRun across every role, this single activity delivers structure, role clarity, capability and gaps in one pass. Tasks with no home expose structural gaps. Tasks nobody can do expose capability gaps. Tasks the owner cannot put down expose the dependency V9 addresses.\n\nStart with the owner's own role. It is usually the most overloaded, and doing it first sets the tone for honest answers about everyone else.",
+            "options": [
+              {
+                "key": "retain",
+                "term": "Retain",
+                "definition": "stays with this role and is being done well enough"
+              },
+              {
+                "key": "lose",
+                "term": "Lose",
+                "definition": "should move off this role, to another role, to a system, to an outsourced provider, or stopped entirely"
+              },
+              {
+                "key": "gain",
+                "term": "Gain",
+                "definition": "should be picked up by this role, whether it currently sits with the owner, sits nowhere, or is not being done at all"
+              }
+            ],
+            "questions": [
+              {
+                "items": [
+                  "What does this person actually spend their week on?",
+                  "Which of these can only they do?",
+                  "What is on this list because they have always done it?",
+                  "What is being done twice?",
+                  "What is on nobody's list?"
+                ]
+              }
+            ],
+            "note": "Record against each role: responsibilities retained, tasks moving off, tasks moving on, decision rights, reporting line, and any capability gap the changes create."
+          },
+          {
+            "key": "V4-S1-A5",
+            "title": "Close",
+            "duration": "5 minutes",
+            "detail": "Confirm the first change and who owns it."
+          }
+        ]
+      }
+    ],
+    "recommended_tools": [
+      {
+        "tool_key": "people_structure_pack",
+        "label": "People & Structure Pack generator",
+        "when": "pre, post",
+        "status": "To build, Feature 3"
+      },
+      {
+        "tool_key": "position_description",
+        "label": "Position Description generator",
+        "when": "post",
+        "status": "To build, Feature 3"
+      }
+    ],
+    "deliverables": [
+      {
+        "key": "V4-D1",
+        "title": "Org Structure, current and intended",
+        "is_mandatory": true,
+        "produced_by": "advisor",
+        "feeds": [
+          "V5",
+          "V9"
+        ]
+      },
+      {
+        "key": "V4-D2",
+        "title": "Role Clarity Map, with task retain, lose and gain",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V5",
+          "V9"
+        ]
+      },
+      {
+        "key": "V4-D3",
+        "title": "Capability & Gap Summary",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V9"
+        ]
+      },
+      {
+        "key": "V4-D4",
+        "title": "Position Descriptions, first two",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-generated"
+      },
+      {
+        "key": "V4-D5",
+        "title": "Performance Rhythm",
+        "is_mandatory": false,
+        "produced_by": "advisor"
+      }
+    ],
+    "post_session_actions": {
+      "owner": "Advisor",
+      "duration": "45 to 60 minutes",
+      "items": [
+        "Finalise the structure pack and issue it to the client.",
+        "Generate the first two position descriptions as worked examples, then show the client how to produce the rest.",
+        "Refer any leadership development, HR or recruitment need to the Talent team, and record the referral.",
+        "Record key person risks as evidence for V9.",
+        "Note any capability gap with a cost implication, so it carries into the financial and strategic work rather than being agreed in isolation."
+      ]
+    },
+    "guardrails": {
+      "must_not": [
+        "conduct performance management or assess individuals",
+        "become involved in disciplinary matters",
+        "provide employment law advice, or draft contracts, policies or workplace agreements",
+        "benchmark salaries, unless separately engaged to do so",
+        "deliver leadership development, HR or recruitment services inside this module"
+      ],
+      "note": "These are boundaries of profession, not boundaries of module. Where V4 surfaces an issue whose home module is elsewhere, the advisor addresses it and records the output against that module."
+    },
+    "quality_standards": [
+      "Every key role has been through retain, lose and gain against its actual tasks, starting with the owner's.",
+      "At least one task has moved off the owner's role.",
+      "The intended structure is achievable rather than aspirational, and the owner can say what changes first.",
+      "Capability gaps carry a decision, not just a description.",
+      "Key person risks are named, each with a stated position on whether it can be addressed.",
+      "Any leadership, HR or recruitment need has been referred to the Talent team and recorded."
+    ]
+  },
+  {
+    "program_type": "value_builder",
+    "module_code": "V5",
+    "display_order": 5,
+    "title": "Systems & Processes",
+    "focus": "How work actually flows, where it breaks, and how it should run.",
+    "purpose": "V5 clarifies and standardises how work moves through the business. The client describes their key workflows before the session, Trinity analyses those descriptions for red flags and bottlenecks, and the workshop maps each workflow live, interrogates it, and redraws it as it should operate.\n\nThe emphasis is on pain points, manual handling and duplicated effort. It improves operational clarity without deep process engineering, and it gives the business something that survives a staff departure.",
+    "core_outcomes": [
+      "The workflows nominated for the session are mapped as they actually run.",
+      "Pain points, manual handling and double handling are identified and recorded.",
+      "Each workflow is redrawn as it should operate.",
+      "A short improvement plan is agreed, with an owner against each item."
+    ],
+    "notes": [
+      {
+        "key": "nothing-documented",
+        "title": "Where nothing is documented",
+        "text": "This is the common case and not a barrier. The module starts from what people actually do rather than from existing documentation. Where the business runs on tribal knowledge, that is the finding, and mapping even two workflows is a material improvement."
+      },
+      {
+        "key": "importance-vs-frustration",
+        "section": "preparation",
+        "text": "Importance and frustration are asked separately on purpose. Selecting on frustration alone surfaces pet grievances and hides the important workflow the owner assumes is fine."
+      },
+      {
+        "key": "pre-work-compulsory",
+        "section": "preparation",
+        "title": "The pre-work is compulsory",
+        "text": "The session does not run without it. Set this expectation when the module is scheduled, not when the pre-work is chased. Where the client has not returned their process descriptions, reschedule. Running the session anyway wastes the analysis step, produces a weaker map, and teaches the client that the pre-work was optional.\n\nTrinity should treat pre-work received as a condition on booking the session."
+      },
+      {
+        "key": "where-expertise-sits",
+        "section": "preparation",
+        "title": "Where the expertise sits",
+        "text": "Advisors are not workflow specialists and are not expected to be. The domain expertise sits in the tool and in the question sets. The advisor facilitates, draws, captures and works the questions provided. Diagnosis comes from the analysis, not from the advisor's own process knowledge, which is why the question sets are worked in full rather than sampled."
+      },
+      {
+        "key": "how-module-runs",
+        "section": "sessions",
+        "title": "How this module runs",
+        "text": "Remember, this is a module, not a month. It will often run across several months, covering one or two workflows at a time, with sessions spaced weeks or months apart. It also runs well in parallel: improvements agreed in an earlier session can be underway in the background while you start the next module with the client."
+      },
+      {
+        "key": "tool-carries-expertise",
+        "section": "recommended_tools",
+        "text": "This tool carries the domain expertise for the module and is not optional to the delivery.\n\nBefore the session it analyses the client's written process descriptions and returns a draft map of each workflow, red flags, likely bottlenecks, indicators of manual handling and duplication, and a specific question set for the advisor to work through. The draft map is what goes on the board. The question set is printed and used during the session as a prepared document.\n\nAfter the session it produces the maps and documents from the whiteboard photographs and session notes, and reviews the redrawn future state against the current state to confirm the duplication and bottlenecks identified have actually been removed. This second check matters because the advisor is not a workflow specialist and may otherwise accept a target state that has fixed little.\n\nWhere an improvement needs external help, the tool identifies the category of provider required."
+      },
+      {
+        "key": "friction-map-scope",
+        "section": "deliverables",
+        "text": "The Friction & Handling Map records pain points, manual handling and every instance of duplicated effort found. Handovers are visible on the workflow maps themselves and are not documented separately."
+      }
+    ],
+    "required_inputs": [
+      {
+        "key": "V5-I1",
+        "label": "Client's written description of each nominated workflow",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V5-I2",
+        "label": "Diagnostic report, V5 module assessment",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V5-I3",
+        "label": "Diagnostic responses on process documentation, operational reporting, automation tools and document organisation",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V5-I4",
+        "label": "V4 Role Clarity Map and Org Structure",
+        "source": "From an earlier module",
+        "source_note": "where available",
+        "fallback": "Where V4 has not run, workflow ownership is established during the session instead of being drawn from the Role Clarity Map."
+      },
+      {
+        "key": "V5-I5",
+        "label": "Known operational issues and complaints",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V5-I6",
+        "label": "Any existing process documentation",
+        "source": "Advisor to upload"
+      }
+    ],
+    "preparation_summary": {
+      "owner": "Advisor"
+    },
+    "preparation_checklist": [
+      {
+        "key": "send-pre-work-request",
+        "title": "Send the pre-work request",
+        "text": "Ask the client for three things, keeping the first two as separate questions:",
+        "items": [
+          "Which workflows matter most to the business. Ask for three to five.",
+          "For each, a bullet-point description of how it currently gets done, step by step, and who does what.",
+          "Against each, anything that frustrates them, causes rework, or gets done more than once."
+        ]
+      },
+      {
+        "key": "brief-client-on-reality",
+        "title": "Brief the client to describe reality, not the intended process",
+        "text": "This is the difference between a useful analysis and a useless one, and it is set in the wording of the request. Tell the client explicitly:",
+        "items": [
+          "Describe what actually happens, not what is supposed to happen.",
+          "Include the workarounds: steps people take because a system will not do something, work done outside the process, things corrected manually afterwards.",
+          "Where different people do the same step differently, say so.",
+          "If something regularly goes wrong, include it.",
+          "Each workflow should be described by the person who actually does it, not only by the owner."
+        ]
+      },
+      {
+        "key": "run-the-analysis",
+        "title": "Run the analysis",
+        "text": "Load the client's descriptions into the workflow tool. It returns red flags, likely bottlenecks, indicators of manual handling and duplication, and a set of specific questions for the advisor to ask in the session."
+      },
+      {
+        "key": "prepare-draft-maps",
+        "title": "Prepare the draft maps",
+        "text": "Confirm which workflows the session will cover, then produce a draft map of each from the client's description and the tool's analysis, ready to put on the board. Prepare the question set for each."
+      }
+    ],
+    "sessions": [
+      {
+        "key": "V5-S1",
+        "title": "Workflow Mapping Workshop",
+        "duration": "Maximum 180 minutes",
+        "format": "In person strongly preferred, as the work is done on a whiteboard. A digital whiteboard is fine where the session has to run online.",
+        "note": "Work one complete workflow at a time. Once a workflow is finished and time remains, start the next using the same process. Book another session for any that remain.\n\nWhere a single workflow takes a long time, that is itself a finding. A slow, difficult map usually means a workflow carrying many issues. Do not compress it to fit more in. Five large workflows in one session is not realistic.",
+        "agenda": [
+          {
+            "key": "V5-S1-A1",
+            "title": "Frame the session",
+            "duration": "5 to 10 minutes",
+            "detail": "Explain that each workflow will be drawn as it runs today, pulled apart, then redrawn as it should run. Nothing is being judged, and no one is being assessed."
+          },
+          {
+            "key": "V5-S1-A2",
+            "title": "Present and validate the mapped workflow",
+            "duration": "30 to 40 minutes",
+            "intro": "Steps 2 to 4 are one workflow. Repeat the sequence for each workflow the session covers.",
+            "detail": "The advisor puts up the workflow as already mapped from the client's description and the tool's interpretation of it. The client then walks through it, correcting, clarifying and filling gaps. Mark every correction on the board. A correction usually points to a step the client did not think worth mentioning, which is often where the problem lives.",
+            "questions": [
+              {
+                "items": [
+                  "Is this how it actually runs?",
+                  "What have we got wrong?",
+                  "What is missing?",
+                  "Who really does that step?",
+                  "What happens when it does not go this way?"
+                ]
+              }
+            ],
+            "note": "Photograph the board before erasing."
+          },
+          {
+            "key": "V5-S1-A3",
+            "title": "Interrogate the map",
+            "duration": "20 to 25 minutes",
+            "detail": "Work through the prepared questions from the analysis, then the standing set below.",
+            "questions": [
+              {
+                "label": "Pain points",
+                "items": [
+                  "Where does this break?",
+                  "Where do you get complaints?",
+                  "What step causes the most rework?",
+                  "Where do things sit waiting?"
+                ]
+              },
+              {
+                "label": "Manual handling and duplication",
+                "items": [
+                  "Where is information entered more than once?",
+                  "What gets printed and then re-keyed?",
+                  "What starts on paper and ends in a system?",
+                  "Where does someone re-type what another system already holds?",
+                  "What is copied between spreadsheets?",
+                  "Where does the same information exist in two places that have to be kept in step?"
+                ]
+              },
+              {
+                "label": "Owner involvement",
+                "items": [
+                  "Where are you in this workflow, and does it need you?"
+                ]
+              }
+            ],
+            "note": "Mark every instance of double or triple handling on the board. It is the highest-value finding in this module and the hardest for the client to see from inside."
+          },
+          {
+            "key": "V5-S1-A4",
+            "title": "Redraw how it should operate",
+            "duration": "20 to 25 minutes",
+            "detail": "Draw a fresh map on a clean board. Do not amend the current-state map. Starting blank is what stops the target state inheriting the existing mess.",
+            "questions": [
+              {
+                "items": [
+                  "If we were setting this up today, what would it look like?",
+                  "Which steps disappear?",
+                  "Where does the duplication go?",
+                  "Who owns it end to end?"
+                ]
+              }
+            ],
+            "note": "The workflow is now complete. Where time remains, return to step 2 and begin the next one. Do not start a workflow that cannot be finished in the time left."
+          },
+          {
+            "key": "V5-S1-A5",
+            "title": "Agree improvements",
+            "duration": "20 to 25 minutes",
+            "detail": "Five to seven improvements maximum across all workflows mapped.",
+            "questions": [
+              {
+                "items": [
+                  "If we fixed only three of these in the next two months, which?",
+                  "Who owns each?",
+                  "Which are quick wins and which need outside help?"
+                ]
+              }
+            ],
+            "note": "Where an improvement needs a system, a tool or an external provider, record it as such. The advisor may assist in identifying and shortlisting providers."
+          },
+          {
+            "key": "V5-S1-A6",
+            "title": "Close",
+            "duration": "5 minutes",
+            "detail": "Confirm the first improvement and its owner."
+          }
+        ]
+      }
+    ],
+    "recommended_tools": [
+      {
+        "tool_key": "workflow_analysis_mapping",
+        "label": "Workflow Analysis & Mapping tool",
+        "when": "pre, post",
+        "status": "To build, Feature 3"
+      }
+    ],
+    "deliverables": [
+      {
+        "key": "V5-D1",
+        "title": "Current State Workflow Maps",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V6",
+          "V9"
+        ]
+      },
+      {
+        "key": "V5-D2",
+        "title": "Future State Workflow Maps",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V6",
+          "V9"
+        ]
+      },
+      {
+        "key": "V5-D3",
+        "title": "Friction & Handling Map",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V6"
+        ]
+      },
+      {
+        "key": "V5-D4",
+        "title": "Improvement Plan",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined"
+      }
+    ],
+    "post_session_actions": {
+      "owner": "Advisor",
+      "items": [
+        "Generate the maps and documents from the whiteboard photographs and session notes, then issue them.",
+        "Confirm the owner and date against each improvement.",
+        "Where an improvement needs an external solution or provider, identify options and provide a shortlist.",
+        "Note any friction caused by technology rather than process, as evidence for V6.",
+        "Note any workflow only one person can run, as evidence for V9."
+      ]
+    },
+    "guardrails": {
+      "must_not": [
+        "build full SOP manuals",
+        "configure, implement or integrate systems",
+        "attempt to map every workflow in the business",
+        "run detailed process engineering",
+        "do the technical implementation work themselves",
+        "recommend a provider without disclosing any commercial relationship with them"
+      ],
+      "note": "This module stays light and focused. These are boundaries of profession, not boundaries of module. Where V5 surfaces an issue whose home module is elsewhere, the advisor addresses it and records the output against that module."
+    },
+    "quality_standards": [
+      "The full question set was worked through, not sampled.",
+      "Every instance of double or triple handling found has been recorded explicitly.",
+      "The future state map was drawn fresh, not marked up over the current state.",
+      "The future state has been checked against the current state to confirm the duplication and bottlenecks are actually gone.",
+      "Workflow maps are simple enough that a new staff member could follow them.",
+      "Pain points are specific, not general complaints.",
+      "The improvement plan has no more than seven items, each with an owner and a date.",
+      "The client can see which of their daily frustrations the plan actually addresses."
+    ]
+  },
+  {
+    "program_type": "value_builder",
+    "module_code": "V6",
+    "display_order": 6,
+    "title": "Technology",
+    "focus": "Technology that supports how the business actually works, rather than getting in its way.",
+    "purpose": "V6 simplifies the technology environment and aligns it to the way work actually flows. It clarifies what each system is for, finds duplication and subscription waste, and identifies where manual effort exists because the technology does not handle it.\n\nThis is a strategic alignment module. Advisors do not perform IT consulting, configuration or vendor work. The output is a clear roadmap the client implements with their own providers.",
+    "core_outcomes": [
+      "Every system in use is documented, with its purpose and its users.",
+      "Duplication, redundancy and subscription waste are identified.",
+      "A simple conceptual future stack is agreed, defining what each system is for.",
+      "Manual work caused by technology gaps is documented.",
+      "A short improvement plan is agreed, with ownership and any vendor support required."
+    ],
+    "notes": [
+      {
+        "key": "how-module-runs",
+        "section": "sessions",
+        "title": "How this module runs",
+        "text": "The workshop is short, but the improvement plan runs 30 to 60 days and is implemented by the client and their vendors. That work sits in the background while you start the next module with the client."
+      },
+      {
+        "key": "single-spreadsheet-request",
+        "section": "required_inputs",
+        "text": "Request this a week before the session, as a single spreadsheet with everything on it. Scattered lists, screenshots and part-answers make the pre-session analysis worthless. Ask for the charges from the accounts as well as the client's own list, because clients routinely forget what they are paying for and the gap between the two lists is often the finding."
+      },
+      {
+        "key": "structure-not-answers",
+        "section": "preparation",
+        "text": "Trinity provides structure at this stage, not answers. The insight comes from the workshop, and the analysis comes afterwards."
+      },
+      {
+        "key": "tool-two-phase",
+        "section": "recommended_tools",
+        "text": "Before the session it categorises the systems, drafts the current stack map, flags category overlaps, prepares non-technical talking points, and produces the pre-filled Technology Alignment Worksheet the advisor works through in the session.\n\nAfter the session it analyses the stack, the workflows and the captured pain points and manual steps, then generates integration opportunities, automation opportunities and simplification suggestions. The advisor reviews and selects what is useful.\n\nThe analytical work sits after the workshop, not before it. Advisors should not expect the tool to supply answers during preparation."
+      },
+      {
+        "key": "subscription-waste-audit",
+        "section": "deliverables",
+        "text": "The Subscription Waste Audit lists every subscription being paid for with its annual cost, identifying what is unused, duplicated, over-licensed (paying for more seats than are used) or forgotten, with a cancel, downgrade or consolidate recommendation against each and a total annual saving. The charges are already being supplied as pre-work, so the audit costs little to produce and gives the client a hard number early."
+      },
+      {
+        "key": "vendor-liaison",
+        "section": "guardrails",
+        "title": "Vendor liaison and implementation project management",
+        "text": "BBA provides these services, and advisors frequently act as in-house project manager for a client's technology implementation. That work sits outside this module and is scoped and engaged separately. Within V6 the advisor produces the roadmap. Delivering it is a separate engagement."
+      }
+    ],
+    "required_inputs": [
+      {
+        "key": "V6-I1",
+        "label": "Single spreadsheet listing every system and subscription in use, with the corresponding charges from the accounts",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V6-I2",
+        "label": "V5 process documents: workflow maps, Friction & Handling Map",
+        "source": "From an earlier module",
+        "source_note": "where available",
+        "fallback": "Aligning technology to workflows requires the workflows to be mapped. Either run V5 first and pause V6 until the process work is done, which is the better outcome, or proceed with step 3 covering work flow at a high level only. Make the choice deliberately with the client rather than defaulting to the shallower version."
+      },
+      {
+        "key": "V6-I3",
+        "label": "Diagnostic report, V6 module assessment",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V6-I4",
+        "label": "Diagnostic technology responses: tech stack, system sync, IT support access, self-rating against competitors, automation tools, ERP use and effectiveness, connected stores and warehousing, ecommerce and marketplace channels, CRM and customer data use",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V6-I5",
+        "label": "V4 Org Structure and Role Clarity Map",
+        "source": "From an earlier module",
+        "source_note": "where available"
+      },
+      {
+        "key": "V6-I6",
+        "label": "Notes on technology frustrations and workarounds",
+        "source": "Advisor to upload"
+      }
+    ],
+    "preparation_summary": {
+      "owner": "Advisor",
+      "duration": "30 to 45 minutes"
+    },
+    "preparation_checklist": [
+      {
+        "key": "request-spreadsheet",
+        "text": "Request the system and subscription spreadsheet a week before the session."
+      },
+      {
+        "key": "load-into-technology-tool",
+        "text": "Load it into the technology tool along with any V5 process documents. It categorises the systems, produces a draft current stack map, flags category overlaps such as two systems doing the same job, and prepares non-technical talking points."
+      },
+      {
+        "key": "bring-alignment-worksheet",
+        "text": "The tool also produces a pre-filled Technology Alignment Worksheet in Excel, populated with the system inventory, the workflow alignment questions and the known frustrations. The advisor brings this to the session and works through it live."
+      },
+      {
+        "key": "list-known-frustrations",
+        "text": "List the technology frustrations already raised by the owner or the team in earlier work, and put them into the worksheet. The client validates and expands the list in the session rather than being asked to recall them cold."
+      }
+    ],
+    "sessions": [
+      {
+        "key": "V6-S1",
+        "title": "Technology Alignment Workshop",
+        "duration": "Target 60 to 90 minutes",
+        "format": "In person or online",
+        "agenda": [
+          {
+            "key": "V6-S1-A1",
+            "title": "Frame the session",
+            "duration": "5 minutes",
+            "detail": "The goal is clarity and simplification. No configuration, vendor selection or technical work happens here. The output is a roadmap the client implements with their own providers."
+          },
+          {
+            "key": "V6-S1-A2",
+            "title": "Review the current stack",
+            "duration": "15 to 20 minutes",
+            "detail": "For each system: what it is used for, who uses it, how often, what works, what frustrates people, and whether anything else does the same job.",
+            "note": "Understand what exists. Do not solve technical problems."
+          },
+          {
+            "key": "V6-S1-A3",
+            "title": "Compare technology to how work flows",
+            "duration": "15 to 20 minutes",
+            "detail": "Work through the pre-filled Technology Alignment Worksheet. Start with the known frustrations already listed and have the client validate and expand them, then move to alignment.",
+            "questions": [
+              {
+                "items": [
+                  "Does this system support how the work actually flows?",
+                  "Where do people enter the same information twice?",
+                  "Where are people unsure which system to use?",
+                  "Where does information get lost or re-keyed?",
+                  "Where do you step in because the system will not handle it?"
+                ]
+              }
+            ],
+            "note": "Capture misalignment only. Do not propose solutions."
+          },
+          {
+            "key": "V6-S1-A4",
+            "title": "Design the future stack",
+            "duration": "15 to 20 minutes",
+            "detail": "Conceptual only. Which systems are core, which may be redundant, where consolidation is possible, and what each system should be responsible for.",
+            "note": "Statements should look like one CRM as the single source of truth, or the job system manages delivery and the CRM manages leads. No vendor names, no configuration, no technical detail."
+          },
+          {
+            "key": "V6-S1-A5",
+            "title": "Manual work and pain points",
+            "duration": "15 to 20 minutes",
+            "questions": [
+              {
+                "items": [
+                  "Where are you doing repetitive manual work?",
+                  "Where is the same information entered more than once?",
+                  "Which follow-ups or reminders are easy to forget?",
+                  "Where do tasks get delayed or missed?",
+                  "Where do you step in because the system does not do it?"
+                ]
+              }
+            ],
+            "note": "Document the pain points thoroughly. The advisor does not identify integrations or automations. Trinity produces those after the session from the stack, the workflows and these pain points."
+          },
+          {
+            "key": "V6-S1-A6",
+            "title": "Improvement priorities",
+            "duration": "10 to 15 minutes",
+            "detail": "Agree which problems matter most, who owns each change, what vendor support will be needed and the rough timeframe. The full plan is finalised after the session, once the opportunities list has been generated.",
+            "note": "Be explicit with the client: implementation belongs to them and their vendors. The advisor's role is clarity, not configuration."
+          },
+          {
+            "key": "V6-S1-A7",
+            "title": "Close",
+            "duration": "5 minutes",
+            "detail": "Confirm the first change and its owner."
+          }
+        ]
+      }
+    ],
+    "recommended_tools": [
+      {
+        "tool_key": "technology_stack_automation",
+        "label": "Technology Stack & Automation tool",
+        "when": "pre, post",
+        "status": "To build, Feature 3"
+      }
+    ],
+    "deliverables": [
+      {
+        "key": "V6-D1",
+        "title": "Current Tech Stack Map",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V7"
+        ]
+      },
+      {
+        "key": "V6-D2",
+        "title": "Future Tech Stack Map, conceptual",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V7"
+        ]
+      },
+      {
+        "key": "V6-D3",
+        "title": "Integration & Automation Opportunities",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-selected",
+        "feeds": [
+          "V5",
+          "V9"
+        ]
+      },
+      {
+        "key": "V6-D4",
+        "title": "Technology Improvement Plan, 30 to 60 days",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined"
+      },
+      {
+        "key": "V6-D5",
+        "title": "Subscription Waste Audit",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V1"
+        ]
+      },
+      {
+        "key": "V6-D6",
+        "title": "AI Readiness Snapshot",
+        "is_mandatory": false,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined"
+      }
+    ],
+    "post_session_actions": {
+      "owner": "Advisor",
+      "duration": "45 to 60 minutes",
+      "items": [
+        "Run the analysis and review the generated integration, automation and simplification suggestions. Select what is genuinely useful and discard the rest.",
+        "Finalise the stack maps and the improvement plan, then issue them.",
+        "Where subscription waste was found, quantify the annual saving and pass it to V1.",
+        "Note any pain point that is a process problem rather than a technology problem, as evidence for V5."
+      ]
+    },
+    "guardrails": {
+      "must_not": [
+        "configure systems or build automations",
+        "migrate data",
+        "provide security or infrastructure advice",
+        "recommend a specific vendor without disclosing any commercial relationship with them"
+      ],
+      "note": "Stay strategic, not technical, within the module itself. These are boundaries of profession, not boundaries of module. Where V6 surfaces an issue whose home module is elsewhere, the advisor addresses it and records the output against that module."
+    },
+    "quality_standards": [
+      "Every system in use is documented, including the ones nobody mentioned until the charges were checked.",
+      "The future stack is conceptual and names no vendors.",
+      "Manual work and duplication are documented specifically enough for the tool to work from.",
+      "The improvement plan is realistic, owned, and clear about what needs vendor support.",
+      "The client understands that implementation is theirs."
+    ]
+  },
+  {
+    "program_type": "value_builder",
+    "module_code": "V7",
+    "display_order": 7,
+    "title": "Sales & Marketing",
+    "focus": "Making growth consistent and predictable rather than random.",
+    "purpose": "V7 builds the growth engine. It establishes where money is currently going and what it returns, clarifies which customer groups matter, maps how customers move through the business, defines a sales process staff can follow, and turns the marketing strategy into a plan with rhythms behind it.\n\nThe marketing strategy itself belongs to V2 and normally sits in the Strategic Business Plan. V7 translates it into activity.\n\nThe module gives structure, focus and direction. It does not turn the advisor into a marketing agency, and no campaign, copy or creative work happens inside it.",
+    "core_outcomes": [
+      "Marketing spend, lead sources and sale sources are understood, or the inability to answer is recorded as the finding.",
+      "The customer groups that matter are named, with what they buy and why.",
+      "The customer journey is mapped end to end, with the weak points identified.",
+      "A sales process exists that works with or without a CRM.",
+      "The existing marketing strategy is confirmed and translated into channel decisions.",
+      "A marketing plan converts the strategy into activity and budget.",
+      "Weekly, monthly and quarterly growth rhythms are agreed.",
+      "Three to five achievable actions are set for the next 90 days, each with an owner."
+    ],
+    "notes": [
+      {
+        "key": "before-you-start",
+        "title": "Before you start",
+        "text": "Do not run V7 without a marketing strategy in place. This module builds the marketing plan from the strategy. Without one, the module ends up inventing direction that belongs in V2, and the plan has nothing to be a plan for.\n\nNormally the strategy comes from V2's Strategic Business Plan. A client arriving with their own strategic or marketing plan, or one prepared by a previous advisor, may also satisfy this. The requirement is that a strategy exists, not that a particular module has been completed.\n\nThis is delivery practice, not a system rule."
+      },
+      {
+        "key": "determining-the-shape",
+        "section": "business_model_shape",
+        "title": "Determining the shape",
+        "text": "Both inputs are already in the diagnostic and require no new questions. Top 3 customers as a percentage of revenue sets the concentration axis, and repeat customers as a percentage of annual sales sets the repeat axis. As a rule of thumb, above 40% on either counts as high. Read the two answers rather than forming a judgement, so the shape lands the same way whichever advisor runs the module. Override where a business is genuinely hybrid, such as a builder running one-off new homes alongside repeat maintenance work."
+      },
+      {
+        "key": "account-based-adaptation",
+        "section": "business_model_shape",
+        "title": "Account-based businesses need the most adaptation",
+        "text": "With a dozen customers, marketing in the usual sense is close to irrelevant and the module becomes account management. Four things change materially.",
+        "items": [
+          "Share of wallet replaces acquisition as the growth question. The useful question is not how to find more builders, it is what proportion of each existing builder's electrical work the business currently gets, and why it is not more.",
+          "Concentration is a value issue, not just a risk. Losing one of twelve accounts removes roughly eight per cent of revenue overnight, and often far more if the account is large. This finding goes to V10 and directly affects enterprise value.",
+          "Key person risk runs both ways. The relationship usually sits between two individuals. If the client's estimator leaves, or the business's own account contact leaves, the account is exposed. That feeds V4 and V9.",
+          "Acquisition still matters, but as targeted business development. One or two new accounts a year is transformational rather than incremental. The output is a named target list with a relationship strategy for each, not a channel plan."
+        ]
+      },
+      {
+        "key": "request-inputs-a-week-ahead",
+        "section": "required_inputs",
+        "text": "Request these a week before the first session. Where lead records or source data cannot be produced, that is a finding rather than a blocker, and starting to capture it becomes an action."
+      },
+      {
+        "key": "de-identify-the-list",
+        "section": "required_inputs",
+        "title": "De-identify the customer list before it goes anywhere",
+        "text": "Strip names, contact details and addresses. Retain a sequential or hashed customer reference, first and last purchase date, total spend, transaction count, and product or service category. That is everything the analysis needs and none of what it does not."
+      },
+      {
+        "key": "how-module-runs",
+        "section": "sessions",
+        "title": "How this module runs",
+        "text": "V7 is the largest module in the program and will normally run across several months.",
+        "items": [
+          "Three sessions. Session 3 is long and can be split into two shorter sittings where the client prefers.",
+          "Work agreed in an earlier session runs in the background while later sessions are scheduled, and while you start other modules with the client."
+        ]
+      },
+      {
+        "key": "setting-expectations",
+        "section": "sessions",
+        "title": "Setting expectations",
+        "text": "Tell the client at the outset how many sessions there are and roughly over what period, and agree a finish date. An open-ended run is how a module ends up three-quarters complete and quietly abandoned once the initial enthusiasm passes."
+      },
+      {
+        "key": "every-session-ships",
+        "section": "sessions",
+        "title": "Every session must ship something",
+        "text": "Session 1 alone produces a customer analysis and a spend review the client can act on immediately. Reactivation, lead tracking or conversion work should start in the gap after each session, not wait for the plan at the end. Where the gaps between sessions are dead time, that is a delivery failure rather than a property of the module."
+      },
+      {
+        "key": "compressed-delivery",
+        "section": "sessions",
+        "title": "Compressed delivery",
+        "text": "Where a client wants it done quickly, run it as two half-days rather than four separate sessions. This is a legitimate variant and should be offered rather than improvised."
+      },
+      {
+        "key": "tool-two-phase-and-no-benchmarks",
+        "section": "recommended_tools",
+        "text": "Before session 1 it produces the Customer Analysis Report from the de-identified list, shaped to the business model, drafts candidate segments, journey stages and a starting sales process structure, and produces the pre-filled Growth Engine Worksheet. After each session it produces that session's deliverables.\n\nThe tool must not generate industry benchmarks or averages. A model will produce a confident figure with no source, benchmarks vary widely by definition, and the client will act on the number.\n\nV7 does not need them. The findings this module produces are absolute rather than comparative: there is no follow-up process, no one owns enquiries, ROI is not tracked, a given number of customers have gone quiet. None of those require an industry average to stand up. Where comparison genuinely matters it is margin and enterprise value, which belong to V1 and V10.\n\nWhere comparison is useful here, it is the client against themselves. Their own figures over time, and the movement shown at re-diagnostic, are more specific and more persuasive than an industry average an owner can dismiss as not applying to their market.\n\nThe drafted sales process is a logical starting sequence for the advisor and client to correct. It is not a claim about what the industry does."
+      },
+      {
+        "key": "plan-is-one-document",
+        "section": "deliverables",
+        "text": "V7-D5 is one document with four sections: strategy and positioning, channel and activity plan, growth rhythms, and the 90-day priorities. The strategy section carries through from the existing strategy document rather than being written again. These were separate deliverables and have been merged, because the client experiences them as the plan. Splitting them produces four files, four things to maintain, and a strategy document nobody opens because the plan restates it."
+      },
+      {
+        "key": "optional-deliverables-by-shape",
+        "section": "deliverables",
+        "text": "The Marketing Performance Review records spend by line, lead sources and sale sources, including where the client could not answer. The optional deliverables are shape-dependent: D6 suits volume businesses, D7 suits project and transactional businesses, D8 suits account-based ones. Most clients need one, not several."
+      }
+    ],
+    "tables": [
+      {
+        "key": "business-model-shape",
+        "section": "business_model_shape",
+        "title": "Business model shape",
+        "intro": "Determined in preparation. It changes what the analysis reports, what the journey work becomes, what the strategy session decides, and which actions are candidates. Two independent axes: how many customers, and whether they buy again.",
+        "columns": [
+          {
+            "key": "volume",
+            "label": "Volume"
+          },
+          {
+            "key": "transactional",
+            "label": "Transactional"
+          },
+          {
+            "key": "account_based",
+            "label": "Account-based"
+          },
+          {
+            "key": "project",
+            "label": "Project"
+          }
+        ],
+        "rows": [
+          {
+            "key": "customers",
+            "label": "Customers",
+            "cells": [
+              "Many",
+              "Many",
+              "Few",
+              "Few"
+            ]
+          },
+          {
+            "key": "purchase",
+            "label": "Purchase",
+            "cells": [
+              "Repeat",
+              "One-off",
+              "Repeat, high volume",
+              "One-off or rare"
+            ]
+          },
+          {
+            "key": "typical",
+            "label": "Typical",
+            "cells": [
+              "Salon, café, retail, domestic trades",
+              "Removalist, wedding services, conveyancing",
+              "Electrical contractor to builders, wholesaler to retailers",
+              "Architect, engineer, specialist consultant"
+            ]
+          },
+          {
+            "key": "analysis_reports",
+            "label": "Analysis reports",
+            "cells": [
+              "Frequency, spend distribution, lapse cohorts",
+              "Lead volume, source mix, conversion rate, seasonality",
+              "Revenue per account, trend per account, concentration, share of wallet",
+              "Pipeline, proposal win rate, cycle length, referral sources"
+            ]
+          },
+          {
+            "key": "journey_work",
+            "label": "Journey work becomes",
+            "cells": [
+              "Rebooking and frequency",
+              "Enquiry to booking, and the review tail",
+              "An account relationship map",
+              "Proposal conversion and referral"
+            ]
+          },
+          {
+            "key": "strategy_decides",
+            "label": "Strategy decides",
+            "cells": [
+              "Which segments to grow",
+              "Which lead channels to back",
+              "Which accounts to grow, protect or diversify away from",
+              "Which work to pursue and who refers it"
+            ]
+          },
+          {
+            "key": "plan_becomes",
+            "label": "Plan becomes",
+            "cells": [
+              "A marketing plan",
+              "A lead generation plan",
+              "An account plan with named targets",
+              "A referral and reputation plan"
+            ]
+          },
+          {
+            "key": "fastest_win",
+            "label": "Fastest win",
+            "cells": [
+              "Reactivating lapsed customers",
+              "Lifting conversion, systematising reviews",
+              "Growing share of wallet in existing accounts",
+              "Lifting win rate, formalising referral"
+            ]
+          },
+          {
+            "key": "biggest_risk",
+            "label": "Biggest risk",
+            "cells": [
+              "Silent churn",
+              "Dependence on a single lead channel",
+              "Losing one account",
+              "Pipeline gaps, feast and famine"
+            ]
+          }
+        ]
+      }
+    ],
+    "required_inputs": [
+      {
+        "key": "V7-I1",
+        "label": "De-identified customer or client list, including first and last purchase date, total spend, transaction count and product or service category",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V7-I2",
+        "label": "Itemised marketing spend for the last 12 months, online and offline",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V7-I3",
+        "label": "Lead and enquiry records, however held, including source where recorded",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V7-I4",
+        "label": "Diagnostic sales and marketing responses: strategy and plan, sales process, segmentation, budgets, ROI tracking, data capture and use, satisfaction rating",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V7-I5",
+        "label": "Diagnostic customer responses: repeat and new customer split, active customer count, contracts, customer service, pricing and product review",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V7-I6",
+        "label": "Marketing strategy and positioning. Normally the V2 Strategic Business Plan, otherwise the client's own strategic or marketing plan",
+        "source": "From an earlier module",
+        "source_note": "or Advisor to upload",
+        "fallback": "A client arriving with their own strategic or marketing plan, or one prepared by a previous advisor, satisfies this. The requirement is that a strategy exists, not that V2 has been completed."
+      },
+      {
+        "key": "V7-I7",
+        "label": "V6 tech stack maps, particularly CRM position",
+        "source": "From an earlier module",
+        "source_note": "where available"
+      },
+      {
+        "key": "V7-I8",
+        "label": "V5 workflow maps, particularly enquiry to delivery",
+        "source": "From an earlier module",
+        "source_note": "where available"
+      },
+      {
+        "key": "V7-I9",
+        "label": "V4 Role Clarity Map",
+        "source": "From an earlier module",
+        "source_note": "where available"
+      },
+      {
+        "key": "V7-I10",
+        "label": "Existing marketing material, website, past campaign results",
+        "source": "Advisor to upload"
+      }
+    ],
+    "preparation_summary": {
+      "owner": "Advisor",
+      "duration": "before session 1"
+    },
+    "preparation_checklist": [
+      {
+        "key": "request-inputs",
+        "text": "Request the customer list, itemised marketing spend and lead records a week ahead."
+      },
+      {
+        "key": "determine-business-model-shape",
+        "text": "Determine the business model shape from the two diagnostic answers noted above. This sets the shape of everything that follows."
+      },
+      {
+        "key": "de-identify-and-load",
+        "text": "De-identify the customer list, then load everything into the growth tool."
+      },
+      {
+        "key": "issue-customer-analysis",
+        "text": "The tool produces a Customer Analysis Report. Issue this to the owner as well as keeping it for yourself, ahead of session 1. The owner should arrive having already seen their own numbers."
+      },
+      {
+        "key": "review-drafted-structures",
+        "text": "The tool also drafts candidate segment groups from the client's own data, candidate journey stages, and a starting sales process structure, and produces the pre-filled Growth Engine Worksheet. These are a starting structure to react to, not conclusions. Clients engage far better correcting a draft than facing a blank page."
+      },
+      {
+        "key": "identify-obvious-gaps",
+        "text": "Identify the obvious gaps: no consistent follow-up, no reactivation, no referral process, poor or absent reviews, enquiries with no owner."
+      }
+    ],
+    "sessions": [
+      {
+        "key": "V7-S1",
+        "title": "Marketing Review & Customer Analysis",
+        "duration": "Target 90 to 110 minutes",
+        "agenda": [
+          {
+            "key": "V7-S1-A1",
+            "title": "Frame",
+            "duration": "5 minutes",
+            "detail": "This session establishes what is actually happening now. No decisions are made about what to change."
+          },
+          {
+            "key": "V7-S1-A2",
+            "title": "Review the Customer Analysis Report",
+            "duration": "25 to 30 minutes",
+            "detail": "The owner has already received it. Work through what the data shows, and let them react.",
+            "options": [
+              {
+                "key": "volume",
+                "term": "Volume",
+                "definition": "frequency, spend distribution, and how many customers have gone quiet at 6, 12 and 24 months with the revenue that represents"
+              },
+              {
+                "key": "transactional",
+                "term": "Transactional",
+                "definition": "lead volume, source mix, conversion rate and seasonality"
+              },
+              {
+                "key": "account_based",
+                "term": "Account-based",
+                "definition": "revenue per account and its trend, concentration, and estimated share of each account's total spend"
+              },
+              {
+                "key": "project",
+                "term": "Project",
+                "definition": "pipeline shape, proposal win rate, cycle length, and where past clients have gone"
+              }
+            ]
+          },
+          {
+            "key": "V7-S1-A3",
+            "title": "Where the money goes",
+            "duration": "20 to 25 minutes",
+            "detail": "Work through the itemised marketing spend line by line.",
+            "questions": [
+              {
+                "items": [
+                  "What is this actually buying?",
+                  "Who decided to spend it?",
+                  "When did you last review it?",
+                  "What would happen if you stopped?"
+                ]
+              }
+            ]
+          },
+          {
+            "key": "V7-S1-A4",
+            "title": "Where leads come from",
+            "duration": "20 to 25 minutes",
+            "detail": "Establish the source of enquiries over the last twelve months, as far as the records allow.",
+            "questions": [
+              {
+                "items": [
+                  "Where did your last ten enquiries come from?",
+                  "How do you know?",
+                  "What proportion is referral?",
+                  "What proportion is repeat?",
+                  "What is paid, and what is organic?"
+                ]
+              }
+            ],
+            "note": "Where the client cannot answer, do not push. Record it. The inability to attribute leads is itself the finding, and starting to capture source becomes an action."
+          },
+          {
+            "key": "V7-S1-A5",
+            "title": "Where sales come from",
+            "duration": "15 to 20 minutes",
+            "detail": "Separate leads from revenue. The two rarely match, and the gap is the most useful thing in this session.",
+            "questions": [
+              {
+                "items": [
+                  "Of the work you actually won, where did it originate?",
+                  "Which source produces the best clients, not just the most enquiries?",
+                  "Where are you spending money that produces enquiries but no work?"
+                ]
+              }
+            ]
+          },
+          {
+            "key": "V7-S1-A6",
+            "title": "Confirm segments",
+            "duration": "10 to 15 minutes",
+            "detail": "Review the candidate groups the tool proposed and confirm, merge or reject them."
+          },
+          {
+            "key": "V7-S1-A7",
+            "title": "Close",
+            "duration": "5 minutes"
+          }
+        ]
+      },
+      {
+        "key": "V7-S2",
+        "title": "Customer Journey & Sales Process",
+        "duration": "Target 90 to 110 minutes",
+        "agenda": [
+          {
+            "key": "V7-S2-A1",
+            "title": "Frame",
+            "duration": "5 minutes"
+          },
+          {
+            "key": "V7-S2-A2",
+            "title": "Map the customer journey",
+            "duration": "30 to 40 minutes",
+            "detail": "Work from the drafted stages. For each: the touchpoints, who is responsible, what system is used, and where it is weak.",
+            "options": [
+              {
+                "key": "volume",
+                "term": "Volume",
+                "definition": "rebooking, retention, frequency"
+              },
+              {
+                "key": "transactional",
+                "term": "Transactional",
+                "definition": "enquiry to booking, and the review and referral tail"
+              },
+              {
+                "key": "account_based",
+                "term": "Account-based",
+                "definition": "build an account relationship map instead. For each account, who decides, who influences, who holds the relationship on both sides, what work you get, what work you do not, and why"
+              },
+              {
+                "key": "project",
+                "term": "Project",
+                "definition": "proposal conversion, referral, staying remembered between projects"
+              }
+            ]
+          },
+          {
+            "key": "V7-S2-A3",
+            "title": "Map the sales process",
+            "duration": "30 to 35 minutes",
+            "detail": "How a lead arrives, how it is qualified, the follow-up rhythm, when a quote or proposal goes out, how it is tracked, how it closes, and how a new client is handed to delivery.\n\nWhere a CRM exists, map these as pipeline stages. Where none exists, define the manual stages.\n\nFor project businesses, spend the time on proposal conversion and on follow-up over a long cycle. A proposal that goes out and is never followed up is the most common and most expensive failure in these businesses.\n\nFor account-based businesses, the sales process is quoting and winning individual jobs within existing accounts. Map that, and separately map how a new account is won, since the two are entirely different processes."
+          },
+          {
+            "key": "V7-S2-A4",
+            "title": "Find the leaks",
+            "duration": "15 to 20 minutes",
+            "questions": [
+              {
+                "items": [
+                  "Where do enquiries go unanswered?",
+                  "How long before someone responds?",
+                  "What happens to a quote that is not accepted?",
+                  "Who owns an enquiry once it arrives?",
+                  "Where does someone fall out of this process entirely?"
+                ]
+              }
+            ]
+          },
+          {
+            "key": "V7-S2-A5",
+            "title": "Close",
+            "duration": "5 minutes"
+          }
+        ]
+      },
+      {
+        "key": "V7-S3",
+        "title": "Strategy Translation, Plan & Rhythms",
+        "duration": "Target 105 to 135 minutes",
+        "note": "Can be split into two shorter sittings where the client prefers.",
+        "agenda": [
+          {
+            "key": "V7-S3-A1",
+            "title": "Frame",
+            "duration": "5 minutes",
+            "detail": "The strategy is already set. This session decides where the business competes for attention and turns that into activity."
+          },
+          {
+            "key": "V7-S3-A2",
+            "title": "Review the existing strategy",
+            "duration": "10 to 15 minutes",
+            "detail": "Review the positioning and proposition already set, normally in the Strategic Business Plan. Test it against what sessions 1 and 2 found. Where the data contradicts the stated position, raise it, but do not rewrite the strategy here. Note it back to its source document, or you end up with two strategies disagreeing with each other."
+          },
+          {
+            "key": "V7-S3-A3",
+            "title": "Channel strategy",
+            "duration": "20 to 25 minutes",
+            "detail": "Decide where the business will and will not compete for attention, informed by session 1's source data.",
+            "questions": [
+              {
+                "items": [
+                  "Which sources actually produce work?",
+                  "Which would you back if you doubled it?",
+                  "What are you doing because you always have?",
+                  "What are you not doing that your best clients would respond to?"
+                ]
+              }
+            ],
+            "note": "Fewer channels done properly beats more done badly. Push toward two or three. For account-based businesses this decides which accounts to grow, which to protect, whether concentration needs reducing, and which one or two new accounts to pursue by name."
+          },
+          {
+            "key": "V7-S3-A4",
+            "title": "Messaging direction",
+            "duration": "10 to 15 minutes",
+            "detail": "Direction only, not copy. The themes, the proof points, and what the business wants a client to remember."
+          },
+          {
+            "key": "V7-S3-A5",
+            "title": "Build the plan",
+            "duration": "25 to 35 minutes",
+            "detail": "Convert the strategy into activity: what happens, when, who does it, and what it costs. Reallocate the existing budget before proposing any increase."
+          },
+          {
+            "key": "V7-S3-A6",
+            "title": "Growth rhythms",
+            "duration": "15 minutes",
+            "detail": "Weekly: lead review, follow-ups, open opportunities. Monthly: marketing review, reactivation or referral activity, source review. Quarterly: segment review, messaging refresh, plan reset."
+          },
+          {
+            "key": "V7-S3-A7",
+            "title": "90-day priorities",
+            "duration": "15 to 20 minutes",
+            "detail": "Three to five achievable actions, each with an owner, a timeframe and an expected outcome.",
+            "options": [
+              {
+                "key": "volume",
+                "term": "Volume",
+                "definition": "where lapsed customers were identified, reactivation is usually the fastest win and should be tested first"
+              },
+              {
+                "key": "transactional",
+                "term": "Transactional",
+                "definition": "lifting conversion on existing lead flow beats buying more leads"
+              },
+              {
+                "key": "account_based",
+                "term": "Account-based",
+                "definition": "growing share of wallet in one or two existing accounts usually produces more, faster, than winning a new one"
+              },
+              {
+                "key": "project",
+                "term": "Project",
+                "definition": "formalising referral and lifting proposal follow-up usually produce more, faster, than any new channel"
+              }
+            ]
+          },
+          {
+            "key": "V7-S3-A8",
+            "title": "Close",
+            "duration": "5 minutes"
+          }
+        ]
+      }
+    ],
+    "recommended_tools": [
+      {
+        "tool_key": "growth_engine",
+        "label": "Growth Engine tool",
+        "when": "pre, post",
+        "status": "To build, Feature 3"
+      }
+    ],
+    "deliverables": [
+      {
+        "key": "V7-D1",
+        "title": "Customer Analysis Report",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "session": "pre-1",
+        "feeds": [
+          "V10"
+        ]
+      },
+      {
+        "key": "V7-D2",
+        "title": "Marketing Performance Review",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "session": "1",
+        "feeds": [
+          "V1"
+        ]
+      },
+      {
+        "key": "V7-D3",
+        "title": "Customer Journey Map, including segment focus",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "session": "2",
+        "feeds": [
+          "V5",
+          "V10"
+        ]
+      },
+      {
+        "key": "V7-D4",
+        "title": "Sales Process Map",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "session": "2",
+        "feeds": [
+          "V5",
+          "V6"
+        ]
+      },
+      {
+        "key": "V7-D5",
+        "title": "Sales & Marketing Plan",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "session": "3",
+        "feeds": [
+          "V2",
+          "V3",
+          "V8",
+          "V10"
+        ]
+      },
+      {
+        "key": "V7-D6",
+        "title": "Retention & Reactivation Opportunities",
+        "is_mandatory": false,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "session": "1",
+        "feeds": [
+          "V10"
+        ]
+      },
+      {
+        "key": "V7-D7",
+        "title": "Referral Program Outline",
+        "is_mandatory": false,
+        "produced_by": "advisor",
+        "session": "2 or 3",
+        "feeds": [
+          "V10"
+        ]
+      },
+      {
+        "key": "V7-D8",
+        "title": "Account Plan, with named targets",
+        "is_mandatory": false,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "session": "3",
+        "feeds": [
+          "V10"
+        ]
+      }
+    ],
+    "post_session_actions": {
+      "owner": "Advisor",
+      "duration": "after each session",
+      "items": [
+        "Produce and issue that session's deliverables before the next session is held.",
+        "Confirm the owner and date against each action.",
+        "Where the sales process depends on a system the business does not have, note it for V6 rather than specifying a product here.",
+        "Where a journey stage has no owner, note it for V4.",
+        "Where the client could not attribute leads or sales, make starting that capture an action in the 90-day plan."
+      ]
+    },
+    "guardrails": {
+      "must_not": [
+        "run advertising or manage campaigns",
+        "write copy or build funnels",
+        "configure CRM automation",
+        "design brand assets",
+        "perform marketing execution of any kind",
+        "assert an industry average or benchmark"
+      ],
+      "note": "The module produces the structure, the strategy and the plan. Execution belongs to the client, their suppliers, or a separately scoped engagement.\n\nThese are boundaries of profession, not boundaries of module. Where V7 surfaces an issue whose home module is elsewhere, the advisor addresses it and records the output against that module."
+    },
+    "quality_standards": [
+      "The business model shape was determined before session 1 and the module was run accordingly.",
+      "For account-based businesses, share of wallet was quantified per account and concentration was passed to V10.",
+      "Where leads and sales could not be attributed, that was recorded rather than estimated.",
+      "The sales process is simple enough that a new staff member could follow it tomorrow.",
+      "Every journey stage has a named owner.",
+      "No enquiry path ends without a defined next step.",
+      "The channel strategy names what the business will stop doing, not only what it will start.",
+      "The marketing plan reallocates existing budget before proposing any increase.",
+      "The 90-day plan has no more than five actions, each owned and dated.",
+      "Nothing in the outputs requires marketing capability the business does not have."
+    ]
+  },
+  {
+    "program_type": "value_builder",
+    "module_code": "V8",
+    "display_order": 8,
+    "title": "Brand, IP & Protection",
+    "focus": "What the business owns, what protects it, and whether it can be copied.",
+    "purpose": "V8 establishes what the business actually owns and could transfer, whether its advantage is protected, and how consistently it presents itself.\n\nThe advantage itself is identified in V2 and communicated through V7. V8 does not re-examine what it is. It asks only whether anything protects it, and whether it would survive a change of owner.\n\nUnprotected intangibles suppress value and create risk. Assets the business does not legally own cannot be sold with it.",
+    "core_outcomes": [
+      "Every brand and digital asset is identified, with ownership confirmed or a gap recorded.",
+      "The stated competitive advantage is checked for whether anything actually protects it.",
+      "Brand consistency gaps are identified.",
+      "A protection and strengthening plan is agreed, separating what needs a lawyer from what the business can do itself."
+    ],
+    "notes": [
+      {
+        "key": "before-you-start",
+        "title": "Before you start",
+        "text": "V8 takes the competitive advantage as already identified. Normally that comes from V2's Strategic Business Plan, and where V2 has not run, from the diagnostic free-text responses on strongest advantage and barriers to entry. The module does not identify or debate the advantage. That work belongs to V2."
+      },
+      {
+        "key": "prepared-outside-in",
+        "section": "preparation",
+        "text": "This module is prepared from the outside in. Most of the value comes from what the advisor finds before the session, not from what the client reports."
+      },
+      {
+        "key": "tool-lookups-not-opinions",
+        "section": "recommended_tools",
+        "text": "Before the session it compiles the draft Brand & IP Asset Register from the external review and the diagnostic responses, and flags where ownership is unclear or unstated. After the session it produces the register and the plan.\n\nThe trademark and domain checks are lookups against live registers, not recall. Where the tool cannot perform the lookup, the advisor does it manually. The tool must never state whether a mark is registrable or available, which is a legal opinion."
+      },
+      {
+        "key": "plan-covers-what-protects",
+        "section": "deliverables",
+        "text": "The Protection & Strengthening Plan includes a short section on what currently protects the stated advantage, and what does not."
+      }
+    ],
+    "required_inputs": [
+      {
+        "key": "V8-I1",
+        "label": "Diagnostic responses on style guide, website, brand consistency, trademarks, digital asset ownership, proprietary methods, premises presentation, competitive advantage, barriers to entry and replication difficulty",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V8-I2",
+        "label": "Diagnostic SWOT, competitor and industry responses",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V8-I3",
+        "label": "Website address, social accounts, Google Business listing",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V8-I4",
+        "label": "Style guide and brand files, where any exist",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V8-I5",
+        "label": "Trademark and domain registration details, where known",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V8-I6",
+        "label": "V2 competitive analysis and SWOT",
+        "source": "From an earlier module",
+        "source_note": "where available",
+        "fallback": "Where V2 has not run, the competitive advantage comes from the diagnostic free-text responses on strongest advantage and barriers to entry. V8 does not identify or debate the advantage either way."
+      },
+      {
+        "key": "V8-I7",
+        "label": "V7 value proposition themes and positioning",
+        "source": "From an earlier module",
+        "source_note": "where available"
+      }
+    ],
+    "preparation_summary": {
+      "owner": "Advisor",
+      "duration": "45 to 60 minutes"
+    },
+    "preparation_checklist": [
+      {
+        "key": "search-the-business-name",
+        "text": "Search the business name and see what actually comes up."
+      },
+      {
+        "key": "review-the-website",
+        "text": "Review the website: when it was last updated, whether it is consistent, and what claims it makes."
+      },
+      {
+        "key": "review-social-accounts",
+        "text": "Review the social accounts: activity, consistency, and whose name they appear to sit under."
+      },
+      {
+        "key": "check-google-listing",
+        "text": "Check the Google Business listing exists, is claimed, and is accurate."
+      },
+      {
+        "key": "check-trademark-register",
+        "text": "Check the trademark register for the business name and any trading names. This is a factual check on what is registered, not a legal clearance opinion."
+      },
+      {
+        "key": "look-up-domain-registrant",
+        "text": "Look up the domain registration and note the registrant."
+      },
+      {
+        "key": "load-into-brand-tool",
+        "text": "Load everything into the brand tool, which compiles the draft Brand & IP Asset Register and flags where ownership is unclear."
+      },
+      {
+        "key": "bring-draft-register",
+        "text": "Bring the draft register to the session. Confirming and correcting a list is faster and more revealing than asking an owner to recall what they own."
+      }
+    ],
+    "sessions": [
+      {
+        "key": "V8-S1",
+        "title": "Brand, IP & Protection Workshop",
+        "duration": "Target 85 to 100 minutes",
+        "format": "In person or online",
+        "agenda": [
+          {
+            "key": "V8-S1-A1",
+            "title": "Frame the session",
+            "duration": "5 minutes",
+            "detail": "This session covers what the business owns, whether it is protected, and how it presents. It does not revisit the strategy. Nothing here is a legal opinion."
+          },
+          {
+            "key": "V8-S1-A2",
+            "title": "Asset register and ownership",
+            "duration": "30 to 35 minutes",
+            "detail": "Walk the draft register. For every item, confirm what it is, who legally owns it, and who can access it.\n\nCover: business and trading names, domains, website, hosting, email, social accounts, Google Business listing, logos and brand files, photography, written content, customer lists and databases, proprietary methods, templates and tools, supplier agreements and exclusivity.",
+            "questions": [
+              {
+                "items": [
+                  "Whose name is the domain in?",
+                  "Who set up the Facebook page, and can you get into it?",
+                  "Who holds the original logo files?",
+                  "If your web developer disappeared tomorrow, what would you lose?",
+                  "Who has the passwords?"
+                ]
+              }
+            ],
+            "note": "Ownership gaps are the most common finding in this module and the most damaging. A domain registered to a web developer who has moved on, a social account under a former employee's personal login, a Google listing nobody can access, logo files that exist only on a designer's machine. Each is an operational risk now and a transaction problem later. Record every one."
+          },
+          {
+            "key": "V8-S1-A3",
+            "title": "What protects the advantage",
+            "duration": "15 minutes",
+            "detail": "Take the advantage as already stated in the strategy. Do not reopen what it is. Ask only what protects it and whether it survives a change of owner.",
+            "questions": [
+              {
+                "items": [
+                  "What stops a competitor doing this?",
+                  "Is any of it registered, contracted or documented?",
+                  "Does it live in a system, or in one person's head?",
+                  "If you sold tomorrow, would the buyer still have it?"
+                ]
+              }
+            ],
+            "note": "Where an advantage rests on something unprotected and undocumented, that is the finding and it becomes an action."
+          },
+          {
+            "key": "V8-S1-A4",
+            "title": "Brand consistency",
+            "duration": "15 to 20 minutes",
+            "detail": "Review how the business presents across every touchpoint: website, social, signage, vehicles, uniforms, quotes and invoices, email signatures, premises.",
+            "questions": [
+              {
+                "items": [
+                  "Does this look like one business?",
+                  "Where does it look like three?",
+                  "What has not been updated in years?",
+                  "What would a new customer see first?"
+                ]
+              }
+            ]
+          },
+          {
+            "key": "V8-S1-A5",
+            "title": "Protection and strengthening actions",
+            "duration": "15 to 20 minutes",
+            "detail": "Agree the actions, separated into three groups: ownership transfers the business can do itself, matters requiring a lawyer or trade marks attorney, and brand work requiring a designer."
+          },
+          {
+            "key": "V8-S1-A6",
+            "title": "Close",
+            "duration": "5 minutes",
+            "detail": "Confirm the first ownership gap being closed and who is closing it."
+          }
+        ]
+      }
+    ],
+    "recommended_tools": [
+      {
+        "tool_key": "brand_ip_audit",
+        "label": "Brand & IP Audit tool",
+        "when": "pre, post",
+        "status": "To build, Feature 3"
+      }
+    ],
+    "deliverables": [
+      {
+        "key": "V8-D1",
+        "title": "Brand & IP Asset Register, with ownership status",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V10",
+          "V11"
+        ]
+      },
+      {
+        "key": "V8-D2",
+        "title": "Protection & Strengthening Plan",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V10"
+        ]
+      },
+      {
+        "key": "V8-D3",
+        "title": "Brand Consistency Review",
+        "is_mandatory": false,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V7"
+        ]
+      }
+    ],
+    "post_session_actions": {
+      "owner": "Advisor",
+      "duration": "45 to 60 minutes",
+      "items": [
+        "Finalise the register, assessment and plan, then issue them.",
+        "Refer trademark registration, IP protection and any contractual matter to a trade marks attorney or commercial solicitor. Do not advise on them.",
+        "Where an asset is owned by a third party, make the transfer an action with a named owner and a date. These do not resolve themselves.",
+        "Pass unprotected or unowned assets to V11 as a risk item, and anything affecting durability of the advantage to V10 as a value driver."
+      ]
+    },
+    "guardrails": {
+      "must_not": [
+        "provide legal advice on trademarks, intellectual property or contracts",
+        "conduct a trademark clearance search, or advise on whether a mark is registrable",
+        "design logos, brand assets or marketing collateral",
+        "write website or marketing copy",
+        "place a value on the brand or intellectual property as a balance sheet item"
+      ],
+      "note": "The module identifies what exists, what is exposed and what should be done. Registration, legal protection and design work are referred.\n\nThese are boundaries of profession, not boundaries of module. Where V8 surfaces an issue whose home module is elsewhere, the advisor addresses it and records the output against that module."
+    },
+    "quality_standards": [
+      "Every domain, social account and digital asset has a confirmed owner, or is recorded as unresolved.",
+      "The stated advantage was checked for protection without being reopened or redebated.",
+      "The plan separates what needs a lawyer, what needs a designer, and what the business can do itself.",
+      "Nothing in the outputs reads as a legal opinion."
+    ]
+  },
+  {
+    "program_type": "value_builder",
+    "module_code": "V9",
+    "display_order": 9,
+    "title": "Owner Independence",
+    "focus": "Whether the business survives without the owner, and what it would take.",
+    "purpose": "V9 addresses the single most common reason a business is discounted, or cannot be sold at all. Owner dependency is not only a transaction issue: it caps growth, prevents the owner taking leave, and puts the business at risk if anything happens to them.\n\nThis is not a repeat of V4. V4 moves tasks off the owner and is about structure and efficiency. V9 is about risk and transferability, and it deals with what cannot simply be delegated: knowledge that exists only in the owner's head, relationships held personally, and decisions nobody else is trusted to make. A business can delegate every task on the owner's list and still collapse if they leave, because the relationships and the knowledge went with them.",
+    "core_outcomes": [
+      "Knowledge, relationships and decisions held personally by the owner are identified.",
+      "The business's exposure at two weeks, three months and permanently is understood.",
+      "A continuity position exists for an unplanned absence.",
+      "A realistic plan reduces dependency, sequenced and costed."
+    ],
+    "notes": [
+      {
+        "key": "before-you-start",
+        "title": "Before you start",
+        "text": "V9 works considerably better after V4 and V5. V4's role work establishes what the owner does and who could absorb it, and V5's workflow maps show precisely where the owner appears in the running of the business. Where neither has run, the module works from the diagnostic owner duties matrix and the session covers more ground.\n\nBusiness model shape matters here. In account-based businesses the owner frequently is the relationship with each key account, which is the sharpest form of owner dependency and the hardest to unwind. Where V7 has established the shape as account-based, expect this module to be dominated by relationship transfer."
+      },
+      {
+        "key": "tool-two-phase",
+        "section": "recommended_tools",
+        "text": "Before the session it drafts the Owner Dependency Map from the diagnostic duties matrix, the V4 role outputs and the V5 workflow maps, and flags where no cover exists.\n\nAfter the session it produces the dependency map, continuity position and independence plan."
+      },
+      {
+        "key": "continuity-not-legal",
+        "section": "deliverables",
+        "text": "The Continuity Position records what happens in an unplanned absence and what is missing. It is not a legal succession document."
+      }
+    ],
+    "required_inputs": [
+      {
+        "key": "V9-I1",
+        "label": "Diagnostic owner duties matrix: day to day duties, periodic duties, hours per week",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V9-I2",
+        "label": "Diagnostic responses on operating without the owner, reliance level, cover in the event of incapacity, succession plan, divisional structure, scalability, owner-managed customer relationships, and estimated customer loss if the owner left",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V9-I3",
+        "label": "V4 Role Clarity Map and Capability & Gap Summary",
+        "source": "From an earlier module",
+        "source_note": "where available",
+        "fallback": "Where neither V4 nor V5 has run, the module works from the diagnostic owner duties matrix and the session covers more ground."
+      },
+      {
+        "key": "V9-I4",
+        "label": "V5 workflow maps, showing where the owner appears in each process",
+        "source": "From an earlier module",
+        "source_note": "where available"
+      },
+      {
+        "key": "V9-I5",
+        "label": "V7 business model shape",
+        "source": "From an earlier module",
+        "source_note": "where available"
+      },
+      {
+        "key": "V9-I6",
+        "label": "List of key relationships: customers, suppliers, bank, landlord, insurer, accountant",
+        "source": "Advisor to upload"
+      }
+    ],
+    "preparation_summary": {
+      "owner": "Advisor",
+      "duration": "45 to 60 minutes"
+    },
+    "preparation_checklist": [
+      {
+        "key": "review-duties-matrix",
+        "text": "Review the diagnostic owner duties matrix and the dependency responses."
+      },
+      {
+        "key": "mark-owner-in-workflows",
+        "text": "Where V5 has run, work through the workflow maps and mark every point the owner appears. This is usually more revealing than anything the owner reports, because they stop noticing."
+      },
+      {
+        "key": "review-v4-role-moves",
+        "text": "Where V4 has run, review what was moved off the owner's role and what stayed, and why."
+      },
+      {
+        "key": "load-into-independence-tool",
+        "text": "Load everything into the independence tool, which drafts the Owner Dependency Map across knowledge, relationships and decisions, and flags where the business has no cover."
+      },
+      {
+        "key": "bring-draft-to-session",
+        "text": "Bring the draft to the session for the owner to correct and expand."
+      }
+    ],
+    "sessions": [
+      {
+        "key": "V9-S1",
+        "title": "Owner Independence Workshop",
+        "duration": "Target 90 to 115 minutes",
+        "format": "In person or online",
+        "agenda": [
+          {
+            "key": "V9-S1-A1",
+            "title": "Frame the session",
+            "duration": "5 minutes",
+            "detail": "This is about what would happen without them, not about how hard they work. Owners can hear this as criticism, so be explicit that dependency is normal, expected, and the direct result of having built the thing."
+          },
+          {
+            "key": "V9-S1-A2",
+            "title": "The dependency map",
+            "duration": "30 to 35 minutes",
+            "detail": "Work through the draft across three categories. Tasks were covered in V4 and are not revisited.",
+            "options": [
+              {
+                "key": "knowledge",
+                "term": "Knowledge",
+                "definition": "What does the owner know that nobody else does? Pricing judgement, supplier history, why things are done a certain way, which customers are difficult, what went wrong last time."
+              },
+              {
+                "key": "relationships",
+                "term": "Relationships",
+                "definition": "Which relationships are personally theirs? Key customers, suppliers, the bank, the landlord, the accountant, the long-serving staff member who joined because of them."
+              },
+              {
+                "key": "decisions",
+                "term": "Decisions",
+                "definition": "What still comes to them? What is the largest decision anyone else makes alone? What are they unwilling to hand over, and why?"
+              }
+            ],
+            "questions": [
+              {
+                "items": [
+                  "What do people ring you about?",
+                  "What question gets asked when you are on holiday?",
+                  "Which customer would ask for you by name?",
+                  "What would someone have to learn to do your job, that is not written down anywhere?"
+                ]
+              }
+            ]
+          },
+          {
+            "key": "V9-S1-A3",
+            "title": "The absence test",
+            "duration": "20 to 25 minutes",
+            "detail": "Three horizons, because each exposes something different.",
+            "options": [
+              {
+                "key": "two-weeks",
+                "term": "Two weeks away",
+                "definition": "What actually breaks? This exposes operational dependency, and most owners have some answer here."
+              },
+              {
+                "key": "three-months",
+                "term": "Three months, unplanned",
+                "definition": "Who makes the decisions? Who do the key customers deal with? What stops being done at all? This exposes decision and relationship dependency, and it is usually where the conversation gets uncomfortable."
+              },
+              {
+                "key": "permanently",
+                "term": "Permanently",
+                "definition": "Could someone buy this business and run it? What would they be buying if the owner did not come with it? This is the transferability question and it is the one that sets the value."
+              }
+            ]
+          },
+          {
+            "key": "V9-S1-A4",
+            "title": "Cover and succession",
+            "duration": "20 to 25 minutes",
+            "detail": "Identify who could hold the business together in an unplanned absence, what they would need in order to do it, and what is missing today.",
+            "note": "Where there is no internal candidate, that is the finding. Do not invent one. The action becomes either developing someone, which links to V4, or establishing external cover.\n\nPlanned succession and exit are a separate conversation and are referred, not run here."
+          },
+          {
+            "key": "V9-S1-A5",
+            "title": "Independence plan",
+            "duration": "15 to 20 minutes",
+            "detail": "Three to five actions, sequenced and realistic. Each should name what is being transferred, to whom, and by when.",
+            "note": "Relationship transfer is slow and cannot be rushed, so start it first. Documenting knowledge is faster but is usually the thing that never gets done, so it needs a date and an owner rather than good intentions.\n\nWhere reducing dependency requires hiring, cost it and pass it to V1 rather than agreeing to it in isolation."
+          },
+          {
+            "key": "V9-S1-A6",
+            "title": "Close",
+            "duration": "5 minutes",
+            "detail": "Confirm the first relationship being shared and the first piece of knowledge being written down."
+          }
+        ]
+      }
+    ],
+    "recommended_tools": [
+      {
+        "tool_key": "owner_independence",
+        "label": "Owner Independence tool",
+        "when": "pre, post",
+        "status": "To build, Feature 3"
+      }
+    ],
+    "deliverables": [
+      {
+        "key": "V9-D1",
+        "title": "Owner Dependency Map",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V10"
+        ]
+      },
+      {
+        "key": "V9-D2",
+        "title": "Continuity Position",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V11"
+        ]
+      },
+      {
+        "key": "V9-D3",
+        "title": "Independence Plan",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V4",
+          "V10"
+        ]
+      }
+    ],
+    "post_session_actions": {
+      "owner": "Advisor",
+      "duration": "45 to 60 minutes",
+      "items": [
+        "Finalise the map, continuity position and plan, then issue them.",
+        "Where no internal cover exists, record it as a continuity risk and pass it to V11.",
+        "Where dependency reduction needs a hire or a capability build, cost it and pass it to V1 and V4.",
+        "Refer planned succession, ownership transfer or sale to the appropriate BBA service or external specialist.",
+        "Record the transferability position for V10, since it is a primary driver of enterprise value."
+      ]
+    },
+    "guardrails": {
+      "must_not": [
+        "draft wills, powers of attorney or any succession legal document",
+        "advise on tax or structuring for ownership transfer",
+        "mediate family succession disputes",
+        "appraise the business or advise on sale price within this module",
+        "act as the owner's cover themselves"
+      ],
+      "note": "Succession planning, exit and sale are separate engagements. This module establishes the dependency position and reduces it. It does not plan the exit.\n\nThese are boundaries of profession, not boundaries of module. Where V9 surfaces an issue whose home module is elsewhere, the advisor addresses it and records the output against that module."
+    },
+    "quality_standards": [
+      "Every relationship held personally by the owner is named, not summarised.",
+      "At least one relationship has a plan and a date to be shared.",
+      "At least one piece of owner-held knowledge has a documentation owner and a date.",
+      "The continuity position works if the owner is unavailable tomorrow, not in five years.",
+      "Where no internal successor exists, that was recorded rather than invented.",
+      "Actions requiring money were costed, not assumed."
+    ]
+  },
+  {
+    "program_type": "value_builder",
+    "module_code": "V10",
+    "display_order": 10,
+    "title": "Value & Growth",
+    "focus": "Building an asset rather than running a business.",
+    "purpose": "V10 shifts the conversation from operating to asset building. It establishes where the business creates value, where it leaks or limits it, what is missing for scalability, and what to do about it over the next twelve months.\n\nIt also covers the revenue quality questions that sit nowhere else: recurring revenue, customer concentration, product and service relevance, margin position and scalability.\n\nThis is not a valuation conversation. No sale price, no multiple, no dollar figure on enterprise value. The module works in capabilities and risk, not in numbers a buyer would put on the business. Appraisal and sale are separate BBA engagements.",
+    "core_outcomes": [
+      "Revenue quality is understood: recurring proportion, concentration, product relevance, margin position.",
+      "Value drivers are assessed across capability areas, weighted for this business.",
+      "Value gaps and value leaks are identified in capability terms.",
+      "A twelve-month plan sets five to seven initiatives with owners and checkpoints."
+    ],
+    "notes": [
+      {
+        "key": "before-you-start",
+        "title": "Before you start",
+        "text": "V10 is the most module-dependent card in the set. Every completed module feeds it, and where several have run the assessment is far richer and can show movement rather than only position.\n\nWhere none have run, V10 still works. The diagnostic already scores eleven capability areas, which is itself a value driver assessment, and this module builds on it rather than rebuilding it."
+      },
+      {
+        "key": "no-valuation-in-preparation",
+        "section": "preparation",
+        "text": "The advisor does not produce a valuation or a sale estimate at any point in this preparation."
+      },
+      {
+        "key": "tool-no-valuation-no-benchmarks",
+        "section": "recommended_tools",
+        "text": "Before the session it drafts the value driver assessment from the diagnostic and all completed module outputs, identifies likely value leaks, and suggests candidate initiatives. Trinity does the structuring, the advisor refines and confirms. After the session it produces the assessment, the gaps and leaks summary and the plan.\n\nThe tool must not produce a valuation, a multiple or a sale price estimate, and must not generate industry margin benchmarks. Where a margin comparison is genuinely needed it comes from a real and citable source, and the source is stated. See Program notes."
+      },
+      {
+        "key": "playbook-outputs-removed",
+        "section": "deliverables",
+        "text": "The Playbook lists an Owner Dependency Map, a lite risk register and an exit readiness snapshot as optional outputs. All three have been removed. Dependency is now V9-D1, risk is V11, and exit readiness belongs to the separate Sale Ready program rather than sitting as an afterthought here."
+      }
+    ],
+    "required_inputs": [
+      {
+        "key": "V10-I1",
+        "label": "Diagnostic module scores and rankings across all eleven areas",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V10-I2",
+        "label": "Diagnostic responses on recurring revenue, supplier accessibility, new product and service activity, margin position, product and service relevance and mix, scalability",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V10-I3",
+        "label": "Customer concentration: largest customer, top three, active customers, repeat and new split",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V10-I4",
+        "label": "Outputs from every completed module",
+        "source": "From an earlier module",
+        "source_note": "where available",
+        "fallback": "Where no modules have run, V10 still works. The diagnostic already scores eleven capability areas, which is itself a value driver assessment, and this module builds on it rather than rebuilding it."
+      },
+      {
+        "key": "V10-I5",
+        "label": "V7 business model shape",
+        "source": "From an earlier module",
+        "source_note": "where available"
+      },
+      {
+        "key": "V10-I6",
+        "label": "V9 Owner Dependency Map",
+        "source": "From an earlier module",
+        "source_note": "where available"
+      }
+    ],
+    "preparation_summary": {
+      "owner": "Advisor",
+      "duration": "45 to 60 minutes"
+    },
+    "preparation_checklist": [
+      {
+        "key": "load-into-value-tool",
+        "text": "Load the diagnostic and all completed module outputs into the value tool. It drafts the value driver assessment, identifies likely value leaks from accumulated module data, and suggests candidate initiatives."
+      },
+      {
+        "key": "review-improvement-to-date",
+        "text": "Review where improvement has already occurred. Where a module has been completed, the assessment should show movement, not just current position."
+      },
+      {
+        "key": "note-immature-areas",
+        "text": "Note the areas still short of maturity, typically owner dependency, leadership depth, systems, and revenue concentration."
+      },
+      {
+        "key": "weight-the-drivers",
+        "text": "Weight the drivers for this business. They do not matter equally. In an account-based business concentration dominates. In an owner-operated service business, dependency dominates. In a capital-heavy business, scalability does. Do not present eleven drivers as equally important."
+      }
+    ],
+    "sessions": [
+      {
+        "key": "V10-S1",
+        "title": "Value Building Workshop",
+        "duration": "Target 95 to 120 minutes",
+        "format": "In person or online",
+        "agenda": [
+          {
+            "key": "V10-S1-A1",
+            "title": "Frame the session",
+            "duration": "5 minutes",
+            "detail": "This is about building long-term value whether or not the owner ever sells. It covers capabilities that increase value, reduce risk and improve scalability. Say plainly that it is not a valuation or sale conversation, because owners will otherwise assume it is."
+          },
+          {
+            "key": "V10-S1-A2",
+            "title": "Revenue quality and scalability",
+            "duration": "25 to 30 minutes",
+            "detail": "The concrete ground this module owns.",
+            "options": [
+              {
+                "key": "recurring-revenue",
+                "term": "Recurring revenue",
+                "definition": "What proportion is contracted, repeating or predictable, and what could be? Recurring revenue is the single most reliable lift to value in most SMEs."
+              },
+              {
+                "key": "concentration",
+                "term": "Concentration",
+                "definition": "What proportion sits with the largest customer and the top three? What would happen if the largest left?"
+              },
+              {
+                "key": "relevance",
+                "term": "Product and service relevance",
+                "definition": "When was the range last reviewed? Will it still be right in two years? Does the mix need to change?"
+              },
+              {
+                "key": "margin-position",
+                "term": "Margin position",
+                "definition": "Where the owner does not know how their margins compare, record that as the finding rather than guessing."
+              },
+              {
+                "key": "scalability",
+                "term": "Scalability",
+                "definition": "Could the business take on significantly more work without proportionate additional investment? Where is the ceiling, and what is it made of?"
+              }
+            ]
+          },
+          {
+            "key": "V10-S1-A3",
+            "title": "Value driver review",
+            "duration": "25 to 30 minutes",
+            "detail": "Work across the capability areas: financial performance, growth potential, systems and scalability, people and leadership, customer base quality, recurring revenue, technology and data, brand and positioning, risk profile, owner dependency.",
+            "note": "Use the weighting from preparation. Spend the time on the drivers that actually move value for this business, and move quickly through those that do not.\n\nWhere modules have been completed, show the movement. That is the most motivating part of the session and it is easy to skip."
+          },
+          {
+            "key": "V10-S1-A4",
+            "title": "Value gaps and leaks",
+            "duration": "20 to 25 minutes",
+            "detail": "The value gap is the distance between the business's current capabilities and those of a scalable, low-risk, high-value company. No dollar figures.",
+            "options": [
+              {
+                "key": "gaps",
+                "term": "Gaps",
+                "definition": "Missing capability: no management layer, immature systems, no reporting, weak customer diversification, low recurring revenue, owner bottleneck."
+              },
+              {
+                "key": "leaks",
+                "term": "Leaks",
+                "definition": "Value being lost through current operation: rework, poor pricing discipline, unmanaged risk, reliance on a few customers, outdated technology, inconsistent sales rhythm."
+              }
+            ]
+          },
+          {
+            "key": "V10-S1-A5",
+            "title": "The twelve-month plan",
+            "duration": "20 to 25 minutes",
+            "detail": "Five to seven initiatives, high level. No detailed project plans. For each: what it is, who owns it, the timeframe, the major checkpoints, and how progress will be seen.",
+            "note": "Each initiative must be meaningful, realistic, aligned to strategy, and value-focused. Where an initiative requires money the business does not have, it is not realistic and does not belong in the plan."
+          },
+          {
+            "key": "V10-S1-A6",
+            "title": "Close",
+            "duration": "5 minutes",
+            "detail": "Confirm the first initiative and its owner."
+          }
+        ]
+      }
+    ],
+    "recommended_tools": [
+      {
+        "tool_key": "value_building",
+        "label": "Value Building tool",
+        "when": "pre, post",
+        "status": "To build, Feature 3"
+      }
+    ],
+    "deliverables": [
+      {
+        "key": "V10-D1",
+        "title": "Value Driver Assessment",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined"
+      },
+      {
+        "key": "V10-D2",
+        "title": "Value Gap & Leaks Summary",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined"
+      },
+      {
+        "key": "V10-D3",
+        "title": "12-Month Value Building Plan",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined"
+      }
+    ],
+    "post_session_actions": {
+      "owner": "Advisor",
+      "duration": "45 to 60 minutes",
+      "items": [
+        "Finalise the assessment, summary and plan, then issue them.",
+        "Check the plan against the financial position and the strategy. An initiative the business cannot fund or that pulls against the strategy should not survive to the final document.",
+        "Where the owner raises sale, exit or valuation, record the interest and refer it to the appropriate BBA engagement. Do not begin it here."
+      ]
+    },
+    "guardrails": {
+      "must_not": [
+        "provide a valuation or estimate a sale price",
+        "state or imply an enterprise value multiple",
+        "give tax or legal advice",
+        "offer transaction or exit-related guidance",
+        "promise an increase in enterprise value",
+        "assert an industry margin benchmark"
+      ],
+      "note": "This module builds business maturity and reduces risk. It is not exit advisory, and it is not an appraisal.\n\nThese are boundaries of profession, not boundaries of module. Where V10 surfaces an issue whose home module is elsewhere, the advisor addresses it and records the output against that module."
+    },
+    "quality_standards": [
+      "The owner leaves with a clear view of capability strengths and weaknesses.",
+      "Value drivers were weighted for this business rather than presented as an equal list.",
+      "Where modules had been completed, movement was shown, not just current position.",
+      "Gaps and leaks are specific and traceable to something observed.",
+      "The plan has five to seven initiatives, each owned, timed and affordable.",
+      "No dollar figure was placed on the business at any point."
+    ]
+  },
+  {
+    "program_type": "value_builder",
+    "module_code": "V11",
+    "display_order": 11,
+    "title": "Risk, Legal, Compliance & Property",
+    "focus": "What could go wrong, what is not documented, and what nobody has looked at in years.",
+    "purpose": "V11 identifies and registers the legal, compliance, contractual and property exposures the business carries. Most of them are invisible day to day and surface only when something goes wrong or when someone tries to buy the business.\n\nThis module records and refers. It does not advise. The advisor cannot give legal, tax or insurance advice, and must not confirm that any compliance obligation has been met. The value is in finding the gaps, ranking them, and getting the right professional onto each.",
+    "core_outcomes": [
+      "A risk register exists, with severity, owner and next action against every item.",
+      "Agreement and documentation gaps are identified, including what is currently verbal.",
+      "Property and lease positions are recorded against the business's known plans.",
+      "Every item needing a professional has been referred to the right one."
+    ],
+    "notes": [
+      {
+        "key": "character-of-this-module",
+        "title": "Character of this module",
+        "text": "V11 differs from the others. Most of the answers already exist in the diagnostic and are matters of fact rather than judgement, so the session is validation and prioritisation, not discovery. It is the shortest module in the program and the least discursive, and that is correct.\n\nEverything here is self-reported unless a document was sighted. The advisor records what the client states and what the documents show. Nothing is confirmed as compliant on the advisor's assessment."
+      },
+      {
+        "key": "boundary-with-v9",
+        "title": "Boundary with V9",
+        "text": "V9 covers owner-specific continuity: what happens if the owner is absent, ill or gone. V11 covers business continuity more broadly: insurance, premises, supply, systems and data. Where V9 has identified that no cover exists for the owner's role, it appears in this register as a continuity risk rather than being reworked."
+      },
+      {
+        "key": "tool-records-does-not-assess",
+        "section": "recommended_tools",
+        "text": "Before the session it compiles the draft Risk Register and agreements gap list from the diagnostic, flags every item answered as unsure, and highlights lease expiries falling inside any stated plan. After the session it produces the register and the summary.\n\nThe tool must not state that an obligation is met, interpret a contract or lease, or assess whether insurance cover is adequate. It records status as reported and identifies gaps."
+      },
+      {
+        "key": "property-section-of-d2",
+        "section": "deliverables",
+        "text": "The Property section of D2 records each lease with expiry, options and intended position. It is brief where the business holds no property."
+      }
+    ],
+    "required_inputs": [
+      {
+        "key": "V11-I1",
+        "label": "Diagnostic legal and compliance responses: structure, shareholders and directors, licences, legal actions, regulatory obligations and correspondence, workplace incidents",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V11-I2",
+        "label": "Diagnostic tax and registration responses: tax returns, activity statements, payroll tax, ATO liabilities, Division 7A, PPSR, business registrations, insurance confirmation",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V11-I3",
+        "label": "Diagnostic agreement responses: shareholder agreements, supplier contracts, exclusivity, written customer agreements, contracts with key customers",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V11-I4",
+        "label": "Diagnostic property responses: owned and leased properties, the property detail matrix, upgrade requirements",
+        "source": "Held in Trinity"
+      },
+      {
+        "key": "V11-I5",
+        "label": "Lease documents, where available",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V11-I6",
+        "label": "Insurance schedule",
+        "source": "Advisor to upload"
+      },
+      {
+        "key": "V11-I7",
+        "label": "V8 Brand & IP Asset Register, for unowned or unprotected assets",
+        "source": "From an earlier module",
+        "source_note": "where available"
+      },
+      {
+        "key": "V11-I8",
+        "label": "V9 Continuity Position",
+        "source": "From an earlier module",
+        "source_note": "where available",
+        "fallback": "Where V9 has not run, business continuity is assessed here from the diagnostic alone. V9 owns owner-specific continuity; this register carries the broader position."
+      }
+    ],
+    "preparation_summary": {
+      "owner": "Advisor",
+      "duration": "30 to 45 minutes"
+    },
+    "preparation_checklist": [
+      {
+        "key": "load-into-risk-tool",
+        "text": "Load the diagnostic responses into the risk tool, which compiles the draft Risk Register and the agreements gap list."
+      },
+      {
+        "key": "read-property-matrix",
+        "text": "Read the property matrix carefully. Note every lease expiry, whether options exist, and what happens at expiry."
+      },
+      {
+        "key": "check-expiries-against-plans",
+        "text": "Check lease expiries against anything the business is planning. A lease expiring inside a sale window, an expansion, or a major investment decision is frequently the most urgent item in the whole engagement, and it is easy to read past."
+      },
+      {
+        "key": "note-not-sure-answers",
+        "text": "Note where the client answered \"not sure\" or left an item blank. Uncertainty is a finding."
+      },
+      {
+        "key": "pull-through-unowned-assets",
+        "text": "Where V8 has run, pull through any asset the business does not legally own."
+      }
+    ],
+    "sessions": [
+      {
+        "key": "V11-S1",
+        "title": "Risk & Compliance Review",
+        "duration": "Target 60 to 80 minutes",
+        "format": "In person or online",
+        "agenda": [
+          {
+            "key": "V11-S1-A1",
+            "title": "Frame the session",
+            "duration": "5 minutes",
+            "detail": "This session records exposures and gets the right people onto them. Nothing said here is legal, tax or insurance advice, and the advisor is not confirming that anything is compliant."
+          },
+          {
+            "key": "V11-S1-A2",
+            "title": "Validate the risk register",
+            "duration": "20 to 25 minutes",
+            "detail": "Walk the draft register. Confirm each item, correct what is wrong, and add what is missing.",
+            "note": "Give particular attention to anything the client marked as unsure. In the diagnostic, \"I'm not sure\" against a compliance question is a more serious finding than a plain \"no\", because nobody is watching it."
+          },
+          {
+            "key": "V11-S1-A3",
+            "title": "Agreements and documents",
+            "duration": "15 to 20 minutes",
+            "detail": "Establish what exists in writing, what is verbal, and what does not exist at all. Shareholder agreements, supplier contracts, customer agreements, exclusivity arrangements.",
+            "questions": [
+              {
+                "items": [
+                  "What is the arrangement with your biggest customer, and is any of it written down?",
+                  "If your co-director and you disagreed tomorrow, what document settles it?",
+                  "What have you agreed with suppliers that only exists in an email or a conversation?"
+                ]
+              }
+            ],
+            "note": "A business with two directors and no shareholder agreement is the most common serious gap in this module, and owners are routinely surprised it matters."
+          },
+          {
+            "key": "V11-S1-A4",
+            "title": "Property and leases",
+            "duration": "10 to 15 minutes",
+            "detail": "Confirm each lease: expiry, options, what happens at the end, and what the business intends to do. Test expiry against the plans.",
+            "questions": [
+              {
+                "items": [
+                  "Where do you expect to be when this expires?",
+                  "Does that work?",
+                  "What is your position if the landlord does not renew?"
+                ]
+              }
+            ]
+          },
+          {
+            "key": "V11-S1-A5",
+            "title": "Prioritise and refer",
+            "duration": "10 to 15 minutes",
+            "detail": "Rank the register. For each significant item, name the professional needed: commercial solicitor, accountant, insurance broker, or specialist.",
+            "note": "Separate what needs a professional from what the business can simply do, such as retrieving a document, checking a registration or filing something that exists but was never lodged."
+          },
+          {
+            "key": "V11-S1-A6",
+            "title": "Close",
+            "duration": "5 minutes",
+            "detail": "Confirm the first referral being made and by when."
+          }
+        ]
+      }
+    ],
+    "recommended_tools": [
+      {
+        "tool_key": "risk_compliance",
+        "label": "Risk & Compliance tool",
+        "when": "pre, post",
+        "status": "To build, Feature 3"
+      }
+    ],
+    "deliverables": [
+      {
+        "key": "V11-D1",
+        "title": "Risk Register, with severity, owner, action and referral",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V10"
+        ]
+      },
+      {
+        "key": "V11-D2",
+        "title": "Agreements, Documents & Property Summary",
+        "is_mandatory": true,
+        "produced_by": "trinity_tool",
+        "produced_by_note": "advisor-refined",
+        "feeds": [
+          "V10"
+        ]
+      }
+    ],
+    "post_session_actions": {
+      "owner": "Advisor",
+      "duration": "30 to 45 minutes",
+      "items": [
+        "Finalise the register and summary, then issue them.",
+        "Make the referrals, or confirm the client is making them, and record which. An unactioned referral is the most common way this module quietly achieves nothing.",
+        "Pass unprotected or unowned assets back to V8, and any continuity gap to V9.",
+        "Record the risk position for V10, since unmanaged risk is a direct value detractor."
+      ]
+    },
+    "guardrails": {
+      "must_not": [
+        "provide legal advice of any kind",
+        "draft, review or interpret a contract, lease or agreement",
+        "provide tax advice",
+        "assess whether insurance cover is adequate or advise on cover levels",
+        "represent the client in a regulatory matter",
+        "confirm that a compliance obligation has been met"
+      ],
+      "note": "The module records what the client reports and what documents show, identifies gaps, and refers. Any statement that something is compliant, adequate or enforceable is outside the advisor's role and outside their insurance.\n\nThese are boundaries of profession, not boundaries of module. Where V11 surfaces an issue whose home module is elsewhere, the advisor addresses it and records the output against that module."
+    },
+    "quality_standards": [
+      "Every risk carries a severity, an owner and a next action.",
+      "Nothing was recorded as compliant on the advisor's own assessment.",
+      "Every \"not sure\" from the diagnostic was followed up or recorded as unresolved.",
+      "Lease expiries were tested against the business's stated plans.",
+      "Referrals name the type of professional required, not simply \"get advice\".",
+      "The client can distinguish what needs a professional from what they can do themselves."
+    ]
+  },
+  {
+    "program_type": "value_builder",
+    "module_code": "M12",
+    "display_order": 12,
+    "title": "Re-Diagnostic Capstone",
+    "purpose": "PLACEHOLDER: Re-run the diagnostic, see the value movement since the last one, and get routed back through the module library with a refreshed focus.",
+    "preparation_checklist": [
+      {
+        "key": "review-progress",
+        "text": "PLACEHOLDER: Review progress made across the modules since the last diagnostic"
+      }
+    ],
+    "recommended_tools": [
+      {
+        "tool_key": "diagnostic",
+        "label": "Value Builder Diagnostic"
+      }
+    ],
+    "deliverables": [
+      {
+        "key": "M12-D1",
+        "title": "PLACEHOLDER: Value Movement Report",
+        "is_mandatory": true
+      }
+    ]
+  }
+]

@@ -17,6 +17,11 @@ FastAPI backend with Auth0 authentication integration.
    ```bash
    pip install -r requirements.txt
    ```
+   For local development, use `requirements-dev.txt` instead — it installs the
+   above plus the test tooling:
+   ```bash
+   pip install -r requirements-dev.txt
+   ```
 
 4. **Configure environment variables:**
    - Copy `.env.example` to `.env`
@@ -31,6 +36,47 @@ FastAPI backend with Auth0 authentication integration.
    ```bash
    uvicorn app.main:app --reload --port 8000
    ```
+
+## Tests
+
+Requires `pip install -r requirements-dev.txt`. Run from `backend/`:
+
+```bash
+pytest tests/test_program_deliverable_status.py -v      # pure, no database
+pytest tests/test_program_deliverable_validation.py -v  # pure, no database
+```
+
+`tests/conftest.py` puts `backend/` on `sys.path` and, only when no `.env` is
+present, stubs the environment variables that `app.config.Settings` requires —
+so tests import cleanly on a machine with no configuration.
+
+### Tests that need a database
+
+`tests/test_program_deliverable_mutations.py` exercises real DB behaviour and
+runs against your local database from `DATABASE_URL`. Make sure it is migrated:
+
+```bash
+alembic upgrade head
+pytest tests/test_program_deliverable_mutations.py -v
+```
+
+Set `TEST_DATABASE_URL` to run them somewhere other than your dev database.
+If the target has not been migrated, the DB tests skip with instructions rather
+than failing en masse.
+
+**Tests never commit.** The `db_session` fixture holds an outer transaction and
+joins the session to it as a savepoint, so a service's own `db.commit()` only
+issues `RELEASE SAVEPOINT`; teardown rolls everything back, including the
+throwaway user and engagement the fixtures create. Running against your dev
+database leaves no trace.
+
+Note that `alembic upgrade head` cannot build a database **from empty** in this
+repo — an early revision runs `ALTER TABLE advisor_client` before that table is
+created. Upgrading an existing database works fine.
+
+Note that a bare `pytest` also collects `tests/test_claude_service.py`, whose
+async tests need `pytest-asyncio` (not currently a dependency). Run specific
+test files until that is added.
 
 ## Auth0 Configuration
 

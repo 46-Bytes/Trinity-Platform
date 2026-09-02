@@ -373,13 +373,39 @@ async def upload_files_poc(
         logger.info(f"Updated BBA project {project_id} with {len(updated_file_ids)} file(s)")
     
     # Return results
+    successful_uploads = len([r for r in results if r["status"] == "success"])
+
+    # Every file failed. That is a server-side fault - almost always the Files API
+    # being unreachable - not a bad request, so it must not be a 200. Reporting
+    # success here is what allowed a run to proceed with zero documents attached,
+    # leaving the model to answer from nothing and produce a confident, worthless
+    # report that looked like a normal one.
+    if files and successful_uploads == 0:
+        first_error = next(
+            (r.get("error") for r in results if r.get("error")),
+            "Upload returned no file_id",
+        )
+        logger.error(
+            f"All {len(files)} file(s) failed to upload for BBA project {project_id}: {first_error}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"No files could be uploaded to the AI provider: {first_error}",
+        )
+
+    if successful_uploads < len(files):
+        logger.warning(
+            f"Partial upload for BBA project {project_id}: "
+            f"{successful_uploads} of {len(files)} file(s) succeeded"
+        )
+
     return {
-        "success": True,
-        "message": f"Processed {len(files)} file(s)",
+        "success": successful_uploads == len(files),
+        "message": f"Uploaded {successful_uploads} of {len(files)} file(s)",
         "files": results,
         "file_mapping": file_mapping,
         "total_files": len(files),
-        "successful_uploads": len([r for r in results if r["status"] == "success"]),
+        "successful_uploads": successful_uploads,
         "project_id": str(project_id)
     }
 

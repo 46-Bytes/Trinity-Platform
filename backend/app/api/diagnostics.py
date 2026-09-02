@@ -896,12 +896,13 @@ async def download_diagnostic_report(
         if not report_user:
             report_user = current_user
 
+        engagement_obj = db.query(Engagement).filter(
+            Engagement.id == diagnostic.engagement_id
+        ).first()
+
         # Look up lead advisor name for cover page
         advisor_name = ""
         try:
-            engagement_obj = db.query(Engagement).filter(
-                Engagement.id == diagnostic.engagement_id
-            ).first()
             if engagement_obj and engagement_obj.primary_advisor_id:
                 advisor_user = db.query(User).filter(
                     User.id == engagement_obj.primary_advisor_id
@@ -911,12 +912,17 @@ async def download_diagnostic_report(
         except Exception:
             advisor_name = ""
 
+        # AI field privacy applies ONLY to the Claude payload (enforced in
+        # diagnostic_service._process_diagnostic_pipeline). Human-facing exports must
+        # still show every answer, so the report's "All Responses" table renders the
+        # complete stored responses — private fields are shown here, just never sent to AI.
         pdf_bytes = ReportService.generate_pdf_report(
             diagnostic=diagnostic,
             user=report_user,
             question_text_map=question_text_map,
             structured_question_map=structured_question_map,
-            advisor_name=advisor_name
+            advisor_name=advisor_name,
+            user_responses_override=diagnostic.user_responses or {}
         )
         
         filename = ReportService.get_download_filename(diagnostic, report_user)
@@ -1017,8 +1023,11 @@ async def generate_document_from_template(
     try:
         # Get template service
         template_service = get_document_template_service()
-        
-        # Generate document
+
+        # AI field privacy applies ONLY to the Claude payload (enforced in
+        # diagnostic_service._process_diagnostic_pipeline). Generated documents are a
+        # human-facing export, so every answer is rendered — private fields are shown
+        # in the document, just never sent to AI.
         document_bytes = template_service.generate_document(
             db=db,
             template_name=request.template_name,

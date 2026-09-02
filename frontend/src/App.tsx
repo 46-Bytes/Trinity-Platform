@@ -38,6 +38,9 @@ import SubscriptionsPage from "./pages/dashboard/Subscriptions";
 import FileUploadPOCPage from "./pages/poc/FileUploadPOCPage";
 import StrategyWorkbookPage from "./pages/dashboard/StrategyWorkbookPage";
 import StrategicBusinessPlanPage from "./pages/dashboard/StrategicBusinessPlanPage";
+import AIPrivacyPage from "./pages/dashboard/AIPrivacyPage";
+import RolesMatrixPage from "./pages/dashboard/RolesMatrixPage";
+import PDScorecardPage from "./pages/dashboard/PDScorecardPage";
 import HelpPage from "./pages/dashboard/help/HelpPage";
 import HelpManagePage from "./pages/dashboard/help/HelpManagePage";
 
@@ -81,9 +84,13 @@ function AppRoutes() {
         <Route path="engagements/:engagementId/bba" element={<FileUploadPOCPage />} />
         <Route path="engagements/:engagementId/strategy-workbook" element={<StrategyWorkbookPage />} />
         <Route path="engagements/:engagementId/strategic-business-plan" element={<StrategicBusinessPlanPage />} />
+        <Route path="engagements/:engagementId/roles-matrix" element={<RolesMatrixPage />} />
+        <Route path="engagements/:engagementId/pd-scorecard" element={<PDScorecardPage />} />
         <Route path="ai-tools/bba" element={<FileUploadPOCPage />} />
         <Route path="ai-tools/strategy-workbook" element={<StrategyWorkbookPage />} />
         <Route path="ai-tools/strategic-business-plan" element={<StrategicBusinessPlanPage />} />
+        <Route path="ai-tools/roles-matrix" element={<RolesMatrixPage />} />
+        <Route path="ai-tools/pd-scorecard" element={<PDScorecardPage />} />
         <Route path="tasks" element={<TasksPage />} />
         <Route path="documents" element={<DocumentsPage />} />
         <Route path="ai-tools" element={<AIToolsPage />} />
@@ -99,6 +106,7 @@ function AppRoutes() {
           <Route path="subscription" element={<FirmDetailsSubscription />} />
         </Route>
         <Route path="subscriptions" element={<SubscriptionsPage />} />
+        <Route path="ai-privacy" element={<AIPrivacyPage />} />
         {/* Placeholder routes */}
         <Route path="chat" element={<DashboardHome />} />
         <Route path="analytics" element={<DashboardHome />} />

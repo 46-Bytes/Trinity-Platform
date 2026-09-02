@@ -18,6 +18,7 @@ import {
   Shield,
   MessageSquare,
   CreditCard,
+  ShieldCheck,
   HelpCircle
 } from 'lucide-react';
 import { UserRole } from '@/types/auth';
@@ -47,6 +48,7 @@ const navItems: NavItem[] = [
   { label: 'Tasks', href: '/dashboard/tasks', icon: CheckSquare, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
   { label: 'AI Tools', href: '/dashboard/ai-tools', icon: Brain, roles: ['super_admin', 'admin', 'advisor', 'firm_admin', 'firm_advisor'] },
   { label: 'Firm Management', href: '/dashboard/firm', icon: Building2, roles: ['firm_admin'] },
+  { label: 'AI Privacy', href: '/dashboard/ai-privacy', icon: ShieldCheck, roles: ['super_admin', 'admin'] },
   { label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
   { label: 'Help', href: '/dashboard/help', icon: HelpCircle, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
 ];
@@ -56,7 +58,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const location = useLocation();
   const [firmsExpanded, setFirmsExpanded] = useState(false);
 
-  const filteredItems = navItems.filter(item => 
+  const filteredItems = navItems.filter(item =>
     user && item.roles.includes(user.role) && item.href !== '/dashboard/firm' // Remove firm admin dashboard from superadmin
   );
 

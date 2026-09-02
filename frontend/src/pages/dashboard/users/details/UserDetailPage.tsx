@@ -35,6 +35,7 @@ interface UserDetailData {
   name: string;
   first_name?: string;
   last_name?: string;
+  business_name?: string;
   role: string;
   email_verified: boolean;
   is_active: boolean;
@@ -317,6 +318,12 @@ export default function UserDetailPage() {
             <label className="text-sm font-medium text-muted-foreground">Role</label>
             <p className="text-foreground font-medium">{userData.role}</p>
           </div>
+          {userData.role === 'client' && (
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Business Name</label>
+              <p className="text-foreground font-medium">{userData.business_name || 'N/A'}</p>
+            </div>
+          )}
           <div>
             <label className="text-sm font-medium text-muted-foreground">Status</label>
             <div className="mt-1">

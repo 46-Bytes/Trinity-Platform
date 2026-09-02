@@ -1,3 +1,4 @@
+import { EyeOff } from 'lucide-react';
 import {
   DropdownQuestion,
   TextQuestion,
@@ -18,6 +19,7 @@ interface ToolQuestionProps {
   allResponses: Record<string, any>;
   diagnosticId?: string;
   engagementId?: string;
+  isExcluded?: boolean;
 }
 
 // Helper to evaluate a single condition expression
@@ -155,59 +157,70 @@ function evaluateCondition(condition: string, responses: Record<string, any>): b
   return evaluateSingleCondition(condition, responses);
 }
 
-export function ToolQuestion({ question, value, onChange, onFieldChange, allResponses, diagnosticId, engagementId }: ToolQuestionProps) {
-  // Check conditional visibility
+export function ToolQuestion({ question, value, onChange, onFieldChange, allResponses, diagnosticId, engagementId, isExcluded }: ToolQuestionProps) {
+  // Check conditional visibility — return null for hidden fields (no badge either)
   if (question.visibleIf) {
     const isVisible = evaluateCondition(question.visibleIf, allResponses);
     if (!isVisible) return null;
   }
 
-  // Render based on question type
-  switch (question.type) {
-    case 'dropdown':
-      return (
-        <DropdownQuestion 
-          question={question} 
-          value={value} 
-          onChange={onChange}
-          allResponses={allResponses}
-          onFieldChange={onFieldChange}
-        />
-      );
-    
-    case 'text':
-      return <TextQuestion question={question} value={value} onChange={onChange} />;
-    
-    case 'radiogroup':
-      return <RadioGroupQuestion question={question} value={value} onChange={onChange} />;
-    
-    case 'matrixdynamic':
-      return <MatrixDynamicQuestion question={question} value={value} onChange={onChange} />;
-    
-    case 'comment':
-      return <CommentQuestion question={question} value={value} onChange={onChange} />;
-    
-    case 'multipletext':
-      return <MultipleTextQuestion question={question} value={value} onChange={onChange} />;
-    
-    case 'file':
-      return (
-        <FileQuestion
-          question={question}
-          value={value}
-          onChange={onChange}
-          diagnosticId={diagnosticId}
-          engagementId={engagementId}
-        />
-      );
-    
-    case 'boolean':
-      return <BooleanQuestion question={question} value={value} onChange={onChange} />;
-    
-    case 'checkbox':
-      return <CheckboxQuestion question={question} value={value} onChange={onChange} />;
-    
-    default:
-      return <div className="p-4 border border-yellow-500 bg-yellow-50 rounded-md">Unsupported question type: {question.type}</div>;
+  function buildContent(q: any) {
+    switch (q.type) {
+      case 'dropdown':
+        return (
+          <DropdownQuestion
+            question={q}
+            value={value}
+            onChange={onChange}
+            allResponses={allResponses}
+            onFieldChange={onFieldChange}
+          />
+        );
+      case 'text':
+        return <TextQuestion question={q} value={value} onChange={onChange} />;
+      case 'radiogroup':
+        return <RadioGroupQuestion question={q} value={value} onChange={onChange} />;
+      case 'matrixdynamic':
+        return <MatrixDynamicQuestion question={q} value={value} onChange={onChange} />;
+      case 'comment':
+        return <CommentQuestion question={q} value={value} onChange={onChange} />;
+      case 'multipletext':
+        return <MultipleTextQuestion question={q} value={value} onChange={onChange} />;
+      case 'file':
+        return (
+          <FileQuestion
+            question={q}
+            value={value}
+            onChange={onChange}
+            diagnosticId={diagnosticId}
+            engagementId={engagementId}
+          />
+        );
+      case 'boolean':
+        return <BooleanQuestion question={q} value={value} onChange={onChange} />;
+      case 'checkbox':
+        return <CheckboxQuestion question={q} value={value} onChange={onChange} />;
+      default:
+        return <div className="p-4 border border-yellow-500 bg-yellow-50 rounded-md">Unsupported question type: {q.type}</div>;
+    }
   }
+
+  if (!isExcluded) return buildContent(question);
+
+  // Render title + inline badge, then the input without its own title
+  return (
+    <div className="space-y-1.5 w-full min-w-0">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-sm font-medium leading-snug break-words">{question.title}</span>
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200 shrink-0">
+          <EyeOff className="w-3 h-3" />
+          Not sent to AI
+        </span>
+      </div>
+      {question.description && (
+        <p className="text-sm text-muted-foreground break-words">{question.description}</p>
+      )}
+      {buildContent({ ...question, title: '', description: undefined })}
+    </div>
+  );
 }

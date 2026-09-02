@@ -18,7 +18,7 @@ class ImpersonationSession(Base):
     __tablename__ = "impersonation_sessions"
     
     # Primary Key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,unique=True,nullable=False,comment="Unique identifier for the impersonation session") 
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,nullable=False,comment="Unique identifier for the impersonation session")
     # Foreign Keys
     original_user_id = Column(UUID(as_uuid=True),ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True, comment="The superadmin user who is impersonating")
     impersonated_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True, comment="The user being impersonated")

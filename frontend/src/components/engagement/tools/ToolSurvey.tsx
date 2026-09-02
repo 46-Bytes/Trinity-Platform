@@ -38,6 +38,7 @@ import valueBuilderSurveyData from '@/questions/questions_ValueBuilder.json';
 import saleReadySurveyData from '@/questions/questions_sale_ready.json';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getFieldConfigs, QuestionnaireType } from '@/lib/aiPrivacyService';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -67,6 +68,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
   const [engagementStatusUpdated, setEngagementStatusUpdated] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [excludedFields, setExcludedFields] = useState<Set<string>>(new Set());
   
   // Document generation state
   const [templates, setTemplates] = useState<Array<{ name: string; display_name: string }>>([]);
@@ -122,6 +124,17 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
       dispatch(fetchDiagnosticByEngagement(engagementId));
     }
   }, [dispatch, engagementId, toolType]);
+
+  // Fetch AI privacy excluded fields for this questionnaire type
+  useEffect(() => {
+    if (!engagementType) return;
+    const type: QuestionnaireType = engagementType === 'sale_ready' ? 'sale_ready' : 'value_builder';
+    getFieldConfigs(type)
+      .then((items) => {
+        setExcludedFields(new Set(items.filter((i) => !i.include_in_ai).map((i) => i.field_name)));
+      })
+      .catch(() => {}); // silent — badges are an optional UI enhancement
+  }, [engagementType]);
 
   // Automatic status polling when diagnostic is processing
   useEffect(() => {
@@ -1051,6 +1064,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
                   allResponses={responses}
                   diagnosticId={diagnostic?.id}
                   engagementId={engagementId}
+                  isExcluded={excludedFields.has(element.name)}
                 />
               );
             })}

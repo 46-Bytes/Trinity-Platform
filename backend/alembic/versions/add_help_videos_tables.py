@@ -1,7 +1,7 @@
 """add help_video_categories and help_videos tables
 
 Revision ID: add_help_videos_tables
-Revises: partial_email_idx
+Revises: add_firms_firm_admin_fk
 Create Date: 2026-07-14
 
 Creates the Help / Video User Guide tables: admin-managed categories and the
@@ -13,7 +13,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = 'add_help_videos_tables'
-down_revision = 'partial_email_idx'
+down_revision = 'add_firms_firm_admin_fk'
 branch_labels = None
 depends_on = None
 

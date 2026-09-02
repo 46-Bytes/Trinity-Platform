@@ -41,6 +41,8 @@ import StrategicBusinessPlanPage from "./pages/dashboard/StrategicBusinessPlanPa
 import AIPrivacyPage from "./pages/dashboard/AIPrivacyPage";
 import RolesMatrixPage from "./pages/dashboard/RolesMatrixPage";
 import PDScorecardPage from "./pages/dashboard/PDScorecardPage";
+import HelpPage from "./pages/dashboard/help/HelpPage";
+import HelpManagePage from "./pages/dashboard/help/HelpManagePage";
 
 const queryClient = new QueryClient();
 
@@ -93,6 +95,8 @@ function AppRoutes() {
         <Route path="documents" element={<DocumentsPage />} />
         <Route path="ai-tools" element={<AIToolsPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="help" element={<HelpPage />} />
+        <Route path="help/manage" element={<HelpManagePage />} />
         <Route path="firms" element={<FirmsPage />} />
         <Route path="firms/:firmId" element={<FirmDetailsLayout />}>
           <Route path="clients" element={<FirmDetailsClients />} />

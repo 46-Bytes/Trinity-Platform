@@ -22,6 +22,7 @@ from .program_deliverable import ProgramModuleDeliverable, EngagementModuleDeliv
 from .ai_field_privacy import AIFieldPrivacy
 from .roles_matrix import RolesMatrix
 from .pd_scorecard import PDScorecard, PDScorecardRole
+from .help_video import HelpVideoCategory, HelpVideo
 
 __all__ = [
     "User",
@@ -49,6 +50,8 @@ __all__ = [
     "RolesMatrix",
     "PDScorecard",
     "PDScorecardRole",
+    "HelpVideoCategory",
+    "HelpVideo",
 ]
 
 

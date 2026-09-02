@@ -28,11 +28,11 @@ class ScoringService:
         "V1": "Financial Management",
         "V2": "Strategy & Planning",
         "V3": "Leadership & Communications",
-        "V4": "People",
+        "V4": "People & Structure",
         "V5": "Systems & Processes",
         "V6": "Technology",
         "V7": "Sales & Marketing",
-        "V8": "Brand, IP & Competitive Advantage",
+        "V8": "Brand, IP & Protection",
         "V9": "Owner Independence",
         "V10": "Value & Growth",
         "V11": "Risk, Legal, Compliance & Property"
@@ -51,7 +51,24 @@ class ScoringService:
     # RAG thresholds
     RAG_RED_THRESHOLD = 2.0
     RAG_AMBER_THRESHOLD = 4.0
-    
+
+    # Severity bands, in ascending score order: (exclusive upper bound, label).
+    # Finer-grained than RAG on purpose - RAG answers "is this a problem", and
+    # three buckets is enough for a traffic light. Severity answers "how badly,
+    # relative to the other ten modules", which is what an advisor sequences
+    # work by, and Red spanning 0.0 to 2.0 flattens the worst cases together.
+    #
+    # The bands deliberately do NOT align to the RAG boundaries. A 2.2 and a 2.6
+    # are both Amber but both still serious, and the 2.7 boundary is where the
+    # program's own reference report stops calling a module High.
+    SEVERITY_BANDS = (
+        (1.5, "Critical"),
+        (2.7, "High"),
+        (3.5, "Moderate"),
+        (4.0, "Low"),
+    )
+    SEVERITY_TOP_LABEL = "Strong"
+
     @staticmethod
     def calculate_module_scores(
         scored_rows: List[Dict[str, Any]],
@@ -134,7 +151,28 @@ class ScoringService:
             return "Amber"
         else:
             return "Green"
-    
+
+    @staticmethod
+    def determine_severity(score: float) -> str:
+        """
+        Describe how serious a module's position is, in words rather than a colour.
+
+        Args:
+            score: Module average score (0-5)
+
+        Returns:
+            "Critical", "High", "Moderate", "Low" or "Strong"
+
+        Note the top band is "Strong", not "None". A module scoring above 4.0 is
+        not an absence of severity - it is an asset, and the program's guidance
+        is to use it as the vehicle for changes coming out of the weaker
+        modules. Labelling it as nothing would lose that.
+        """
+        for upper_bound, label in ScoringService.SEVERITY_BANDS:
+            if score < upper_bound:
+                return label
+        return ScoringService.SEVERITY_TOP_LABEL
+
     @staticmethod
     def rank_modules(
         module_scores: Dict[str, Dict[str, Any]]

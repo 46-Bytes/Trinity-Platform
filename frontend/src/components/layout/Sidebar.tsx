@@ -18,7 +18,8 @@ import {
   Shield,
   MessageSquare,
   CreditCard,
-  ShieldCheck
+  ShieldCheck,
+  HelpCircle
 } from 'lucide-react';
 import { UserRole } from '@/types/auth';
 
@@ -49,6 +50,7 @@ const navItems: NavItem[] = [
   { label: 'Firm Management', href: '/dashboard/firm', icon: Building2, roles: ['firm_admin'] },
   { label: 'AI Privacy', href: '/dashboard/ai-privacy', icon: ShieldCheck, roles: ['super_admin', 'admin'] },
   { label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
+  { label: 'Help', href: '/dashboard/help', icon: HelpCircle, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
 ];
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {

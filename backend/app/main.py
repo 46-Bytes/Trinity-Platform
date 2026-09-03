@@ -26,6 +26,7 @@ from .api.program_deliverable import router as program_deliverable_router
 from .api.ai_field_privacy import router as ai_field_privacy_router
 from .api.roles_matrix import router as roles_matrix_router
 from .api.pd_scorecard import router as pd_scorecard_router
+from .api.help_video import router as help_router
 
 # from .services.openai_service import OpenAIService  # Preserved for rollback
 from .services.claude_service import ClaudeService
@@ -105,6 +106,7 @@ app.include_router(program_deliverable_router, prefix="/api")
 app.include_router(ai_field_privacy_router)
 app.include_router(roles_matrix_router)  # already has /api prefix
 app.include_router(pd_scorecard_router)  # already has /api prefix
+app.include_router(help_router)  # already carries the /api/help prefix
 
 # Mount static files directory for serving uploaded files
 # This allows /files/... URLs to be served directly

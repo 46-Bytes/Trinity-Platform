@@ -251,9 +251,9 @@ export function ModuleDeliverablesPanel({
           }}
         >
           <DialogTrigger asChild>
-            <Button variant="ghost" size="sm" className="w-full">
+            <Button variant="outline" size="sm" className="w-full">
               <Plus className="mr-1 h-4 w-4" />
-              Add a deliverable for this engagement
+              Add deliverable
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">

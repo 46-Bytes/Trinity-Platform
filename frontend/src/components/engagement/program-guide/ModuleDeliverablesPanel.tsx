@@ -7,6 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -66,6 +74,10 @@ export function ModuleDeliverablesPanel({
   // would act on by adding a deliverable that already exists.
   const stillLoading = isLoading && !view;
   const [isAdding, setIsAdding] = useState(false);
+  // A new deliverable has no id yet, so it cannot ride on pendingIds like every
+  // other row does. Without its own flag the dialog would accept a second
+  // submit, or be dismissed, while the first request is still in the air.
+  const [isSubmittingNew, setIsSubmittingNew] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const items = moduleDeliverables?.deliverables ?? [];
@@ -224,34 +236,61 @@ export function ModuleDeliverablesPanel({
           not close its task, and closing a task does not tick the deliverable.
         </p>
 
-        {isAdding ? (
-          <DeliverableForm
-            busy={false}
-            onCancel={() => setIsAdding(false)}
-            onSubmit={async ({ title, isMandatory, description }) => {
-              try {
-                await dispatch(
-                  addAdvisorDeliverable({
-                    engagementId,
-                    moduleCode,
-                    title,
-                    isMandatory,
-                    description,
-                  })
-                ).unwrap();
-                toast.success('Deliverable added');
-                setIsAdding(false);
-              } catch (error) {
-                toast.error(error instanceof Error ? error.message : 'Failed to add the deliverable');
-              }
-            }}
-          />
-        ) : (
-          <Button variant="ghost" size="sm" className="w-full" onClick={() => setIsAdding(true)}>
-            <Plus className="mr-1 h-4 w-4" />
-            Add a deliverable for this engagement
-          </Button>
-        )}
+        {/*
+          Adding is a modal rather than an inline form: the panel it would grow
+          inside is already dense, and the form sits below a paragraph about
+          tasks that has nothing to do with it. Editing stays inline, where the
+          row being changed is the context.
+        */}
+        <Dialog
+          open={isAdding}
+          onOpenChange={(open) => {
+            // Closing mid-request would leave a toast landing on nothing.
+            if (isSubmittingNew) return;
+            setIsAdding(open);
+          }}
+        >
+          <DialogTrigger asChild>
+            <Button variant="ghost" size="sm" className="w-full">
+              <Plus className="mr-1 h-4 w-4" />
+              Add a deliverable for this engagement
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>New deliverable</DialogTitle>
+              <DialogDescription>
+                Added for this engagement only. It counts towards this module&apos;s status like any
+                preset does.
+              </DialogDescription>
+            </DialogHeader>
+            <DeliverableForm
+              inDialog
+              busy={isSubmittingNew}
+              onCancel={() => setIsAdding(false)}
+              onSubmit={async ({ title, isMandatory, description }) => {
+                setIsSubmittingNew(true);
+                try {
+                  await dispatch(
+                    addAdvisorDeliverable({
+                      engagementId,
+                      moduleCode,
+                      title,
+                      isMandatory,
+                      description,
+                    })
+                  ).unwrap();
+                  toast.success('Deliverable added');
+                  setIsAdding(false);
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : 'Failed to add the deliverable');
+                } finally {
+                  setIsSubmittingNew(false);
+                }
+              }}
+            />
+          </DialogContent>
+        </Dialog>
 
         <p className="rounded-lg bg-muted/50 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
           Any deliverable can be completed from anywhere, at any time. A module can reach Complete without
@@ -387,14 +426,21 @@ function DeliverableRow({
   );
 }
 
+/**
+ * Shared by the inline edit row and the add dialog. `inDialog` drops the card
+ * chrome and the header, because the dialog already supplies a title and a
+ * close button and two of each reads as a bug.
+ */
 function DeliverableForm({
   initial,
   busy,
+  inDialog = false,
   onCancel,
   onSubmit,
 }: {
   initial?: DeliverableItem;
   busy: boolean;
+  inDialog?: boolean;
   onCancel: () => void;
   onSubmit: (values: { title: string; isMandatory: boolean; description: string | null }) => void;
 }) {
@@ -415,15 +461,20 @@ function DeliverableForm({
   };
 
   return (
-    <form onSubmit={submit} className="space-y-3 rounded-lg border border-border bg-muted/30 p-3">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {initial ? 'Edit deliverable' : 'New deliverable'}
-        </p>
-        <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={onCancel}>
-          <X className="h-3.5 w-3.5" />
-        </Button>
-      </div>
+    <form
+      onSubmit={submit}
+      className={cn('space-y-3', !inDialog && 'rounded-lg border border-border bg-muted/30 p-3')}
+    >
+      {!inDialog && (
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {initial ? 'Edit deliverable' : 'New deliverable'}
+          </p>
+          <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={onCancel}>
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
 
       <input
         autoFocus

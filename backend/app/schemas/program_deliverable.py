@@ -26,7 +26,7 @@ class DeliverableItem(BaseModel):
 
 class ModuleDeliverables(BaseModel):
     """A module's deliverables and its derived status."""
-    module_code: str = Field(..., description="e.g. 'M0', 'V1'..'V11', 'M12'")
+    module_code: str = Field(..., description="e.g. 'V1'..'V11'")
     status: str = Field(..., description="'not_started' | 'in_progress' | 'completed'")
     deliverables: List[DeliverableItem] = Field(
         default_factory=list,

@@ -1,32 +1,6 @@
 [
   {
     "program_type": "value_builder",
-    "module_code": "M0",
-    "display_order": 0,
-    "title": "Diagnostic Gateway",
-    "purpose": "PLACEHOLDER: Complete the Value Builder diagnostic so Trinity can generate your report, recommendations, and a personalised starting point and module path.",
-    "preparation_checklist": [
-      {
-        "key": "gather-key-documents",
-        "text": "PLACEHOLDER: Gather key financial and operational documents"
-      }
-    ],
-    "recommended_tools": [
-      {
-        "tool_key": "diagnostic",
-        "label": "Value Builder Diagnostic"
-      }
-    ],
-    "deliverables": [
-      {
-        "key": "M0-D1",
-        "title": "PLACEHOLDER: Diagnostic Report & Recommendations",
-        "is_mandatory": true
-      }
-    ]
-  },
-  {
-    "program_type": "value_builder",
     "module_code": "V1",
     "display_order": 1,
     "title": "Financial Management",
@@ -3355,32 +3329,6 @@
       "Lease expiries were tested against the business's stated plans.",
       "Referrals name the type of professional required, not simply \"get advice\".",
       "The client can distinguish what needs a professional from what they can do themselves."
-    ]
-  },
-  {
-    "program_type": "value_builder",
-    "module_code": "M12",
-    "display_order": 12,
-    "title": "Re-Diagnostic Capstone",
-    "purpose": "PLACEHOLDER: Re-run the diagnostic, see the value movement since the last one, and get routed back through the module library with a refreshed focus.",
-    "preparation_checklist": [
-      {
-        "key": "review-progress",
-        "text": "PLACEHOLDER: Review progress made across the modules since the last diagnostic"
-      }
-    ],
-    "recommended_tools": [
-      {
-        "tool_key": "diagnostic",
-        "label": "Value Builder Diagnostic"
-      }
-    ],
-    "deliverables": [
-      {
-        "key": "M12-D1",
-        "title": "PLACEHOLDER: Value Movement Report",
-        "is_mandatory": true
-      }
     ]
   }
 ]

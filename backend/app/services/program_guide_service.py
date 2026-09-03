@@ -2,9 +2,16 @@
 Program Guide service: composes module card content with the recommended
 module order for an engagement, and tracks advisor overrides.
 
-The recommended order is computed live from the latest BBA ("Recommendations
-Report Builder") findings for the engagement - never cached - since the
-computation is cheap (sorting ~10 in-memory finding objects, no LLM calls).
+The recommended order is computed live from the latest completed diagnostic for
+the engagement - never cached - since the computation is cheap (sorting eleven
+in-memory scores, no LLM calls).
+
+The diagnostic is the single source. The order used to come from the BBA
+("Recommendations Report Builder") draft findings, matching each finding's
+freeform `priority_area` back to a module code - a match documented as fragile
+across module renames, and one that silently degraded to the default taxonomy
+whenever it failed. Diagnostic module scores are already keyed by module code,
+so nothing has to be matched at all: the worst-scoring module is worked first.
 """
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -12,15 +19,10 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.models.bba import BBA
 from app.models.diagnostic import Diagnostic
 from app.models.engagement import Engagement
 from app.models.program_guide import EngagementProgramModuleState, ProgramModuleContent
 from app.services.scoring_service import ScoringService
-
-# Bookend stages that aren't ranked business-area modules.
-GATEWAY_MODULE_CODE = "M0"
-CAPSTONE_MODULE_CODE = "M12"
 
 
 class ProgramGuideService:
@@ -46,123 +48,78 @@ class ProgramGuideService:
     # ------------------------------------------------------------------
     # Ranking
     # ------------------------------------------------------------------
-    def _get_latest_bba_with_findings(self, engagement_id: UUID) -> Optional[BBA]:
+    @staticmethod
+    def _scores_by_module(diagnostic: Optional[Diagnostic], canonical: Dict[str, str]) -> Dict[str, float]:
         """
-        Most recently created BBA for this engagement with draft findings -
-        same "most recent for this engagement" convention used elsewhere
-        (BBAService.get_bbas_by_engagement, diagnostic lookups).
+        The numeric module scores from a diagnostic, keyed by module code.
+
+        Only codes in the canonical taxonomy are kept, and only where the score
+        is genuinely numeric. A module the diagnostic did not score is absent
+        from the mapping rather than present as None, so callers cannot
+        accidentally sort a missing score as if it were zero - which would rank
+        an unmeasured module as the single worst thing in the business.
         """
-        return (
-            self.db.query(BBA)
-            .filter(
-                BBA.engagement_id == engagement_id,
-                BBA.is_deleted == False,  # noqa: E712
-                BBA.draft_findings.isnot(None),
-            )
-            .order_by(BBA.created_at.desc())
-            .first()
-        )
+        if diagnostic is None:
+            return {}
+        blob = (diagnostic.module_scores or {}).get("modules")
+        if not isinstance(blob, dict):
+            return {}
 
-    # Retired module names, mapped to the code they used to mean.
-    #
-    # BBA findings are stored as freeform text, so every draft_findings row
-    # written before a rename still carries the old wording. The contains
-    # fallback below rescues a rename that only widens a name ("People" is a
-    # substring of "People & Structure"), but not one that replaces a word:
-    # neither "Brand, IP & Competitive Advantage" nor "Brand, IP & Protection"
-    # contains the other, so V8 would silently stop matching and its findings
-    # would land in unmapped_priority_areas, quietly degrading the recommended
-    # order to the default taxonomy.
-    #
-    # Add an entry here whenever a name in ScoringService.VALUE_BUILDER_MODULES
-    # changes. Entries are permanent - the old rows never get rewritten.
-    MODULE_NAME_ALIASES = {
-        "brand, ip & competitive advantage": "V8",
-        "people": "V4",
-    }
-
-    @classmethod
-    def _match_priority_area_to_module(cls, raw: Optional[str], canonical: Dict[str, str]) -> Optional[str]:
-        """
-        Map a BBA finding's freeform `priority_area` to a canonical Value
-        Builder module code.
-
-        1. Exact case-insensitive match against canonical module names - the
-           expected path once BBA's findings prompts are constrained to the
-           Value Builder taxonomy.
-        2. Exact match against canonical module codes - defensive, in case
-           the LLM returns a bare code like "V5".
-        3. Exact match against a retired name - see MODULE_NAME_ALIASES. Runs
-           before the loose pass so a renamed module resolves to the code it
-           was renamed from, not to whichever current name happens to overlap.
-        4. Loose "contains" fallback - for BBA rows created before the
-           prompt constraint, or any LLM non-compliance.
-        """
-        if not raw:
-            return None
-        normalized = raw.strip().lower()
-        if not normalized:
-            return None
-
-        for code, name in canonical.items():
-            if name.lower() == normalized:
-                return code
-
-        for code in canonical.keys():
-            if code.lower() == normalized:
-                return code
-
-        alias = cls.MODULE_NAME_ALIASES.get(normalized)
-        if alias and alias in canonical:
-            return alias
-
-        for code, name in canonical.items():
-            name_lower = name.lower()
-            if name_lower in normalized or normalized in name_lower:
-                return code
-
-        return None
+        scores: Dict[str, float] = {}
+        for code in canonical:
+            entry = blob.get(code)
+            if not isinstance(entry, dict):
+                continue
+            score = entry.get("score")
+            if isinstance(score, bool) or not isinstance(score, (int, float)):
+                continue
+            scores[code] = float(score)
+        return scores
 
     def compute_recommended_order(self, engagement: Engagement) -> Dict[str, Any]:
         """
-        Compute the recommended M1-M11 (V1-V11) order for an engagement.
-        Always returns all 11 module codes - modules BBA didn't rank (or
-        that have no BBA yet) are appended in default taxonomy order, so
-        the guide is always fully viewable (no gating).
+        Compute the recommended V1-V11 order for an engagement, worst-scoring
+        module first.
+
+        The diagnostic measures each module on the same 0-5 scale, so the
+        weakest area is the one to work on first. Ties fall back to taxonomy
+        order, which matters more than it looks: diagnostic scores are averages
+        over a handful of answers and ties are common, and without a tiebreak
+        two equally-scored modules could swap places between requests and make
+        the guide look like it reordered itself.
+
+        Always returns all 11 module codes. Modules the diagnostic did not score
+        (roughly a third of the question set is conditional, so a service
+        business never answers the warehousing questions) are appended in
+        default taxonomy order, so the guide is always fully viewable - there is
+        no gating on having a diagnostic at all.
         """
         if engagement.tool != "value_builder":
-            return {"source": "unsupported", "order": [], "bba_id": None, "unmapped_priority_areas": []}
+            return {"source": "unsupported", "order": [], "diagnostic_id": None}
 
         canonical = ScoringService.VALUE_BUILDER_MODULES
         all_codes = list(canonical.keys())
 
-        bba = self._get_latest_bba_with_findings(engagement.id)
-        if not bba:
-            return {"source": "default", "order": all_codes, "bba_id": None, "unmapped_priority_areas": []}
+        diagnostic = self._get_latest_completed_diagnostic(engagement.id)
+        scores = self._scores_by_module(diagnostic, canonical)
+        if not scores:
+            # A diagnostic that exists but scored nothing is reported the same
+            # way as no diagnostic at all: the order it produced is the default
+            # one, and saying otherwise would credit it with a sequence it did
+            # not decide.
+            return {"source": "default", "order": all_codes, "diagnostic_id": None}
 
-        findings = sorted(
-            (bba.draft_findings or {}).get("findings", []) or [],
-            key=lambda f: f.get("rank", 999),
+        taxonomy_position = {code: i for i, code in enumerate(all_codes)}
+        scored = sorted(
+            (c for c in all_codes if c in scores),
+            key=lambda c: (scores[c], taxonomy_position[c]),
         )
+        unscored = [c for c in all_codes if c not in scores]
 
-        matched: List[str] = []
-        seen = set()
-        unmapped: List[str] = []
-        for finding in findings:
-            raw_area = finding.get("priority_area")
-            code = self._match_priority_area_to_module(raw_area, canonical)
-            if code and code not in seen:
-                matched.append(code)
-                seen.add(code)
-            elif not code and raw_area:
-                unmapped.append(raw_area)
-
-        remaining = [c for c in all_codes if c not in seen]
         return {
-            "source": "bba",
-            "order": matched + remaining,
-            "bba_id": str(bba.id),
-            "unmapped_priority_areas": unmapped,
+            "source": "diagnostic",
+            "order": scored + unscored,
+            "diagnostic_id": str(diagnostic.id),
         }
 
     def _get_state(self, engagement_id: UUID) -> Optional[EngagementProgramModuleState]:
@@ -228,20 +185,18 @@ class ProgramGuideService:
             modules.append({
                 **row.to_dict(),
                 "effective_rank": rank_by_code.get(row.module_code),
-                "is_gateway": row.module_code == GATEWAY_MODULE_CODE,
-                "is_capstone": row.module_code == CAPSTONE_MODULE_CODE,
             })
-        # Order the modules array itself: gateway first, then effective order, capstone last.
-        modules.sort(key=lambda m: (
-            0 if m["is_gateway"] else (2 if m["is_capstone"] else 1),
-            m["effective_rank"] if m["effective_rank"] is not None else m["display_order"],
-        ))
+        # Order the modules array itself by effective rank. A row the order does
+        # not mention - a card published for a code outside the taxonomy - falls
+        # back to its authored display_order rather than disappearing.
+        modules.sort(
+            key=lambda m: m["effective_rank"] if m["effective_rank"] is not None else m["display_order"]
+        )
 
         return {
             "program_type": engagement.tool,
             "order_source": effective["source"],
-            "source_bba_id": effective.get("bba_id"),
-            "unmapped_priority_areas": effective.get("unmapped_priority_areas", []),
+            "source_diagnostic_id": effective.get("diagnostic_id"),
             "custom_order_set_at": effective.get("custom_order_set_at"),
             "custom_order_set_by_user_id": effective.get("custom_order_set_by_user_id"),
             "modules": modules,
@@ -252,9 +207,9 @@ class ProgramGuideService:
         Progress and the module list - the only Program Guide read an owner gets.
 
         Built by narrowing get_program_guide_view rather than by a second query,
-        so ordering and gateway/capstone handling cannot drift between the two.
-        The narrowing is an explicit field list: anything not named here does not
-        reach the caller, which is the point.
+        so the ordering cannot drift between the two. The narrowing is an
+        explicit field list: anything not named here does not reach the caller,
+        which is the point.
 
         Status comes from the deliverables engine. Modules with no deliverables
         are absent from that mapping and read as not_started, which is what
@@ -277,8 +232,6 @@ class ProgramGuideService:
                 "module_code": m["module_code"],
                 "title": m["title"],
                 "effective_rank": m["effective_rank"],
-                "is_gateway": m["is_gateway"],
-                "is_capstone": m["is_capstone"],
                 "status": statuses.get(m["module_code"], MODULE_STATUS_NOT_STARTED),
             }
             for m in full["modules"]
@@ -297,9 +250,6 @@ class ProgramGuideService:
         }
 
     # ------------------------------------------------------------------
-    # M12: value movement
-    # ------------------------------------------------------------------
-    # ------------------------------------------------------------------
     # Diagnostic insights
     # ------------------------------------------------------------------
     def _get_latest_completed_diagnostic(self, engagement_id: UUID) -> Optional[Diagnostic]:
@@ -316,8 +266,7 @@ class ProgramGuideService:
 
     def compute_module_insights(self, engagement: Engagement) -> Dict[str, Any]:
         """
-        Per-module diagnostic state: score, RAG, severity and the BBA findings
-        attributed to each module.
+        Per-module diagnostic state: score, RAG, severity and evidence depth.
 
         This is the read that compute_value_movement cannot serve. That one is a
         comparison and returns nothing at all below two completed diagnostics,
@@ -325,20 +274,16 @@ class ProgramGuideService:
         scores are sitting in Diagnostic.module_scores either way; this exposes
         the current position without requiring a prior one to subtract from.
 
-        Findings are attributed with the same matcher that computes the module
-        order, so what an advisor reads on a module card is exactly what ranked
-        it. Anything that fails to match is returned in unmatched_findings
-        rather than dropped - a finding that matched nothing is precisely the
-        thing that silently degraded the order.
+        It reads the same diagnostic that decides the order, so what an advisor
+        sees on a module card is exactly what ranked it - the score IS the
+        reason for the position, with nothing in between to mismatch.
         """
         canonical = ScoringService.VALUE_BUILDER_MODULES
         if engagement.tool != "value_builder":
             return {
                 "program_type": engagement.tool,
                 "has_scores": False,
-                "has_findings": False,
                 "modules": [],
-                "unmatched_findings": [],
             }
 
         diagnostic = self._get_latest_completed_diagnostic(engagement.id)
@@ -347,29 +292,6 @@ class ProgramGuideService:
             modules_blob = (diagnostic.module_scores or {}).get("modules")
             if isinstance(modules_blob, dict):
                 raw_modules = modules_blob
-
-        bba = self._get_latest_bba_with_findings(engagement.id)
-        findings_by_module: Dict[str, List[Dict[str, Any]]] = {}
-        unmatched: List[Dict[str, Any]] = []
-        if bba:
-            findings = sorted(
-                (bba.draft_findings or {}).get("findings", []) or [],
-                key=lambda f: f.get("rank", 999),
-            )
-            for finding in findings:
-                payload = {
-                    "rank": finding.get("rank"),
-                    "title": finding.get("title") or "Untitled finding",
-                    "summary": finding.get("summary"),
-                    "impact": finding.get("impact"),
-                    "urgency": finding.get("urgency"),
-                    "priority_area": finding.get("priority_area"),
-                }
-                code = self._match_priority_area_to_module(finding.get("priority_area"), canonical)
-                if code:
-                    findings_by_module.setdefault(code, []).append(payload)
-                else:
-                    unmatched.append(payload)
 
         rank_by_code = {
             code: i + 1 for i, code in enumerate(self.get_effective_order(engagement)["order"])
@@ -389,20 +311,16 @@ class ProgramGuideService:
                 "severity": ScoringService.determine_severity(score) if score is not None else None,
                 "answered_questions": int(count) if isinstance(count, int) else None,
                 "effective_rank": rank_by_code.get(code),
-                "findings": findings_by_module.get(code, []),
             })
 
         return {
             "program_type": engagement.tool,
             "has_scores": any(m["score"] is not None for m in modules),
-            "has_findings": bool(findings_by_module or unmatched),
             "diagnostic_id": str(diagnostic.id) if diagnostic else None,
             "diagnostic_completed_at": diagnostic.completed_at if diagnostic else None,
             "overall_score": float(diagnostic.overall_score)
             if diagnostic and diagnostic.overall_score is not None
             else None,
-            "source_bba_id": str(bba.id) if bba else None,
-            "unmatched_findings": unmatched,
             "modules": modules,
         }
 

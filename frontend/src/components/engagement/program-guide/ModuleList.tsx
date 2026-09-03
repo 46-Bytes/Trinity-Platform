@@ -19,11 +19,9 @@ interface ModuleListProps {
 /**
  * The module list: one row per module, in the engagement's effective order.
  *
- * The order comes from the server already sorted (gateway, then effective rank,
- * then capstone) so nothing is sorted here. The rank badge shows
- * `effective_rank`, which is null for the gateway and capstone because neither
- * is a ranked business-area module - those rows show a dash rather than
- * inventing a position for them.
+ * The order comes from the server already sorted by effective rank, so nothing
+ * is sorted here. The rank badge shows `effective_rank`; a row the order does
+ * not mention shows a dash rather than inventing a position for it.
  */
 export function ModuleList({
   modules,
@@ -43,8 +41,8 @@ export function ModuleList({
   const insightByModule = new Map((insights?.modules ?? []).map((m) => [m.module_code, m]));
 
   // Only the ranked modules can move, so first/last must be judged against
-  // those rather than against the full list - otherwise the gateway occupying
-  // index 0 would permanently disable "move up" on the real first module.
+  // those rather than against the full list - an unranked row sitting at index
+  // 0 would otherwise permanently disable "move up" on the real first module.
   const rankable = modules.filter((m) => m.effective_rank != null);
 
   return (

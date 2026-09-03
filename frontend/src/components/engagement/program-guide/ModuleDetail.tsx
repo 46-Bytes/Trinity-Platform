@@ -50,40 +50,35 @@ interface ModuleDetailProps {
  * How the module reached its position in the order.
  *
  * The mockup carries a hand-written "why this rank" paragraph per module. No
- * such field exists, and inventing one would be worse than saying nothing -
- * it would read as analysis of this client while being a template string. What
- * IS knowable is where the order came from and, when it came from the Report
- * Builder, which finding put the module where it is. That is what this says.
+ * such field exists, and inventing one would be worse than saying nothing - it
+ * would read as analysis of this client while being a template string. What IS
+ * knowable is where the order came from and, when it came from the diagnostic,
+ * the score that put the module where it is. That is what this says.
  */
 function rankExplanation(
   view: ProgramGuideView,
   module: ProgramGuideModule,
   insights: ProgramGuideInsights | null
 ): string | null {
-  if (module.effective_rank == null) {
-    return module.is_gateway
-      ? 'The diagnostic gateway opens the program and is not ranked against the working modules.'
-      : module.is_capstone
-        ? 'The re-diagnostic capstone closes the program and is not ranked against the working modules.'
-        : null;
-  }
+  if (module.effective_rank == null) return null;
 
   const insight = insights?.modules.find((m) => m.module_code === module.module_code);
-  const topFinding = insight?.findings[0];
 
   if (view.order_source === 'custom') {
     return 'An advisor set this order by hand for this engagement, overriding the recommended sequence.';
   }
 
-  if (view.order_source === 'bba' && topFinding) {
-    return `Positioned by the Recommendations Report Builder, from finding ${topFinding.rank ?? '—'}: ${topFinding.summary || topFinding.title}`;
+  if (view.order_source === 'diagnostic' && insight?.score != null) {
+    return `Positioned by this client’s diagnostic: ${insight.score.toFixed(1)} of 5${
+      insight.severity ? ` (${insight.severity.toLowerCase()})` : ''
+    }. The weakest-scoring modules are sequenced first.`;
   }
 
-  if (view.order_source === 'bba') {
-    return 'The Recommendations Report Builder produced no finding against this module, so it falls after the ranked ones in default program order.';
+  if (view.order_source === 'diagnostic') {
+    return 'The diagnostic did not score this module, so it falls after the scored ones in default program order.';
   }
 
-  return 'No Recommendations Report Builder findings for this engagement yet, so the program runs in its default order.';
+  return 'No completed diagnostic for this engagement yet, so the program runs in its default order.';
 }
 
 export function ModuleDetail({
@@ -157,11 +152,7 @@ export function ModuleDetail({
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_340px]">
         <div className="min-w-0 space-y-4">
-          <ModuleDiagnosticPanel
-            insight={insight}
-            hasScores={Boolean(insights?.has_scores)}
-            hasFindings={Boolean(insights?.has_findings)}
-          />
+          <ModuleDiagnosticPanel insight={insight} hasScores={Boolean(insights?.has_scores)} />
 
           {/* Notes with no section belong to the module as a whole. */}
           {moduleLevelNotes(module.notes).length > 0 && (

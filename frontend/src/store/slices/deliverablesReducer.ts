@@ -49,8 +49,8 @@ export interface DeliverableView {
   program_type: string;
   /**
    * Only modules that have at least one deliverable, and ordered by module_code
-   * as a STRING - so 'M0, M12, V1, V10, V11, V2...', not program order. Read it
-   * by code via selectModuleDeliverables; never render this array as given.
+   * as a STRING - so 'V1, V10, V11, V2...', not program order. Read it by code
+   * via selectModuleDeliverables; never render this array as given.
    */
   modules: ModuleDeliverables[];
 }

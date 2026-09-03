@@ -29,7 +29,7 @@ class ProgramModuleContent(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
 
     program_type = Column(String(100), nullable=False, comment="e.g. 'value_builder' - matches Engagement.tool")
-    module_code = Column(String(20), nullable=False, comment="e.g. 'M0', 'V1'..'V11', 'M12'")
+    module_code = Column(String(20), nullable=False, comment="e.g. 'V1'..'V11'")
     display_order = Column(Integer, nullable=False, comment="Default/author-defined sequence for this module")
 
     title = Column(String(255), nullable=False)

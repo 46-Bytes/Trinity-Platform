@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, ArrowLeft, Info, RotateCcw } from 'lucide-react';
+import { AlertTriangle, Info, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,7 @@ import type { DiagnosticSummary } from '@/hooks/useToolLaunchers';
 import { ModuleDetail } from './ModuleDetail';
 import { ModuleList } from './ModuleList';
 import { ProgramProgressCard } from './ProgramProgressCard';
-import { RetakeDiagnosticCard } from './RetakeDiagnosticCard';
+import { ValueMovementView } from './ValueMovementView';
 
 interface ProgramGuideTabProps {
   engagementId: string;
@@ -29,9 +29,9 @@ interface ProgramGuideTabProps {
 }
 
 const ORDER_SOURCE_LABEL: Record<string, string> = {
-  bba: 'Order based on this client’s Recommendations Report',
+  diagnostic: 'Order based on this client’s diagnostic — weakest-scoring modules first',
   custom: 'Custom order, set by an advisor on this engagement',
-  default: 'Default order — run the Recommendations Report Builder for a tailored sequence',
+  default: 'Default order — complete the diagnostic for a sequence tailored to this client',
   unsupported: '',
 };
 
@@ -174,11 +174,15 @@ export function ProgramGuideTab({
   ) : null;
 
   /*
-    Findings whose priority_area matched no module. The order has quietly
-    degraded toward the default taxonomy when this is non-empty, and an advisor
-    looking at a sequence that seems wrong has no other way to find out why.
+    Modules the diagnostic never scored. They sit after the scored ones in
+    default taxonomy order rather than being ranked, and an advisor looking at a
+    sequence that seems wrong has no other way to find out why. Roughly a third
+    of the diagnostic is conditional, so this is ordinary rather than a fault.
   */
-  const unmatched = insights?.unmatched_findings ?? [];
+  const unscored =
+    view.order_source === 'diagnostic'
+      ? (insights?.modules ?? []).filter((m) => m.score == null)
+      : [];
 
   if (!activeModuleCode) {
     return (
@@ -186,16 +190,33 @@ export function ProgramGuideTab({
         <ProgramProgressCard modules={view.modules} deliverables={deliverables} />
         {orderBanner}
 
-        {unmatched.length > 0 && (
+        {unscored.length > 0 && (
           <div className="flex items-start gap-2 rounded-lg bg-warning/10 px-3.5 py-2.5 text-sm text-warning">
             <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
             <span>
-              {unmatched.length} Report Builder{' '}
-              {unmatched.length === 1 ? 'finding' : 'findings'} could not be matched to a module
+              The diagnostic did not score {unscored.length}{' '}
+              {unscored.length === 1 ? 'module' : 'modules'}
               {': '}
-              {unmatched.map((f) => f.priority_area).filter(Boolean).join(', ')}. Those findings are not
-              influencing the order below.
+              {unscored.map((m) => m.module_name).join(', ')}. Those sit after the scored ones in default
+              program order rather than being ranked.
             </span>
+          </div>
+        )}
+
+        {/*
+          Value movement used to live on the M12 capstone card. That module is
+          gone, but the comparison is engagement-level rather than M12's, so it
+          moves here rather than being deleted with the card. Rendered only when
+          there IS a second diagnostic to compare against - its own empty state
+          is a prompt to retake, which does not belong at the top of the guide.
+        */}
+        {valueMovement?.has_comparison && (
+          <div className="card-trinity p-6">
+            <h2 className="font-heading text-lg font-semibold">Value movement</h2>
+            <p className="mb-4 mt-1 text-sm text-muted-foreground">
+              How this business has scored across its last two diagnostics.
+            </p>
+            <ValueMovementView valueMovement={valueMovement} />
           </div>
         )}
 
@@ -222,45 +243,24 @@ export function ProgramGuideTab({
 
   return (
     <div key={activeModuleCode} className="animate-in fade-in slide-in-from-right-2 duration-200">
-      {activeModule.is_capstone ? (
-        <div className="space-y-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setActiveModuleCode(null)}
-            className="gap-2 text-muted-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to modules
-          </Button>
-          <RetakeDiagnosticCard
-            module={activeModule}
-            engagementId={engagementId}
-            currentUserId={currentUserId}
-            valueMovement={valueMovement}
-            onNavigateToDiagnostic={onNavigateToDiagnostic}
-          />
-        </div>
-      ) : (
-        <ModuleDetail
-          module={activeModule}
-          nextModule={view.modules[activeIndex + 1]}
-          view={view}
-          insights={insights}
-          moduleDeliverables={moduleDeliverables}
-          engagementId={engagementId}
-          diagnostics={diagnostics}
-          currentUserId={currentUserId}
-          isAdmin={isAdmin}
-          rankedCount={rankedModules.length}
-          onBack={() => setActiveModuleCode(null)}
-          onGoToNext={() => {
-            const next = view.modules[activeIndex + 1];
-            if (next) setActiveModuleCode(next.module_code);
-          }}
-          onNavigateToDiagnostic={onNavigateToDiagnostic}
-        />
-      )}
+      <ModuleDetail
+        module={activeModule}
+        nextModule={view.modules[activeIndex + 1]}
+        view={view}
+        insights={insights}
+        moduleDeliverables={moduleDeliverables}
+        engagementId={engagementId}
+        diagnostics={diagnostics}
+        currentUserId={currentUserId}
+        isAdmin={isAdmin}
+        rankedCount={rankedModules.length}
+        onBack={() => setActiveModuleCode(null)}
+        onGoToNext={() => {
+          const next = view.modules[activeIndex + 1];
+          if (next) setActiveModuleCode(next.module_code);
+        }}
+        onNavigateToDiagnostic={onNavigateToDiagnostic}
+      />
     </div>
   );
 }

@@ -2,36 +2,27 @@ import { Activity, AlertTriangle, Sparkles } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import type { ModuleInsight } from '@/store/slices/programGuideReducer';
-import { SECTION_LABEL_CLASS, SOURCE_LABEL_CLASS } from './moduleDisplay';
+import { RAG_CLASS, SECTION_LABEL_CLASS, SOURCE_LABEL_CLASS, formatScore } from './moduleDisplay';
 
 interface ModuleDiagnosticPanelProps {
   insight?: ModuleInsight;
   hasScores: boolean;
-  hasFindings: boolean;
 }
 
-/** BBA authors these as free text; anything unrecognised falls through to neutral. */
-const IMPACT_CLASS: Record<string, string> = {
-  high: 'bg-destructive/10 text-destructive',
-  medium: 'bg-warning/10 text-warning',
-  low: 'bg-muted text-muted-foreground',
-};
-
 /**
- * The per-client half of a module card: what the diagnostic measured and what
- * the Recommendations Report Builder found.
+ * The per-client half of a module card: what the diagnostic measured here.
  *
  * Everything here is generated, and it is labelled as such - the panel sits
  * directly above the authored module card, and the two must not read as the
  * same kind of content. One is the same for every client; this one is not.
  *
  * The empty states are the point of this component as much as the populated
- * one. An engagement may have a diagnostic and no BBA, a BBA and no diagnostic,
- * or neither, and each of those is an ordinary state rather than a failure. A
- * module with no score says so instead of showing a zero.
+ * one. An engagement may have no completed diagnostic at all, or one that never
+ * scored this particular module, and both are ordinary states rather than
+ * failures. A module with no score says so instead of showing a zero.
  */
-export function ModuleDiagnosticPanel({ insight, hasScores, hasFindings }: ModuleDiagnosticPanelProps) {
-  const findings = insight?.findings ?? [];
+export function ModuleDiagnosticPanel({ insight, hasScores }: ModuleDiagnosticPanelProps) {
+  const scored = insight?.score != null;
   const thinEvidence =
     typeof insight?.answered_questions === 'number' && insight.answered_questions > 0 && insight.answered_questions < 5;
 
@@ -48,48 +39,37 @@ export function ModuleDiagnosticPanel({ insight, hasScores, hasFindings }: Modul
           Current state
         </p>
 
-        {findings.length > 0 ? (
-          <ul className="space-y-3">
-            {findings.map((finding) => (
-              <li key={`${finding.rank}-${finding.title}`} className="border-l-2 border-border pl-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-medium text-foreground">{finding.title}</span>
-                  {finding.impact && (
-                    <span
-                      className={cn(
-                        'status-badge',
-                        IMPACT_CLASS[finding.impact.toLowerCase()] ?? 'bg-muted text-muted-foreground'
-                      )}
-                    >
-                      {finding.impact} impact
-                    </span>
-                  )}
-                  {finding.urgency && (
-                    <span className="text-[11px] text-muted-foreground">{finding.urgency}</span>
-                  )}
-                </div>
-                {finding.summary && (
-                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{finding.summary}</p>
-                )}
-                {/*
-                  The raw text the finding was matched on. Matching is documented
-                  as fragile across module renames, and a finding that reads
-                  wrong on a module is the only signal that it landed here by
-                  mistake - so the advisor gets to see what it matched.
-                */}
-                {finding.priority_area && (
-                  <p className="mt-1 text-[11px] text-muted-foreground/70">
-                    Matched on “{finding.priority_area}”
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
+        {scored ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-3xl font-bold leading-none">
+              {formatScore(insight?.score)}
+              <span className="text-base font-medium text-muted-foreground"> /5</span>
+            </span>
+            {insight?.rag && (
+              <span
+                className={cn('status-badge', RAG_CLASS[insight.rag] ?? 'bg-muted text-muted-foreground')}
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                {insight.severity ? `${insight.rag} / ${insight.severity}` : insight.rag}
+              </span>
+            )}
+            {/*
+              The score is not just a measurement here, it is the reason for the
+              module's position in the program. Saying so on the card is what
+              stops the rank reading as an unexplained editorial decision.
+            */}
+            {insight?.effective_rank != null && (
+              <span className="text-xs text-muted-foreground">
+                Sequenced {insight.effective_rank}
+                {insight.effective_rank === 1 ? 'st' : insight.effective_rank === 2 ? 'nd' : insight.effective_rank === 3 ? 'rd' : 'th'} on this score
+              </span>
+            )}
+          </div>
         ) : (
           <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
-            {hasFindings
-              ? 'The Recommendations Report Builder produced no findings against this module. Its position comes from the default program order.'
-              : 'No Recommendations Report Builder findings for this engagement yet. Run the Report Builder to populate this section and set the module order.'}
+            {hasScores
+              ? 'The latest diagnostic did not score this module, so its position comes from the default program order.'
+              : 'No completed diagnostic for this engagement yet. Complete the diagnostic to score this module and set the program order.'}
           </p>
         )}
       </div>
@@ -119,19 +99,7 @@ export function ModuleDiagnosticPanel({ insight, hasScores, hasFindings }: Modul
               </span>
             </p>
           )}
-
-          {hasScores && insight?.score == null && (
-            <p className="text-xs text-muted-foreground">
-              This module was not scored by the latest diagnostic.
-            </p>
-          )}
         </div>
-      )}
-
-      {!hasScores && (
-        <p className="mt-5 border-t border-border pt-4 text-xs text-muted-foreground">
-          No completed diagnostic for this engagement, so there is no score or RAG for any module yet.
-        </p>
       )}
     </div>
   );

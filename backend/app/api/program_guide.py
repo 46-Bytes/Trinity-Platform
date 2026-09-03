@@ -127,7 +127,7 @@ async def update_module_order(
 
     service = get_program_guide_service(db)
     service.set_custom_order(engagement, body.module_order, current_user.id)
-    # set_custom_order returns the order dict ({source, order, bba_id, ...}),
+    # set_custom_order returns the order dict ({source, order, diagnostic_id}),
     # which is not a ProgramGuideView and fails response validation. The view is
     # also what the caller wants: it re-ranks and re-sorts the module list, so
     # the client can replace state wholesale instead of reordering it itself.
@@ -172,12 +172,11 @@ async def get_module_insights(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Per-module score, RAG, severity and BBA findings for this engagement.
+    Per-module score, RAG and severity for this engagement.
 
     Same guard and the same reason as value-movement: Part A puts per-module
-    scores and diagnostic findings in the owner's No column. Unlike that route,
-    this one answers from a single completed diagnostic, which is what most
-    engagements actually have.
+    scores in the owner's No column. Unlike that route, this one answers from a
+    single completed diagnostic, which is what most engagements actually have.
     """
     engagement = _get_engagement_or_404(engagement_id, db)
     _check_access(engagement, current_user, db, require_advisor=True)

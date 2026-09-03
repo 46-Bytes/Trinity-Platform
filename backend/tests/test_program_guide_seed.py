@@ -27,7 +27,6 @@ import pytest
 from app.models.program_deliverable import EngagementModuleDeliverable, ProgramModuleDeliverable
 from app.models.program_guide import ProgramModuleContent
 from app.schemas.program_guide import ProgramModuleContentItem
-from app.services.program_guide_service import ProgramGuideService
 from app.services.scoring_service import ScoringService
 from scripts.seed_program_guide_content import (
     DEFAULT_FIXTURE,
@@ -811,33 +810,30 @@ class TestFixtureValidation:
 # ----------------------------------------------------------------------
 # Module rename safety
 # ----------------------------------------------------------------------
-class TestModuleNameAliases:
+class TestFixtureIsTheWorkingTaxonomy:
     """
-    BBA findings store priority_area as freeform text, so rows written before a
-    rename still carry the old wording and must keep resolving.
+    The fixture and ScoringService.VALUE_BUILDER_MODULES have to agree, because
+    the module order is now built from diagnostic scores keyed by module code.
+    A code in one and not the other means either a card with no score or a score
+    with no card, and both degrade the order silently.
     """
 
-    @pytest.mark.parametrize("old_name,expected_code", [
-        ("Brand, IP & Competitive Advantage", "V8"),
-        ("People", "V4"),
-    ])
-    def test_retired_names_still_resolve(self, old_name, expected_code):
-        code = ProgramGuideService._match_priority_area_to_module(
-            old_name, ScoringService.VALUE_BUILDER_MODULES
-        )
-        assert code == expected_code
+    def test_the_fixture_is_exactly_v1_to_v11(self):
+        with open(DEFAULT_FIXTURE, "r", encoding="utf-8") as f:
+            codes = [m["module_code"] for m in json.load(f)]
 
-    def test_current_names_resolve(self):
-        for code, name in ScoringService.VALUE_BUILDER_MODULES.items():
-            resolved = ProgramGuideService._match_priority_area_to_module(
-                name, ScoringService.VALUE_BUILDER_MODULES
-            )
-            assert resolved == code, f"{name} resolved to {resolved}, expected {code}"
+        assert codes == list(ScoringService.VALUE_BUILDER_MODULES.keys())
 
-    def test_every_alias_points_at_a_live_code(self):
-        """A stale alias is worse than none - it silently maps to nothing."""
-        for name, code in ProgramGuideService.MODULE_NAME_ALIASES.items():
-            assert code in ScoringService.VALUE_BUILDER_MODULES, f"alias {name!r} -> unknown code {code}"
+    def test_the_bookend_modules_are_gone(self):
+        """
+        M0 (diagnostic gateway) and M12 (re-diagnostic capstone) were unranked
+        bookends around the eleven working modules. They carried special-cased
+        sorting and their own card, and neither exists any more.
+        """
+        with open(DEFAULT_FIXTURE, "r", encoding="utf-8") as f:
+            codes = {m["module_code"] for m in json.load(f)}
+
+        assert "M0" not in codes and "M12" not in codes
 
     def test_v1_is_transcribed_from_part_b(self):
         """
@@ -1174,12 +1170,12 @@ class TestModuleNameAliases:
         }
         assert owners == {"V9"}, f"continuity is owned by V9 alone, found {sorted(owners)}"
 
-    def test_every_working_module_carries_real_content(self):
+    def test_every_module_carries_real_content(self):
         """
-        V1-V11 are transcribed from specification Parts B-L. M0 and M12 are the
-        gateway and capstone, which those parts do not cover, so they remain on
-        placeholders until their own content arrives - stated here so the
-        remaining gap is explicit rather than assumed to be an oversight.
+        V1-V11 are transcribed from specification Parts B-L, and they are now the
+        whole fixture: the two modules that stood on placeholder text were M0 and
+        M12, the gateway and capstone, and both have been removed. Nothing in the
+        library is unwritten any more, which is what this asserts.
         """
         with open(DEFAULT_FIXTURE, "r", encoding="utf-8") as f:
             fixture = json.load(f)
@@ -1187,13 +1183,10 @@ class TestModuleNameAliases:
         placeholders = {
             m["module_code"] for m in fixture if "PLACEHOLDER" in json.dumps(m)
         }
-        assert placeholders == {"M0", "M12"}, (
-            f"expected only the gateway and capstone to be unwritten, found {sorted(placeholders)}"
-        )
+        assert placeholders == set(), f"unwritten modules remain: {sorted(placeholders)}"
 
-        working = [m for m in fixture if m["module_code"].startswith("V")]
-        assert len(working) == 11
-        for module in working:
+        assert len(fixture) == 11
+        for module in fixture:
             assert module.get("focus"), f"{module['module_code']} has no focus"
             assert module.get("deliverables"), f"{module['module_code']} has no deliverables"
 

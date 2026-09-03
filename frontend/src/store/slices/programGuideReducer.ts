@@ -126,15 +126,13 @@ export interface ProgramGuideModule {
   deliverables?: string[] | null;
   is_active: boolean;
   effective_rank?: number | null;
-  is_gateway: boolean;
-  is_capstone: boolean;
 }
 
 export interface ProgramGuideView {
   program_type: string;
-  order_source: 'bba' | 'custom' | 'default' | 'unsupported';
-  source_bba_id?: string | null;
-  unmapped_priority_areas: string[];
+  order_source: 'diagnostic' | 'custom' | 'default' | 'unsupported';
+  /** The completed diagnostic whose module scores set the order. */
+  source_diagnostic_id?: string | null;
   custom_order_set_at?: string | null;
   custom_order_set_by_user_id?: string | null;
   modules: ProgramGuideModule[];
@@ -160,17 +158,6 @@ export interface ValueMovement {
   module_movements: ModuleMovement[];
 }
 
-/** One BBA finding, as attributed to a module. */
-export interface ModuleFinding {
-  rank?: number | null;
-  title: string;
-  summary?: string | null;
-  impact?: string | null;
-  urgency?: string | null;
-  /** The raw text this was matched on. Shown so a mismatch is visible. */
-  priority_area?: string | null;
-}
-
 export interface ModuleInsight {
   module_code: string;
   module_name: string;
@@ -179,26 +166,22 @@ export interface ModuleInsight {
   severity?: 'Critical' | 'High' | 'Moderate' | 'Low' | 'Strong' | null;
   answered_questions?: number | null;
   effective_rank?: number | null;
-  findings: ModuleFinding[];
 }
 
 /**
  * The diagnostic layer of the guide.
  *
- * `has_scores` and `has_findings` are independent: the two come from a
- * diagnostic and a BBA respectively, and an engagement may have either, both or
- * neither. `modules` always carries all eleven entries regardless, with nulls
- * where nothing was measured - a module with no score reports null, never 0.
+ * `has_scores` is false until the engagement has a completed diagnostic, which
+ * is an ordinary state rather than a failure. `modules` always carries all
+ * eleven entries regardless, with nulls where nothing was measured - a module
+ * with no score reports null, never 0.
  */
 export interface ProgramGuideInsights {
   program_type: string;
   has_scores: boolean;
-  has_findings: boolean;
   diagnostic_id?: string | null;
   diagnostic_completed_at?: string | null;
   overall_score?: number | null;
-  source_bba_id?: string | null;
-  unmatched_findings: ModuleFinding[];
   modules: ModuleInsight[];
 }
 
@@ -387,7 +370,7 @@ const programGuideSlice = createSlice({
         state.insights = action.payload;
       })
       // Deliberately does not set state.error. Insights are supplementary - an
-      // engagement with no diagnostic and no BBA is a normal state, not a
+      // engagement with no completed diagnostic is a normal state, not a
       // failure, and surfacing it as a page-level error would bury a module
       // list that is otherwise perfectly readable.
       .addCase(fetchModuleInsights.rejected, (state) => {

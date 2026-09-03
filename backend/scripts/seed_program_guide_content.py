@@ -13,7 +13,7 @@ Idempotent. Cards upsert on (program_type, module_code); deliverables upsert on
 uq_program_module_deliverable_type_module_key. Re-run this whenever the fixture
 changes (e.g. once the client delivers real copy).
 
-Two things worth knowing before editing this:
+Three things worth knowing before editing this:
 
 1. A deliverable that disappears from the fixture is RETIRED (is_active=False),
    never deleted. EngagementModuleDeliverable.library_deliverable_id cascades on
@@ -21,7 +21,13 @@ Two things worth knowing before editing this:
    and scope history for it. Retiring hides it from the status query and is
    reversible - putting the key back in the fixture reactivates the same row.
 
-2. Upserts preserve the row id, because live instances hold it as a foreign key.
+2. A whole MODULE that disappears from the fixture is retired the same way, card
+   and presets together. This is why the fixture must be the COMPLETE library
+   for every program_type it mentions: seeding a partial file would retire every
+   module it happens to omit. It only ever touches program types the fixture
+   actually contains, so a value_builder fixture cannot retire sale_ready.
+
+3. Upserts preserve the row id, because live instances hold it as a foreign key.
    Never delete-then-recreate a deliverable to apply an edit.
 
 Usage (from the backend/ directory):
@@ -630,6 +636,56 @@ def _sync_deliverables(db, entry) -> dict:
     return tally
 
 
+def _retire_missing_modules(db, modules) -> dict:
+    """
+    Retire cards and presets for modules the fixture no longer contains.
+
+    Without this, dropping a module from the fixture left its card is_active and
+    its presets still counting towards engagement status - the module simply
+    stopped being maintained while continuing to be served. Retiring is the same
+    reversible, id-preserving move used for a dropped deliverable, and for the
+    same reason: engagement completion history hangs off these rows.
+
+    Scoped per program_type, and only to the program types the fixture mentions.
+
+    Returns a {cards, deliverables} tally of rows deactivated.
+    """
+    keep_by_type: dict = {}
+    for entry in modules:
+        keep_by_type.setdefault(entry["program_type"], set()).add(entry["module_code"])
+
+    tally = {"cards": 0, "deliverables": 0}
+
+    for program_type, keep in keep_by_type.items():
+        stale_cards = (
+            db.query(ProgramModuleContent)
+            .filter(
+                ProgramModuleContent.program_type == program_type,
+                ProgramModuleContent.module_code.notin_(keep),
+                ProgramModuleContent.is_active == True,  # noqa: E712
+            )
+            .all()
+        )
+        for row in stale_cards:
+            row.is_active = False
+            tally["cards"] += 1
+
+        stale_items = (
+            db.query(ProgramModuleDeliverable)
+            .filter(
+                ProgramModuleDeliverable.program_type == program_type,
+                ProgramModuleDeliverable.module_code.notin_(keep),
+                ProgramModuleDeliverable.is_active == True,  # noqa: E712
+            )
+            .all()
+        )
+        for row in stale_items:
+            row.is_active = False
+            tally["deliverables"] += 1
+
+    return tally
+
+
 def seed_from_file(fixture_path: str, db=None, dry_run: bool = False) -> dict:
     """
     Seed both library tables from the fixture.
@@ -645,13 +701,19 @@ def seed_from_file(fixture_path: str, db=None, dry_run: bool = False) -> dict:
     owns_session = db is None
     db = db or SessionLocal()
     try:
-        cards = {"created": 0, "updated": 0}
+        cards = {"created": 0, "updated": 0, "retired": 0}
         items = {"created": 0, "updated": 0, "retired": 0, "reactivated": 0}
 
         for entry in modules:
             cards[_upsert_card(db, entry)] += 1
             for key, count in _sync_deliverables(db, entry).items():
                 items[key] += count
+
+        # After the upserts, so a module being moved between program types is
+        # written before anything is judged missing.
+        retired = _retire_missing_modules(db, modules)
+        cards["retired"] = retired["cards"]
+        items["retired"] += retired["deliverables"]
 
         if dry_run:
             db.rollback()
@@ -680,7 +742,7 @@ def main() -> None:
     c, d = result["cards"], result["deliverables"]
     print(
         f"{prefix} {args.file}: {result['modules']} modules\n"
-        f"  cards:        {c['created']} created, {c['updated']} updated\n"
+        f"  cards:        {c['created']} created, {c['updated']} updated, {c['retired']} retired\n"
         f"  deliverables: {d['created']} created, {d['updated']} updated, "
         f"{d['retired']} retired, {d['reactivated']} reactivated"
     )

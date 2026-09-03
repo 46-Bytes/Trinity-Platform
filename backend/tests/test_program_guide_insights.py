@@ -8,10 +8,12 @@ two completed diagnostics, and most engagements have exactly one - so the scores
 sitting in Diagnostic.module_scores were unreachable in the ordinary case. These
 tests pin that a single diagnostic is enough.
 
-Second, honesty about missing data. Scores and findings come from two unrelated
-sources, either of which may be absent, and the failure mode worth guarding
-against is a module quietly reporting 0.0 or "Green" when nothing was measured.
-Absent must stay absent.
+Second, honesty about missing data. Roughly a third of the diagnostic is
+conditional, so a module may go unscored on a perfectly complete diagnostic, and
+the failure mode worth guarding against is one quietly reporting 0.0 or "Green"
+when nothing was measured. Absent must stay absent - and it matters more now
+that the score also decides the module's position in the program: a missing
+score read as zero would rank an unmeasured module as the worst in the business.
 
 Run with: pytest tests/test_program_guide_insights.py -v
 """
@@ -19,7 +21,6 @@ import uuid
 
 import pytest
 
-from app.models.bba import BBA
 from app.models.diagnostic import Diagnostic
 from app.models.program_guide import ProgramModuleContent
 from app.models.user import UserRole
@@ -97,20 +98,6 @@ def cards(db_session):
     db_session.add_all(rows)
     db_session.flush()
     return rows
-
-
-@pytest.fixture
-def make_bba(db_session, test_engagement, test_user):
-    def _make(findings):
-        bba = BBA(
-            engagement_id=test_engagement.id,
-            created_by_user_id=test_user.id,
-            draft_findings={"findings": findings},
-        )
-        db_session.add(bba)
-        db_session.flush()
-        return bba
-    return _make
 
 
 def _module(payload, code):
@@ -225,92 +212,92 @@ class TestScores:
 
 
 # ----------------------------------------------------------------------
-# Findings
+# The score is the reason for the position
 # ----------------------------------------------------------------------
-class TestFindings:
+class TestScoreDrivesTheOrder:
+    """
+    The order is the diagnostic's, so these pin the ordering rule against the
+    same payload an advisor reads on the module card. Previously the order came
+    from BBA findings matched to modules by freeform text; the score needs no
+    matching at all, which is the whole point of the change.
+    """
 
-    def test_findings_are_attributed_to_their_module(self, api, advisor, test_engagement, make_bba):
-        make_bba([
-            {"rank": 1, "title": "No cash flow forecast", "summary": "Reports twice a year",
-             "priority_area": "Financial Management", "impact": "high", "urgency": "immediate"},
-        ])
-        finding = _module(api.as_user(advisor).get(_url(test_engagement.id)).json(), "V1")["findings"][0]
-
-        assert finding["title"] == "No cash flow forecast"
-        assert finding["impact"] == "high"
-
-    def test_the_raw_priority_area_is_carried_through(self, api, advisor, test_engagement, make_bba):
-        """
-        Matching is documented as fragile across renames. A finding that reads
-        wrong on a module is the only signal it mismatched, so the text it was
-        matched on has to be visible.
-        """
-        make_bba([{"rank": 1, "title": "Finding", "priority_area": "Financial Management"}])
-        finding = _module(api.as_user(advisor).get(_url(test_engagement.id)).json(), "V1")["findings"][0]
-
-        assert finding["priority_area"] == "Financial Management"
-
-    def test_findings_are_ordered_by_rank(self, api, advisor, test_engagement, make_bba):
-        make_bba([
-            {"rank": 4, "title": "Second", "priority_area": "Financial Management"},
-            {"rank": 2, "title": "First", "priority_area": "Financial Management"},
-        ])
-        titles = [f["title"] for f in _module(api.as_user(advisor).get(_url(test_engagement.id)).json(), "V1")["findings"]]
-
-        assert titles == ["First", "Second"]
-
-    def test_a_retired_module_name_still_matches(self, api, advisor, test_engagement, make_bba):
-        """
-        BBA findings are freeform text and old rows keep the old wording.
-        MODULE_NAME_ALIASES rescues V8, whose rename replaced a word rather than
-        widening one - the case the loose contains fallback cannot catch.
-        """
-        make_bba([{"rank": 1, "title": "No trademark", "priority_area": "Brand, IP & Competitive Advantage"}])
-        assert _module(api.as_user(advisor).get(_url(test_engagement.id)).json(), "V8")["findings"][0]["title"] == "No trademark"
-
-    def test_unmatched_findings_are_surfaced_not_dropped(self, api, advisor, test_engagement, make_bba):
-        """
-        A finding matching nothing is the visible symptom of a module order that
-        has quietly degraded to the default taxonomy. Dropping it hides exactly
-        the thing an advisor needs to see.
-        """
-        make_bba([{"rank": 1, "title": "Something else", "priority_area": "Wholly Unmappable Area"}])
+    def test_the_worst_scoring_module_is_worked_first(self, api, advisor, test_engagement, make_diagnostic):
+        make_diagnostic({"V1": (4.2, 9), "V5": (1.3, 9), "V6": (2.8, 9)})
         payload = api.as_user(advisor).get(_url(test_engagement.id)).json()
 
-        assert [f["title"] for f in payload["unmatched_findings"]] == ["Something else"]
-        assert all(m["findings"] == [] for m in payload["modules"])
+        assert _module(payload, "V5")["effective_rank"] == 1
+        assert _module(payload, "V6")["effective_rank"] == 2
+        assert _module(payload, "V1")["effective_rank"] == 3
 
-    def test_no_bba_means_no_findings(self, api, advisor, test_engagement):
+    def test_unscored_modules_fall_after_every_scored_one(self, api, advisor, test_engagement, make_diagnostic):
+        """
+        A module the diagnostic never asked about must not be read as a zero and
+        ranked first. It is unmeasured, not catastrophic.
+        """
+        make_diagnostic({"V11": (4.9, 9)})
         payload = api.as_user(advisor).get(_url(test_engagement.id)).json()
 
-        assert payload["has_findings"] is False
-        assert payload["source_bba_id"] is None
-        assert all(m["findings"] == [] for m in payload["modules"])
-
-
-# ----------------------------------------------------------------------
-# The two sources are independent
-# ----------------------------------------------------------------------
-class TestSourcesAreIndependent:
-
-    def test_scores_without_findings(self, api, advisor, test_engagement, make_diagnostic):
-        make_diagnostic({"V1": (2.6, 7)})
-        payload = api.as_user(advisor).get(_url(test_engagement.id)).json()
-
-        assert (payload["has_scores"], payload["has_findings"]) == (True, False)
-
-    def test_findings_without_scores(self, api, advisor, test_engagement, make_bba):
-        make_bba([{"rank": 1, "title": "Finding", "priority_area": "Financial Management"}])
-        payload = api.as_user(advisor).get(_url(test_engagement.id)).json()
-
-        assert (payload["has_scores"], payload["has_findings"]) == (False, True)
+        assert _module(payload, "V11")["effective_rank"] == 1
         assert _module(payload, "V1")["score"] is None
+        assert _module(payload, "V1")["effective_rank"] > 1
 
-    def test_neither_still_returns_every_module(self, api, advisor, test_engagement):
+    def test_equal_scores_break_ties_by_taxonomy_order(self, api, advisor, test_engagement, make_diagnostic):
+        """
+        Diagnostic scores are averages over a handful of answers, so ties are
+        common. Without a stable tiebreak two modules could swap places between
+        requests and the guide would look like it reordered itself.
+        """
+        make_diagnostic({"V6": (3.0, 9), "V2": (3.0, 9)})
+        client = api.as_user(advisor)
+        first = client.get(_url(test_engagement.id)).json()
+        second = client.get(_url(test_engagement.id)).json()
+
+        assert _module(first, "V2")["effective_rank"] < _module(first, "V6")["effective_rank"]
+        assert [m["effective_rank"] for m in first["modules"]] == [
+            m["effective_rank"] for m in second["modules"]
+        ]
+
+    def test_no_diagnostic_leaves_the_default_order(self, api, advisor, test_engagement, cards):
+        guide = api.as_user(advisor).get(f"/api/program-guide/engagements/{test_engagement.id}").json()
+
+        assert guide["order_source"] == "default"
+        assert guide["source_diagnostic_id"] is None
+
+    def test_a_scored_diagnostic_is_named_as_the_source(self, api, advisor, test_engagement, cards, make_diagnostic):
+        diagnostic = make_diagnostic({"V1": (2.0, 9)})
+        guide = api.as_user(advisor).get(f"/api/program-guide/engagements/{test_engagement.id}").json()
+
+        assert guide["order_source"] == "diagnostic"
+        assert guide["source_diagnostic_id"] == str(diagnostic.id)
+
+    def test_a_diagnostic_that_scored_nothing_reports_the_default_order(
+        self, api, advisor, test_engagement, cards, make_diagnostic
+    ):
+        """
+        Crediting an empty diagnostic with the sequence would tell an advisor
+        the order was tailored to this client when it is the default taxonomy.
+        """
+        make_diagnostic({})
+        guide = api.as_user(advisor).get(f"/api/program-guide/engagements/{test_engagement.id}").json()
+
+        assert guide["order_source"] == "default"
+        assert guide["source_diagnostic_id"] is None
+
+
+class TestMissingDataStaysMissing:
+
+    def test_scores_present(self, api, advisor, test_engagement, make_diagnostic):
+        make_diagnostic({"V1": (2.6, 7)})
+
+        assert api.as_user(advisor).get(_url(test_engagement.id)).json()["has_scores"] is True
+
+    def test_no_diagnostic_still_returns_every_module(self, api, advisor, test_engagement):
         payload = api.as_user(advisor).get(_url(test_engagement.id)).json()
 
         assert len(payload["modules"]) == 11
-        assert (payload["has_scores"], payload["has_findings"]) == (False, False)
+        assert payload["has_scores"] is False
+        assert all(m["score"] is None for m in payload["modules"])
 
 
 # ----------------------------------------------------------------------
@@ -318,16 +305,13 @@ class TestSourcesAreIndependent:
 # ----------------------------------------------------------------------
 class TestRankMatchesTheGuide:
 
-    def test_effective_rank_matches_the_program_guide(self, api, advisor, test_engagement, cards, make_bba):
+    def test_effective_rank_matches_the_program_guide(self, api, advisor, test_engagement, cards, make_diagnostic):
         """
         The insights panel prints "Rank N of 11" beside the module the guide
         also positions. Two orderings from two code paths would be visible to a
         client, so they are pinned to each other rather than each to a literal.
         """
-        make_bba([
-            {"rank": 1, "title": "A", "priority_area": "Systems & Processes"},
-            {"rank": 2, "title": "B", "priority_area": "Technology"},
-        ])
+        make_diagnostic({"V5": (1.9, 9), "V6": (2.4, 9), "V1": (4.1, 9)})
         client = api.as_user(advisor)
         insights = client.get(_url(test_engagement.id)).json()
         guide = client.get(f"/api/program-guide/engagements/{test_engagement.id}").json()

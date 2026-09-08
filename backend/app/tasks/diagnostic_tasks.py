@@ -21,6 +21,7 @@ from app.models.diagnostic import Diagnostic
 from app.models.engagement import Engagement
 from app.models.user import User
 from app.services.diagnostic_service import get_diagnostic_service
+from app.services.engagement_status import may_automation_set_status
 from app.services.report_service import ReportService
 from app.services.claude_service import ClaudeService
 
@@ -200,11 +201,15 @@ async def _run_pipeline(diagnostic_id_str: str):
         engagement = background_db.query(Engagement).filter(
             Engagement.id == diagnostic_obj.engagement_id
         ).first()
+        # Never overwrite a paused/ended engagement - see engagement_status.py
         if engagement and engagement.status != "completed":
-            engagement.status = "completed"
-            if not engagement.completed_at:
-                engagement.completed_at = datetime.now(timezone.utc)
-            logger.info(f"[Background Task] Updated engagement {engagement.id} status to 'completed'")
+            if may_automation_set_status(engagement):
+                engagement.status = "completed"
+                if not engagement.completed_at:
+                    engagement.completed_at = datetime.now(timezone.utc)
+                logger.info(f"[Background Task] Updated engagement {engagement.id} status to 'completed'")
+            else:
+                logger.info(f"[Background Task] Left engagement {engagement.id} status as '{engagement.status}'; not active")
 
         background_db.commit()
 

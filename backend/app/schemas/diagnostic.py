@@ -19,8 +19,9 @@ class DiagnosticBase(BaseModel):
 class DiagnosticCreate(DiagnosticBase):
     """Schema for creating a new diagnostic"""
     engagement_id: UUID = Field(..., description="The engagement this diagnostic belongs to")
-    created_by_user_id: UUID = Field(..., description="Who is launching this diagnostic")
-    questions: Dict[str, Any] = Field(..., description="All 200 questions structure from JSON file")
+    # Creator comes from the authenticated user, not the request.
+    # Questions are loaded server-side; kept only for backward compatibility.
+    questions: Optional[Dict[str, Any]] = Field(default=None, deprecated=True, description="Ignored; questions are loaded server-side")
 
 
 # Schema for updating diagnostic responses (incremental saves)

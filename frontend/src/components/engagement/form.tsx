@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -37,6 +38,9 @@ const baseCreateSchemaFields = {
   tool: z.enum(['value_builder', 'sale_ready'], {
     message: "Please select an engagement type.",
   }),
+  // Optional questionnaire. Off still creates the engagement and its tools;
+  // the diagnostic can be added from the Diagnostic tab later.
+  createDiagnostic: z.boolean().default(true),
 };
 
 const baseEditOnlySchemaFields = {
@@ -154,6 +158,7 @@ export function EngagementForm({
             clientId: "",
             advisorId: "",
             tool: "value_builder" as const,
+            createDiagnostic: true,
           }
         : {
             engagementName: "",
@@ -161,6 +166,7 @@ export function EngagementForm({
             clientId: "",
             advisorId: "",
             tool: "value_builder" as const,
+            createDiagnostic: true,
           })
       : isFirmContext
       ? (isEditMode
@@ -171,12 +177,14 @@ export function EngagementForm({
             description: "",
             clientId: "",
             tool: "value_builder" as const,
+            createDiagnostic: true,
           }
         : {
             engagementName: "",
             description: "",
             clientId: "",
             tool: "value_builder" as const,
+            createDiagnostic: true,
           })
       : (isEditMode
         ? {
@@ -186,12 +194,14 @@ export function EngagementForm({
             description: "",
             clientOrAdvisorId: "",
             tool: "value_builder" as const,
+            createDiagnostic: true,
           }
         : {
             engagementName: "",
             description: "",
             clientOrAdvisorId: "",
             tool: "value_builder" as const,
+            createDiagnostic: true,
           })) as any,
   });
 
@@ -537,6 +547,7 @@ export function EngagementForm({
             description: values.description,
             tool: values.tool,
             status: 'draft',
+            create_diagnostic: values.createDiagnostic !== false,
             client_id: clientId,
             primary_advisor_id: primaryAdvisorId,
           };
@@ -609,6 +620,7 @@ export function EngagementForm({
             description: values.description,
             tool: values.tool,
             status: 'draft',
+            create_diagnostic: values.createDiagnostic !== false,
             client_id: clientId,
             primary_advisor_id: advisorId,
           };
@@ -1005,6 +1017,30 @@ export function EngagementForm({
               </FormItem>
             )}
           />
+
+          {!isEditMode && (
+            <FormField
+              control={form.control}
+              name="createDiagnostic"
+              render={({ field }) => (
+                <FormItem className="md:col-span-2 flex flex-row items-start gap-3 space-y-0 rounded-md border p-4">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value !== false}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>Include diagnostic questionnaire</FormLabel>
+                    <FormDescription>
+                      Leave unchecked to create the engagement without a diagnostic. All
+                      tools stay available, and a diagnostic can be added later.
+                    </FormDescription>
+                  </div>
+                </FormItem>
+              )}
+            />
+          )}
         </div>
 
         <FormField

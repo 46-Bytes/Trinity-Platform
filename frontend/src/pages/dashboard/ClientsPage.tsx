@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { formatEngagementStatus } from '@/lib/engagementStatus';
 import { SERVFAIL } from 'dns';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -728,11 +729,12 @@ export default function ClientsPage() {
                               "status-badge text-xs flex-shrink-0",
                               eng.status === 'active' ? "status-success" :
                               eng.status === 'completed' ? "status-info" :
-                              eng.status === 'on-hold' ? "status-warning" :
-                              eng.status === 'cancelled' ? "status-error" :
+                              eng.status === 'paused' ? "status-warning" :
+                              eng.status === 'ended' ? "status-error" :
+                              eng.status === 'archived' ? "status-error" :
                               "status-warning"
                             )}>
-                              {eng.status}
+                              {formatEngagementStatus(eng.status)}
                             </span>
                           </div>
                           {eng.industryName && (

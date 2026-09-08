@@ -18,6 +18,7 @@ from app.models.engagement import Engagement
 from app.utils.diagnostic_utils import get_ai_excluded_fields
 # from app.services.openai_service import openai_service  # Preserved for rollback
 from app.services.claude_service import claude_service
+from app.services.engagement_status import may_automation_set_status
 from app.services.scoring_service import scoring_service
 from app.utils.file_loader import (
     load_diagnostic_questions,
@@ -274,11 +275,16 @@ class DiagnosticService:
                 Engagement.id == diagnostic.engagement_id
             ).first()
             
+            # Never overwrite a paused/ended engagement: that status is an
+            # advisor's deliberate lifecycle choice, not a diagnostic outcome.
             if engagement and engagement.status != "completed":
-                engagement.status = "completed"
-                if not engagement.completed_at:
-                    engagement.completed_at = datetime.now(timezone.utc)
-                logger.info(f"Updated engagement {engagement.id} status to 'completed' because diagnostic {diagnostic.id} is completed")
+                if may_automation_set_status(engagement):
+                    engagement.status = "completed"
+                    if not engagement.completed_at:
+                        engagement.completed_at = datetime.now(timezone.utc)
+                    logger.info(f"Updated engagement {engagement.id} status to 'completed' because diagnostic {diagnostic.id} is completed")
+                else:
+                    logger.info(f"Left engagement {engagement.id} status as '{engagement.status}'; diagnostic {diagnostic.id} completed but the engagement is not active")
             
         except Exception as e:
             # If processing fails, mark as failed

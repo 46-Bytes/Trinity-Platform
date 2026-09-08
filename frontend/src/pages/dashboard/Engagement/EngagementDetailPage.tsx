@@ -40,7 +40,7 @@ export default function EngagementDetailPage() {
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [notesOpen, setNotesOpen] = useState(false);
-  const [engagement, setEngagement] = useState<{ client_name?: string; tool?: string } | null>(null);
+  const [engagement, setEngagement] = useState<{ business_name?: string; client_name?: string; tool?: string } | null>(null);
   const [isLoadingEngagement, setIsLoadingEngagement] = useState(false);
   const fetchInFlightRef = useRef(false);
   const diagnosticsRef = useRef<any[]>([]);
@@ -712,9 +712,9 @@ export default function EngagementDetailPage() {
       <div className="mb-4 sm:mb-6 flex items-start justify-between gap-4" style={{ width: '100%', maxWidth: '100%' }}>
         <div className="min-w-0">
           <h1 className="text-2xl sm:text-3xl font-bold break-words" style={{ maxWidth: '100%' }}>
-            {isLoadingEngagement ? 'Loading...' : (engagement?.client_name || 'Engagement Details')}
+            {isLoadingEngagement ? 'Loading...' : (engagement?.business_name || engagement?.client_name || 'Engagement Details')}
           </h1>
-          <p className="text-muted-foreground mt-1 break-words" style={{ maxWidth: '100%' }}>Manage your client engagement</p>
+          <p className="text-muted-foreground mt-1 break-words" style={{ maxWidth: '100%' }}>Your client engagement dashboard</p>
         </div>
         <Button
           size="sm"

@@ -1,7 +1,8 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { ArrowLeft, StickyNote } from 'lucide-react';
+import { ArrowLeft, HelpCircle, StickyNote } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from '@/components/ui/button';
 import { ToolSurvey } from '@/components/engagement/tools/ToolSurvey';
 import { FollowUpToolsTab } from '@/components/engagement/FollowUpToolsTab';
@@ -38,6 +39,11 @@ export default function EngagementDetailPage() {
   const [diagnostics, setDiagnostics] = useState<any[]>([]);
   const [toolDocuments, setToolDocuments] = useState<any[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+  // Distinct from isLoadingFiles, which starts false. Until the first fetch has
+  // actually returned, "no completed diagnostic" is unknown rather than true,
+  // and greying the tab out on an unknown would flash a lock on engagements
+  // that are perfectly ready.
+  const [hasLoadedDiagnostics, setHasLoadedDiagnostics] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [notesOpen, setNotesOpen] = useState(false);
   const [engagement, setEngagement] = useState<{ client_name?: string; tool?: string } | null>(null);
@@ -59,7 +65,32 @@ export default function EngagementDetailPage() {
   // cards. The backend refuses them the guide read regardless; this keeps the
   // tab from appearing and failing. Their dashboard lands here separately.
   const canViewProgramGuide = engagement?.tool === 'value_builder' && !isClient;
-  
+
+  /*
+    The guide is downstream of the diagnostic, not merely decorated by it. The
+    module order is computed from the diagnostic's per-module scores, so before
+    a diagnostic completes every module scores null, the order falls back to the
+    default taxonomy, and the sequence an advisor would read as "worst first for
+    this client" is nothing of the kind. Opening it early is not an empty state,
+    it is a misleading one - so the tab is locked rather than shown empty.
+
+    Locked only once we KNOW there is no completed diagnostic. While the fetch
+    is still out the tab stays available: wrongly greying out a ready
+    engagement is the worse of the two mistakes.
+  */
+  const hasCompletedDiagnostic = diagnostics.some((d: any) => d.status === 'completed');
+  const isProgramGuideLocked =
+    canViewProgramGuide && hasLoadedDiagnostics && !hasCompletedDiagnostic;
+
+  // The tab can lock underneath the user - the diagnostics fetch resolves after
+  // first paint, and a refetch can arrive while they are sitting on the guide.
+  // Without this the trigger greys out while its content stays on screen.
+  useEffect(() => {
+    if (isProgramGuideLocked && activeTab === 'program-guide') {
+      setActiveTab('overview');
+    }
+  }, [isProgramGuideLocked, activeTab]);
+
   // Listen to Redux diagnostic state to detect when diagnostic is submitted
   const reduxDiagnostic = useAppSelector((state) => state.diagnostic.diagnostic);
 
@@ -177,6 +208,7 @@ export default function EngagementDetailPage() {
       console.error('Failed to fetch diagnostics:', error);
     } finally {
       setIsLoadingFiles(false);
+      setHasLoadedDiagnostics(true);
       fetchInFlightRef.current = false;
     }
   }, [engagementId]);
@@ -742,7 +774,37 @@ export default function EngagementDetailPage() {
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
             <TabsTrigger value="diagnostic">Diagnostic</TabsTrigger>
             {canViewProgramGuide && (
-              <TabsTrigger value="program-guide">Value Builder</TabsTrigger>
+              isProgramGuideLocked ? (
+                /*
+                  A disabled TabsTrigger carries `disabled:pointer-events-none`,
+                  so it never fires a hover and a tooltip hung on it - or on the
+                  icon inside it - would never open. The span outside the button
+                  is what the tooltip listens to, which is also why it is
+                  focusable: without tabIndex the reason is mouse-only.
+                */
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span tabIndex={0} className="inline-flex w-full cursor-not-allowed rounded-sm">
+                      <TabsTrigger value="program-guide" disabled className="w-full gap-1.5">
+                        Value Builder
+                        <HelpCircle className="h-3.5 w-3.5" aria-hidden />
+                      </TabsTrigger>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p className="font-semibold">Locked until the diagnostic report has run</p>
+                    <p className="mt-1 text-muted-foreground">
+                      The Value Builder program is built from this client’s diagnostic. Module scores,
+                      RAG status and the order the modules are worked in all come from it, so until a
+                      diagnostic is completed there is nothing to sequence and the program would show a
+                      generic order rather than this client’s.
+                    </p>
+                    <p className="mt-1.5">Run the diagnostic on the Diagnostic tab to unlock it.</p>
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <TabsTrigger value="program-guide">Value Builder</TabsTrigger>
+              )
             )}
             <TabsTrigger value="tools">Tools</TabsTrigger>
             <TabsTrigger value="chatbot">Chat Bot</TabsTrigger>
@@ -812,7 +874,7 @@ export default function EngagementDetailPage() {
           </div>
         </TabsContent>
 
-        {canViewProgramGuide && (
+        {canViewProgramGuide && !isProgramGuideLocked && (
           <TabsContent value="program-guide" className="mt-6">
             <ProgramGuideTab
               engagementId={engagementId!}

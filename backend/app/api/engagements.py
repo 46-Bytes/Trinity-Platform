@@ -197,8 +197,9 @@ async def create_engagement(
     db.commit()
     db.refresh(engagement)
     
-    # Create tool for engagement if tool is specified
-    if engagement_data.tool:
+    # Create tool for engagement if tool is specified.
+    # create_diagnostic=False skips it; the diagnostic can be added later.
+    if engagement_data.tool and engagement_data.create_diagnostic:
         import sys
         from pathlib import Path
         # Add backend directory to path to import tool_service

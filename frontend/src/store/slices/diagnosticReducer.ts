@@ -80,6 +80,42 @@ function mapFrontendResponseUpdateToBackend(update: DiagnosticResponseUpdate): a
 }
 
 // Async thunks
+// Adds a diagnostic to an engagement created without one. The backend rejects
+// this if the engagement already has a live diagnostic.
+export const createDiagnosticForEngagement = createAsyncThunk(
+  'diagnostic/createDiagnosticForEngagement',
+  async (engagementId: string, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/diagnostics/create`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ engagement_id: engagementId }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response
+          .json()
+          .catch(() => ({ detail: 'Failed to create diagnostic' }));
+        throw new Error(errorData.detail || `HTTP ${response.status}: Failed to create diagnostic`);
+      }
+
+      return mapBackendDiagnosticToFrontend(await response.json());
+    } catch (error) {
+      return rejectWithValue(
+        error instanceof Error ? error.message : 'Failed to create diagnostic'
+      );
+    }
+  }
+);
+
 export const fetchDiagnosticByEngagement = createAsyncThunk(
   'diagnostic/fetchDiagnosticByEngagement',
   async (engagementId: string, { rejectWithValue }) => {
@@ -106,8 +142,10 @@ export const fetchDiagnosticByEngagement = createAsyncThunk(
       
       // If we get a list, take the first one (most recent)
       const diagnostics = Array.isArray(data) ? data : [data];
+      // An engagement may legitimately have no diagnostic, so null is a valid
+      // result here - not an error.
       if (diagnostics.length === 0) {
-        throw new Error('No diagnostic found for this engagement');
+        return null;
       }
 
       // Get the first diagnostic (most recent) - this is just a list item without full details
@@ -377,6 +415,19 @@ const diagnosticSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // Create diagnostic for an engagement that has none
+      .addCase(createDiagnosticForEngagement.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(createDiagnosticForEngagement.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.diagnostic = action.payload;
+      })
+      .addCase(createDiagnosticForEngagement.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
       // Fetch diagnostic by engagement
       .addCase(fetchDiagnosticByEngagement.pending, (state) => {
         state.isLoading = true;
@@ -384,6 +435,13 @@ const diagnosticSlice = createSlice({
       })
       .addCase(fetchDiagnosticByEngagement.fulfilled, (state, action) => {
         state.isLoading = false;
+
+        // No diagnostic on this engagement yet - a valid state, not an error.
+        if (!action.payload) {
+          state.diagnostic = null;
+          state.isPolling = false;
+          return;
+        }
 
         // Guard: never let a stale 'processing' response overwrite a diagnostic that we already
         // know is completed (e.g. from a prior checkDiagnosticStatus poll). This prevents a

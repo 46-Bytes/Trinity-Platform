@@ -31,6 +31,7 @@ import {
   setDiagnosticCompleted,
   clearDiagnostic,
   cancelDiagnosticProcessing,
+  createDiagnosticForEngagement,
 } from '@/store/slices/diagnosticReducer';
 import { updateEngagement } from '@/store/slices/engagementReducer';
 import { useAuth } from '@/context/AuthContext';
@@ -56,6 +57,8 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
   );
   
   const isAdmin = user?.role === 'admin' || user?.role === 'firm_admin';
+  // Setting the questionnaire up is an advisor/admin task; clients only fill it in.
+  const canAddDiagnostic = !!user?.role && user.role !== 'client';
   const normalizeUUID = (uuid: string | null | undefined): string | null => {
     if (!uuid) return null;
     const str = String(uuid).trim().toLowerCase();
@@ -67,6 +70,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
   const [completedPages, setCompletedPages] = useState<number[]>([]);
   const [engagementStatusUpdated, setEngagementStatusUpdated] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [isAddingDiagnostic, setIsAddingDiagnostic] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [excludedFields, setExcludedFields] = useState<Set<string>>(new Set());
   
@@ -731,6 +735,20 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
     dispatch(updateLocalResponses({ [fieldName]: value }));
   };
 
+  const handleAddDiagnostic = async () => {
+    setIsAddingDiagnostic(true);
+    try {
+      await dispatch(createDiagnosticForEngagement(engagementId)).unwrap();
+      await dispatch(fetchDiagnosticByEngagement(engagementId));
+      toast.success('Diagnostic added');
+    } catch (err) {
+      const message = typeof err === 'string' ? err : (err as Error)?.message;
+      toast.error(message || 'Failed to add diagnostic');
+    } finally {
+      setIsAddingDiagnostic(false);
+    }
+  };
+
   // Show loading state
   if (isLoading && !diagnostic) {
     return (
@@ -760,9 +778,27 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
       <div className="w-full px-0 sm:px-1 md:px-3 lg:px-6 py-2 sm:py-3 md:py-6" style={{ width: '100%', boxSizing: 'border-box', maxWidth: '100%' }}>
         <div className="text-center py-12">
           <p className="text-muted-foreground">No diagnostic found for this engagement.</p>
-          <p className="text-sm text-muted-foreground mt-2">
-            Please ensure the engagement has a diagnostic tool selected.
-          </p>
+          {canAddDiagnostic ? (
+            <>
+              <p className="text-sm text-muted-foreground mt-2">
+                Add the diagnostic questionnaire to start collecting responses.
+              </p>
+              <Button className="mt-4" onClick={handleAddDiagnostic} disabled={isAddingDiagnostic}>
+                {isAddingDiagnostic ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                    Adding...
+                  </>
+                ) : (
+                  'Add Diagnostic'
+                )}
+              </Button>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground mt-2">
+              Your advisor has not added a diagnostic to this engagement yet.
+            </p>
+          )}
         </div>
       </div>
     );

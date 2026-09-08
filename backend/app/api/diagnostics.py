@@ -83,31 +83,44 @@ async def create_diagnostic(
 ):
     """
     Create a new diagnostic for an engagement.
-    
+
     **Workflow Step 1**: Create diagnostic with questions loaded from JSON.
-    
+
+    Also the "add a diagnostic later" path for an engagement created without one.
+    The caller must have access to the engagement, and the engagement must not
+    already have a live diagnostic.
+
     Args:
         diagnostic_data: Diagnostic creation data
-        
+
     Returns:
         Created diagnostic with questions structure
-        
+
     Example:
         ```json
         {
             "engagement_id": "uuid",
-            "created_by_user_id": "uuid",
             "diagnostic_type": "business_health_assessment",
             "diagnostic_version": "1.0"
         }
         ```
     """
+    _require_engagement_access(
+        db=db, engagement_id=diagnostic_data.engagement_id, current_user=current_user
+    )
+
     service = get_diagnostic_service(db)
-    
+
+    if service.get_engagement_diagnostics(diagnostic_data.engagement_id):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This engagement already has a diagnostic.",
+        )
+
     try:
         diagnostic = await service.create_diagnostic(
             engagement_id=diagnostic_data.engagement_id,
-            created_by_user_id=diagnostic_data.created_by_user_id,
+            created_by_user_id=current_user.id,
             diagnostic_type=diagnostic_data.diagnostic_type,
             diagnostic_version=diagnostic_data.diagnostic_version
         )

@@ -25,6 +25,10 @@ class EngagementCreate(EngagementBase):
     primary_advisor_id: UUID = Field(..., description="The primary advisor user ID")
     firm_id: Optional[UUID] = Field(None, description="Firm ID for multi-advisor firms")
     secondary_advisor_ids: Optional[List[UUID]] = Field(default=[], description="Additional advisor IDs")
+    create_diagnostic: bool = Field(
+        default=True,
+        description="Create the diagnostic questionnaire now. False leaves the engagement without one; it can be added later.",
+    )
 
 
 # Schema for updating an engagement

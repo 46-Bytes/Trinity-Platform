@@ -33,10 +33,17 @@ from ..schemas.engagement import (
     SecondaryAdvisorCandidatesResponse,
     SecondaryAdvisorCandidate,
     EngagementClientAdd,
+    EngagementStatusUpdate,
     GeneratedDocumentItem,
 )
 from ..utils.auth import get_current_user
 from ..services.role_check import check_engagement_access
+from ..services.engagement_status import (
+    SETTABLE_STATUSES,
+    TASK_HIDDEN_STATUSES,
+    can_change_engagement_status,
+    may_automation_set_status,
+)
 from ..services.bba_service import get_bba_service
 from ..services.strategy_workbook_service import get_strategy_workbook_service
 from ..services.sbp_service import get_sbp_service
@@ -350,8 +357,14 @@ async def list_engagements(
             Diagnostic.status == "completed"
         ).first()
         
+        # A paused or ended engagement is a deliberate lifecycle choice, so the
+        # diagnostic-completion sync must leave its status alone.
         effective_status = engagement.status
-        if completed_diagnostic and engagement.status != "completed":
+        if (
+            completed_diagnostic
+            and engagement.status != "completed"
+            and may_automation_set_status(engagement)
+        ):
             engagement.status = "completed"
             if not engagement.completed_at:
                 from datetime import datetime, timezone
@@ -923,7 +936,32 @@ async def update_engagement(
     
     # Update fields
     update_data = engagement_data.model_dump(exclude_unset=True)
-    
+
+    # Lifecycle status is not an ordinary editable field. Two guards, and
+    # deliberately no more: the everyday draft -> active bump the diagnostic
+    # survey makes must keep working for everyone who can already edit here.
+    if "status" in update_data and update_data["status"] != engagement.status:
+        # 1. A paused/ended engagement only moves via the endpoint below. This
+        #    is what stops the survey's "mark active on page 2" PATCH from
+        #    silently recommencing an engagement someone paused.
+        if not may_automation_set_status(engagement):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"This engagement is {engagement.status}. Use the engagement "
+                    "status endpoint to recommence it before making other changes."
+                )
+            )
+        # 2. Pausing/ending through the generic PATCH would be a way around the
+        #    lifecycle permission rule.
+        if update_data["status"] in TASK_HIDDEN_STATUSES and not can_change_engagement_status(
+            engagement, current_user
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to change this engagement's status."
+            )
+
     # Handle secondary_advisor_ids separately if provided
     if "secondary_advisor_ids" in update_data:
         if update_data["secondary_advisor_ids"] is not None:
@@ -1009,6 +1047,83 @@ async def update_engagement(
     engagement_dict["client_names"] = client_names  # New array format
     engagement_dict["advisor_name"] = primary_advisor.name or primary_advisor.email or primary_advisor.nickname if primary_advisor else None
     
+    return EngagementResponse(**engagement_dict)
+
+
+@router.post("/{engagement_id}/status", response_model=EngagementResponse)
+async def set_engagement_status(
+    engagement_id: UUID,
+    status_data: EngagementStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Pause, end or recommence an engagement.
+
+    Accepts `active` (recommence), `paused` or `ended`. Nothing is deleted: the
+    engagement and all of its data stay intact, and its tasks reappear in the
+    Tasks views as soon as it is recommenced.
+
+    Permitted for admins, super admins, and the engagement's assigned advisors
+    (primary or secondary) - see services/engagement_status.py.
+    """
+    engagement = db.query(Engagement).filter(
+        Engagement.id == engagement_id,
+        Engagement.is_deleted == False,
+    ).first()
+
+    if not engagement:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Engagement not found."
+        )
+
+    new_status = (status_data.status or "").strip().lower()
+    if new_status not in SETTABLE_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid status. Must be one of: {', '.join(SETTABLE_STATUSES)}."
+        )
+
+    if not can_change_engagement_status(engagement, current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to change this engagement's status."
+        )
+
+    previous_status = engagement.status
+    engagement.status = new_status
+    db.commit()
+    db.refresh(engagement)
+
+    logger.info(
+        f"Engagement {engagement.id} status changed from '{previous_status}' to "
+        f"'{new_status}' by user {current_user.id}"
+    )
+
+    # Populate client_name, client_names and advisor_name for the response
+    client_ids_to_fetch = engagement.client_ids if engagement.client_ids else []
+    if not client_ids_to_fetch and engagement.client_id:
+        client_ids_to_fetch = [engagement.client_id]
+
+    client_name = None
+    client_names = []
+    if client_ids_to_fetch:
+        clients = db.query(User).filter(User.id.in_(client_ids_to_fetch)).all()
+        client_names = [
+            (client.name or client.email or client.nickname)
+            for client in clients
+            if client
+        ]
+        if client_names:
+            client_name = client_names[0]
+
+    primary_advisor = db.query(User).filter(User.id == engagement.primary_advisor_id).first()
+    engagement_dict = engagement.__dict__.copy()
+    engagement_dict["client_name"] = client_name
+    engagement_dict["client_names"] = client_names
+    engagement_dict["advisor_name"] = primary_advisor.name or primary_advisor.email or primary_advisor.nickname if primary_advisor else None
+
     return EngagementResponse(**engagement_dict)
 
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, ArrowRight, FileText, CheckSquare, Calendar, Loader2, Users, Trash2, UserPlus } from 'lucide-react';
-import { fetchEngagements, fetchUserRoleData, deleteEngagement } from '@/store/slices/engagementReducer';
+import { Search, Plus, ArrowRight, FileText, CheckSquare, Calendar, Loader2, Users, Trash2, UserPlus, PauseCircle, PlayCircle, StopCircle } from 'lucide-react';
+import { fetchEngagements, fetchUserRoleData, deleteEngagement, setEngagementStatus } from '@/store/slices/engagementReducer';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -17,9 +17,17 @@ import { EngagementForm } from "@/components/engagement/form";
 import { SecondaryAdvisorDialog } from './SecondaryAdvisorDialog';
 import { AddClientsDialog } from '@/components/engagement/AddClientsDialog';
 import { DeleteEngagementDialog } from './DeleteEngagementDialog';
+import { EngagementStatusDialog } from './EngagementStatusDialog';
 import { toast } from "sonner";
-import type { Engagement } from '@/store/slices/engagementReducer';
+import type { Engagement, SettableEngagementStatus } from '@/store/slices/engagementReducer';
 import { Button } from '@/components/ui/button';
+import {
+  availableStatusActions,
+  canChangeEngagementStatus,
+  engagementStatusBadgeClass,
+  formatEngagementStatus,
+  isEngagementOnHold,
+} from '@/lib/engagementStatus';
 
 interface EngagementsPageProps {
   firmId?: string;
@@ -40,7 +48,12 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
   const [engagementToDelete, setEngagementToDelete] = useState<Engagement | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  
+  const [statusChange, setStatusChange] = useState<{
+    engagement: Engagement;
+    target: SettableEngagementStatus;
+  } | null>(null);
+  const [isSavingStatus, setIsSavingStatus] = useState(false);
+
   const isClient = user?.role === 'client';
   const isFirmAdvisor = user?.role === 'firm_advisor';
   const canDeleteEngagements = user && ['super_admin', 'admin', 'firm_admin'].includes(user.role);
@@ -84,10 +97,9 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
       e.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       e.businessName?.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesStatus = statusFilter === 'all' || 
-      e.status.toLowerCase() === statusFilter.toLowerCase() ||
-      (statusFilter === 'in-review' && e.status === 'on-hold');
-    
+    const matchesStatus = statusFilter === 'all' ||
+      e.status.toLowerCase() === statusFilter.toLowerCase();
+
     return matchesSearch && matchesStatus;
   });
 
@@ -107,18 +119,6 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
     } catch {
       return dateString;
     }
-  };
-
-  // Format status for display
-  const formatStatus = (status: string) => {
-    const statusMap: Record<string, string> = {
-      'active': 'Active',
-      'draft': 'Draft',
-      'on-hold': 'In Review',
-      'completed': 'Completed',
-      'cancelled': 'Archived',
-    };
-    return statusMap[status.toLowerCase()] || status;
   };
 
   const handleFormSuccess = () => {
@@ -158,6 +158,39 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
     e.stopPropagation();
     setEngagementToDelete(engagement);
     setIsDeleteDialogOpen(true);
+  };
+
+  const handleStatusActionClick = (
+    engagement: Engagement,
+    target: SettableEngagementStatus,
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation();
+    setStatusChange({ engagement, target });
+  };
+
+  const handleConfirmStatusChange = async () => {
+    if (!statusChange) return;
+
+    const { engagement, target } = statusChange;
+    try {
+      setIsSavingStatus(true);
+      await dispatch(setEngagementStatus({ id: engagement.id, status: target })).unwrap();
+      toast.success(
+        target === 'paused'
+          ? 'Engagement paused'
+          : target === 'ended'
+          ? 'Engagement ended'
+          : 'Engagement recommenced'
+      );
+      setStatusChange(null);
+    } catch (err) {
+      // rejectWithValue sends a plain string; a thrown Error sends an object
+      const message = typeof err === 'string' ? err : (err as Error)?.message;
+      toast.error(message || 'Failed to update engagement status');
+    } finally {
+      setIsSavingStatus(false);
+    }
   };
 
   const handleConfirmDelete = async () => {
@@ -211,9 +244,10 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="on-hold">In Review</SelectItem>
+              <SelectItem value="paused">Paused</SelectItem>
+              <SelectItem value="ended">Ended</SelectItem>
               <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="cancelled">Archived</SelectItem>
+              <SelectItem value="archived">Archived</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -247,8 +281,10 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
             <div className="space-y-4">
               {filteredEngagements.map((engagement) => {
                 const progress = calculateProgress(engagement);
-                const statusDisplay = formatStatus(engagement.status);
-                
+                const statusDisplay = formatEngagementStatus(engagement.status);
+                const canChangeStatus = canChangeEngagementStatus(engagement, user);
+                const onHold = isEngagementOnHold(engagement.status);
+
                 return (
                 <div 
                     key={engagement.id} 
@@ -269,10 +305,7 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
                         <div className="flex items-center gap-2">
                           <span className={cn(
                             "status-badge flex-shrink-0",
-                            engagement.status === 'active' && "status-success",
-                            engagement.status === 'on-hold' && "status-info",
-                            engagement.status === 'completed' && "bg-muted text-muted-foreground",
-                            engagement.status === 'draft' && "bg-yellow-100 text-yellow-800"
+                            engagementStatusBadgeClass(engagement.status)
                           )}>
                             {statusDisplay}
                           </span>
@@ -285,6 +318,22 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
                               {engagement.tool === 'sale_ready' ? 'Sale Ready' : engagement.tool === 'value_builder' ? 'Value Builder' : engagement.tool}
                             </span>
                           )}
+                          {canChangeStatus && availableStatusActions(engagement.status).map((action) => (
+                            <Button
+                              key={action.target}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => handleStatusActionClick(engagement, action.target, e)}
+                              className="h-7 gap-1.5 px-2 text-xs flex-shrink-0"
+                              aria-label={`${action.label} engagement`}
+                            >
+                              {action.target === 'paused' && <PauseCircle className="w-3.5 h-3.5" />}
+                              {action.target === 'ended' && <StopCircle className="w-3.5 h-3.5" />}
+                              {action.target === 'active' && <PlayCircle className="w-3.5 h-3.5" />}
+                              {action.label}
+                            </Button>
+                          ))}
                           {canDeleteEngagements && (
                             <button
                               type="button"
@@ -337,6 +386,12 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
                             </button>
                           )}
                         </div>
+
+                        {onHold && (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            Tasks for this engagement are hidden from the Tasks views. Recommence to restore them.
+                          </p>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-6 lg:gap-8">
@@ -413,6 +468,19 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Pause / End / Recommence Dialog */}
+      <EngagementStatusDialog
+        open={!!statusChange}
+        target={statusChange?.target ?? null}
+        title={statusChange?.engagement.businessName || statusChange?.engagement.title}
+        isSaving={isSavingStatus}
+        onCancel={() => {
+          if (isSavingStatus) return;
+          setStatusChange(null);
+        }}
+        onConfirm={handleConfirmStatusChange}
+      />
 
       {/* Delete Engagement Dialog */}
       <DeleteEngagementDialog

@@ -24,6 +24,7 @@ from ..schemas.task import (
 from ..models.diagnostic import Diagnostic
 from ..utils.auth import get_current_user
 from ..services.role_check import check_engagement_access
+from ..services.engagement_status import TASK_HIDDEN_STATUSES
 from .note import check_note_visibility
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
@@ -253,6 +254,15 @@ async def list_tasks(
             )
         query = query.filter(Task.engagement_id == engagement_id)
     else:
+        # Paused/ended engagements drop out of the aggregate Tasks views for
+        # every role; recommencing brings them back. A subquery, not a join, so
+        # it composes with the per-role join(Engagement) filters below.
+        query = query.filter(
+            ~Task.engagement_id.in_(
+                db.query(Engagement.id).filter(Engagement.status.in_(TASK_HIDDEN_STATUSES))
+            )
+        )
+
         # Filter by accessible engagements and user's tasks
         if current_user.role == UserRole.SUPER_ADMIN:
             # Super Admins see all tasks

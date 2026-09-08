@@ -40,6 +40,15 @@ class EngagementUpdate(BaseModel):
     completed_at: Optional[datetime] = None
 
 
+# Schema for changing an engagement's lifecycle status
+class EngagementStatusUpdate(BaseModel):
+    """Schema for pausing, ending or recommencing an engagement"""
+    status: str = Field(
+        ...,
+        description="New lifecycle status: active (recommence), paused, or ended",
+    )
+
+
 # Schema for engagement response
 class EngagementResponse(EngagementBase):
     """Schema for engagement response"""

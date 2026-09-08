@@ -1,19 +1,33 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 
 // Types
+// Status values are the backend's own vocabulary - no translation layer, so a
+// status filter sent to the API always matches what is stored.
+export type EngagementStatus =
+  | 'draft'
+  | 'active'
+  | 'paused'
+  | 'ended'
+  | 'completed'
+  | 'archived';
+
+// The statuses the lifecycle endpoint accepts (recommence is a move to 'active').
+export type SettableEngagementStatus = 'active' | 'paused' | 'ended';
+
 export interface Engagement {
   id: string;
   clientId?: string;  // Kept for backward compatibility
   clientIds: string[];  // New array format
   clientName?: string;  // Kept for backward compatibility
   clientNames: string[];  // New array format
+  primaryAdvisorId?: string;
   advisorName?: string;
   businessName: string;
   title: string;
   description: string;
   industryName: string;
   tool?: 'value_builder' | 'sale_ready' | 'diagnostic' | 'kpi_builder' | 'bba_builder';
-  status: 'draft' | 'active' | 'on-hold' | 'completed' | 'cancelled';
+  status: EngagementStatus;
   startDate: string;
   endDate?: string;
   budget?: number;
@@ -146,13 +160,14 @@ export const fetchEngagements = createAsyncThunk(
           clientIds: clientIds,  // New array format
           clientName: item.client_name || clientNames[0] || undefined,  // Keep for backward compatibility
           clientNames: clientNames,  // New array format
+          primaryAdvisorId: item.primary_advisor_id ? String(item.primary_advisor_id) : undefined,
           advisorName: item.advisor_name || undefined,
           businessName: item.business_name || '',
           title: item.title || item.engagement_name || '',
           description: item.description || '',
           industryName: item.industry_name || item.industry || '',
           tool: item.tool || undefined,
-          status: mapBackendStatusToFrontend(item.status),
+          status: normalizeEngagementStatus(item.status),
           startDate: item.start_date || item.created_at || new Date().toISOString(),
           endDate: item.end_date || item.completed_at || undefined,
           budget: undefined, // Not in backend model yet
@@ -176,16 +191,20 @@ export const fetchEngagements = createAsyncThunk(
   }
 );
 
-// Helper function to map backend status to frontend status
-function mapBackendStatusToFrontend(status: string): 'draft' | 'active' | 'on-hold' | 'completed' | 'cancelled' {
-  const statusMap: Record<string, 'draft' | 'active' | 'on-hold' | 'completed' | 'cancelled'> = {
-    'draft': 'draft',
-    'active': 'active',
-    'paused': 'on-hold',
-    'completed': 'completed',
-    'archived': 'cancelled',
-  };
-  return statusMap[status.toLowerCase()] || 'active';
+const ENGAGEMENT_STATUSES: EngagementStatus[] = [
+  'draft',
+  'active',
+  'paused',
+  'ended',
+  'completed',
+  'archived',
+];
+
+// Normalises whatever the backend sent. The frontend uses the same vocabulary,
+// so this only guards against an unexpected value rather than translating.
+function normalizeEngagementStatus(status: string): EngagementStatus {
+  const value = (status || '').toLowerCase() as EngagementStatus;
+  return ENGAGEMENT_STATUSES.includes(value) ? value : 'active';
 }
 
 export const fetchEngagementById = createAsyncThunk(
@@ -221,7 +240,7 @@ export const createEngagement = createAsyncThunk(
     description: string;
     industryName: string;
     tool: 'diagnostic' | 'kpi_builder';
-    status: 'draft' | 'active' | 'on-hold' | 'completed' | 'cancelled';
+    status: EngagementStatus;
     primaryAdvisorId?: string; // Optional: will be fetched from current user if not provided
   }, { rejectWithValue }) => {
     try {
@@ -263,7 +282,7 @@ export const createEngagement = createAsyncThunk(
         tool: engagement.tool,
         client_id: engagement.clientId,
         primary_advisor_id: primaryAdvisorId,
-        status: mapFrontendStatusToBackend(engagement.status),
+        status: normalizeEngagementStatus(engagement.status),
       };
 
       const response = await fetch(`${API_BASE_URL}/api/engagements`, {
@@ -300,7 +319,7 @@ export const createEngagement = createAsyncThunk(
         description: data.description || engagement.description,
         industryName: data.industry_name || data.industry || engagement.industryName,
         tool: data.tool || engagement.tool,
-        status: mapBackendStatusToFrontend(data.status),
+        status: normalizeEngagementStatus(data.status),
         startDate: data.start_date || data.created_at || new Date().toISOString(),
         endDate: data.end_date || data.completed_at || undefined,
         assignedUsers: data.assigned_users || data.secondary_advisor_ids?.map((id: string) => String(id)) || [],
@@ -319,18 +338,6 @@ export const createEngagement = createAsyncThunk(
   }
 );
 
-// Helper function to map frontend status to backend status
-function mapFrontendStatusToBackend(status: 'draft' | 'active' | 'on-hold' | 'completed' | 'cancelled'): string {
-  const statusMap: Record<string, string> = {
-    'draft': 'draft',
-    'active': 'active',
-    'on-hold': 'paused',
-    'completed': 'completed',
-    'cancelled': 'archived',
-  };
-  return statusMap[status] || 'active';
-}
-
 export const updateEngagement = createAsyncThunk(
   'engagement/updateEngagement',
   async ({ id, updates }: { id: string; updates: Partial<Engagement> }, { rejectWithValue }) => {
@@ -344,16 +351,11 @@ export const updateEngagement = createAsyncThunk(
       if (updates.industryName !== undefined) backendUpdates.industry = updates.industryName;
       if (updates.description !== undefined) backendUpdates.description = updates.description;
       if (updates.tool !== undefined) backendUpdates.tool = updates.tool;
+      // Lifecycle changes (pause/end/recommence) go through setEngagementStatus,
+      // which enforces its own permission rule. This generic PATCH still carries
+      // status for the draft -> active transition the diagnostic survey makes.
       if (updates.status !== undefined) {
-        // Map frontend status to backend status
-        const statusMap: Record<string, string> = {
-          'draft': 'draft',
-          'active': 'active',
-          'on-hold': 'on-hold',
-          'completed': 'completed',
-          'cancelled': 'archived',
-        };
-        backendUpdates.status = statusMap[updates.status] || updates.status;
+        backendUpdates.status = updates.status;
       }
       if (updates.assignedUsers !== undefined) {
         // Map assignedUsers (array of strings) to secondary_advisor_ids (array of UUIDs)
@@ -389,12 +391,15 @@ export const updateEngagement = createAsyncThunk(
         clientIds: clientIds_array,
         clientName: data.client_name || clientNames_array[0] || updates.clientName,
         clientNames: clientNames_array,
+        primaryAdvisorId: data.primary_advisor_id
+          ? String(data.primary_advisor_id)
+          : updates.primaryAdvisorId,
         businessName: data.business_name || updates.businessName,
         title: data.title || data.engagement_name || updates.title,
         description: data.description || updates.description,
         industryName: data.industry_name || data.industry || updates.industryName,
         tool: data.tool || updates.tool,
-        status: mapBackendStatusToFrontend(data.status) || updates.status,
+        status: normalizeEngagementStatus(data.status) || updates.status,
         startDate: data.start_date || data.created_at || updates.startDate,
         endDate: data.end_date || data.completed_at || updates.endDate,
         assignedUsers: data.assigned_users || data.secondary_advisor_ids?.map((id: string) => String(id)) || [],
@@ -409,6 +414,42 @@ export const updateEngagement = createAsyncThunk(
       } as Engagement;
     } catch (error) {
       return rejectWithValue(error instanceof Error ? error.message : 'Failed to update engagement');
+    }
+  }
+);
+
+// Pause / End / Recommence. Separate from updateEngagement because the backend
+// gates lifecycle changes on their own permission rule.
+export const setEngagementStatus = createAsyncThunk(
+  'engagement/setEngagementStatus',
+  async (
+    { id, status }: { id: string; status: SettableEngagementStatus },
+    { rejectWithValue }
+  ) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${API_BASE_URL}/api/engagements/${id}/status`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response
+          .json()
+          .catch(() => ({ detail: 'Failed to update engagement status' }));
+        throw new Error(errorData.detail || 'Failed to update engagement status');
+      }
+
+      const data = await response.json();
+      return { id, status: normalizeEngagementStatus(data.status) };
+    } catch (error) {
+      return rejectWithValue(
+        error instanceof Error ? error.message : 'Failed to update engagement status'
+      );
     }
   }
 );
@@ -507,7 +548,7 @@ export const addClientsToEngagement = createAsyncThunk(
         description: data.description || '',
         industryName: data.industry_name || data.industry || '',
         tool: data.tool || undefined,
-        status: mapBackendStatusToFrontend(data.status),
+        status: normalizeEngagementStatus(data.status),
         startDate: data.start_date || data.created_at || new Date().toISOString(),
         endDate: data.end_date || data.completed_at || undefined,
         assignedUsers: data.assigned_users || data.secondary_advisor_ids?.map((id: string) => String(id)) || [],
@@ -568,7 +609,7 @@ export const removeClientFromEngagement = createAsyncThunk(
         description: data.description || '',
         industryName: data.industry_name || data.industry || '',
         tool: data.tool || undefined,
-        status: mapBackendStatusToFrontend(data.status),
+        status: normalizeEngagementStatus(data.status),
         startDate: data.start_date || data.created_at || new Date().toISOString(),
         endDate: data.end_date || data.completed_at || undefined,
         assignedUsers: data.assigned_users || data.secondary_advisor_ids?.map((id: string) => String(id)) || [],
@@ -688,6 +729,23 @@ const engagementSlice = createSlice({
       })
       .addCase(updateEngagement.rejected, (state, action) => {
         state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // Pause / End / Recommence
+      .addCase(setEngagementStatus.pending, (state) => {
+        state.error = null;
+      })
+      .addCase(setEngagementStatus.fulfilled, (state, action) => {
+        const { id, status } = action.payload;
+        const engagement = state.engagements.find((e) => e.id === id);
+        if (engagement) {
+          engagement.status = status;
+        }
+        if (state.selectedEngagement?.id === id) {
+          state.selectedEngagement.status = status;
+        }
+      })
+      .addCase(setEngagementStatus.rejected, (state, action) => {
         state.error = action.payload as string;
       })
       // Delete engagement

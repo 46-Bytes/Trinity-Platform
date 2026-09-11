@@ -35,12 +35,32 @@ const baseCreateSchemaFields = {
     message: "Engagement name must be at least 3 characters.",
   }),
   description: z.string().optional(),
-  tool: z.enum(['value_builder', 'sale_ready'], {
+  // 'not_selected' is form-only; it is sent as a null tool and the type is
+  // picked later, when the diagnostic is added from the Diagnostic tab.
+  tool: z.enum(['value_builder', 'sale_ready', 'not_selected'], {
     message: "Please select an engagement type.",
   }),
   // Optional questionnaire. Off still creates the engagement and its tools;
   // the diagnostic can be added from the Diagnostic tab later.
   createDiagnostic: z.boolean().default(true),
+};
+
+type FormTool = 'value_builder' | 'sale_ready' | 'not_selected';
+
+// Edit-mode pre-fill: a missing or unknown stored tool shows as "None".
+const toFormTool = (tool?: string): FormTool =>
+  tool === 'value_builder' || tool === 'sale_ready' ? tool : 'not_selected';
+
+// Values for the create request, derived from the type and the checkbox.
+const buildCreateFields = (tool: FormTool, createDiagnostic?: boolean) => {
+  const hasType = tool !== 'not_selected';
+  const withDiagnostic = hasType && createDiagnostic !== false;
+  return {
+    tool: hasType ? tool : null,
+    // Created with its diagnostic keeps the existing draft flow; otherwise it starts active.
+    status: withDiagnostic ? 'draft' : 'active',
+    create_diagnostic: withDiagnostic,
+  };
 };
 
 const baseEditOnlySchemaFields = {
@@ -227,7 +247,7 @@ export function EngagementForm({
           description: engagement.description || "",
           clientId: engagement.clientId || "",
           advisorId: (engagement as any).primaryAdvisorId || "",
-          tool: (['value_builder', 'sale_ready'].includes(engagement.tool || '') ? engagement.tool as 'value_builder' | 'sale_ready' : 'value_builder') || "value_builder",
+          tool: toFormTool(engagement.tool),
         } as any);
       } else if (isFirmContext) {
         form.reset({
@@ -236,7 +256,7 @@ export function EngagementForm({
           engagementName: engagement.title || "",
           description: engagement.description || "",
           clientId: engagement.clientId || "",
-          tool: (['value_builder', 'sale_ready'].includes(engagement.tool || '') ? engagement.tool as 'value_builder' | 'sale_ready' : 'value_builder') || "value_builder",
+          tool: toFormTool(engagement.tool),
         });
       } else {
         form.reset({
@@ -245,7 +265,7 @@ export function EngagementForm({
           engagementName: engagement.title || "",
           description: engagement.description || "",
           clientOrAdvisorId: engagement.clientId || "",
-          tool: (['value_builder', 'sale_ready'].includes(engagement.tool || '') ? engagement.tool as 'value_builder' | 'sale_ready' : 'value_builder') || "value_builder",
+          tool: toFormTool(engagement.tool),
         });
       }
     }
@@ -253,6 +273,14 @@ export function EngagementForm({
 
   // Watch clientId for firm context
   const watchedClientId = form.watch('clientId' as any) as string | undefined;
+
+  // "None" means no diagnostic yet, so the questionnaire box is forced off and locked.
+  const isToolNotSelected = form.watch('tool') === 'not_selected';
+  useEffect(() => {
+    if (isToolNotSelected) {
+      form.setValue('createDiagnostic', false);
+    }
+  }, [isToolNotSelected, form]);
 
   // Fetch associated advisor when client is selected in firm context
   useEffect(() => {
@@ -545,9 +573,7 @@ export function EngagementForm({
             engagement_name: values.engagementName,
             business_name: businessName || undefined,
             description: values.description,
-            tool: values.tool,
-            status: 'draft',
-            create_diagnostic: values.createDiagnostic !== false,
+            ...buildCreateFields(values.tool, values.createDiagnostic),
             client_id: clientId,
             primary_advisor_id: primaryAdvisorId,
           };
@@ -558,7 +584,8 @@ export function EngagementForm({
           // Validate all required fields
           const missingFields = [];
           if (!requestPayload.engagement_name) missingFields.push('engagement_name');
-          if (!requestPayload.tool) missingFields.push('tool');
+          // A null tool is valid ("None"); only a missing selection is an error.
+          if (!values.tool) missingFields.push('tool');
           if (!requestPayload.client_id) missingFields.push('client_id');
           if (!requestPayload.primary_advisor_id) missingFields.push('primary_advisor_id');
           
@@ -618,9 +645,7 @@ export function EngagementForm({
             engagement_name: values.engagementName,
             business_name: businessName || undefined,
             description: values.description,
-            tool: values.tool,
-            status: 'draft',
-            create_diagnostic: values.createDiagnostic !== false,
+            ...buildCreateFields(values.tool, values.createDiagnostic),
             client_id: clientId,
             primary_advisor_id: advisorId,
           };
@@ -631,7 +656,8 @@ export function EngagementForm({
           // Validate all required fields
           const missingFields = [];
           if (!requestPayload.engagement_name) missingFields.push('engagement_name');
-          if (!requestPayload.tool) missingFields.push('tool');
+          // A null tool is valid ("None"); only a missing selection is an error.
+          if (!values.tool) missingFields.push('tool');
           if (!requestPayload.client_id) missingFields.push('client_id');
           if (!requestPayload.primary_advisor_id) missingFields.push('primary_advisor_id');
           
@@ -1008,6 +1034,7 @@ export function EngagementForm({
                   <SelectContent>
                     <SelectItem value="value_builder">Value Builder</SelectItem>
                     <SelectItem value="sale_ready">Sale Ready</SelectItem>
+                    <SelectItem value="not_selected">None</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormDescription>
@@ -1023,18 +1050,27 @@ export function EngagementForm({
               control={form.control}
               name="createDiagnostic"
               render={({ field }) => (
-                <FormItem className="md:col-span-2 flex flex-row items-start gap-3 space-y-0 rounded-md border p-4">
+                <FormItem
+                  className={`md:col-span-2 flex flex-row items-start gap-3 space-y-0 rounded-md border p-4 ${
+                    isToolNotSelected ? "cursor-not-allowed bg-muted/50 opacity-60" : ""
+                  }`}
+                  aria-disabled={isToolNotSelected}
+                >
                   <FormControl>
                     <Checkbox
-                      checked={field.value !== false}
+                      checked={!isToolNotSelected && field.value !== false}
                       onCheckedChange={field.onChange}
+                      disabled={isToolNotSelected}
                     />
                   </FormControl>
                   <div className="space-y-1 leading-none">
-                    <FormLabel>Include diagnostic questionnaire</FormLabel>
+                    <FormLabel className={isToolNotSelected ? "cursor-not-allowed" : undefined}>
+                      Include diagnostic questionnaire
+                    </FormLabel>
                     <FormDescription>
-                      Leave unchecked to create the engagement without a diagnostic. All
-                      tools stay available, and a diagnostic can be added later.
+                      {isToolNotSelected
+                        ? "No engagement type selected. Choose Value Builder or Sale Ready when you add the diagnostic from the Diagnostic tab."
+                        : "Leave unchecked to create the engagement without a diagnostic. All tools stay available, and a diagnostic can be added later."}
                     </FormDescription>
                   </div>
                 </FormItem>

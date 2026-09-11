@@ -2,7 +2,7 @@
 Pydantic schemas for Diagnostic model
 """
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Literal
 from datetime import datetime
 from uuid import UUID
 from decimal import Decimal
@@ -22,6 +22,10 @@ class DiagnosticCreate(DiagnosticBase):
     # Creator comes from the authenticated user, not the request.
     # Questions are loaded server-side; kept only for backward compatibility.
     questions: Optional[Dict[str, Any]] = Field(default=None, deprecated=True, description="Ignored; questions are loaded server-side")
+    engagement_tool: Optional[Literal["value_builder", "sale_ready"]] = Field(
+        default=None,
+        description="Engagement type to set when the engagement has none yet. Required in that case.",
+    )
 
 
 # Schema for updating diagnostic responses (incremental saves)

@@ -870,7 +870,15 @@ export default function EngagementDetailPage() {
 
         <TabsContent value="diagnostic" className="mt-4 sm:mt-6 w-full" style={{ width: '100%', maxWidth: '100%', overflowX: 'clip' }}>
           <div className="card-trinity px-0 sm:px-1 md:px-3 lg:px-6 py-2 sm:py-3 md:py-6 w-full" style={{ width: '100%', boxSizing: 'border-box', maxWidth: '100%', overflowX: 'clip', paddingLeft: 'clamp(0px, 1vw, 24px)', paddingRight: 'clamp(0px, 1vw, 24px)' }}>
-            <ToolSurvey engagementId={engagementId} toolType="diagnostic" engagementType={engagement?.tool} />
+            <ToolSurvey
+              engagementId={engagementId}
+              toolType="diagnostic"
+              engagementType={engagement?.tool}
+              onDiagnosticCreated={() => {
+                fetchEngagement();
+                fetchDiagnostics();
+              }}
+            />
           </div>
         </TabsContent>
 

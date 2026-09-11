@@ -309,13 +309,17 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
                           )}>
                             {statusDisplay}
                           </span>
-                          {engagement.tool && (
+                          {engagement.tool ? (
                             <span className={cn(
                               "status-badge flex-shrink-0 text-xs",
                               engagement.tool === 'sale_ready' && "bg-blue-100 text-blue-800",
                               engagement.tool === 'value_builder' && "bg-purple-100 text-purple-800"
                             )}>
                               {engagement.tool === 'sale_ready' ? 'Sale Ready' : engagement.tool === 'value_builder' ? 'Value Builder' : engagement.tool}
+                            </span>
+                          ) : (
+                            <span className="status-badge flex-shrink-0 text-xs bg-muted text-muted-foreground">
+                              Not Selected
                             </span>
                           )}
                           {canChangeStatus && availableStatusActions(engagement.status).map((action) => (

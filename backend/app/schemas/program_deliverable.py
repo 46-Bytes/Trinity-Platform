@@ -28,6 +28,10 @@ class ModuleDeliverables(BaseModel):
     """A module's deliverables and its derived status."""
     module_code: str = Field(..., description="e.g. 'V1'..'V11'")
     status: str = Field(..., description="'not_started' | 'in_progress' | 'completed'")
+    is_commenced: bool = Field(
+        False,
+        description="True once an advisor has commenced the module, which reads as in_progress until the deliverables complete it",
+    )
     deliverables: List[DeliverableItem] = Field(
         default_factory=list,
         description="Ordered: presets by library display_order, then advisor-added by creation time",
@@ -40,7 +44,7 @@ class DeliverableView(BaseModel):
     program_type: str = Field(..., description="Matches Engagement.tool, e.g. 'value_builder'")
     modules: List[ModuleDeliverables] = Field(
         default_factory=list,
-        description="Only modules that have at least one deliverable, ordered by module_code",
+        description="Modules that have at least one deliverable, plus any commenced module that has none, ordered by module_code",
     )
 
 

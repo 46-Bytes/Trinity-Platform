@@ -138,3 +138,48 @@ class TestScopedOutAndComplete:
     def test_incomplete_scoped_out_mandatory_does_not_block(self):
         states = [_mandatory(in_scope=False), _optional(complete=True)]
         assert derive_module_status(states) == MODULE_STATUS_COMPLETED
+
+
+# ==================== COMMENCEMENT ====================
+
+class TestCommenced:
+    """
+    The advisor's "Commence Module" click, which is a second way into
+    in_progress so a module can be started before anything is ticked.
+    """
+
+    def test_commenced_with_no_deliverables(self):
+        """A module with nothing authored still starts."""
+        assert derive_module_status([], commenced=True) == MODULE_STATUS_IN_PROGRESS
+
+    def test_commenced_with_untouched_deliverables(self):
+        """The case the client reported: started, nothing ticked yet."""
+        states = [_mandatory(), _optional()]
+        assert derive_module_status(states, commenced=True) == MODULE_STATUS_IN_PROGRESS
+
+    def test_not_commenced_is_unchanged(self):
+        """The default keeps every existing caller reading exactly as before."""
+        states = [_mandatory(), _optional()]
+        assert derive_module_status(states) == MODULE_STATUS_NOT_STARTED
+        assert derive_module_status(states, commenced=False) == MODULE_STATUS_NOT_STARTED
+
+    def test_completion_takes_precedence_over_commencement(self):
+        """Deliverables alone decide completion; commencing never holds it open."""
+        states = [_mandatory(complete=True), _optional(complete=True)]
+        assert derive_module_status(states, commenced=True) == MODULE_STATUS_COMPLETED
+
+    def test_commenced_module_does_not_fall_back_to_not_started(self):
+        """
+        The point of storing commencement: un-ticking the last deliverable
+        leaves the module in progress rather than dropping it to not started.
+        """
+        states = [_mandatory(complete=False)]
+        assert derive_module_status(states, commenced=True) == MODULE_STATUS_IN_PROGRESS
+
+    def test_commencing_does_not_vacuously_complete_an_optional_only_module(self):
+        """
+        The any_acted_on guard still holds: commencing is not activity on a
+        deliverable, so an all-optional untouched module must not read complete.
+        """
+        states = [_optional(), _optional()]
+        assert derive_module_status(states, commenced=True) == MODULE_STATUS_IN_PROGRESS

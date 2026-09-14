@@ -158,7 +158,8 @@ export function ModuleDeliverablesPanel({
         </span>
       </div>
       <p className="mb-4 text-xs text-muted-foreground">
-        Module status is derived from these. It is never set by hand.
+        Module status follows these. Commencing the module marks it In progress before any are
+        ticked; completing them is what makes it Complete.
       </p>
 
       {stillLoading ? (

@@ -19,7 +19,7 @@ title. The rules themselves live in small pure validators for the same reason
 derive_module_status does: they are exhaustively testable without a database.
 """
 from datetime import datetime, timezone
-from typing import Any, Dict, List, NamedTuple, Optional, Sequence
+from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Set
 from uuid import UUID
 
 from sqlalchemy import select, union_all, func, literal
@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 
 from app.models.engagement import Engagement
 from app.models.program_deliverable import EngagementModuleDeliverable, ProgramModuleDeliverable
+from app.models.program_guide import EngagementModuleCommencement
 from app.models.task import Task
 
 # Derived module status values. Matches the vocabulary used by the persisted
@@ -88,9 +89,10 @@ class DeliverableState(NamedTuple):
     task_count: int = 0
 
 
-def derive_module_status(states: Sequence[DeliverableState]) -> str:
+def derive_module_status(states: Sequence[DeliverableState], commenced: bool = False) -> str:
     """
-    Derive a module's status from its deliverables.
+    Derive a module's status from its deliverables, and from whether an advisor
+    has formally commenced it.
 
     Returns 'not_started', 'in_progress' or 'completed'.
 
@@ -103,6 +105,12 @@ def derive_module_status(states: Sequence[DeliverableState]) -> str:
     scoped out at the same time. Such an item is not outstanding (it is out of
     scope) but still counts as activity, which falls out of the expressions
     below with no special-casing.
+
+    `commenced` is the advisor's "Commence Module" click and is a second way
+    into in_progress, so a module can be started before anything is ticked. It
+    never blocks completion: deliverables alone decide that, and a commenced
+    module whose deliverables are all done still reads completed. It defaults
+    to False so callers that know nothing about commencement are unaffected.
     """
     outstanding_mandatory = sum(1 for s in states if s.in_scope and s.mandatory and not s.complete)
     any_acted_on = any(s.complete or not s.in_scope for s in states)
@@ -110,7 +118,7 @@ def derive_module_status(states: Sequence[DeliverableState]) -> str:
 
     if outstanding_mandatory == 0 and any_acted_on:
         return MODULE_STATUS_COMPLETED
-    elif any_complete:
+    elif any_complete or commenced:
         return MODULE_STATUS_IN_PROGRESS
     else:
         return MODULE_STATUS_NOT_STARTED
@@ -292,12 +300,102 @@ class ProgramDeliverableService:
     # ------------------------------------------------------------------
     # Derived status
     # ------------------------------------------------------------------
+    def get_commenced_module_codes(self, engagement: Engagement) -> Set[str]:
+        """
+        Module codes an advisor has formally commenced on this engagement.
+
+        Sparse, like the deliverable instances: a module with no row has not
+        been commenced. is_commenced is read rather than assumed, so the column
+        remains the single source of truth if a row is ever cleared.
+        """
+        rows = (
+            self.db.query(EngagementModuleCommencement.module_code)
+            .filter(
+                EngagementModuleCommencement.engagement_id == engagement.id,
+                EngagementModuleCommencement.is_commenced == True,  # noqa: E712
+            )
+            .all()
+        )
+        return {row[0] for row in rows}
+
     def get_module_statuses(self, engagement: Engagement) -> Dict[str, str]:
-        """Module code -> derived status, for every module that has deliverables."""
+        """
+        Module code -> derived status.
+
+        Covers every module that has deliverables, plus any commenced module
+        that has none - the latter has no deliverable state to derive from but
+        is still in progress.
+        """
+        states_by_module = self.get_deliverable_states_by_module(engagement)
+        commenced = self.get_commenced_module_codes(engagement)
         return {
-            module_code: derive_module_status(states)
-            for module_code, states in self.get_deliverable_states_by_module(engagement).items()
+            module_code: derive_module_status(
+                states_by_module.get(module_code, []),
+                commenced=module_code in commenced,
+            )
+            for module_code in set(states_by_module) | commenced
         }
+
+    # ------------------------------------------------------------------
+    # Mutations: commencement
+    # ------------------------------------------------------------------
+    def set_module_commenced(
+        self,
+        engagement: Engagement,
+        module_code: str,
+        user_id: UUID,
+    ) -> EngagementModuleCommencement:
+        """
+        Record that an advisor has started this module.
+
+        Idempotent: commencing twice leaves the original timestamp alone, so a
+        double click cannot rewrite who started the module and when. The insert
+        is wrapped in a savepoint because uq_engagement_module_commencement
+        turns a concurrent create into an IntegrityError rather than a second
+        row - losing that race just means reading back what the winner wrote.
+        """
+        module_code = normalize_module_code(module_code)
+
+        existing = (
+            self.db.query(EngagementModuleCommencement)
+            .filter(
+                EngagementModuleCommencement.engagement_id == engagement.id,
+                EngagementModuleCommencement.module_code == module_code,
+            )
+            .first()
+        )
+        if existing is not None:
+            if not existing.is_commenced:
+                existing.is_commenced = True
+                existing.commenced_by_user_id = user_id
+                existing.commenced_at = datetime.now(timezone.utc)
+                self.db.commit()
+                self.db.refresh(existing)
+            return existing
+
+        row = EngagementModuleCommencement(
+            engagement_id=engagement.id,
+            module_code=module_code,
+            is_commenced=True,
+            commenced_by_user_id=user_id,
+            commenced_at=datetime.now(timezone.utc),
+        )
+        try:
+            with self.db.begin_nested():
+                self.db.add(row)
+            self.db.commit()
+            self.db.refresh(row)
+            return row
+        except IntegrityError:
+            self.db.expunge(row)
+            return (
+                self.db.query(EngagementModuleCommencement)
+                .filter(
+                    EngagementModuleCommencement.engagement_id == engagement.id,
+                    EngagementModuleCommencement.module_code == module_code,
+                )
+                .first()
+            )
 
 
     # ------------------------------------------------------------------

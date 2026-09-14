@@ -5604,18 +5604,20 @@ any_complete = any(s.complete for s in states)
 
 if outstanding_mandatory == 0 and any_acted_on:
     return MODULE_STATUS_COMPLETED
-elif any_complete:
+elif any_complete or commenced:
     return MODULE_STATUS_IN_PROGRESS
 else:
     return MODULE_STATUS_NOT_STARTED
 ```
 
-Consequences, all covered by `backend/tests/test_program_deliverable_status.py`:
+`commenced` is the advisor's "Commence Module" click, stored sparsely in `engagement_module_commencement` (one row per engagement + module; absent means not commenced). It is a second way into `in_progress` only: deliverables alone decide completion, so a commenced module whose mandatory items are all done still reads `completed`, and un-ticking them leaves it `in_progress` rather than dropping back to `not_started`. The argument defaults to `False`, so callers that know nothing about commencement are unaffected. Set by `POST /api/deliverables/engagements/{id}/modules/{code}/commence` (advisors and admins; idempotent; there is no undo).
+
+Consequences, all covered by `backend/tests/test_program_deliverable_status.py` and `backend/tests/test_module_commencement.py`:
 
 - Only **in-scope** mandatory deliverables can block completion.
 - The `any_acted_on` guard is load-bearing: without it, a module with no mandatory deliverables and nothing touched would vacuously report `completed` (`test_zero_mandatory_module_nothing_touched`).
 - **Gotcha:** scoping out *every* mandatory deliverable, with nothing completed, returns `completed` (`test_all_mandatory_scoped_out_nothing_completed`, `:105`). This is deliberate — the advisor has judged nothing mandatory applies — but a module can show Complete with zero work done.
-- A module with no deliverables at all is **absent** from the response mapping rather than mapped to an empty list. Callers must use `.get(code, [])`; the frontend routes this through `statusOf()` (`frontend/src/components/engagement/program-guide/moduleDisplay.ts:56`).
+- A module with no deliverables at all is **absent** from the response mapping rather than mapped to an empty list, unless it has been commenced — that one is listed with an empty `deliverables` array so its status can reach the client. Callers must use `.get(code, [])`; the frontend routes this through `statusOf()` (`frontend/src/components/engagement/program-guide/moduleDisplay.ts:56`).
 - `task_count` is never read by the status derivation.
 
 ### Endpoints

@@ -5618,7 +5618,7 @@ Consequences, all covered by `backend/tests/test_program_deliverable_status.py` 
 - The `any_acted_on` guard is load-bearing: without it, a module with no mandatory deliverables and nothing touched would vacuously report `completed` (`test_zero_mandatory_module_nothing_touched`).
 - **Gotcha:** scoping out *every* mandatory deliverable, with nothing completed, returns `completed` (`test_all_mandatory_scoped_out_nothing_completed`, `:105`). This is deliberate — the advisor has judged nothing mandatory applies — but a module can show Complete with zero work done.
 - A module with no deliverables at all is **absent** from the response mapping rather than mapped to an empty list, unless it has been commenced — that one is listed with an empty `deliverables` array so its status can reach the client. Callers must use `.get(code, [])`; the frontend routes this through `statusOf()` (`frontend/src/components/engagement/program-guide/moduleDisplay.ts:56`).
-- `task_count` is never read by the status derivation.
+- `task_count` is never read by the status derivation. Tasks do reach module status, but only by completing a deliverable first (see "Task completion feeds deliverable completion" below) — so `is_complete` stays the single input, and there is no path by which a task is counted twice.
 
 ### Endpoints
 
@@ -5719,12 +5719,37 @@ Fields written on the created `Task`:
 
 Response is `{created_count, skipped_count, view}` with **201 even when nothing was created**; zero is a real outcome, not a failure. `skipped_count` is computed in the endpoint as `max(total deliverables in the module − created, 0)`, so it counts every non-created row including already-tasked, scoped-out and complete ones (`backend/app/api/program_deliverable.py:226-233`).
 
-Part A's four prohibitions each have a dedicated test in `test_deliverable_task_generation.py`:
+Three of Part A's four prohibitions still hold, each with a dedicated test in `test_deliverable_task_generation.py`:
 
 - nothing is created automatically;
 - one deliverable may carry several tasks (nothing enforces uniqueness on `source_deliverable_id`; generation simply declines to add a second — `test_several_tasks_per_deliverable_are_expressible`, `:229`);
-- task state and deliverable state never move each other — completing every generated task leaves the module at `not_started` (`test_a_module_is_never_completed_by_its_tasks`, `:317`);
 - scoping a deliverable out, or soft-deleting an advisor-added one, leaves its tasks standing (`:289`, `:303`).
+
+The fourth — "task state and deliverable state never move each other" — **was reversed** on client feedback: advisors were closing a task and then having to tick the same work off again on the module. Completion now syncs **both ways**, task → deliverable and deliverable → task.
+
+### Completion syncs both ways
+
+`PATCH /api/tasks/{task_id}` (`backend/app/api/tasks.py`) calls `ProgramDeliverableService.complete_deliverable_if_tasks_done(engagement, source_deliverable_id, user_id)` when, and only when, the PATCH moved the task **into** `completed` and the task carries a `source_deliverable_id`. The service completes the deliverable once every live task generated from it is closed.
+
+| Guard | Behaviour |
+|---|---|
+| `engagement.tool != "value_builder"` | No-op. Tasks exist on every engagement; deliverables are Value Builder only |
+| Zero linked tasks | No-op. Without this, "every task is closed" is vacuously true of a deliverable that has none. Unreachable from the router (the trigger requires a linked task) but pinned on the service |
+| Any task still outstanding | No-op. `TASK_CLOSED_STATUSES = {"completed", "cancelled"}` — cancelled counts as closed, or one called-off task would block its deliverable forever with no UI to clear it |
+| `DeliverableNotFound` | Swallowed. A task outliving its deliverable is by design |
+| Otherwise | Delegates to `set_deliverable_complete(..., True, ...)` — the same method the manual tick uses, so preset materialisation, polymorphic id resolution, idempotence and the audit stamps are all reused |
+
+**The other direction** lives in `set_deliverable_complete` itself, so it cannot be bypassed by any caller: completing a deliverable calls `_complete_tasks_for_deliverable`, a single bulk `UPDATE` setting `status`/`completed_at` on its live tasks that are not already closed. It runs inside the same transaction, so a deliverable and its tasks commit together or not at all. Cancelled tasks are left exactly as they are, and already-completed ones keep their original `completed_at`.
+
+**Each direction only ever CLOSES things, and that is what stops the two halves chasing each other.** There is no branch that un-completes: reopening a task cannot regress a deliverable or drop a module out of Complete, and un-completing a deliverable does not reopen its tasks. The task → deliverable trigger is additionally gated on the transition *into* `completed`, so a reopen never invokes it. The auto path (`complete_deliverable_if_tasks_done` → `set_deliverable_complete` → `_complete_tasks_for_deliverable`) is a no-op on arrival, because every task is already closed — which is exactly why it terminates.
+
+**It runs server-side, outside the deliverables guard.** A client assigned to a deliverable-generated task can complete it (`tasks.py` `can_update` ladder), and doing so completes the deliverable even though `DELIVERABLE_ACCESS_ROLES` excludes `CLIENT`. `completed_by_user_id` records the acting user, so a client id can appear on a record clients cannot otherwise write.
+
+**Gotchas.** The call sits **after** `db.commit()` and inside `try/except` with `logger.exception` — a sync failure must never cost the user the task update, and a missed sync is recoverable by ticking manually. That means two transactions, so a crash between them leaves the task complete and the deliverable not. The trigger also lives in the router, so anything writing `Task.status` directly (a script, or a future bulk endpoint) bypasses it; the counting logic is in the service precisely so a second caller is a one-line addition. Deleting the last outstanding task does **not** fire the sync — completion is an event, not a recomputation.
+
+Required/Optional is untouched by all of this: it is a property of the *deliverable* and only ever affects *module* status (`outstanding_mandatory` in `derive_module_status`). Tasks carry no mandatory flag at all — generation copies the deliverable's into `priority` (`high`/`medium`) and nothing reads it back.
+
+Covered by `backend/tests/test_deliverable_task_sync.py` (22 tests). The task → deliverable half is driven through `PATCH /api/tasks/{id}` because that trigger is in the router.
 
 ### Seeding
 

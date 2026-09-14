@@ -1,11 +1,16 @@
 """
 Tests for generating tasks from a module's deliverables.
 
-Part A states four rules about this and every one of them is a rule about what
-must NOT happen: nothing is created automatically, one deliverable may carry
-several tasks, task completion and deliverable completion never move each
-other, and scoping a deliverable out leaves its tasks standing. Rules phrased as
+Part A states four rules about this, three of which are rules about what must
+NOT happen: nothing is created automatically, one deliverable may carry several
+tasks, and scoping a deliverable out leaves its tasks standing. Rules phrased as
 prohibitions are the ones that rot silently, so each has a test here.
+
+The fourth has since been reversed. Task and deliverable completion used to be
+fully independent; completion now syncs both ways - closing the last task
+generated from a deliverable completes it, and completing a deliverable closes
+those tasks. All of that lives in test_deliverable_task_sync.py. The tests here
+own generation only.
 
 Run with: pytest tests/test_deliverable_task_generation.py -v
 """
@@ -250,9 +255,9 @@ class TestRegeneration:
 
 
 # ----------------------------------------------------------------------
-# The separation Part A is most explicit about
+# What generating must not do on its own
 # ----------------------------------------------------------------------
-class TestTasksAndDeliverablesStaySeparate:
+class TestGeneratingIsNotCompleting:
 
     def test_generating_does_not_complete_anything(self, api, advisor, test_engagement, presets):
         payload = _generate(api, advisor, test_engagement).json()["view"]
@@ -260,31 +265,6 @@ class TestTasksAndDeliverablesStaySeparate:
 
         assert all(not d["is_complete"] for d in module["deliverables"])
         assert module["status"] == "not_started"
-
-    def test_completing_a_task_does_not_complete_its_deliverable(
-        self, api, advisor, db_session, test_engagement, presets
-    ):
-        _generate(api, advisor, test_engagement)
-        for task in db_session.query(Task).filter(Task.engagement_id == test_engagement.id).all():
-            task.status = "completed"
-        db_session.flush()
-
-        payload = api.as_user(advisor).get(f"{BASE}/{test_engagement.id}").json()
-        module = next(m for m in payload["modules"] if m["module_code"] == "V1")
-        assert all(not d["is_complete"] for d in module["deliverables"])
-        assert module["status"] == "not_started"
-
-    def test_completing_a_deliverable_does_not_touch_its_tasks(
-        self, api, advisor, db_session, test_engagement, presets
-    ):
-        _generate(api, advisor, test_engagement)
-        api.as_user(advisor).put(
-            f"{BASE}/{test_engagement.id}/items/{presets[0].id}/complete",
-            json={"is_complete": True},
-        )
-
-        task = db_session.query(Task).filter(Task.title == presets[0].title).one()
-        assert task.status == "pending"
 
     def test_scoping_out_leaves_the_task_standing(self, api, advisor, db_session, test_engagement, presets):
         """
@@ -314,11 +294,12 @@ class TestTasksAndDeliverablesStaySeparate:
 
         assert db_session.query(Task).filter(Task.title == "Cashflow Forecast").count() == 1
 
-    def test_a_module_is_never_completed_by_its_tasks(self, db_session, test_engagement, advisor, presets):
+    def test_the_status_rule_never_reads_task_count(self, db_session, test_engagement, advisor, presets):
         """
-        derive_module_status reads deliverables only. Pinned directly rather
-        than through the API, so a future change to the status query that
-        started consulting task_count fails here.
+        derive_module_status reads deliverables only. Tasks now reach module
+        status, but strictly through is_complete - so this stays exactly as it
+        was: a status query that started consulting task_count would double
+        count, and fails here. Pinned directly rather than through the API.
         """
         from app.services.program_deliverable_service import derive_module_status
 

@@ -281,7 +281,13 @@ export default function EngagementsPage({ firmId }: EngagementsPageProps = {}) {
             <div className="space-y-4">
               {filteredEngagements.map((engagement) => {
                 const progress = calculateProgress(engagement);
-                const statusDisplay = formatEngagementStatus(engagement.status);
+                // 'completed' is only ever set by diagnostic completion, so name it
+                // as such here. Scoped to this page on purpose: the shared label map
+                // still reads "Completed" everywhere else.
+                const statusDisplay =
+                  engagement.status === 'completed'
+                    ? 'Diagnostic Completed'
+                    : formatEngagementStatus(engagement.status);
                 const canChangeStatus = canChangeEngagementStatus(engagement, user);
                 const onHold = isEngagementOnHold(engagement.status);
 

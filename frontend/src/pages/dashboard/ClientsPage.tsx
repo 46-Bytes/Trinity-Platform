@@ -143,12 +143,12 @@ export default function ClientsPage() {
     }
   }, [user?.id, shouldUseFirmClients, isSuperAdminViewingFirm, fetchClients]);
 
-  // Fetch engagements on mount (needed for regular advisor, not for firm_advisor anymore)
+  // Fetch engagements on mount for advisors and firm advisors (engagement counts per client)
   useEffect(() => {
-    if (user && shouldUseAssociations && user.role === 'advisor') {
+    if (user && shouldUseAssociations) {
       dispatch(fetchEngagements(undefined));
     }
-  }, [dispatch, user?.id, user?.role, shouldUseAssociations]);
+  }, [dispatch, user?.id, shouldUseAssociations]);
 
   // Fetch engagements for the firm when superadmin is viewing a firm
   useEffect(() => {
@@ -230,21 +230,27 @@ export default function ClientsPage() {
         return;
       }
       
-      const clientId = engagement.clientId;
-      if (!engagementMap.has(clientId)) {
-        engagementMap.set(clientId, {
-          industries: new Set(),
-          engagementStatuses: new Set(),
-          engagementCount: 0,
-        });
-      }
+      // Count the engagement for every client on it, not just the first one.
+      const engagementClientIds = engagement.clientIds?.length
+        ? engagement.clientIds
+        : engagement.clientId ? [engagement.clientId] : [];
 
-      const clientEngagements = engagementMap.get(clientId)!;
-      if (engagement.industryName) {
-        clientEngagements.industries.add(engagement.industryName);
-      }
-      clientEngagements.engagementStatuses.add(engagement.status);
-      clientEngagements.engagementCount += 1;
+      engagementClientIds.forEach(clientId => {
+        if (!engagementMap.has(clientId)) {
+          engagementMap.set(clientId, {
+            industries: new Set(),
+            engagementStatuses: new Set(),
+            engagementCount: 0,
+          });
+        }
+
+        const clientEngagements = engagementMap.get(clientId)!;
+        if (engagement.industryName) {
+          clientEngagements.industries.add(engagement.industryName);
+        }
+        clientEngagements.engagementStatuses.add(engagement.status);
+        clientEngagements.engagementCount += 1;
+      });
     });
 
     // Merge client data with engagement data

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { ToolSurvey } from '@/components/engagement/tools/ToolSurvey';
 import { FollowUpToolsTab } from '@/components/engagement/FollowUpToolsTab';
 import { EngagementChatbot } from '@/components/engagement/chatbot';
-import { GeneratedFilesList } from '@/components/engagement/overview';
+import { EngagementFileUpload, GeneratedFilesList } from '@/components/engagement/overview';
 import type { GeneratedFileProps } from '@/components/engagement/overview';
 import { TasksList } from '@/components/engagement/tasks';
 import { EngagementNotesModal } from '@/components/engagement/notes';
@@ -31,6 +31,18 @@ interface FileMetadata {
   question_field_name?: string;
 }
 
+/** A file uploaded to the engagement itself, from GET /api/engagements/{id}/files. */
+interface EngagementFile {
+  id: string;
+  file_name: string;
+  file_size?: number | null;
+  file_extension?: string | null;
+  uploaded_by_name?: string | null;
+  uploaded_by_role?: string | null;
+  created_at: string;
+  can_delete: boolean;
+}
+
 export default function EngagementDetailPage() {
   const { engagementId } = useParams<{ engagementId: string }>();
   const navigate = useNavigate();
@@ -38,6 +50,7 @@ export default function EngagementDetailPage() {
   const { user } = useAuth();
   const [diagnostics, setDiagnostics] = useState<any[]>([]);
   const [toolDocuments, setToolDocuments] = useState<any[]>([]);
+  const [engagementFiles, setEngagementFiles] = useState<EngagementFile[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   // Distinct from isLoadingFiles, which starts false. Until the first fetch has
   // actually returned, "no completed diagnostic" is unknown rather than true,
@@ -237,6 +250,29 @@ export default function EngagementDetailPage() {
     }
   }, [engagementId]);
 
+  // Files uploaded straight to the engagement, outside any diagnostic.
+  const fetchEngagementFiles = useCallback(async () => {
+    if (!engagementId) return;
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+
+      const response = await fetch(`${API_BASE_URL}/api/engagements/${engagementId}/files`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const files = await response.json();
+        setEngagementFiles(Array.isArray(files) ? files : []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch engagement files:', error);
+    }
+  }, [engagementId]);
+
   // Keep diagnosticsRef in sync with latest diagnostics state
   useEffect(() => {
     diagnosticsRef.current = diagnostics;
@@ -255,8 +291,9 @@ export default function EngagementDetailPage() {
     if (activeTab === 'overview') {
       fetchDiagnostics();
       fetchToolDocuments();
+      fetchEngagementFiles();
     }
-  }, [activeTab, fetchDiagnostics, fetchToolDocuments]);
+  }, [activeTab, fetchDiagnostics, fetchToolDocuments, fetchEngagementFiles]);
 
   // Listen for file upload events from diagnostic tab
   useEffect(() => {
@@ -608,6 +645,69 @@ export default function EngagementDetailPage() {
     return extractedFiles.sort((a, b) => b.generatedAt.getTime() - a.generatedAt.getTime());
   }, [diagnostics, isAdmin, user?.id, mediaTags]);
 
+  // Files uploaded to the engagement itself. Shown in the same card as the
+  // diagnostic attachments above - to an advisor they are all just documents on
+  // this engagement - but they carry a real id, so they download and delete.
+  const engagementUploadedFiles = useMemo(() => {
+    return engagementFiles.map((file) => {
+      const extension = (file.file_extension || '').toLowerCase();
+      let fileType: 'pdf' | 'docx' | 'xlsx' | 'pptx' | 'txt' = 'txt';
+      if (extension === 'pdf') fileType = 'pdf';
+      else if (['doc', 'docx'].includes(extension)) fileType = 'docx';
+      else if (['xls', 'xlsx', 'csv'].includes(extension)) fileType = 'xlsx';
+      else if (['ppt', 'pptx'].includes(extension)) fileType = 'pptx';
+
+      const size = file.file_size
+        ? file.file_size > 1024 * 1024
+          ? `${(file.file_size / (1024 * 1024)).toFixed(1)} MB`
+          : `${(file.file_size / 1024).toFixed(0)} KB`
+        : undefined;
+
+      return {
+        id: file.id,
+        name: file.file_name,
+        type: fileType,
+        generatedAt: new Date(file.created_at),
+        generatedBy: file.uploaded_by_name || undefined,
+        size,
+        toolType: 'engagement',
+        mediaId: file.id,
+        // Tagging is not wired for these yet, so do not offer the control.
+        taggable: false,
+        canDelete: Boolean(file.can_delete),
+        uploadedByRole: file.uploaded_by_role || undefined,
+      };
+    });
+  }, [engagementFiles]);
+
+  const allUploadedFiles = useMemo(() => {
+    return [...engagementUploadedFiles, ...uploadedFiles].sort(
+      (a, b) => b.generatedAt.getTime() - a.generatedAt.getTime()
+    );
+  }, [engagementUploadedFiles, uploadedFiles]);
+
+  const handleEngagementFileDelete = async (fileId: string) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('No authentication token found');
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/engagements/${engagementId}/files/${fileId}`,
+        { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Delete failed' }));
+        throw new Error(error.detail || `HTTP ${response.status}: Delete failed`);
+      }
+
+      toast.success('File deleted');
+      fetchEngagementFiles();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete the file');
+    }
+  };
+
   const handleTagUpdate = async (fileId: string, tag: string | null, mediaId?: string) => {
     try {
       // If it's an uploaded file (has mediaId), update via Redux
@@ -634,7 +734,7 @@ export default function EngagementDetailPage() {
 
   const handleDownload = async (fileId: string) => {
     // Find the file in either generated or uploaded files
-    const file = [...allGeneratedFiles, ...uploadedFiles].find(f => f.id === fileId);
+    const file = [...allGeneratedFiles, ...allUploadedFiles].find(f => f.id === fileId);
     if (!file) {
       toast.error('File not found');
       return;
@@ -650,8 +750,34 @@ export default function EngagementDetailPage() {
       // Show loading toast
       const loadingToast = toast.loading('Preparing download...');
 
-      // Check if this is a diagnostic report (has diagnosticId)
-      if (file.diagnosticId) {
+      // Engagement uploads download through their own authenticated route -
+      // backend/files is served without auth, so its URL must not be linked.
+      if (file.toolType === 'engagement') {
+        const response = await fetch(
+          `${API_BASE_URL}/api/engagements/${engagementId}/files/${file.id}/download`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          toast.dismiss(loadingToast);
+          toast.error(`Failed to download ${file.name}: ${errorText || 'Unexpected error'}`);
+          return;
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.name;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        toast.dismiss(loadingToast);
+        toast.success(`Downloaded ${file.name}`);
+      } else if (file.diagnosticId) {
         // Download diagnostic report PDF
         const response = await fetch(`${API_BASE_URL}/api/diagnostics/${file.diagnosticId}/download`, {
           headers: {
@@ -839,22 +965,29 @@ export default function EngagementDetailPage() {
             <div className="card-trinity p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold">Uploaded Files</h2>
-                {!isLoadingFiles && (
-                  <span className="text-sm text-muted-foreground">
-                    {uploadedFiles.length} file{uploadedFiles.length !== 1 ? 's' : ''}
-                  </span>
-                )}
+                <div className="flex items-center gap-3">
+                  {!isLoadingFiles && (
+                    <span className="text-sm text-muted-foreground">
+                      {allUploadedFiles.length} file{allUploadedFiles.length !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                  <EngagementFileUpload
+                    engagementId={engagementId!}
+                    onUploaded={fetchEngagementFiles}
+                  />
+                </div>
               </div>
               {isLoadingFiles ? (
                 <div className="text-center py-8 text-muted-foreground">Loading files...</div>
               ) : (
-                <GeneratedFilesList 
-                  files={uploadedFiles} 
+                <GeneratedFilesList
+                  files={allUploadedFiles}
                   onDownload={handleDownload}
+                  onDelete={handleEngagementFileDelete}
                   onTagUpdate={handleTagUpdate}
                   emptyMessage={{
                     title: 'No uploaded files yet',
-                    description: 'Files uploaded during the diagnostic will appear here'
+                    description: 'Upload a file here, or attach one during the diagnostic'
                   }}
                 />
               )}

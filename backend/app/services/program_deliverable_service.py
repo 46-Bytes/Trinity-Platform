@@ -19,7 +19,7 @@ title. The rules themselves live in small pure validators for the same reason
 derive_module_status does: they are exhaustively testable without a database.
 """
 from datetime import datetime, timezone
-from typing import Any, Dict, List, NamedTuple, Optional, Sequence
+from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Set
 from uuid import UUID
 
 from sqlalchemy import select, union_all, func, literal
@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 
 from app.models.engagement import Engagement
 from app.models.program_deliverable import EngagementModuleDeliverable, ProgramModuleDeliverable
+from app.models.program_guide import EngagementModuleCommencement
 from app.models.task import Task
 
 # Derived module status values. Matches the vocabulary used by the persisted
@@ -45,6 +46,18 @@ DELIVERABLE_SOURCE_ADVISOR = "advisor"
 # existing 'manual' and 'diagnostic_generated' values so these are separable in
 # the task list without reading source_deliverable_id.
 TASK_TYPE_DELIVERABLE = "deliverable_generated"
+
+TASK_STATUS_COMPLETED = "completed"
+
+# Finished with: no longer holds its deliverable open, and completing that
+# deliverable leaves it alone. Cancelled counts as closed, or one called-off
+# task would block its deliverable forever with nothing in the UI to clear it.
+TASK_CLOSED_STATUSES = frozenset({TASK_STATUS_COMPLETED, "cancelled"})
+
+# Deliverables exist for Value Builder only. Duplicated from
+# deliverable_permissions rather than imported: that module depends on FastAPI,
+# and services must not.
+DELIVERABLE_PROGRAM_TYPE = "value_builder"
 
 # Sort sentinel: presets carry a real library display_order, advisor-added
 # deliverables get this so they always fall after the presets in a module.
@@ -73,10 +86,9 @@ class DeliverableState(NamedTuple):
     from the three status booleans alone - which is how derive_module_status is
     unit-tested, with no database and no identity to invent.
 
-    `task_count` is how many tasks have been generated from this deliverable. It
-    is display state only and is deliberately absent from derive_module_status:
-    Part A is explicit that task completion and deliverable completion never
-    move each other.
+    `task_count` counts the tasks generated from this deliverable, whatever
+    their status. Absent from derive_module_status by design: tasks reach
+    status only by completing the deliverable, so `complete` stays its input.
     """
     mandatory: bool
     in_scope: bool
@@ -88,9 +100,10 @@ class DeliverableState(NamedTuple):
     task_count: int = 0
 
 
-def derive_module_status(states: Sequence[DeliverableState]) -> str:
+def derive_module_status(states: Sequence[DeliverableState], commenced: bool = False) -> str:
     """
-    Derive a module's status from its deliverables.
+    Derive a module's status from its deliverables, and from whether an advisor
+    has formally commenced it.
 
     Returns 'not_started', 'in_progress' or 'completed'.
 
@@ -103,6 +116,12 @@ def derive_module_status(states: Sequence[DeliverableState]) -> str:
     scoped out at the same time. Such an item is not outstanding (it is out of
     scope) but still counts as activity, which falls out of the expressions
     below with no special-casing.
+
+    `commenced` is the advisor's "Commence Module" click and is a second way
+    into in_progress, so a module can be started before anything is ticked. It
+    never blocks completion: deliverables alone decide that, and a commenced
+    module whose deliverables are all done still reads completed. It defaults
+    to False so callers that know nothing about commencement are unaffected.
     """
     outstanding_mandatory = sum(1 for s in states if s.in_scope and s.mandatory and not s.complete)
     any_acted_on = any(s.complete or not s.in_scope for s in states)
@@ -110,7 +129,7 @@ def derive_module_status(states: Sequence[DeliverableState]) -> str:
 
     if outstanding_mandatory == 0 and any_acted_on:
         return MODULE_STATUS_COMPLETED
-    elif any_complete:
+    elif any_complete or commenced:
         return MODULE_STATUS_IN_PROGRESS
     else:
         return MODULE_STATUS_NOT_STARTED
@@ -292,12 +311,102 @@ class ProgramDeliverableService:
     # ------------------------------------------------------------------
     # Derived status
     # ------------------------------------------------------------------
+    def get_commenced_module_codes(self, engagement: Engagement) -> Set[str]:
+        """
+        Module codes an advisor has formally commenced on this engagement.
+
+        Sparse, like the deliverable instances: a module with no row has not
+        been commenced. is_commenced is read rather than assumed, so the column
+        remains the single source of truth if a row is ever cleared.
+        """
+        rows = (
+            self.db.query(EngagementModuleCommencement.module_code)
+            .filter(
+                EngagementModuleCommencement.engagement_id == engagement.id,
+                EngagementModuleCommencement.is_commenced == True,  # noqa: E712
+            )
+            .all()
+        )
+        return {row[0] for row in rows}
+
     def get_module_statuses(self, engagement: Engagement) -> Dict[str, str]:
-        """Module code -> derived status, for every module that has deliverables."""
+        """
+        Module code -> derived status.
+
+        Covers every module that has deliverables, plus any commenced module
+        that has none - the latter has no deliverable state to derive from but
+        is still in progress.
+        """
+        states_by_module = self.get_deliverable_states_by_module(engagement)
+        commenced = self.get_commenced_module_codes(engagement)
         return {
-            module_code: derive_module_status(states)
-            for module_code, states in self.get_deliverable_states_by_module(engagement).items()
+            module_code: derive_module_status(
+                states_by_module.get(module_code, []),
+                commenced=module_code in commenced,
+            )
+            for module_code in set(states_by_module) | commenced
         }
+
+    # ------------------------------------------------------------------
+    # Mutations: commencement
+    # ------------------------------------------------------------------
+    def set_module_commenced(
+        self,
+        engagement: Engagement,
+        module_code: str,
+        user_id: UUID,
+    ) -> EngagementModuleCommencement:
+        """
+        Record that an advisor has started this module.
+
+        Idempotent: commencing twice leaves the original timestamp alone, so a
+        double click cannot rewrite who started the module and when. The insert
+        is wrapped in a savepoint because uq_engagement_module_commencement
+        turns a concurrent create into an IntegrityError rather than a second
+        row - losing that race just means reading back what the winner wrote.
+        """
+        module_code = normalize_module_code(module_code)
+
+        existing = (
+            self.db.query(EngagementModuleCommencement)
+            .filter(
+                EngagementModuleCommencement.engagement_id == engagement.id,
+                EngagementModuleCommencement.module_code == module_code,
+            )
+            .first()
+        )
+        if existing is not None:
+            if not existing.is_commenced:
+                existing.is_commenced = True
+                existing.commenced_by_user_id = user_id
+                existing.commenced_at = datetime.now(timezone.utc)
+                self.db.commit()
+                self.db.refresh(existing)
+            return existing
+
+        row = EngagementModuleCommencement(
+            engagement_id=engagement.id,
+            module_code=module_code,
+            is_commenced=True,
+            commenced_by_user_id=user_id,
+            commenced_at=datetime.now(timezone.utc),
+        )
+        try:
+            with self.db.begin_nested():
+                self.db.add(row)
+            self.db.commit()
+            self.db.refresh(row)
+            return row
+        except IntegrityError:
+            self.db.expunge(row)
+            return (
+                self.db.query(EngagementModuleCommencement)
+                .filter(
+                    EngagementModuleCommencement.engagement_id == engagement.id,
+                    EngagementModuleCommencement.module_code == module_code,
+                )
+                .first()
+            )
 
 
     # ------------------------------------------------------------------
@@ -451,6 +560,10 @@ class ProgramDeliverableService:
         """
         Mark a deliverable complete or incomplete.
 
+        Completing one closes the tasks generated from it, so the same work is
+        never ticked off twice. Un-completing does not reopen them: each
+        direction only ever closes, which is what stops the two chasing.
+
         Returns None when the call would not change anything on a preset that
         has no instance row yet - an absent row already means incomplete, so
         materializing one would record no information.
@@ -470,9 +583,88 @@ class ProgramDeliverableService:
         instance.completed_by_user_id = user_id if is_complete else None
         instance.completed_at = now if is_complete else None
 
+        if is_complete:
+            self._complete_tasks_for_deliverable(engagement.id, deliverable_id, now)
+
         self.db.commit()
         self.db.refresh(instance)
         return instance
+
+    def _complete_tasks_for_deliverable(
+        self,
+        engagement_id: UUID,
+        deliverable_id: UUID,
+        now: datetime,
+    ) -> int:
+        """
+        Close the open tasks generated from a deliverable that was just ticked.
+
+        Cancelled tasks are left alone - called-off work is not done work. Runs
+        in the caller's transaction, so the two commit together or not at all.
+        """
+        return (
+            self.db.query(Task)
+            .filter(
+                Task.engagement_id == engagement_id,
+                Task.source_deliverable_id == deliverable_id,
+                Task.is_deleted == False,  # noqa: E712
+                Task.status.notin_(TASK_CLOSED_STATUSES),
+            )
+            .update(
+                {Task.status: TASK_STATUS_COMPLETED, Task.completed_at: now},
+                synchronize_session=False,
+            )
+        )
+
+    def _linked_task_counts(self, engagement_id: UUID, deliverable_id: UUID) -> tuple:
+        """
+        (total, outstanding) live tasks generated from this deliverable.
+
+        Soft-deleted excluded, matching _task_counts_by_deliverable: the button
+        and the completion rule must agree on what this deliverable's tasks are.
+        """
+        rows = (
+            self.db.query(Task.status)
+            .filter(
+                Task.engagement_id == engagement_id,
+                Task.source_deliverable_id == deliverable_id,
+                Task.is_deleted == False,  # noqa: E712
+            )
+            .all()
+        )
+        outstanding = sum(1 for (task_status,) in rows if task_status not in TASK_CLOSED_STATUSES)
+        return len(rows), outstanding
+
+    def complete_deliverable_if_tasks_done(
+        self,
+        engagement: Engagement,
+        source_deliverable_id: UUID,
+        user_id: UUID,
+    ) -> Optional[EngagementModuleDeliverable]:
+        """
+        Complete a deliverable once every task generated from it is closed.
+
+        Only ever completes - no un-complete branch, so reopening a task leaves
+        the deliverable and its module status alone. None means nothing changed.
+        """
+        # Tasks exist on every engagement; deliverables are Value Builder only.
+        if engagement.tool != DELIVERABLE_PROGRAM_TYPE:
+            return None
+
+        total, outstanding = self._linked_task_counts(engagement.id, source_deliverable_id)
+
+        # No tasks means nothing has been said about this deliverable. Without
+        # this guard "all tasks are done" would be vacuously true for every
+        # deliverable that has none.
+        if total == 0 or outstanding:
+            return None
+
+        try:
+            return self.set_deliverable_complete(engagement, source_deliverable_id, True, user_id)
+        except DeliverableNotFound:
+            # A task outliving its deliverable is by design - scoped out,
+            # retired or removed. Nothing left to complete.
+            return None
 
     def set_deliverable_scope(
         self,
@@ -616,9 +808,9 @@ class ProgramDeliverableService:
           advisor can add more by hand afterwards; this method simply declines to
           create a *second* generated one, which is what makes the button
           idempotent rather than a duplicate factory.
-        - Task state and deliverable state never move each other. Nothing below
-          reads or writes is_complete, and derive_module_status never reads
-          task_count.
+        - Generating is not completing. Nothing below reads or writes
+          is_complete. Completion travels one way and only once every generated
+          task is closed - see complete_deliverable_if_tasks_done.
 
         Scoped-out deliverables are skipped: they are excluded from completion,
         so generating work for them would contradict the advisor's own decision.

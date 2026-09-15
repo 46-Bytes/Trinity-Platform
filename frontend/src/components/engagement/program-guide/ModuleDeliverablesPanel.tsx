@@ -52,9 +52,9 @@ interface ModuleDeliverablesPanelProps {
  *   is refused server-side too; this just does not offer it.
  * - Scoping out is not deletion. The row stays, struck through and dimmed, and
  *   the action reverses.
- * - Ticking a deliverable does not close its task, and closing a task does not
- *   tick the deliverable. Said plainly under the button, because the two sit
- *   inches apart and would otherwise be assumed to be linked.
+ * - A deliverable and its tasks stay in step both ways: closing every task
+ *   ticks the deliverable off here, and ticking it here closes them. Said
+ *   under the button, because nothing on screen shows one writes the other.
  *
  * There is no wizard and no save button: every change is its own request, and
  * the response replaces the whole view, so leaving mid-edit loses nothing.
@@ -158,7 +158,8 @@ export function ModuleDeliverablesPanel({
         </span>
       </div>
       <p className="mb-4 text-xs text-muted-foreground">
-        Module status is derived from these. It is never set by hand.
+        Module status follows these. Commencing the module marks it In progress before any are
+        ticked; completing them is what makes it Complete.
       </p>
 
       {stillLoading ? (
@@ -232,8 +233,9 @@ export function ModuleDeliverablesPanel({
         </Button>
 
         <p className="text-xs leading-relaxed text-muted-foreground">
-          Nothing is created automatically. Tasks are tracked separately, so ticking a deliverable here does
-          not close its task, and closing a task does not tick the deliverable.
+          Nothing is created automatically. After that, a deliverable and its tasks stay in step: close every
+          task and the deliverable is ticked off here, tick it here and those tasks are closed. Cancelled
+          tasks are left as they are.
         </p>
 
         {/*

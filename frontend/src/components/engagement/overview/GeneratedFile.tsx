@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, Download, Calendar, User, Loader2, Tag, X, Edit2, Check } from 'lucide-react';
+import { FileText, Download, Calendar, User, Loader2, Tag, X, Edit2, Check, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn, capitalizeFirstLetter, isAdminRole, formatRoleForDisplay } from '@/lib/utils';
@@ -22,9 +22,12 @@ export interface GeneratedFileProps {
   taggable?: boolean; // Whether tagging is supported for this file (defaults to true)
   isProcessing?: boolean; // Whether the file is currently being processed
   tag?: string; // Document tag
-  uploadedByAdmin?: boolean; 
-  uploadedByRole?: string; 
+  uploadedByAdmin?: boolean;
+  uploadedByRole?: string;
+  /** Server-computed: only engagement uploads the caller may remove set this. */
+  canDelete?: boolean;
   onDownload?: (id: string) => void;
+  onDelete?: (id: string) => void;
   onTagUpdate?: (fileId: string, tag: string | null, mediaId?: string) => Promise<void>;
 }
 
@@ -59,7 +62,9 @@ export function GeneratedFile({
   taggable,
   uploadedByAdmin,
   uploadedByRole,
+  canDelete,
   onDownload,
+  onDelete,
   onTagUpdate,
 }: GeneratedFileProps) {
   const { user } = useAuth();
@@ -255,15 +260,24 @@ export function GeneratedFile({
 
       {/* Download Button - Hide if processing */}
       {!isProcessing && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onDownload?.(id)}
-          className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-        >
-          <Download className="w-4 h-4 mr-2" />
-          Download
-        </Button>
+        <div className="flex-shrink-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button variant="ghost" size="sm" onClick={() => onDownload?.(id)}>
+            <Download className="w-4 h-4 mr-2" />
+            Download
+          </Button>
+          {/* Only engagement uploads the server says this user may remove. */}
+          {canDelete && onDelete && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onDelete(id)}
+              className="text-destructive hover:text-destructive"
+              aria-label={`Delete ${name}`}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
       )}
       {isProcessing && (
         <div className="flex-shrink-0 flex items-center gap-2 text-sm text-muted-foreground">

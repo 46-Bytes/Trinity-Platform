@@ -38,3 +38,12 @@ class AdvisorClientWithUsers(AdvisorClientResponse):
     client_name: Optional[str] = None
     client_email: Optional[str] = None
 
+
+class AdvisorClientSummary(BaseModel):
+    """A client the current advisor works with, by association or by engagement."""
+    client_id: UUID
+    client_name: Optional[str] = None
+    client_email: Optional[str] = None
+    is_associated: bool = Field(..., description="True when an active advisor-client association exists")
+    via_engagement: bool = Field(..., description="True when the advisor is primary or secondary on one of the client's engagements")
+

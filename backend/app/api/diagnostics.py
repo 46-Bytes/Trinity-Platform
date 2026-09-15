@@ -105,7 +105,7 @@ async def create_diagnostic(
         }
         ```
     """
-    _require_engagement_access(
+    engagement = _require_engagement_access(
         db=db, engagement_id=diagnostic_data.engagement_id, current_user=current_user
     )
 
@@ -117,12 +117,35 @@ async def create_diagnostic(
             detail="This engagement already has a diagnostic.",
         )
 
+    # A diagnostic must never exist without a real type: scoring, prompts and
+    # the report all read engagement.tool. A missing type is set here, by advisors/admins only.
+    engagement_tool = None
+    if engagement.tool in ("value_builder", "sale_ready"):
+        if diagnostic_data.engagement_tool and diagnostic_data.engagement_tool != engagement.tool:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This engagement's type is already set and cannot be changed here.",
+            )
+    else:
+        if not diagnostic_data.engagement_tool:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Choose Value Builder or Sale Ready before adding the diagnostic.",
+            )
+        if not check_engagement_access(engagement, current_user, require_advisor=True, db=db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only advisors and admins can set the engagement type.",
+            )
+        engagement_tool = diagnostic_data.engagement_tool
+
     try:
         diagnostic = await service.create_diagnostic(
             engagement_id=diagnostic_data.engagement_id,
             created_by_user_id=current_user.id,
             diagnostic_type=diagnostic_data.diagnostic_type,
-            diagnostic_version=diagnostic_data.diagnostic_version
+            diagnostic_version=diagnostic_data.diagnostic_version,
+            engagement_tool=engagement_tool,
         )
         
         return diagnostic

@@ -1,7 +1,10 @@
-import { ArrowLeft, ArrowRight, Award, Info } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Award, Info, Loader2, PlayCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { commenceModule } from '@/store/slices/deliverablesReducer';
 import { useToolLaunchers, type DiagnosticSummary, type ToolKey } from '@/hooks/useToolLaunchers';
 import {
   AlertDialog,
@@ -97,11 +100,28 @@ export function ModuleDetail({
   onNavigateToDiagnostic,
 }: ModuleDetailProps) {
   const { anyLoading, tools } = useToolLaunchers(engagementId, diagnostics, currentUserId, isAdmin);
+  const dispatch = useAppDispatch();
+  const isCommencing = useAppSelector((state) =>
+    state.deliverables.commencingModules.includes(module.module_code)
+  );
 
   const insight = insights?.modules.find((m) => m.module_code === module.module_code);
   const status = statusOf(moduleDeliverables?.status);
   const statusConfig = STATUS_CONFIG[status];
   const why = rankExplanation(view, module, insights);
+
+  // Offered only while nothing has started this module. Ticking a deliverable
+  // reaches In progress on its own, so the button has nothing left to say.
+  const canCommence = status === 'not_started';
+
+  const commence = async () => {
+    try {
+      await dispatch(commenceModule({ engagementId, moduleCode: module.module_code })).unwrap();
+      toast.success('Module commenced');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to commence the module');
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -136,6 +156,17 @@ export function ModuleDetail({
               {formatScore(insight?.score)}
               <span className="text-sm font-medium text-muted-foreground"> /5</span>
             </span>
+
+            {canCommence && (
+              <Button size="sm" onClick={commence} disabled={isCommencing} className="gap-1.5">
+                {isCommencing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <PlayCircle className="h-4 w-4" aria-hidden />
+                )}
+                {isCommencing ? 'Commencing...' : 'Commence Module'}
+              </Button>
+            )}
           </div>
         </div>
 

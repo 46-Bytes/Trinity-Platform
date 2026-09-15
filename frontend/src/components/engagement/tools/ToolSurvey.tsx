@@ -40,16 +40,18 @@ import saleReadySurveyData from '@/questions/questions_sale_ready.json';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getFieldConfigs, QuestionnaireType } from '@/lib/aiPrivacyService';
+import { GenerateDiagnosticDialog, type DiagnosticType } from './GenerateDiagnosticDialog';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 interface ToolSurveyProps {
   engagementId: string;
   toolType?: 'diagnostic'; // Can extend for other tools
-  engagementType?: string; // 'value_builder' | 'sale_ready'
+  engagementType?: string; // 'value_builder' | 'sale_ready'; empty when not selected
+  onDiagnosticCreated?: () => void; // Lets the parent reload the engagement's new type
 }
 
-export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementType }: ToolSurveyProps) {
+export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementType: engagementTypeProp, onDiagnosticCreated }: ToolSurveyProps) {
   const dispatch = useAppDispatch();
   const { user } = useAuth();
   const { diagnostic, isSaving, isLoading, isSubmitting, isPolling, error, isCancelling } = useAppSelector(
@@ -71,6 +73,9 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
   const [engagementStatusUpdated, setEngagementStatusUpdated] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isAddingDiagnostic, setIsAddingDiagnostic] = useState(false);
+  const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
+  // Type picked in the dialog, used until the parent's refetched engagement catches up.
+  const [createdType, setCreatedType] = useState<DiagnosticType | null>(null);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [excludedFields, setExcludedFields] = useState<Set<string>>(new Set());
   
@@ -86,6 +91,10 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  const knownType: DiagnosticType | null =
+    engagementTypeProp === 'value_builder' || engagementTypeProp === 'sale_ready' ? engagementTypeProp : null;
+  const engagementType = knownType ?? createdType ?? engagementTypeProp;
+
   const surveyData = engagementType === 'sale_ready' ? saleReadySurveyData : valueBuilderSurveyData;
   const pages = surveyData.pages;
   const totalPages = pages.length;
@@ -122,7 +131,8 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
     setCurrentPage(0);
     setCompletedPages([]);
     setEngagementStatusUpdated(false);
-    
+    setCreatedType(null);
+
     // Fetch new diagnostic for the new engagement
     if (engagementId && toolType === 'diagnostic') {
       dispatch(fetchDiagnosticByEngagement(engagementId));
@@ -735,11 +745,18 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
     dispatch(updateLocalResponses({ [fieldName]: value }));
   };
 
-  const handleAddDiagnostic = async () => {
+  const handleAddDiagnostic = async (type: DiagnosticType) => {
     setIsAddingDiagnostic(true);
     try {
-      await dispatch(createDiagnosticForEngagement(engagementId)).unwrap();
+      // Only send the type when the engagement has none; the backend rejects a change.
+      await dispatch(createDiagnosticForEngagement({
+        engagementId,
+        engagementTool: knownType ? undefined : type,
+      })).unwrap();
+      if (!knownType) setCreatedType(type);
+      setIsGenerateDialogOpen(false);
       await dispatch(fetchDiagnosticByEngagement(engagementId));
+      onDiagnosticCreated?.();
       toast.success('Diagnostic added');
     } catch (err) {
       const message = typeof err === 'string' ? err : (err as Error)?.message;
@@ -783,7 +800,7 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
               <p className="text-sm text-muted-foreground mt-2">
                 Add the diagnostic questionnaire to start collecting responses.
               </p>
-              <Button className="mt-4" onClick={handleAddDiagnostic} disabled={isAddingDiagnostic}>
+              <Button className="mt-4" onClick={() => setIsGenerateDialogOpen(true)} disabled={isAddingDiagnostic}>
                 {isAddingDiagnostic ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
@@ -793,6 +810,13 @@ export function ToolSurvey({ engagementId, toolType = 'diagnostic', engagementTy
                   'Add Diagnostic'
                 )}
               </Button>
+              <GenerateDiagnosticDialog
+                open={isGenerateDialogOpen}
+                knownType={knownType}
+                isSubmitting={isAddingDiagnostic}
+                onCancel={() => setIsGenerateDialogOpen(false)}
+                onConfirm={handleAddDiagnostic}
+              />
             </>
           ) : (
             <p className="text-sm text-muted-foreground mt-2">

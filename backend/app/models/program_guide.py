@@ -164,6 +164,33 @@ class EngagementProgramModuleState(Base):
     engagement = relationship("Engagement")
 
 
+class EngagementModuleCommencement(Base):
+    """
+    Per-engagement record that an advisor has formally started a module.
+
+    Sparse, like EngagementModuleDeliverable: no row means not commenced. It
+    carries no status of its own - the status engine reads this as a second way
+    into 'in_progress', so a module can be started before anything is ticked.
+    """
+    __tablename__ = "engagement_module_commencement"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
+
+    engagement_id = Column(UUID(as_uuid=True), ForeignKey('engagements.id', ondelete='CASCADE'), nullable=False, index=True)
+    module_code = Column(String(20), nullable=False, comment="e.g. 'V1'..'V11'")
+
+    is_commenced = Column(Boolean, nullable=False, server_default='true')
+    commenced_by_user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    commenced_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, nullable=False, server_default=func.current_timestamp())
+    updated_at = Column(DateTime, nullable=False, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
+
+    __table_args__ = (
+        UniqueConstraint('engagement_id', 'module_code', name='uq_engagement_module_commencement'),
+    )
+
+
 class EngagementModuleChecklistItem(Base):
     """
     Per-engagement tick-off state for a module's preparation checklist items.

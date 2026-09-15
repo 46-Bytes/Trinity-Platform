@@ -135,6 +135,23 @@ class GeneratedDocumentItem(BaseModel):
     download_method: str = Field(default="GET", description="HTTP method for the download request")
 
 
+# Schema for a file uploaded directly to an engagement
+class EngagementFileItem(BaseModel):
+    """A file uploaded to the engagement itself, outside any diagnostic."""
+    id: UUID
+    file_name: str
+    file_size: Optional[int] = None
+    file_type: Optional[str] = Field(None, description="MIME type")
+    file_extension: Optional[str] = None
+    description: Optional[str] = None
+    uploaded_by_user_id: UUID
+    uploaded_by_name: Optional[str] = None
+    uploaded_by_role: Optional[str] = None
+    created_at: datetime
+    # Computed per caller so the delete rule lives in one place on the server.
+    can_delete: bool = Field(False, description="Whether the current user may delete this file")
+
+
 # Schema for secondary advisor candidate
 class SecondaryAdvisorCandidate(BaseModel):
     """Schema for a secondary advisor candidate"""

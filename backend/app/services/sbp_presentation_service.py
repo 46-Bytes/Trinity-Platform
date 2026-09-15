@@ -10,6 +10,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
+from app.config import settings
 from app.services.claude_service import ClaudeService
 from app.services.sbp_service import get_sbp_service
 
@@ -59,7 +60,7 @@ Create 8-12 slides covering the key strategic points. Keep bullets concise (max 
 
         try:
             response = await self.claude_service.client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=settings.ANTHROPIC_MODEL,
                 max_tokens=4096,
                 system=system_prompt,
                 messages=[{"role": "user", "content": user_prompt}],

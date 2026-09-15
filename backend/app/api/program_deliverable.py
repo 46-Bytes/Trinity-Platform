@@ -64,16 +64,23 @@ def _build_view(engagement: Engagement, db: Session) -> dict:
 
     One fetch, then the status per module is derived from the same rows - no
     second query and no second source of truth.
+
+    A commenced module with no deliverables is listed too, with an empty list:
+    it has nothing to derive from, but its status still has to reach the client
+    or the badge could never leave "Not started".
     """
     service = get_program_deliverable_service(db)
     states_by_module = service.get_deliverable_states_by_module(engagement)
+    commenced = service.get_commenced_module_codes(engagement)
 
     modules = []
-    for module_code in sorted(states_by_module):
-        states = states_by_module[module_code]
+    for module_code in sorted(set(states_by_module) | commenced):
+        states = states_by_module.get(module_code, [])
+        is_commenced = module_code in commenced
         modules.append({
             "module_code": module_code,
-            "status": derive_module_status(states),
+            "status": derive_module_status(states, commenced=is_commenced),
+            "is_commenced": is_commenced,
             "deliverables": [
                 {
                     "deliverable_id": s.deliverable_id,
@@ -200,6 +207,29 @@ async def remove_advisor_deliverable(
         raise _not_found("Failed to remove advisor deliverable", e)
     except ValueError as e:
         raise _invalid("Failed to remove advisor deliverable", e)
+    return _build_view(engagement, db)
+
+
+@router.post(
+    "/engagements/{engagement_id}/modules/{module_code}/commence",
+    response_model=DeliverableView,
+)
+async def commence_module(
+    module_code: str,
+    engagement: Engagement = Depends(require_deliverable_write),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Mark a module as started, so it reads In progress before any deliverable is
+    ticked. Idempotent, and it changes no deliverable: completion still comes
+    from those alone.
+    """
+    service = get_program_deliverable_service(db)
+    try:
+        service.set_module_commenced(engagement, module_code, current_user.id)
+    except ValueError as e:
+        raise _invalid("Failed to commence module", e)
     return _build_view(engagement, db)
 
 

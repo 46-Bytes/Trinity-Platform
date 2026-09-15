@@ -41,6 +41,8 @@ export interface DeliverableItem {
 export interface ModuleDeliverables {
   module_code: string;
   status: ModuleStatus;
+  /** True once an advisor has commenced the module; it then reads in_progress until its deliverables complete it. */
+  is_commenced: boolean;
   deliverables: DeliverableItem[];
 }
 
@@ -68,6 +70,8 @@ interface DeliverablesState {
   pendingIds: string[];
   /** Module codes with a task generation in flight. */
   generatingModules: string[];
+  /** Module codes with a commencement in flight. */
+  commencingModules: string[];
   error: string | null;
 }
 
@@ -76,6 +80,7 @@ const initialState: DeliverablesState = {
   isLoading: false,
   pendingIds: [],
   generatingModules: [],
+  commencingModules: [],
   error: null,
 };
 
@@ -240,6 +245,28 @@ export const removeAdvisorDeliverable = createAsyncThunk(
   }
 );
 
+/**
+ * Mark a module as started. Returns the whole view like every other mutation,
+ * so the status badge follows the server's derivation rather than a local guess.
+ */
+export const commenceModule = createAsyncThunk(
+  'deliverables/commence',
+  async (
+    { engagementId, moduleCode }: { engagementId: string; moduleCode: string },
+    { rejectWithValue }
+  ) => {
+    try {
+      return await request<DeliverableView>(
+        `${base(engagementId)}/modules/${moduleCode}/commence`,
+        { method: 'POST' },
+        'Failed to commence the module'
+      );
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to commence the module');
+    }
+  }
+);
+
 export const generateModuleTasks = createAsyncThunk(
   'deliverables/generateTasks',
   async (
@@ -278,6 +305,7 @@ const deliverablesSlice = createSlice({
       state.view = null;
       state.pendingIds = [];
       state.generatingModules = [];
+      state.commencingModules = [];
       state.error = null;
     },
   },
@@ -294,6 +322,22 @@ const deliverablesSlice = createSlice({
       .addCase(fetchDeliverables.rejected, (state, action) => {
         state.isLoading = false;
         state.error = (action.payload as string) || 'Failed to load deliverables';
+      })
+      .addCase(commenceModule.pending, (state, action) => {
+        state.commencingModules.push(action.meta.arg.moduleCode);
+        state.error = null;
+      })
+      .addCase(commenceModule.fulfilled, (state, action) => {
+        state.commencingModules = state.commencingModules.filter(
+          (code) => code !== action.meta.arg.moduleCode
+        );
+        state.view = action.payload;
+      })
+      .addCase(commenceModule.rejected, (state, action) => {
+        state.commencingModules = state.commencingModules.filter(
+          (code) => code !== action.meta.arg.moduleCode
+        );
+        state.error = (action.payload as string) || 'Failed to commence the module';
       })
       .addCase(generateModuleTasks.pending, (state, action) => {
         state.generatingModules.push(action.meta.arg.moduleCode);

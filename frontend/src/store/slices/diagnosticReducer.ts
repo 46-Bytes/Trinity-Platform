@@ -81,10 +81,14 @@ function mapFrontendResponseUpdateToBackend(update: DiagnosticResponseUpdate): a
 
 // Async thunks
 // Adds a diagnostic to an engagement created without one. The backend rejects
-// this if the engagement already has a live diagnostic.
+// this if the engagement already has a live diagnostic. engagementTool is only
+// sent when the engagement has no type yet; the backend saves it with the diagnostic.
 export const createDiagnosticForEngagement = createAsyncThunk(
   'diagnostic/createDiagnosticForEngagement',
-  async (engagementId: string, { rejectWithValue }) => {
+  async (
+    { engagementId, engagementTool }: { engagementId: string; engagementTool?: 'value_builder' | 'sale_ready' },
+    { rejectWithValue }
+  ) => {
     try {
       const token = localStorage.getItem('auth_token');
       if (!token) {
@@ -97,7 +101,10 @@ export const createDiagnosticForEngagement = createAsyncThunk(
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ engagement_id: engagementId }),
+        body: JSON.stringify({
+          engagement_id: engagementId,
+          ...(engagementTool ? { engagement_tool: engagementTool } : {}),
+        }),
       });
 
       if (!response.ok) {

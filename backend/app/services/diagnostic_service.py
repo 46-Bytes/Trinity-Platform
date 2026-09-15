@@ -112,17 +112,19 @@ class DiagnosticService:
         engagement_id: UUID,
         created_by_user_id: UUID,
         diagnostic_type: str = "business_health_assessment",
-        diagnostic_version: str = "1.0"
+        diagnostic_version: str = "1.0",
+        engagement_tool: Optional[str] = None
     ) -> Diagnostic:
         """
         Create a new diagnostic for an engagement.
-        
+
         Args:
             engagement_id: UUID of the engagement
             created_by_user_id: UUID of the user creating the diagnostic
             diagnostic_type: Type of diagnostic
             diagnostic_version: Version of diagnostic
-            
+            engagement_tool: If given, set as the engagement's type in the same commit
+
         Returns:
             Created Diagnostic model
         """
@@ -136,7 +138,11 @@ class DiagnosticService:
         
         # Load diagnostic questions
         questions = load_diagnostic_questions()
-        
+
+        # Saved with the diagnostic so the type and questionnaire never diverge.
+        if engagement_tool:
+            engagement.tool = engagement_tool
+
         # Create diagnostic
         diagnostic = Diagnostic(
             engagement_id=engagement_id,

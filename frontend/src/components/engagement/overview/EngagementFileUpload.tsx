@@ -74,8 +74,8 @@ export function EngagementFileUpload({ engagementId, onUploaded }: EngagementFil
         onChange={(event) => event.target.files && upload(event.target.files)}
       />
       <Button
-        variant="outline"
         size="sm"
+        className="bg-accent text-accent-foreground hover:bg-accent/90"
         disabled={isUploading}
         onClick={() => inputRef.current?.click()}
       >

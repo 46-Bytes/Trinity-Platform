@@ -122,7 +122,6 @@ class User(Base):
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
-        unique=True,
         nullable=False,
         comment="Unique identifier for the user"
     )
@@ -257,7 +256,7 @@ class User(Base):
     )
     
     # Relationships
-    firm = relationship("Firm", back_populates="advisors")
+    firm = relationship("Firm", back_populates="advisors", foreign_keys="User.firm_id")
     media = relationship("Media", back_populates="user")
     conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
     

@@ -26,6 +26,50 @@ class ClaudeService:
         """Initialize Claude service (client is initialized separately at startup)"""
         self.temperature = settings.ANTHROPIC_TEMPERATURE
 
+    @staticmethod
+    def _build_timeout(timeout_seconds: float):
+        """
+        Build a per-phase timeout using the same httpx module the Anthropic SDK uses.
+
+        The SDK has changed httpx majors between releases. A Timeout built by *our*
+        httpx and handed to a client running a different one is not rejected at
+        construction: it is passed opaquely down to httpcore, which does
+        `current_time() + delay` and raises
+        `TypeError: unsupported operand type(s) for +: 'float' and 'Timeout'`.
+        The SDK then wraps that as APIConnectionError, so a dependency mismatch
+        reads like a network outage on every single request.
+
+        requirements.txt now pins both packages, so the fast path is the normal one.
+        The fallback exists so a future SDK bump degrades to a single scalar timeout
+        instead of failing every request with a misleading error.
+        """
+        try:
+            from anthropic import _base_client as _anthropic_base
+
+            sdk_httpx = getattr(_anthropic_base, "httpx", httpx)
+            if sdk_httpx is not httpx:
+                logger.warning(
+                    "[Claude] Anthropic SDK uses a different httpx module (%s) than this "
+                    "service imports (%s); building the timeout from the SDK's module. "
+                    "Pin anthropic and httpx together in requirements.txt.",
+                    getattr(sdk_httpx, "__name__", "?"),
+                    httpx.__name__,
+                )
+            return sdk_httpx.Timeout(
+                connect=10.0,
+                read=timeout_seconds,
+                write=10.0,
+                pool=10.0,
+            )
+        except Exception as e:
+            logger.warning(
+                "[Claude] Could not build a per-phase httpx timeout (%s); falling back to "
+                "a single %.1fs timeout for all phases.",
+                e,
+                timeout_seconds,
+            )
+            return timeout_seconds
+
     @classmethod
     def initialize_client(cls):
         """Initialize the Anthropic client once at application startup"""
@@ -33,12 +77,7 @@ class ClaudeService:
             timeout_seconds = settings.ANTHROPIC_TIMEOUT or 600.0
             cls._client = AsyncAnthropic(
                 api_key=settings.ANTHROPIC_API_KEY,
-                timeout=httpx.Timeout(
-                    connect=10.0,
-                    read=timeout_seconds,
-                    write=10.0,
-                    pool=10.0,
-                ),
+                timeout=cls._build_timeout(timeout_seconds),
                 max_retries=1,
             )
             timeout_str = f"{timeout_seconds} seconds ({timeout_seconds / 60:.1f} minutes)"

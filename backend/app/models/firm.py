@@ -16,12 +16,13 @@ class Firm(Base):
     """
     __tablename__ = "firms" 
     # Primary Key
-    id = Column( UUID(as_uuid=True),primary_key=True,default=uuid.uuid4,unique=True, nullable=False, comment="Unique identifier for the firm")
+    id = Column( UUID(as_uuid=True),primary_key=True,default=uuid.uuid4, nullable=False, comment="Unique identifier for the firm")
     # Firm Information
     firm_name = Column(String(255),nullable=False,comment="Name of the firm/organization")
     
     # Firm Admin (the primary user who manages the firm)
-    firm_admin_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False,unique=True,index=True,comment="Foreign key to users (the Firm Admin)")
+    # use_alter breaks the firms<->users FK cycle for metadata table sorting
+    firm_admin_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT", use_alter=True), nullable=False,unique=True,index=True,comment="Foreign key to users (the Firm Admin)")
     
     # Subscription & Billing
     subscription_id = Column(UUID(as_uuid=True), ForeignKey("subscriptions.id", ondelete="SET NULL"), nullable=True, index=True, comment="Foreign key to subscriptions")
@@ -41,7 +42,8 @@ class Firm(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow,nullable=False,comment="When the firm was last updated")
     
     # Relationships
-    advisors = relationship("User", back_populates="firm")
+    # firm_admin_id is a second users<->firms FK path, so this join must be explicit
+    advisors = relationship("User", back_populates="firm", foreign_keys="User.firm_id")
     engagements = relationship("Engagement", back_populates="firm")
     subscription = relationship("Subscription", uselist=False, primaryjoin="Firm.subscription_id == Subscription.id")
     

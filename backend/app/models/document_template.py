@@ -12,7 +12,7 @@ from app.database import Base
 class DocumentTemplate(Base):
     __tablename__ = "document_templates"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
     file_name = Column(String, nullable=False, unique=True, index=True)
     display_name = Column(String, nullable=False)
     file_data = Column(LargeBinary, nullable=False)

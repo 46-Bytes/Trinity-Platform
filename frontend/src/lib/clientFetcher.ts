@@ -109,7 +109,8 @@ export async function fetchFirmAdvisorClientsFromEngagements(
 }
 
 /**
- * Fetches clients for advisor role (non-firm) from advisor-client associations API
+ * Fetches clients for advisor and firm_advisor roles: active associations plus
+ * clients of engagements where the user is primary or secondary advisor.
  */
 export async function fetchAdvisorClientsFromAssociations(): Promise<Client[]> {
   const token = localStorage.getItem('auth_token');
@@ -119,7 +120,7 @@ export async function fetchAdvisorClientsFromAssociations(): Promise<Client[]> {
 
   try {
     const response = await fetch(
-      `${API_BASE_URL}/api/advisor-client?status_filter=active`,
+      `${API_BASE_URL}/api/advisor-client/my-clients`,
       {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -135,7 +136,7 @@ export async function fetchAdvisorClientsFromAssociations(): Promise<Client[]> {
 
     const associations = await response.json();
 
-    // Map advisor-client associations to the Client shape
+    // Map the advisor's clients to the Client shape
     return associations.map((assoc: any) => ({
       id: assoc.client_id,
       name: assoc.client_name || assoc.client_email || 'Unknown Client',

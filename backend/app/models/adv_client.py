@@ -18,7 +18,7 @@ class AdvisorClient(Base):
     - Tracking when the association was created
     """
     __tablename__ = "advisor_client"
-    id = Column(UUID(as_uuid=True),primary_key=True,default=uuid.uuid4,unique=True,nullable=False,comment="Unique identifier for the association")
+    id = Column(UUID(as_uuid=True),primary_key=True,default=uuid.uuid4,nullable=False,comment="Unique identifier for the association")
     advisor_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'),nullable=False,index=True, comment="Foreign key to users table (advisor)") 
     client_id = Column(UUID(as_uuid=True),ForeignKey('users.id', ondelete='CASCADE'),nullable=False,index=True,comment="Foreign key to users table (client)")
     status = Column(String(50),nullable=False,server_default='active',index=True,comment="Association status: active, inactive, suspended")

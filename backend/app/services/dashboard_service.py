@@ -10,6 +10,7 @@ from ..models.diagnostic import Diagnostic
 from ..models.task import Task
 from ..models.media import Media, diagnostic_media
 from ..models.adv_client import AdvisorClient
+from .engagement_status import TASK_HIDDEN_STATUSES
 from ..schemas.dashboard import (
     DashboardStatsResponse, 
     RecentAIGeneration,
@@ -273,9 +274,13 @@ def get_client_dashboard_stats(db: Session, client_user_id: UUID) -> ClientDashb
     if not engagement_ids:
         return ClientDashboardStatsResponse(total_tasks=0,total_documents=0,total_diagnostics=0,latest_tasks=[],recent_documents=[])
 
-    # Show all tasks in the client's engagements (mirrors /api/tasks behaviour)
+    # Show all tasks in the client's engagements (mirrors /api/tasks behaviour),
+    # minus any engagement that is currently paused or ended.
+    task_engagement_ids = [
+        e.id for e in client_engagements if e.status not in TASK_HIDDEN_STATUSES
+    ]
     tasks_query = db.query(Task).filter(
-        Task.engagement_id.in_(engagement_ids),
+        Task.engagement_id.in_(task_engagement_ids),
         Task.is_deleted == False
     )
     
@@ -367,7 +372,7 @@ def get_firm_advisor_dashboard_stats(db: Session, firm_advisor_user_id: UUID) ->
         AdvisorClient.is_deleted == False,
     ).subquery()
 
-    engagements_query = db.query(Engagement.id).filter(
+    engagements_query = db.query(Engagement.id, Engagement.status).filter(
         Engagement.is_deleted.is_(False)
     )
 
@@ -384,8 +389,15 @@ def get_firm_advisor_dashboard_stats(db: Session, firm_advisor_user_id: UUID) ->
         )
     )
 
-    engagement_ids = [row[0] for row in engagements_query.distinct().all()]
+    engagement_rows = engagements_query.distinct().all()
+    engagement_ids = [row[0] for row in engagement_rows]
     total_engagements = len(engagement_ids)
+
+    # Tasks of paused/ended engagements are hidden, so they must not be counted
+    # here either or the dashboard tile disagrees with the Tasks board.
+    task_engagement_ids = [
+        row[0] for row in engagement_rows if row[1] not in TASK_HIDDEN_STATUSES
+    ]
     
     # Get total documents from engagements (media linked to diagnostics in these engagements)
     total_documents = 0
@@ -408,9 +420,9 @@ def get_firm_advisor_dashboard_stats(db: Session, firm_advisor_user_id: UUID) ->
     
     # Get total tasks assigned to or created by firm_advisor in their engagements
     total_tasks = 0
-    if engagement_ids:
+    if task_engagement_ids:
         total_tasks = db.query(func.count(Task.id)).filter(
-            Task.engagement_id.in_(engagement_ids),
+            Task.engagement_id.in_(task_engagement_ids),
             Task.is_deleted == False,
             or_(
                 Task.assigned_to_user_id == firm_advisor_user_id,

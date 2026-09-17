@@ -34,8 +34,17 @@ passlib[bcrypt]==1.7.4
 # OpenAI for AI processing (preserved for rollback)
 openai==2.9.0
 
-# Anthropic for Claude AI processing
-anthropic>=0.52.0
+# Anthropic for Claude AI processing.
+# Pinned exactly: a floor-only pin let a rebuild resolve a newer major that had
+# moved to httpx 2.x, while `import httpx` here still resolved to httpx 1.x
+# (installed transitively). The mismatched Timeout object was passed opaquely to
+# httpcore and every Files API upload died with a misleading APIConnectionError.
+anthropic==0.86.0
+
+# Imported directly by app/services/claude_service.py, app/services/openai_service.py
+# and app/api/auth.py. Previously satisfied only transitively, so nothing held it
+# still when the Anthropic SDK changed httpx majors. Pin it explicitly.
+httpx==0.28.1
 
 # JSON repair for malformed AI responses
 json-repair==0.30.3
@@ -60,5 +69,6 @@ celery[redis]==5.4.0
 redis==5.2.1
 flower==2.0.1
 
-# Email (Resend)
-resend
+# Email (Resend). Pinned for the same reason as anthropic above - this was the
+# only other entry with no version specifier at all.
+resend==2.30.1

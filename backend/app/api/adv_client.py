@@ -14,8 +14,10 @@ from ..schemas.adv_client import (
     AdvisorClientUpdate,
     AdvisorClientResponse,
     AdvisorClientWithUsers,
+    AdvisorClientSummary,
 )
-from ..utils.auth import get_current_user
+from ..services.advisor_client_service import get_advisor_clients
+from ..utils.auth import get_current_user, require_role
 
 router = APIRouter(prefix="/api/advisor-client", tags=["advisor-client"])
 
@@ -166,6 +168,19 @@ async def list_associations(
         ))
     
     return result
+
+
+# Declared before "/{association_id}" so "my-clients" is not parsed as an id.
+@router.get("/my-clients", response_model=List[AdvisorClientSummary])
+async def list_my_clients(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.ADVISOR, UserRole.FIRM_ADVISOR])),
+):
+    """
+    Clients the current advisor works with: active associations plus clients of
+    engagements where they are primary or secondary advisor.
+    """
+    return get_advisor_clients(db, current_user.id)
 
 
 @router.get("/{association_id}", response_model=AdvisorClientWithUsers)

@@ -1,7 +1,8 @@
 """
 Engagement CRUD API endpoints.
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status, Query
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func, text, select
 from typing import List, Optional
@@ -33,10 +34,19 @@ from ..schemas.engagement import (
     SecondaryAdvisorCandidatesResponse,
     SecondaryAdvisorCandidate,
     EngagementClientAdd,
+    EngagementStatusUpdate,
+    EngagementFileItem,
     GeneratedDocumentItem,
 )
 from ..utils.auth import get_current_user
 from ..services.role_check import check_engagement_access
+from ..services.engagement_status import (
+    SETTABLE_STATUSES,
+    TASK_HIDDEN_STATUSES,
+    can_change_engagement_status,
+    may_automation_set_status,
+)
+from ..services.file_service import get_file_service
 from ..services.bba_service import get_bba_service
 from ..services.strategy_workbook_service import get_strategy_workbook_service
 from ..services.sbp_service import get_sbp_service
@@ -46,6 +56,9 @@ from ..models.adv_client import AdvisorClient
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/engagements", tags=["engagements"])
+
+# Matches the cap on the other multi-file upload endpoints.
+MAX_ENGAGEMENT_FILES_PER_UPLOAD = 20
 
 
 @router.post("", response_model=EngagementResponse, status_code=status.HTTP_201_CREATED)
@@ -190,8 +203,9 @@ async def create_engagement(
     db.commit()
     db.refresh(engagement)
     
-    # Create tool for engagement if tool is specified
-    if engagement_data.tool:
+    # Create tool for engagement if tool is specified.
+    # create_diagnostic=False skips it; the diagnostic can be added later.
+    if engagement_data.tool and engagement_data.create_diagnostic:
         import sys
         from pathlib import Path
         # Add backend directory to path to import tool_service
@@ -335,7 +349,7 @@ async def list_engagements(
         ).scalar() or 0
         
         from app.models.media import diagnostic_media, Media
-        documents_count = db.query(func.count(Media.id)).join(
+        diagnostic_document_ids = db.query(Media.id).join(
             diagnostic_media, Media.id == diagnostic_media.c.media_id
         ).join(
             Diagnostic, diagnostic_media.c.diagnostic_id == Diagnostic.id
@@ -343,15 +357,29 @@ async def list_engagements(
             Diagnostic.engagement_id == engagement.id,
             Media.is_active == True,
             Media.deleted_at.is_(None)
-        ).scalar() or 0
+        )
+        # Files uploaded straight to the engagement count too. Unioned on id so
+        # a file reachable both ways is still counted once.
+        engagement_document_ids = db.query(Media.id).filter(
+            Media.engagement_id == engagement.id,
+            Media.is_active == True,
+            Media.deleted_at.is_(None)
+        )
+        documents_count = diagnostic_document_ids.union(engagement_document_ids).count()
         
         completed_diagnostic = db.query(Diagnostic).filter(
             Diagnostic.engagement_id == engagement.id,
             Diagnostic.status == "completed"
         ).first()
         
+        # A paused or ended engagement is a deliberate lifecycle choice, so the
+        # diagnostic-completion sync must leave its status alone.
         effective_status = engagement.status
-        if completed_diagnostic and engagement.status != "completed":
+        if (
+            completed_diagnostic
+            and engagement.status != "completed"
+            and may_automation_set_status(engagement)
+        ):
             engagement.status = "completed"
             if not engagement.completed_at:
                 from datetime import datetime, timezone
@@ -672,6 +700,237 @@ async def get_engagement(
     return EngagementDetail(**engagement_dict)
 
 
+ENGAGEMENT_FILE_MANAGER_ROLES = (
+    UserRole.ADVISOR,
+    UserRole.FIRM_ADVISOR,
+    UserRole.FIRM_ADMIN,
+    UserRole.ADMIN,
+    UserRole.SUPER_ADMIN,
+)
+
+
+def _require_engagement_for_files(engagement_id: UUID, current_user: User, db: Session) -> Engagement:
+    """
+    Load an engagement and enforce access for its file operations.
+
+    Same rule as the rest of this router: anyone on the engagement, clients
+    included, since clients already attach files through the diagnostic.
+    """
+    engagement = db.query(Engagement).filter(
+        Engagement.id == engagement_id, Engagement.is_deleted == False
+    ).first()
+
+    if not engagement:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Engagement not found."
+        )
+
+    if not check_engagement_access(engagement, current_user, db=db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this engagement."
+        )
+
+    return engagement
+
+
+def _can_delete_engagement_file(media: Media, current_user: User) -> bool:
+    """
+    You may always remove your own upload. Advisors and admins may remove
+    anyone's, because they own the engagement record; a client may not touch
+    another user's document.
+    """
+    if media.user_id == current_user.id:
+        return True
+    return current_user.role in ENGAGEMENT_FILE_MANAGER_ROLES
+
+
+def _engagement_file_item(media: Media, current_user: User, uploader: Optional[User]) -> dict:
+    return {
+        "id": media.id,
+        "file_name": media.file_name,
+        "file_size": media.file_size,
+        "file_type": media.file_type,
+        "file_extension": media.file_extension,
+        "description": media.description,
+        "uploaded_by_user_id": media.user_id,
+        "uploaded_by_name": (uploader.name or uploader.email) if uploader else None,
+        "uploaded_by_role": (
+            uploader.role.value if uploader and hasattr(uploader.role, "value")
+            else (str(uploader.role) if uploader else None)
+        ),
+        "created_at": media.created_at,
+        "can_delete": _can_delete_engagement_file(media, current_user),
+    }
+
+
+def _live_engagement_files(engagement_id: UUID, db: Session) -> List[Media]:
+    return (
+        db.query(Media)
+        .filter(
+            Media.engagement_id == engagement_id,
+            Media.is_active == True,  # noqa: E712
+            Media.deleted_at.is_(None),
+        )
+        .order_by(Media.created_at.desc())
+        .all()
+    )
+
+
+def _with_uploaders(medias: List[Media], current_user: User, db: Session) -> List[dict]:
+    """One query for every uploader, rather than one per file."""
+    uploader_ids = {m.user_id for m in medias}
+    uploaders = {}
+    if uploader_ids:
+        uploaders = {
+            u.id: u for u in db.query(User).filter(User.id.in_(uploader_ids)).all()
+        }
+    return [_engagement_file_item(m, current_user, uploaders.get(m.user_id)) for m in medias]
+
+
+@router.get("/{engagement_id}/files", response_model=List[EngagementFileItem])
+async def list_engagement_files(
+    engagement_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Files uploaded directly to this engagement, newest first.
+
+    Diagnostic attachments are not included: they reach the engagement through
+    diagnostic_media and the frontend already reads them from the diagnostic.
+    """
+    _require_engagement_for_files(engagement_id, current_user, db)
+    return _with_uploaders(_live_engagement_files(engagement_id, db), current_user, db)
+
+
+@router.post("/{engagement_id}/files", response_model=List[EngagementFileItem], status_code=status.HTTP_201_CREATED)
+async def upload_engagement_files(
+    engagement_id: UUID,
+    files: List[UploadFile] = File(...),
+    description: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Upload one or more files to the engagement, outside any diagnostic.
+
+    Files are uploaded one at a time rather than through upload_files, which
+    swallows per-file errors - a rejected type must answer 400, not vanish.
+    They are not sent to the LLM: nothing reads these for analysis.
+    """
+    _require_engagement_for_files(engagement_id, current_user, db)
+
+    if not files:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No files provided."
+        )
+    if len(files) > MAX_ENGAGEMENT_FILES_PER_UPLOAD:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot upload more than {MAX_ENGAGEMENT_FILES_PER_UPLOAD} files at once."
+        )
+
+    file_service = get_file_service(db)
+    created: List[Media] = []
+    for upload in files:
+        media = await file_service.upload_file(
+            file=upload,
+            user_id=current_user.id,
+            description=description,
+            upload_to_openai=False,
+        )
+        media.engagement_id = engagement_id
+        created.append(media)
+
+    db.commit()
+    for media in created:
+        db.refresh(media)
+
+    return _with_uploaders(created, current_user, db)
+
+
+@router.get("/{engagement_id}/files/{media_id}/download")
+async def download_engagement_file(
+    engagement_id: UUID,
+    media_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Download a file uploaded to this engagement.
+
+    Deliberately authenticated: backend/files is served unauthenticated at
+    /files, so linking that path directly would bypass engagement access.
+    """
+    _require_engagement_for_files(engagement_id, current_user, db)
+
+    media = db.query(Media).filter(
+        Media.id == media_id,
+        Media.engagement_id == engagement_id,
+        Media.is_active == True,  # noqa: E712
+        Media.deleted_at.is_(None),
+    ).first()
+
+    if not media:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found."
+        )
+
+    if not os.path.exists(media.file_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File is no longer available on disk."
+        )
+
+    return FileResponse(
+        path=media.file_path,
+        filename=media.file_name,
+        media_type=media.file_type or "application/octet-stream",
+    )
+
+
+@router.delete("/{engagement_id}/files/{media_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_engagement_file(
+    engagement_id: UUID,
+    media_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Soft delete a file uploaded to this engagement.
+
+    Uploader, advisors and admins only - see _can_delete_engagement_file. The
+    row and the bytes are retained so a mistake stays recoverable.
+    """
+    _require_engagement_for_files(engagement_id, current_user, db)
+
+    media = db.query(Media).filter(
+        Media.id == media_id,
+        Media.engagement_id == engagement_id,
+        Media.is_active == True,  # noqa: E712
+        Media.deleted_at.is_(None),
+    ).first()
+
+    if not media:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found."
+        )
+
+    if not _can_delete_engagement_file(media, current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete files you uploaded."
+        )
+
+    get_file_service(db).delete_file(media.id)
+    return None
+
+
 @router.get("/{engagement_id}/generated-documents", response_model=List[GeneratedDocumentItem])
 async def list_generated_documents(
     engagement_id: UUID,
@@ -923,7 +1182,32 @@ async def update_engagement(
     
     # Update fields
     update_data = engagement_data.model_dump(exclude_unset=True)
-    
+
+    # Lifecycle status is not an ordinary editable field. Two guards, and
+    # deliberately no more: the everyday draft -> active bump the diagnostic
+    # survey makes must keep working for everyone who can already edit here.
+    if "status" in update_data and update_data["status"] != engagement.status:
+        # 1. A paused/ended engagement only moves via the endpoint below. This
+        #    is what stops the survey's "mark active on page 2" PATCH from
+        #    silently recommencing an engagement someone paused.
+        if not may_automation_set_status(engagement):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"This engagement is {engagement.status}. Use the engagement "
+                    "status endpoint to recommence it before making other changes."
+                )
+            )
+        # 2. Pausing/ending through the generic PATCH would be a way around the
+        #    lifecycle permission rule.
+        if update_data["status"] in TASK_HIDDEN_STATUSES and not can_change_engagement_status(
+            engagement, current_user
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to change this engagement's status."
+            )
+
     # Handle secondary_advisor_ids separately if provided
     if "secondary_advisor_ids" in update_data:
         if update_data["secondary_advisor_ids"] is not None:
@@ -1009,6 +1293,83 @@ async def update_engagement(
     engagement_dict["client_names"] = client_names  # New array format
     engagement_dict["advisor_name"] = primary_advisor.name or primary_advisor.email or primary_advisor.nickname if primary_advisor else None
     
+    return EngagementResponse(**engagement_dict)
+
+
+@router.post("/{engagement_id}/status", response_model=EngagementResponse)
+async def set_engagement_status(
+    engagement_id: UUID,
+    status_data: EngagementStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Pause, end or recommence an engagement.
+
+    Accepts `active` (recommence), `paused` or `ended`. Nothing is deleted: the
+    engagement and all of its data stay intact, and its tasks reappear in the
+    Tasks views as soon as it is recommenced.
+
+    Permitted for admins, super admins, and the engagement's assigned advisors
+    (primary or secondary) - see services/engagement_status.py.
+    """
+    engagement = db.query(Engagement).filter(
+        Engagement.id == engagement_id,
+        Engagement.is_deleted == False,
+    ).first()
+
+    if not engagement:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Engagement not found."
+        )
+
+    new_status = (status_data.status or "").strip().lower()
+    if new_status not in SETTABLE_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid status. Must be one of: {', '.join(SETTABLE_STATUSES)}."
+        )
+
+    if not can_change_engagement_status(engagement, current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to change this engagement's status."
+        )
+
+    previous_status = engagement.status
+    engagement.status = new_status
+    db.commit()
+    db.refresh(engagement)
+
+    logger.info(
+        f"Engagement {engagement.id} status changed from '{previous_status}' to "
+        f"'{new_status}' by user {current_user.id}"
+    )
+
+    # Populate client_name, client_names and advisor_name for the response
+    client_ids_to_fetch = engagement.client_ids if engagement.client_ids else []
+    if not client_ids_to_fetch and engagement.client_id:
+        client_ids_to_fetch = [engagement.client_id]
+
+    client_name = None
+    client_names = []
+    if client_ids_to_fetch:
+        clients = db.query(User).filter(User.id.in_(client_ids_to_fetch)).all()
+        client_names = [
+            (client.name or client.email or client.nickname)
+            for client in clients
+            if client
+        ]
+        if client_names:
+            client_name = client_names[0]
+
+    primary_advisor = db.query(User).filter(User.id == engagement.primary_advisor_id).first()
+    engagement_dict = engagement.__dict__.copy()
+    engagement_dict["client_name"] = client_name
+    engagement_dict["client_names"] = client_names
+    engagement_dict["advisor_name"] = primary_advisor.name or primary_advisor.email or primary_advisor.nickname if primary_advisor else None
+
     return EngagementResponse(**engagement_dict)
 
 

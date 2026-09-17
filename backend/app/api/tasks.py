@@ -1,6 +1,8 @@
 """
 Task CRUD API endpoints.
 """
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, text
@@ -24,7 +26,11 @@ from ..schemas.task import (
 from ..models.diagnostic import Diagnostic
 from ..utils.auth import get_current_user
 from ..services.role_check import check_engagement_access
+from ..services.engagement_status import TASK_HIDDEN_STATUSES
+from ..services.program_deliverable_service import get_program_deliverable_service
 from .note import check_note_visibility
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
@@ -253,6 +259,15 @@ async def list_tasks(
             )
         query = query.filter(Task.engagement_id == engagement_id)
     else:
+        # Paused/ended engagements drop out of the aggregate Tasks views for
+        # every role; recommencing brings them back. A subquery, not a join, so
+        # it composes with the per-role join(Engagement) filters below.
+        query = query.filter(
+            ~Task.engagement_id.in_(
+                db.query(Engagement.id).filter(Engagement.status.in_(TASK_HIDDEN_STATUSES))
+            )
+        )
+
         # Filter by accessible engagements and user's tasks
         if current_user.role == UserRole.SUPER_ADMIN:
             # Super Admins see all tasks
@@ -490,18 +505,35 @@ async def update_task(
     update_data = task_data.model_dump(exclude_unset=True)
     
     # Handle status change to completed
-    if update_data.get("status") == "completed" and task.status != "completed":
+    became_complete = update_data.get("status") == "completed" and task.status != "completed"
+    if became_complete:
         update_data["completed_at"] = datetime.now(timezone.utc)
     elif update_data.get("status") != "completed" and task.status == "completed":
         # If uncompleting, clear completed_at
         update_data["completed_at"] = None
-    
+
     for field, value in update_data.items():
         setattr(task, field, value)
-    
+
     db.commit()
     db.refresh(task)
-    
+
+    # Closing the last task generated from a deliverable completes it. Best-effort
+    # and after the commit: a convenience must never cost the user the task update
+    # they asked for, and a missed sync can still be ticked by hand.
+    task_id_for_log, deliverable_id = task.id, task.source_deliverable_id  # expire on commit
+    if became_complete and deliverable_id:
+        try:
+            get_program_deliverable_service(db).complete_deliverable_if_tasks_done(
+                engagement, deliverable_id, current_user.id
+            )
+        except Exception:
+            logger.exception(
+                "Failed to sync deliverable %s after completing task %s",
+                deliverable_id,
+                task_id_for_log,
+            )
+
     return TaskResponse.model_validate(task)
 
 

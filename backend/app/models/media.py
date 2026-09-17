@@ -27,10 +27,15 @@ class Media(Base):
     __tablename__ = "media"
     
     # Primary key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
     
     # Relationships
     user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    # Set only for files uploaded straight to an engagement. Diagnostic uploads
+    # leave this null and reach their engagement through diagnostic_media.
+    engagement_id = Column(UUID(as_uuid=True), ForeignKey('engagements.id', ondelete='SET NULL'),
+                           nullable=True, index=True,
+                           comment="Engagement this file was uploaded to, if uploaded outside a diagnostic")
     
     # File metadata
     file_name = Column(String(255), nullable=False, comment="Original filename")
@@ -69,6 +74,7 @@ class Media(Base):
     
     # Relationships
     user = relationship("User", back_populates="media")
+    engagement = relationship("Engagement")
     diagnostics = relationship("Diagnostic", secondary=diagnostic_media, back_populates="media")
     
     def __repr__(self):

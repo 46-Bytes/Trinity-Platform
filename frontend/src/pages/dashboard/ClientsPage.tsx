@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { formatEngagementStatus } from '@/lib/engagementStatus';
 import { SERVFAIL } from 'dns';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -142,12 +143,12 @@ export default function ClientsPage() {
     }
   }, [user?.id, shouldUseFirmClients, isSuperAdminViewingFirm, fetchClients]);
 
-  // Fetch engagements on mount (needed for regular advisor, not for firm_advisor anymore)
+  // Fetch engagements on mount for advisors and firm advisors (engagement counts per client)
   useEffect(() => {
-    if (user && shouldUseAssociations && user.role === 'advisor') {
+    if (user && shouldUseAssociations) {
       dispatch(fetchEngagements(undefined));
     }
-  }, [dispatch, user?.id, user?.role, shouldUseAssociations]);
+  }, [dispatch, user?.id, shouldUseAssociations]);
 
   // Fetch engagements for the firm when superadmin is viewing a firm
   useEffect(() => {
@@ -229,21 +230,27 @@ export default function ClientsPage() {
         return;
       }
       
-      const clientId = engagement.clientId;
-      if (!engagementMap.has(clientId)) {
-        engagementMap.set(clientId, {
-          industries: new Set(),
-          engagementStatuses: new Set(),
-          engagementCount: 0,
-        });
-      }
+      // Count the engagement for every client on it, not just the first one.
+      const engagementClientIds = engagement.clientIds?.length
+        ? engagement.clientIds
+        : engagement.clientId ? [engagement.clientId] : [];
 
-      const clientEngagements = engagementMap.get(clientId)!;
-      if (engagement.industryName) {
-        clientEngagements.industries.add(engagement.industryName);
-      }
-      clientEngagements.engagementStatuses.add(engagement.status);
-      clientEngagements.engagementCount += 1;
+      engagementClientIds.forEach(clientId => {
+        if (!engagementMap.has(clientId)) {
+          engagementMap.set(clientId, {
+            industries: new Set(),
+            engagementStatuses: new Set(),
+            engagementCount: 0,
+          });
+        }
+
+        const clientEngagements = engagementMap.get(clientId)!;
+        if (engagement.industryName) {
+          clientEngagements.industries.add(engagement.industryName);
+        }
+        clientEngagements.engagementStatuses.add(engagement.status);
+        clientEngagements.engagementCount += 1;
+      });
     });
 
     // Merge client data with engagement data
@@ -728,11 +735,12 @@ export default function ClientsPage() {
                               "status-badge text-xs flex-shrink-0",
                               eng.status === 'active' ? "status-success" :
                               eng.status === 'completed' ? "status-info" :
-                              eng.status === 'on-hold' ? "status-warning" :
-                              eng.status === 'cancelled' ? "status-error" :
+                              eng.status === 'paused' ? "status-warning" :
+                              eng.status === 'ended' ? "status-error" :
+                              eng.status === 'archived' ? "status-error" :
                               "status-warning"
                             )}>
-                              {eng.status}
+                              {formatEngagementStatus(eng.status)}
                             </span>
                           </div>
                           {eng.industryName && (

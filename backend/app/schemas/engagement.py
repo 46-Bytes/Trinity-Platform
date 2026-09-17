@@ -25,6 +25,10 @@ class EngagementCreate(EngagementBase):
     primary_advisor_id: UUID = Field(..., description="The primary advisor user ID")
     firm_id: Optional[UUID] = Field(None, description="Firm ID for multi-advisor firms")
     secondary_advisor_ids: Optional[List[UUID]] = Field(default=[], description="Additional advisor IDs")
+    create_diagnostic: bool = Field(
+        default=True,
+        description="Create the diagnostic questionnaire now. False leaves the engagement without one; it can be added later.",
+    )
 
 
 # Schema for updating an engagement
@@ -38,6 +42,15 @@ class EngagementUpdate(BaseModel):
     status: Optional[str] = None
     secondary_advisor_ids: Optional[List[UUID]] = None
     completed_at: Optional[datetime] = None
+
+
+# Schema for changing an engagement's lifecycle status
+class EngagementStatusUpdate(BaseModel):
+    """Schema for pausing, ending or recommencing an engagement"""
+    status: str = Field(
+        ...,
+        description="New lifecycle status: active (recommence), paused, or ended",
+    )
 
 
 # Schema for engagement response
@@ -120,6 +133,23 @@ class GeneratedDocumentItem(BaseModel):
     generated_at: Optional[str] = Field(None, description="ISO timestamp the deliverable was generated/updated")
     download_url: str = Field(..., description="Relative API path to download the file")
     download_method: str = Field(default="GET", description="HTTP method for the download request")
+
+
+# Schema for a file uploaded directly to an engagement
+class EngagementFileItem(BaseModel):
+    """A file uploaded to the engagement itself, outside any diagnostic."""
+    id: UUID
+    file_name: str
+    file_size: Optional[int] = None
+    file_type: Optional[str] = Field(None, description="MIME type")
+    file_extension: Optional[str] = None
+    description: Optional[str] = None
+    uploaded_by_user_id: UUID
+    uploaded_by_name: Optional[str] = None
+    uploaded_by_role: Optional[str] = None
+    created_at: datetime
+    # Computed per caller so the delete rule lives in one place on the server.
+    can_delete: bool = Field(False, description="Whether the current user may delete this file")
 
 
 # Schema for secondary advisor candidate

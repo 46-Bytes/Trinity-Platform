@@ -11,6 +11,7 @@ from pathlib import Path
 
 # from app.services.openai_service import OpenAIService  # Preserved for rollback
 from app.services.claude_service import ClaudeService
+from app.services.scoring_service import ScoringService
 from app.models.bba import BBA
 
 logger = logging.getLogger(__name__)
@@ -77,7 +78,35 @@ class BBAConversationEngine:
         }
         if getattr(bba, "diagnostic_context", None):
             ctx["diagnostic_context"] = bba.diagnostic_context
+        engagement = getattr(bba, "engagement", None)
+        ctx["engagement_tool"] = engagement.tool if engagement else None
         return ctx
+
+    def _build_value_builder_taxonomy_block(self) -> str:
+        """
+        Instruction block constraining `priority_area` to the canonical Value
+        Builder module taxonomy, so BBA findings can be mapped 1:1 to
+        Program Guide modules without fuzzy text matching. Generated from
+        ScoringService.VALUE_BUILDER_MODULES at call time (single source of
+        truth) rather than a static duplicate prompt file.
+        """
+        names = "\n".join(f"- {name}" for name in ScoringService.VALUE_BUILDER_MODULES.values())
+        return (
+            "\n\n## Value Builder Module Taxonomy (REQUIRED)\n"
+            "This is a Value Builder engagement. Every finding's `priority_area` MUST be set to "
+            "exactly one of the following category names, verbatim (do not invent new categories "
+            "or reword these):\n\n" + names +
+            "\n\nIf a finding spans multiple areas, choose the single most dominant one."
+        )
+
+    def _maybe_add_value_builder_taxonomy(self, system_blocks: List[Dict[str, Any]], context: Dict[str, Any]) -> None:
+        """Append the Value Builder taxonomy block in place when applicable."""
+        if context.get("engagement_tool") == "value_builder":
+            system_blocks.append({
+                "type": "text",
+                "text": self._build_value_builder_taxonomy_block(),
+                "cache_control": {"type": "ephemeral"},
+            })
     
     def _separate_files_by_type(self, file_mappings: Dict[str, str]) -> Tuple[List[str], List[str]]:
         """
@@ -154,6 +183,7 @@ class BBAConversationEngine:
             {"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}},
             {"type": "text", "text": step_prompt, "cache_control": {"type": "ephemeral"}},
         ]
+        self._maybe_add_value_builder_taxonomy(system_blocks, context)
 
         # Build optional prior diagnostic section when BBA was created from a diagnostic.
         # Capped at MAX_DIAGNOSTIC_CHARS to prevent full HTML reports (50–500 KB) from
@@ -281,6 +311,7 @@ Return your response as a JSON object.
             {"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}},
             {"type": "text", "text": step_prompt, "cache_control": {"type": "ephemeral"}},
         ]
+        self._maybe_add_value_builder_taxonomy(system_blocks, context)
 
         user_content = f"""
 Expand the following draft findings into full paragraphs.
@@ -360,6 +391,7 @@ Return your response as a JSON object.
             {"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}},
             {"type": "text", "text": step_prompt, "cache_control": {"type": "ephemeral"}},
         ]
+        self._maybe_add_value_builder_taxonomy(system_blocks, context)
 
         user_content = f"""
 Generate the Key Findings & Recommendations Snapshot table.

@@ -17,7 +17,7 @@ class StrategicBusinessPlan(Base):
     __tablename__ = "strategic_business_plans"
 
     # Primary key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
 
     # Foreign keys
     engagement_id = Column(UUID(as_uuid=True), ForeignKey('engagements.id', ondelete='CASCADE'), nullable=True, index=True,

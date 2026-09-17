@@ -1,15 +1,17 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { ArrowLeft, StickyNote } from 'lucide-react';
+import { ArrowLeft, HelpCircle, StickyNote } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from '@/components/ui/button';
 import { ToolSurvey } from '@/components/engagement/tools/ToolSurvey';
 import { FollowUpToolsTab } from '@/components/engagement/FollowUpToolsTab';
 import { EngagementChatbot } from '@/components/engagement/chatbot';
-import { GeneratedFilesList } from '@/components/engagement/overview';
+import { EngagementFileUpload, GeneratedFilesList } from '@/components/engagement/overview';
 import type { GeneratedFileProps } from '@/components/engagement/overview';
 import { TasksList } from '@/components/engagement/tasks';
 import { EngagementNotesModal } from '@/components/engagement/notes';
+import { ProgramGuideTab } from '@/components/engagement/program-guide/ProgramGuideTab';
 import { toast } from 'sonner';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { useAuth } from '@/context/AuthContext';
@@ -29,6 +31,18 @@ interface FileMetadata {
   question_field_name?: string;
 }
 
+/** A file uploaded to the engagement itself, from GET /api/engagements/{id}/files. */
+interface EngagementFile {
+  id: string;
+  file_name: string;
+  file_size?: number | null;
+  file_extension?: string | null;
+  uploaded_by_name?: string | null;
+  uploaded_by_role?: string | null;
+  created_at: string;
+  can_delete: boolean;
+}
+
 export default function EngagementDetailPage() {
   const { engagementId } = useParams<{ engagementId: string }>();
   const navigate = useNavigate();
@@ -36,10 +50,16 @@ export default function EngagementDetailPage() {
   const { user } = useAuth();
   const [diagnostics, setDiagnostics] = useState<any[]>([]);
   const [toolDocuments, setToolDocuments] = useState<any[]>([]);
+  const [engagementFiles, setEngagementFiles] = useState<EngagementFile[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+  // Distinct from isLoadingFiles, which starts false. Until the first fetch has
+  // actually returned, "no completed diagnostic" is unknown rather than true,
+  // and greying the tab out on an unknown would flash a lock on engagements
+  // that are perfectly ready.
+  const [hasLoadedDiagnostics, setHasLoadedDiagnostics] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [notesOpen, setNotesOpen] = useState(false);
-  const [engagement, setEngagement] = useState<{ client_name?: string; tool?: string } | null>(null);
+  const [engagement, setEngagement] = useState<{ business_name?: string; client_name?: string; tool?: string } | null>(null);
   const [isLoadingEngagement, setIsLoadingEngagement] = useState(false);
   const fetchInFlightRef = useRef(false);
   const diagnosticsRef = useRef<any[]>([]);
@@ -48,10 +68,42 @@ export default function EngagementDetailPage() {
   const { mediaTags, diagnosticTags } = useAppSelector((state) => state.tag);
   
   // Check user role for file filtering
-  const isAdmin = user?.role === 'admin' || user?.role === 'firm_admin';
+  // isAdminRole covers super_admin as well; spelling the check out by hand here
+  // omitted it, which left a super admin unable to reorder modules.
+  const isAdmin = isAdminRole(user?.role);
   const isAdvisor = user?.role === 'advisor' || user?.role === 'firm_advisor';
   const isClient = user?.role === 'client';
-  
+
+  // Part A: a business owner gets the program dashboard only - not the module
+  // cards. The backend refuses them the guide read regardless; this keeps the
+  // tab from appearing and failing. Their dashboard lands here separately.
+  const canViewProgramGuide = engagement?.tool === 'value_builder' && !isClient;
+
+  /*
+    The guide is downstream of the diagnostic, not merely decorated by it. The
+    module order is computed from the diagnostic's per-module scores, so before
+    a diagnostic completes every module scores null, the order falls back to the
+    default taxonomy, and the sequence an advisor would read as "worst first for
+    this client" is nothing of the kind. Opening it early is not an empty state,
+    it is a misleading one - so the tab is locked rather than shown empty.
+
+    Locked only once we KNOW there is no completed diagnostic. While the fetch
+    is still out the tab stays available: wrongly greying out a ready
+    engagement is the worse of the two mistakes.
+  */
+  const hasCompletedDiagnostic = diagnostics.some((d: any) => d.status === 'completed');
+  const isProgramGuideLocked =
+    canViewProgramGuide && hasLoadedDiagnostics && !hasCompletedDiagnostic;
+
+  // The tab can lock underneath the user - the diagnostics fetch resolves after
+  // first paint, and a refetch can arrive while they are sitting on the guide.
+  // Without this the trigger greys out while its content stays on screen.
+  useEffect(() => {
+    if (isProgramGuideLocked && activeTab === 'program-guide') {
+      setActiveTab('overview');
+    }
+  }, [isProgramGuideLocked, activeTab]);
+
   // Listen to Redux diagnostic state to detect when diagnostic is submitted
   const reduxDiagnostic = useAppSelector((state) => state.diagnostic.diagnostic);
 
@@ -169,6 +221,7 @@ export default function EngagementDetailPage() {
       console.error('Failed to fetch diagnostics:', error);
     } finally {
       setIsLoadingFiles(false);
+      setHasLoadedDiagnostics(true);
       fetchInFlightRef.current = false;
     }
   }, [engagementId]);
@@ -197,6 +250,29 @@ export default function EngagementDetailPage() {
     }
   }, [engagementId]);
 
+  // Files uploaded straight to the engagement, outside any diagnostic.
+  const fetchEngagementFiles = useCallback(async () => {
+    if (!engagementId) return;
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+
+      const response = await fetch(`${API_BASE_URL}/api/engagements/${engagementId}/files`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const files = await response.json();
+        setEngagementFiles(Array.isArray(files) ? files : []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch engagement files:', error);
+    }
+  }, [engagementId]);
+
   // Keep diagnosticsRef in sync with latest diagnostics state
   useEffect(() => {
     diagnosticsRef.current = diagnostics;
@@ -215,8 +291,9 @@ export default function EngagementDetailPage() {
     if (activeTab === 'overview') {
       fetchDiagnostics();
       fetchToolDocuments();
+      fetchEngagementFiles();
     }
-  }, [activeTab, fetchDiagnostics, fetchToolDocuments]);
+  }, [activeTab, fetchDiagnostics, fetchToolDocuments, fetchEngagementFiles]);
 
   // Listen for file upload events from diagnostic tab
   useEffect(() => {
@@ -568,6 +645,69 @@ export default function EngagementDetailPage() {
     return extractedFiles.sort((a, b) => b.generatedAt.getTime() - a.generatedAt.getTime());
   }, [diagnostics, isAdmin, user?.id, mediaTags]);
 
+  // Files uploaded to the engagement itself. Shown in the same card as the
+  // diagnostic attachments above - to an advisor they are all just documents on
+  // this engagement - but they carry a real id, so they download and delete.
+  const engagementUploadedFiles = useMemo(() => {
+    return engagementFiles.map((file) => {
+      const extension = (file.file_extension || '').toLowerCase();
+      let fileType: 'pdf' | 'docx' | 'xlsx' | 'pptx' | 'txt' = 'txt';
+      if (extension === 'pdf') fileType = 'pdf';
+      else if (['doc', 'docx'].includes(extension)) fileType = 'docx';
+      else if (['xls', 'xlsx', 'csv'].includes(extension)) fileType = 'xlsx';
+      else if (['ppt', 'pptx'].includes(extension)) fileType = 'pptx';
+
+      const size = file.file_size
+        ? file.file_size > 1024 * 1024
+          ? `${(file.file_size / (1024 * 1024)).toFixed(1)} MB`
+          : `${(file.file_size / 1024).toFixed(0)} KB`
+        : undefined;
+
+      return {
+        id: file.id,
+        name: file.file_name,
+        type: fileType,
+        generatedAt: new Date(file.created_at),
+        generatedBy: file.uploaded_by_name || undefined,
+        size,
+        toolType: 'engagement',
+        mediaId: file.id,
+        // Tagging is not wired for these yet, so do not offer the control.
+        taggable: false,
+        canDelete: Boolean(file.can_delete),
+        uploadedByRole: file.uploaded_by_role || undefined,
+      };
+    });
+  }, [engagementFiles]);
+
+  const allUploadedFiles = useMemo(() => {
+    return [...engagementUploadedFiles, ...uploadedFiles].sort(
+      (a, b) => b.generatedAt.getTime() - a.generatedAt.getTime()
+    );
+  }, [engagementUploadedFiles, uploadedFiles]);
+
+  const handleEngagementFileDelete = async (fileId: string) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('No authentication token found');
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/engagements/${engagementId}/files/${fileId}`,
+        { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Delete failed' }));
+        throw new Error(error.detail || `HTTP ${response.status}: Delete failed`);
+      }
+
+      toast.success('File deleted');
+      fetchEngagementFiles();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete the file');
+    }
+  };
+
   const handleTagUpdate = async (fileId: string, tag: string | null, mediaId?: string) => {
     try {
       // If it's an uploaded file (has mediaId), update via Redux
@@ -594,7 +734,7 @@ export default function EngagementDetailPage() {
 
   const handleDownload = async (fileId: string) => {
     // Find the file in either generated or uploaded files
-    const file = [...allGeneratedFiles, ...uploadedFiles].find(f => f.id === fileId);
+    const file = [...allGeneratedFiles, ...allUploadedFiles].find(f => f.id === fileId);
     if (!file) {
       toast.error('File not found');
       return;
@@ -610,8 +750,34 @@ export default function EngagementDetailPage() {
       // Show loading toast
       const loadingToast = toast.loading('Preparing download...');
 
-      // Check if this is a diagnostic report (has diagnosticId)
-      if (file.diagnosticId) {
+      // Engagement uploads download through their own authenticated route -
+      // backend/files is served without auth, so its URL must not be linked.
+      if (file.toolType === 'engagement') {
+        const response = await fetch(
+          `${API_BASE_URL}/api/engagements/${engagementId}/files/${file.id}/download`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          toast.dismiss(loadingToast);
+          toast.error(`Failed to download ${file.name}: ${errorText || 'Unexpected error'}`);
+          return;
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.name;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        toast.dismiss(loadingToast);
+        toast.success(`Downloaded ${file.name}`);
+      } else if (file.diagnosticId) {
         // Download diagnostic report PDF
         const response = await fetch(`${API_BASE_URL}/api/diagnostics/${file.diagnosticId}/download`, {
           headers: {
@@ -704,9 +870,9 @@ export default function EngagementDetailPage() {
       <div className="mb-4 sm:mb-6 flex items-start justify-between gap-4" style={{ width: '100%', maxWidth: '100%' }}>
         <div className="min-w-0">
           <h1 className="text-2xl sm:text-3xl font-bold break-words" style={{ maxWidth: '100%' }}>
-            {isLoadingEngagement ? 'Loading...' : (engagement?.client_name || 'Engagement Details')}
+            {isLoadingEngagement ? 'Loading...' : (engagement?.business_name || engagement?.client_name || 'Engagement Details')}
           </h1>
-          <p className="text-muted-foreground mt-1 break-words" style={{ maxWidth: '100%' }}>Manage your client engagement</p>
+          <p className="text-muted-foreground mt-1 break-words" style={{ maxWidth: '100%' }}>Your client engagement dashboard</p>
         </div>
         <Button
           size="sm"
@@ -718,7 +884,7 @@ export default function EngagementDetailPage() {
         </Button>
       </div>
       
-      <Tabs defaultValue="overview" className="w-full min-w-0">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full min-w-0">
         <div className="flex items-center gap-4 mb-4">
           <Button
             variant="ghost"
@@ -729,10 +895,43 @@ export default function EngagementDetailPage() {
             <ArrowLeft className="h-4 w-4" />
             Back
           </Button>
-          <TabsList className="grid w-fit grid-cols-5">
+          <TabsList className={canViewProgramGuide ? 'grid w-fit grid-cols-6' : 'grid w-fit grid-cols-5'}>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
             <TabsTrigger value="diagnostic">Diagnostic</TabsTrigger>
+            {canViewProgramGuide && (
+              isProgramGuideLocked ? (
+                /*
+                  A disabled TabsTrigger carries `disabled:pointer-events-none`,
+                  so it never fires a hover and a tooltip hung on it - or on the
+                  icon inside it - would never open. The span outside the button
+                  is what the tooltip listens to, which is also why it is
+                  focusable: without tabIndex the reason is mouse-only.
+                */
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span tabIndex={0} className="inline-flex w-full cursor-not-allowed rounded-sm">
+                      <TabsTrigger value="program-guide" disabled className="w-full gap-1.5">
+                        Value Builder
+                        <HelpCircle className="h-3.5 w-3.5" aria-hidden />
+                      </TabsTrigger>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p className="font-semibold">Locked until the diagnostic report has run</p>
+                    <p className="mt-1 text-muted-foreground">
+                      The Value Builder program is built from this client’s diagnostic. Module scores,
+                      RAG status and the order the modules are worked in all come from it, so until a
+                      diagnostic is completed there is nothing to sequence and the program would show a
+                      generic order rather than this client’s.
+                    </p>
+                    <p className="mt-1.5">Run the diagnostic on the Diagnostic tab to unlock it.</p>
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <TabsTrigger value="program-guide">Value Builder</TabsTrigger>
+              )
+            )}
             <TabsTrigger value="tools">Tools</TabsTrigger>
             <TabsTrigger value="chatbot">Chat Bot</TabsTrigger>
           </TabsList>
@@ -766,22 +965,29 @@ export default function EngagementDetailPage() {
             <div className="card-trinity p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold">Uploaded Files</h2>
-                {!isLoadingFiles && (
-                  <span className="text-sm text-muted-foreground">
-                    {uploadedFiles.length} file{uploadedFiles.length !== 1 ? 's' : ''}
-                  </span>
-                )}
+                <div className="flex items-center gap-3">
+                  {!isLoadingFiles && (
+                    <span className="text-sm text-muted-foreground">
+                      {allUploadedFiles.length} file{allUploadedFiles.length !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                  <EngagementFileUpload
+                    engagementId={engagementId!}
+                    onUploaded={fetchEngagementFiles}
+                  />
+                </div>
               </div>
               {isLoadingFiles ? (
                 <div className="text-center py-8 text-muted-foreground">Loading files...</div>
               ) : (
-                <GeneratedFilesList 
-                  files={uploadedFiles} 
+                <GeneratedFilesList
+                  files={allUploadedFiles}
                   onDownload={handleDownload}
+                  onDelete={handleEngagementFileDelete}
                   onTagUpdate={handleTagUpdate}
                   emptyMessage={{
                     title: 'No uploaded files yet',
-                    description: 'Files uploaded during the diagnostic will appear here'
+                    description: 'Upload a file here, or attach one during the diagnostic'
                   }}
                 />
               )}
@@ -797,9 +1003,30 @@ export default function EngagementDetailPage() {
 
         <TabsContent value="diagnostic" className="mt-4 sm:mt-6 w-full" style={{ width: '100%', maxWidth: '100%', overflowX: 'clip' }}>
           <div className="card-trinity px-0 sm:px-1 md:px-3 lg:px-6 py-2 sm:py-3 md:py-6 w-full" style={{ width: '100%', boxSizing: 'border-box', maxWidth: '100%', overflowX: 'clip', paddingLeft: 'clamp(0px, 1vw, 24px)', paddingRight: 'clamp(0px, 1vw, 24px)' }}>
-            <ToolSurvey engagementId={engagementId} toolType="diagnostic" engagementType={engagement?.tool} />
+            <ToolSurvey
+              engagementId={engagementId}
+              toolType="diagnostic"
+              engagementType={engagement?.tool}
+              onDiagnosticCreated={() => {
+                fetchEngagement();
+                fetchDiagnostics();
+              }}
+            />
           </div>
         </TabsContent>
+
+        {canViewProgramGuide && !isProgramGuideLocked && (
+          <TabsContent value="program-guide" className="mt-6">
+            <ProgramGuideTab
+              engagementId={engagementId!}
+              diagnostics={diagnostics}
+              currentUserId={user?.id}
+              isAdmin={isAdmin}
+              canReorder={isAdmin || isAdvisor}
+              onNavigateToDiagnostic={() => setActiveTab('diagnostic')}
+            />
+          </TabsContent>
+        )}
 
         <TabsContent value="tools" className="mt-6">
           <div className="card-trinity p-6">
@@ -809,6 +1036,7 @@ export default function EngagementDetailPage() {
               diagnosticTags={diagnosticTags}
               currentUserId={user?.id}
               isAdmin={isAdmin}
+              isClient={isClient}
             />
           </div>
         </TabsContent>

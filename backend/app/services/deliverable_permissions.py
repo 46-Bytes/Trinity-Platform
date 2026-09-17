@@ -1,5 +1,5 @@
 """
-Access control for the Value Builder deliverables API.
+Access control for the Program Guide deliverables API.
 
     ┌─── CONFIRMED BY SPECIFICATION PART A ──────────────────────────────────┐
 
@@ -39,12 +39,9 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.engagement import Engagement
 from app.models.user import User, UserRole
+from app.services.program_registry import is_supported_program, supported_programs_phrase
 from app.services.role_check import check_engagement_access
 from app.utils.auth import get_current_user
-
-# The program this API serves. Non-matching engagements are rejected, mirroring
-# app/api/program_guide.py.
-DELIVERABLE_PROGRAM_TYPE = "value_builder"
 
 # The effective allow-list for this API, reads included. This is documentation
 # plus the set the boundary tests assert against - enforcement goes through
@@ -79,10 +76,10 @@ def _authorize(engagement: Engagement, current_user: User, db: Session, require_
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to this engagement",
         )
-    if engagement.tool != DELIVERABLE_PROGRAM_TYPE:
+    if not is_supported_program(engagement.tool):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Deliverables are only available for Value Builder engagements",
+            detail=f"Deliverables are only available for {supported_programs_phrase()} engagements",
         )
     return engagement
 

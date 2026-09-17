@@ -1,0 +1,58 @@
+[
+  {
+    "program_type": "sale_ready",
+    "module_code": "M1",
+    "display_order": 1,
+    "title": "Financial Clarity & Reporting",
+    "deliverables": []
+  },
+  {
+    "program_type": "sale_ready",
+    "module_code": "M2",
+    "display_order": 2,
+    "title": "Legal, Compliance & Property",
+    "deliverables": []
+  },
+  {
+    "program_type": "sale_ready",
+    "module_code": "M3",
+    "display_order": 3,
+    "title": "Owner Dependency & Operations",
+    "deliverables": []
+  },
+  {
+    "program_type": "sale_ready",
+    "module_code": "M4",
+    "display_order": 4,
+    "title": "People",
+    "deliverables": []
+  },
+  {
+    "program_type": "sale_ready",
+    "module_code": "M5",
+    "display_order": 5,
+    "title": "Customer, Product & Revenue Quality",
+    "deliverables": []
+  },
+  {
+    "program_type": "sale_ready",
+    "module_code": "M6",
+    "display_order": 6,
+    "title": "Brand, IP & Intangibles",
+    "deliverables": []
+  },
+  {
+    "program_type": "sale_ready",
+    "module_code": "M7",
+    "display_order": 7,
+    "title": "Tax, Compliance & Regulatory",
+    "deliverables": []
+  },
+  {
+    "program_type": "sale_ready",
+    "module_code": "M8",
+    "display_order": 8,
+    "title": "Due Diligence Preparation",
+    "deliverables": []
+  }
+]

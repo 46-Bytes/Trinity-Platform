@@ -152,10 +152,17 @@ class TestMutationRoleBoundary:
         assert resp.status_code < 300, f"{action} failed for admin: {resp.status_code} {resp.text}"
 
 
-class TestNonValueBuilderEngagement:
+class TestNonProgramGuideEngagement:
 
-    def test_rejected_with_400(self, api, db_session, advisor, test_engagement):
+    def test_sale_ready_is_accepted(self, api, db_session, advisor, test_engagement):
+        """Deliverables serve every program guide, not Value Builder alone."""
         test_engagement.tool = "sale_ready"
+        db_session.flush()
+        resp = api.as_user(advisor).get(f"{BASE}/{test_engagement.id}")
+        assert resp.status_code == 200
+
+    def test_non_program_guide_tool_rejected_with_400(self, api, db_session, advisor, test_engagement):
+        test_engagement.tool = "bba_builder"
         db_session.flush()
         resp = api.as_user(advisor).get(f"{BASE}/{test_engagement.id}")
         assert resp.status_code == 400

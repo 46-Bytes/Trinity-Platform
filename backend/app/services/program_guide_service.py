@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from app.models.diagnostic import Diagnostic
 from app.models.engagement import Engagement
 from app.models.program_guide import EngagementProgramModuleState, ProgramModuleContent
+from app.services.program_registry import is_supported_program
 from app.services.scoring_service import ScoringService
 
 
@@ -78,7 +79,7 @@ class ProgramGuideService:
 
     def compute_recommended_order(self, engagement: Engagement) -> Dict[str, Any]:
         """
-        Compute the recommended V1-V11 order for an engagement, worst-scoring
+        Compute the recommended module order for an engagement, worst-scoring
         module first.
 
         The diagnostic measures each module on the same 0-5 scale, so the
@@ -88,16 +89,17 @@ class ProgramGuideService:
         two equally-scored modules could swap places between requests and make
         the guide look like it reordered itself.
 
-        Always returns all 11 module codes. Modules the diagnostic did not score
-        (roughly a third of the question set is conditional, so a service
-        business never answers the warehousing questions) are appended in
-        default taxonomy order, so the guide is always fully viewable - there is
-        no gating on having a diagnostic at all.
+        Always returns every module code in the program's taxonomy. Modules the
+        diagnostic did not score (roughly a third of the question set is
+        conditional, so a service business never answers the warehousing
+        questions) are appended in default taxonomy order, so the guide is
+        always fully viewable - there is no gating on having a diagnostic at all.
         """
-        if engagement.tool != "value_builder":
+        if not is_supported_program(engagement.tool):
             return {"source": "unsupported", "order": [], "diagnostic_id": None}
 
-        canonical = ScoringService.VALUE_BUILDER_MODULES
+        # Program-aware: V1-V11 for Value Builder, M1-M8 for Sale Ready.
+        canonical = ScoringService.get_modules(engagement.tool)
         all_codes = list(canonical.keys())
 
         diagnostic = self._get_latest_completed_diagnostic(engagement.id)
@@ -278,13 +280,14 @@ class ProgramGuideService:
         sees on a module card is exactly what ranked it - the score IS the
         reason for the position, with nothing in between to mismatch.
         """
-        canonical = ScoringService.VALUE_BUILDER_MODULES
-        if engagement.tool != "value_builder":
+        if not is_supported_program(engagement.tool):
             return {
                 "program_type": engagement.tool,
                 "has_scores": False,
                 "modules": [],
             }
+
+        canonical = ScoringService.get_modules(engagement.tool)
 
         diagnostic = self._get_latest_completed_diagnostic(engagement.id)
         raw_modules: Dict[str, Any] = {}
@@ -324,11 +327,17 @@ class ProgramGuideService:
             "modules": modules,
         }
 
-    def compute_value_movement(self, engagement_id: UUID) -> Dict[str, Any]:
+    def compute_value_movement(self, engagement: Engagement) -> Dict[str, Any]:
+        """
+        Score movement across the last two completed diagnostics.
+
+        Takes the engagement rather than its id because the module taxonomy to
+        report against depends on the program - the caller already holds it.
+        """
         recent = (
             self.db.query(Diagnostic)
             .filter(
-                Diagnostic.engagement_id == engagement_id,
+                Diagnostic.engagement_id == engagement.id,
                 Diagnostic.status == "completed",
                 Diagnostic.is_deleted == False,  # noqa: E712
             )
@@ -340,7 +349,7 @@ class ProgramGuideService:
             return {"has_comparison": False}
 
         current, previous = recent[0], recent[1]
-        canonical = ScoringService.VALUE_BUILDER_MODULES
+        canonical = ScoringService.get_modules(engagement.tool)
 
         def module_map(diagnostic: Diagnostic) -> Dict[str, Dict[str, Any]]:
             modules = (diagnostic.module_scores or {}).get("modules", {})

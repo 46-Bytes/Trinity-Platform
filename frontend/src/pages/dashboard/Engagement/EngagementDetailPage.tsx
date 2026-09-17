@@ -17,6 +17,7 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { useAuth } from '@/context/AuthContext';
 import { fetchMediaTags, updateMediaTag, updateDiagnosticTag } from '@/store/slices/tagReducer';
 import { isAdminRole, formatRoleForDisplay } from '@/lib/utils';
+import { isProgramGuideTool, programLabel } from '@/lib/programTypes';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -77,7 +78,11 @@ export default function EngagementDetailPage() {
   // Part A: a business owner gets the program dashboard only - not the module
   // cards. The backend refuses them the guide read regardless; this keeps the
   // tab from appearing and failing. Their dashboard lands here separately.
-  const canViewProgramGuide = engagement?.tool === 'value_builder' && !isClient;
+  const canViewProgramGuide = isProgramGuideTool(engagement?.tool) && !isClient;
+
+  // The tab is named after the program it opens, so the label and its copy
+  // follow engagement.tool rather than naming one program for all of them.
+  const programGuideLabel = programLabel(engagement?.tool);
 
   /*
     The guide is downstream of the diagnostic, not merely decorated by it. The
@@ -912,7 +917,7 @@ export default function EngagementDetailPage() {
                   <TooltipTrigger asChild>
                     <span tabIndex={0} className="inline-flex w-full cursor-not-allowed rounded-sm">
                       <TabsTrigger value="program-guide" disabled className="w-full gap-1.5">
-                        Value Builder
+                        {programGuideLabel}
                         <HelpCircle className="h-3.5 w-3.5" aria-hidden />
                       </TabsTrigger>
                     </span>
@@ -920,7 +925,7 @@ export default function EngagementDetailPage() {
                   <TooltipContent side="bottom" className="max-w-xs">
                     <p className="font-semibold">Locked until the diagnostic report has run</p>
                     <p className="mt-1 text-muted-foreground">
-                      The Value Builder program is built from this client’s diagnostic. Module scores,
+                      The {programGuideLabel} program is built from this client’s diagnostic. Module scores,
                       RAG status and the order the modules are worked in all come from it, so until a
                       diagnostic is completed there is nothing to sequence and the program would show a
                       generic order rather than this client’s.
@@ -929,7 +934,7 @@ export default function EngagementDetailPage() {
                   </TooltipContent>
                 </Tooltip>
               ) : (
-                <TabsTrigger value="program-guide">Value Builder</TabsTrigger>
+                <TabsTrigger value="program-guide">{programGuideLabel}</TabsTrigger>
               )
             )}
             <TabsTrigger value="tools">Tools</TabsTrigger>

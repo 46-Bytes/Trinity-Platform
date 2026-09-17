@@ -125,8 +125,18 @@ class TestInsightsAccess:
     def test_unknown_engagement_is_404(self, api, advisor):
         assert api.as_user(advisor).get(_url(uuid.uuid4())).status_code == 404
 
-    def test_non_value_builder_is_rejected(self, api, advisor, db_session, test_engagement):
+    def test_sale_ready_is_accepted(self, api, advisor, db_session, test_engagement):
+        """
+        Sale Ready is a supported program now, so it is served rather than
+        refused. The refusal itself is still tested below with a tool that is
+        not a program guide at all.
+        """
         test_engagement.tool = "sale_ready"
+        db_session.flush()
+        assert api.as_user(advisor).get(_url(test_engagement.id)).status_code == 200
+
+    def test_non_program_guide_tool_is_rejected(self, api, advisor, db_session, test_engagement):
+        test_engagement.tool = "bba_builder"
         db_session.flush()
         assert api.as_user(advisor).get(_url(test_engagement.id)).status_code == 400
 

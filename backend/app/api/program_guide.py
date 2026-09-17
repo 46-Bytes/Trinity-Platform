@@ -13,6 +13,7 @@ from app.models.user import User, UserRole
 from app.models.engagement import Engagement
 from app.services.role_check import check_engagement_access
 from app.services.program_guide_service import get_program_guide_service
+from app.services.program_registry import is_supported_program, supported_programs_phrase
 from app.schemas.program_guide import (
     ProgramModuleContentItem,
     ProgramGuideDashboardView,
@@ -42,17 +43,18 @@ def _check_access(engagement: Engagement, current_user: User, db: Session, requi
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have access to this engagement")
 
 
-def _require_value_builder(engagement: Engagement) -> None:
-    if engagement.tool != "value_builder":
+def _require_program_guide_tool(engagement: Engagement) -> None:
+    """Refuse engagements whose tool is not a module-based advisory program."""
+    if not is_supported_program(engagement.tool):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Program Guide is only available for Value Builder engagements",
+            detail=f"Program Guide is only available for {supported_programs_phrase()} engagements",
         )
 
 
 @router.get("/content", response_model=List[ProgramModuleContentItem])
 async def list_content(
-    program_type: str = Query(..., description="e.g. 'value_builder'"),
+    program_type: str = Query(..., description="e.g. 'value_builder', 'sale_ready'"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -88,7 +90,7 @@ async def get_program_guide(
     """
     engagement = _get_engagement_or_404(engagement_id, db)
     _check_access(engagement, current_user, db, require_advisor=True)
-    _require_value_builder(engagement)
+    _require_program_guide_tool(engagement)
 
     service = get_program_guide_service(db)
     return service.get_program_guide_view(engagement)
@@ -109,7 +111,7 @@ async def get_program_dashboard(
     """
     engagement = _get_engagement_or_404(engagement_id, db)
     _check_access(engagement, current_user, db)
-    _require_value_builder(engagement)
+    _require_program_guide_tool(engagement)
 
     service = get_program_guide_service(db)
     return service.get_dashboard_view(engagement)
@@ -162,7 +164,7 @@ async def get_value_movement(
     _check_access(engagement, current_user, db, require_advisor=True)
 
     service = get_program_guide_service(db)
-    return service.compute_value_movement(engagement_id)
+    return service.compute_value_movement(engagement)
 
 
 @router.get("/engagements/{engagement_id}/insights", response_model=ProgramGuideInsightsView)
@@ -180,7 +182,7 @@ async def get_module_insights(
     """
     engagement = _get_engagement_or_404(engagement_id, db)
     _check_access(engagement, current_user, db, require_advisor=True)
-    _require_value_builder(engagement)
+    _require_program_guide_tool(engagement)
 
     service = get_program_guide_service(db)
     return service.compute_module_insights(engagement)

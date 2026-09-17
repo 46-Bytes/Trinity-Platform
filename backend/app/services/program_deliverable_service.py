@@ -30,6 +30,10 @@ from app.models.engagement import Engagement
 from app.models.program_deliverable import EngagementModuleDeliverable, ProgramModuleDeliverable
 from app.models.program_guide import EngagementModuleCommencement
 from app.models.task import Task
+# Which programs have deliverables at all. Shared with deliverable_permissions,
+# which depends on FastAPI - program_registry imports neither it nor the ORM, so
+# both layers can agree without this module taking on that dependency.
+from app.services.program_registry import is_supported_program
 
 # Derived module status values. Matches the vocabulary used by the persisted
 # status columns elsewhere (Task, Diagnostic, Engagement, BBA, SBP all use
@@ -53,11 +57,6 @@ TASK_STATUS_COMPLETED = "completed"
 # deliverable leaves it alone. Cancelled counts as closed, or one called-off
 # task would block its deliverable forever with nothing in the UI to clear it.
 TASK_CLOSED_STATUSES = frozenset({TASK_STATUS_COMPLETED, "cancelled"})
-
-# Deliverables exist for Value Builder only. Duplicated from
-# deliverable_permissions rather than imported: that module depends on FastAPI,
-# and services must not.
-DELIVERABLE_PROGRAM_TYPE = "value_builder"
 
 # Sort sentinel: presets carry a real library display_order, advisor-added
 # deliverables get this so they always fall after the presets in a module.
@@ -647,8 +646,8 @@ class ProgramDeliverableService:
         Only ever completes - no un-complete branch, so reopening a task leaves
         the deliverable and its module status alone. None means nothing changed.
         """
-        # Tasks exist on every engagement; deliverables are Value Builder only.
-        if engagement.tool != DELIVERABLE_PROGRAM_TYPE:
+        # Tasks exist on every engagement; deliverables only on program guides.
+        if not is_supported_program(engagement.tool):
             return None
 
         total, outstanding = self._linked_task_counts(engagement.id, source_deliverable_id)

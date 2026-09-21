@@ -1,0 +1,152 @@
+{
+  "source": {
+    "file": "Client_XYZ - Program Management Sheet - Sale Ready Program (2).xlsx",
+    "sha256": "93640ac00d3c327ccf4e607ea9f5fa9ae2242280db982384e02190ee03e82b7b"
+  },
+  "items": [
+    {
+      "program_type": "sale_ready",
+      "template_key": "accountant_briefing_template",
+      "name": "Accountant Briefing Template",
+      "display_order": 1
+    },
+    {
+      "program_type": "sale_ready",
+      "template_key": "addback_tracker",
+      "name": "Addback Tracker",
+      "display_order": 2
+    },
+    {
+      "program_type": "sale_ready",
+      "template_key": "asic_and_licence_checklist",
+      "name": "ASIC and Licence Checklist",
+      "display_order": 3
+    },
+    {
+      "program_type": "sale_ready",
+      "template_key": "ato_tracker_asic_summary_sheet",
+      "name": "ATO Tracker + ASIC Summary Sheet",
+      "display_order": 4
+    },
+    {
+      "program_type": "sale_ready",
+      "template_key": "bookkeeper_briefing_template",
+      "name": "Bookkeeper Briefing Template",
+      "display_order": 5
+    },
+    {
+      "program_type": "sale_ready",
+      "template_key": "brand_asset_inventory_sheet",
+      "name": "Brand Asset Inventory Sheet",
+      "display_order": 6
+    },
+    {
+      "program_type": "sale_ready",
+      "template_key": "buyer_q_a_prep_sheet",
+      "name": "Buyer Q&A Prep Sheet",
+      "display_order": 7
+    },
+    {
+      "program_type": "sale_ready",
+      "template_key": "client_testimonial_request_email",
+      "name": "Client Testimonial Request Email",
+      "display_order": 8
+    },
+    {
+      "program_type": "sale_ready",
+      "template_key": "compliance_summary_report",
+      "name": "Compliance Summary Report",
+      "display_order": 9
+    },
+    {
+      "program_type": "sale_ready",
+      "template_key": "contractor_register",
+      "name": "Contractor Register",
+      "display_order": 10
+    },
+    {
+      "program_type": "sale_ready",
+      "template_key": "customer_revenue_summary_template",
+      "name": "Customer Revenue Summary Template",
+      "display_order": 11
+    },
+    {
+      "program_type": "sale_ready",
+      "template_key": "customer_risk_analysis_sheet",
+      "name": "Customer Risk Analysis Sheet",
+      "display_order": 12
+    },
+    {
+      "program_type": "sale_ready",
+      "template_key": "data_room_folder_template",
+      "name": "Data Room Folder Template",
+      "display_order": 13
+    },
+    {
+      "program_type": "sale_ready",
+      "template_key": "digital_access_log_template",
+      "name": "Digital Access Log Template",
+      "display_order": 14
+    },
+    {
+      "program_type": "sale_ready",
+      "template_key": "employee_summary_table",
+      "name": "Employee Summary Table",
+      "display_order": 15
+    },
+    {
+      "program_type": "sale_ready",
+      "template_key": "hr_compliance_checklist",
+      "name": "HR Compliance Checklist",
+      "display_order": 16
+    },
+    {
+      "program_type": "sale_ready",
+      "template_key": "ip_register_template",
+      "name": "IP Register Template",
+      "display_order": 17
+    },
+    {
+      "program_type": "sale_ready",
+      "template_key": "lease_summary_sheet",
+      "name": "Lease Summary Sheet",
+      "display_order": 18
+    },
+    {
+      "program_type": "sale_ready",
+      "template_key": "legal_document_checklist",
+      "name": "Legal Document Checklist",
+      "display_order": 19
+    },
+    {
+      "program_type": "sale_ready",
+      "template_key": "normalised_balance_sheet_template",
+      "name": "Normalised balance sheet template",
+      "display_order": 20
+    },
+    {
+      "program_type": "sale_ready",
+      "template_key": "normalised_ebitda_template",
+      "name": "Normalised EBITDA template",
+      "display_order": 21
+    },
+    {
+      "program_type": "sale_ready",
+      "template_key": "owner_dependency_scorecard",
+      "name": "Owner Dependency Scorecard",
+      "display_order": 22
+    },
+    {
+      "program_type": "sale_ready",
+      "template_key": "risk_register_template",
+      "name": "Risk Register Template",
+      "display_order": 23
+    },
+    {
+      "program_type": "sale_ready",
+      "template_key": "simple_client_agreement_template",
+      "name": "Simple Client Agreement Template",
+      "display_order": 24
+    }
+  ]
+}

@@ -14,7 +14,7 @@ A program type listed here is one the *framework* supports. It says nothing
 about whether content has been authored for it - an engagement whose program has
 no seeded module cards is a valid, empty guide rather than an error.
 """
-from typing import Dict, FrozenSet, Optional
+from typing import Dict, FrozenSet, Optional, Tuple
 
 PROGRAM_VALUE_BUILDER = "value_builder"
 PROGRAM_SALE_READY = "sale_ready"
@@ -32,6 +32,12 @@ PROGRAM_LABELS: Dict[str, str] = {
     PROGRAM_SALE_READY: "Sale Ready",
 }
 
+# Modules that always run last, whatever the diagnostic scores or the advisor's
+# order say. Sale Ready's brief: "Due Diligence Preparation always last".
+PINNED_LAST_MODULES: Dict[str, Tuple[str, ...]] = {
+    PROGRAM_SALE_READY: ("M8",),
+}
+
 
 def is_supported_program(program_type: Optional[str]) -> bool:
     """True when this Engagement.tool is a module-based advisory program."""
@@ -41,6 +47,11 @@ def is_supported_program(program_type: Optional[str]) -> bool:
 def program_label(program_type: Optional[str]) -> str:
     """Display name for a program type, falling back to the raw value."""
     return PROGRAM_LABELS.get(program_type or "", program_type or "unknown")
+
+
+def pinned_last_modules(program_type: Optional[str]) -> Tuple[str, ...]:
+    """Module codes pinned to the end of this program's order, in their fixed order."""
+    return PINNED_LAST_MODULES.get(program_type or "", ())
 
 
 def supported_programs_phrase() -> str:

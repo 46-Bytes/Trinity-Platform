@@ -12,6 +12,7 @@ import type { GeneratedFileProps } from '@/components/engagement/overview';
 import { TasksList } from '@/components/engagement/tasks';
 import { EngagementNotesModal } from '@/components/engagement/notes';
 import { ProgramGuideTab } from '@/components/engagement/program-guide/ProgramGuideTab';
+import { SaleReadyTab } from '@/components/engagement/sale-ready/SaleReadyTab';
 import { toast } from 'sonner';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { useAuth } from '@/context/AuthContext';
@@ -79,6 +80,9 @@ export default function EngagementDetailPage() {
   // cards. The backend refuses them the guide read regardless; this keeps the
   // tab from appearing and failing. Their dashboard lands here separately.
   const canViewProgramGuide = isProgramGuideTool(engagement?.tool) && !isClient;
+  // Sale Ready is its own workflow; owners get a read-only Roadmap, DD checklist and Files.
+  const isSaleReady = engagement?.tool === 'sale_ready';
+  const canViewProgramTab = canViewProgramGuide || (isSaleReady && isClient);
 
   // The tab is named after the program it opens, so the label and its copy
   // follow engagement.tool rather than naming one program for all of them.
@@ -97,8 +101,9 @@ export default function EngagementDetailPage() {
     engagement is the worse of the two mistakes.
   */
   const hasCompletedDiagnostic = diagnostics.some((d: any) => d.status === 'completed');
+  // Sale Ready is never locked: the diagnostic is P1 of its own roadmap.
   const isProgramGuideLocked =
-    canViewProgramGuide && hasLoadedDiagnostics && !hasCompletedDiagnostic;
+    canViewProgramGuide && !isSaleReady && hasLoadedDiagnostics && !hasCompletedDiagnostic;
 
   // The tab can lock underneath the user - the diagnostics fetch resolves after
   // first paint, and a refetch can arrive while they are sitting on the guide.
@@ -900,11 +905,11 @@ export default function EngagementDetailPage() {
             <ArrowLeft className="h-4 w-4" />
             Back
           </Button>
-          <TabsList className={canViewProgramGuide ? 'grid w-fit grid-cols-6' : 'grid w-fit grid-cols-5'}>
+          <TabsList className={canViewProgramTab ? 'grid w-fit grid-cols-6' : 'grid w-fit grid-cols-5'}>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
             <TabsTrigger value="diagnostic">Diagnostic</TabsTrigger>
-            {canViewProgramGuide && (
+            {canViewProgramTab && (
               isProgramGuideLocked ? (
                 /*
                   A disabled TabsTrigger carries `disabled:pointer-events-none`,
@@ -1020,7 +1025,13 @@ export default function EngagementDetailPage() {
           </div>
         </TabsContent>
 
-        {canViewProgramGuide && !isProgramGuideLocked && (
+        {isSaleReady && canViewProgramTab && (
+          <TabsContent value="program-guide" className="mt-6">
+            <SaleReadyTab engagementId={engagementId!} readOnly={isClient} onEngagementStatusChange={fetchEngagement} />
+          </TabsContent>
+        )}
+
+        {canViewProgramGuide && !isSaleReady && !isProgramGuideLocked && (
           <TabsContent value="program-guide" className="mt-6">
             <ProgramGuideTab
               engagementId={engagementId!}

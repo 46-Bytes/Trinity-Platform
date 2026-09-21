@@ -128,7 +128,11 @@ async def update_module_order(
     _check_access(engagement, current_user, db, require_advisor=True)
 
     service = get_program_guide_service(db)
-    service.set_custom_order(engagement, body.module_order, current_user.id)
+    try:
+        service.set_custom_order(engagement, body.module_order, current_user.id)
+    except ValueError as e:
+        # A pinned module (Sale Ready's M8) placed before an unpinned one.
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     # set_custom_order returns the order dict ({source, order, diagnostic_id}),
     # which is not a ProgramGuideView and fails response validation. The view is
     # also what the caller wants: it re-ranks and re-sorts the module list, so

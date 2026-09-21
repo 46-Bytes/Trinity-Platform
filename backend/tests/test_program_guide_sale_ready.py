@@ -222,11 +222,12 @@ class TestSaleReadyOrdering:
         A module the diagnostic never scored must not rank as if it scored zero.
         It goes after every scored module, in taxonomy order.
         """
-        make_sale_ready_diagnostic({"M8": (2.0, 3)})
+        make_sale_ready_diagnostic({"M7": (2.0, 3)})
         result = get_program_guide_service(db_session).compute_recommended_order(sale_ready_engagement)
 
-        assert result["order"][0] == "M8"
-        assert result["order"][1:] == ["M1", "M2", "M3", "M4", "M5", "M6", "M7"]
+        assert result["order"][0] == "M7"
+        # Unscored in taxonomy order, with M8 still pinned last.
+        assert result["order"][1:] == ["M1", "M2", "M3", "M4", "M5", "M6", "M8"]
 
     def test_ties_break_on_taxonomy_position(
         self, db_session, sale_ready_engagement, make_sale_ready_diagnostic
@@ -267,6 +268,51 @@ class TestSaleReadyOrdering:
         assert result["source"] == "diagnostic"
         assert result["order"][0] == "V4"
         assert set(result["order"]) == set(ScoringService.VALUE_BUILDER_MODULES)
+
+
+class TestM8PinnedLast:
+    """Brief: Due Diligence Preparation always runs last."""
+
+    def test_worst_scoring_m8_is_still_last(
+        self, db_session, sale_ready_engagement, make_sale_ready_diagnostic
+    ):
+        make_sale_ready_diagnostic({"M8": (0.5, 6), "M1": (3.0, 6), "M2": (4.0, 6)})
+        order = get_program_guide_service(db_session).compute_recommended_order(sale_ready_engagement)["order"]
+
+        assert order[-1] == "M8"
+        assert order[:2] == ["M1", "M2"]
+
+    def test_custom_order_keeps_m8_last(self, db_session, sale_ready_engagement, test_user):
+        result = get_program_guide_service(db_session).set_custom_order(
+            sale_ready_engagement, ["M5", "M2"], test_user.id
+        )
+        assert result["order"][-1] == "M8"
+
+    def test_m8_may_be_sent_at_the_tail(self, db_session, sale_ready_engagement, test_user):
+        order = ["M3", "M1", "M2", "M4", "M5", "M6", "M7", "M8"]
+        result = get_program_guide_service(db_session).set_custom_order(sale_ready_engagement, order, test_user.id)
+        assert result["order"] == order
+
+    def test_m8_before_another_module_is_refused(self, db_session, sale_ready_engagement, test_user):
+        with pytest.raises(ValueError, match="pinned last"):
+            get_program_guide_service(db_session).set_custom_order(
+                sale_ready_engagement, ["M1", "M8", "M2"], test_user.id
+            )
+
+    def test_api_answers_400_for_m8_moved(self, api, advisor, sale_ready_engagement, sale_ready_cards):
+        resp = api.as_user(advisor).put(
+            f"{GUIDE}/{sale_ready_engagement.id}/order",
+            json={"module_order": ["M8", "M1"]},
+        )
+        assert resp.status_code == 400
+        assert "pinned last" in resp.json()["detail"]
+
+    def test_value_builder_has_no_pin(self, db_session, test_engagement, test_user):
+        """Regression: Value Builder orders are untouched by the Sale Ready pin."""
+        result = get_program_guide_service(db_session).set_custom_order(
+            test_engagement, ["V11", "V1"], test_user.id
+        )
+        assert result["order"][:2] == ["V11", "V1"]
 
 
 class TestSaleReadyCustomOrder:

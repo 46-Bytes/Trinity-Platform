@@ -14,7 +14,7 @@ whenever it failed. Diagnostic module scores are already keyed by module code,
 so nothing has to be matched at all: the worst-scoring module is worked first.
 """
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -22,8 +22,25 @@ from sqlalchemy.orm import Session
 from app.models.diagnostic import Diagnostic
 from app.models.engagement import Engagement
 from app.models.program_guide import EngagementProgramModuleState, ProgramModuleContent
-from app.services.program_registry import is_supported_program
+from app.services.program_registry import is_supported_program, pinned_last_modules
 from app.services.scoring_service import ScoringService
+
+
+def apply_pinned_last(order: List[str], pinned: Sequence[str]) -> List[str]:
+    """Move pinned codes to the end, in their pinned order; everything else keeps its place."""
+    return [c for c in order if c not in pinned] + [c for c in pinned if c in order]
+
+
+def validate_pinned_order(order: List[str], pinned: Sequence[str]) -> None:
+    """
+    Refuse an order that places a pinned module before an unpinned one.
+
+    A pinned code may be omitted or sit at the tail; anywhere else it would be
+    silently moved, so the request is rejected rather than rewritten.
+    """
+    first_pinned = next((i for i, code in enumerate(order) if code in pinned), None)
+    if first_pinned is not None and any(code not in pinned for code in order[first_pinned:]):
+        raise ValueError(f"{', '.join(pinned)} is pinned last and cannot be reordered")
 
 
 class ProgramGuideService:
@@ -100,7 +117,8 @@ class ProgramGuideService:
 
         # Program-aware: V1-V11 for Value Builder, M1-M8 for Sale Ready.
         canonical = ScoringService.get_modules(engagement.tool)
-        all_codes = list(canonical.keys())
+        pinned = pinned_last_modules(engagement.tool)
+        all_codes = apply_pinned_last(list(canonical.keys()), pinned)
 
         diagnostic = self._get_latest_completed_diagnostic(engagement.id)
         scores = self._scores_by_module(diagnostic, canonical)
@@ -120,7 +138,8 @@ class ProgramGuideService:
 
         return {
             "source": "diagnostic",
-            "order": scored + unscored,
+            # Pinned modules run last even when they score worst.
+            "order": apply_pinned_last(scored + unscored, pinned),
             "diagnostic_id": str(diagnostic.id),
         }
 
@@ -137,6 +156,7 @@ class ProgramGuideService:
         state = self._get_state(engagement.id)
         if state and state.custom_order:
             merged = list(state.custom_order) + [c for c in computed["order"] if c not in state.custom_order]
+            merged = apply_pinned_last(merged, pinned_last_modules(engagement.tool))
             return {
                 **computed,
                 "source": "custom",
@@ -147,6 +167,7 @@ class ProgramGuideService:
         return {**computed, "custom_order_set_at": None, "custom_order_set_by_user_id": None}
 
     def set_custom_order(self, engagement: Engagement, module_order: List[str], user_id: UUID) -> Dict[str, Any]:
+        validate_pinned_order(module_order, pinned_last_modules(engagement.tool))
         state = self._get_state(engagement.id)
         now = datetime.now(timezone.utc)
         if state:

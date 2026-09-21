@@ -1,0 +1,278 @@
+{
+  "source": {
+    "file": "Client_XYZ - Program Management Sheet - Sale Ready Program (2).xlsx",
+    "sha256": "93640ac00d3c327ccf4e607ea9f5fa9ae2242280db982384e02190ee03e82b7b"
+  },
+  "config": {
+    "sale_types": [
+      {
+        "key": "asset_sale",
+        "label": "Asset Sale"
+      },
+      {
+        "key": "share_sale",
+        "label": "Share Sale"
+      }
+    ],
+    "sale_structures": [
+      {
+        "key": "cash_purchase",
+        "label": "Cash Purchase"
+      },
+      {
+        "key": "financed_acquisition",
+        "label": "Financed Acquisition"
+      },
+      {
+        "key": "earn_out",
+        "label": "Earn Out"
+      },
+      {
+        "key": "buy_out",
+        "label": "Buy-Out"
+      },
+      {
+        "key": "retention",
+        "label": "Retention"
+      }
+    ],
+    "value_proposition_structures": [
+      {
+        "key": "cash_purchase",
+        "label": "Cash Purchase"
+      },
+      {
+        "key": "financed_acquisition",
+        "label": "Financed Acquisition"
+      },
+      {
+        "key": "earn_out",
+        "label": "Earn Out"
+      },
+      {
+        "key": "buy_out",
+        "label": "Buy-Out"
+      },
+      {
+        "key": "retention",
+        "label": "Retention"
+      }
+    ],
+    "marketing_questions": [
+      {
+        "key": "who_is_the_buyer_describe_the_ideal_buyer",
+        "label": "Who is the buyer? Describe the ideal buyer."
+      },
+      {
+        "key": "what_are_the_five_best_methods_of_attracting_the_right_buyer",
+        "label": "What are the five best methods of attracting the right buyer?"
+      },
+      {
+        "key": "is_there_any_company_individual_that_needs_to_be_refused_avoided",
+        "label": "Is there any company/individual that needs to be refused/avoided?"
+      },
+      {
+        "key": "how_much_information_is_to_be_provided_to_potential_purchasers",
+        "label": "How much information is to be provided to potential purchasers?"
+      },
+      {
+        "key": "im_or_exec_summary",
+        "label": "IM or Exec Summary?"
+      },
+      {
+        "key": "data_room_or_other",
+        "label": "Data room, or other?"
+      },
+      {
+        "key": "exclusive_bargaining_period_or_open_process",
+        "label": "Exclusive bargaining period, or open process?"
+      },
+      {
+        "key": "identify_the_business_confidentiality_planning",
+        "label": "Identify the business? Confidentiality planning."
+      },
+      {
+        "key": "marketing_and_advertising_campaign_planned",
+        "label": "Marketing and Advertising Campaign planned"
+      },
+      {
+        "key": "social_media",
+        "label": "Social Media?"
+      }
+    ],
+    "issues": [
+      {
+        "key": "staff_entitlements",
+        "label": "Staff Entitlements"
+      },
+      {
+        "key": "when_to_tell_staff",
+        "label": "When to tell staff"
+      },
+      {
+        "key": "supplier_contracts",
+        "label": "Supplier Contracts"
+      },
+      {
+        "key": "key_customers",
+        "label": "Key Customers"
+      },
+      {
+        "key": "gift_vouchers",
+        "label": "Gift Vouchers"
+      },
+      {
+        "key": "deposits_and_pre_payments",
+        "label": "Deposits and Pre-payments"
+      },
+      {
+        "key": "work_in_progress",
+        "label": "Work In Progress"
+      },
+      {
+        "key": "stock",
+        "label": "Stock"
+      },
+      {
+        "key": "stocktake",
+        "label": "Stocktake"
+      },
+      {
+        "key": "lease_leases",
+        "label": "Lease/Leases"
+      },
+      {
+        "key": "rental_arrears",
+        "label": "Rental Arrears"
+      },
+      {
+        "key": "franchisor_requirements",
+        "label": "Franchisor Requirements"
+      },
+      {
+        "key": "trade_restriction",
+        "label": "Trade Restriction"
+      },
+      {
+        "key": "tuition_assistance",
+        "label": "Tuition/Assistance"
+      },
+      {
+        "key": "depositholder_interest_bearing",
+        "label": "Depositholder. Interest Bearing?"
+      },
+      {
+        "key": "trademark",
+        "label": "Trademark"
+      },
+      {
+        "key": "ip",
+        "label": "IP"
+      },
+      {
+        "key": "leased_equipment_payouts_silver_chef",
+        "label": "Leased Equipment – Payouts, Silver Chef"
+      },
+      {
+        "key": "ppsr",
+        "label": "PPSR"
+      },
+      {
+        "key": "business_name_registration_company_name_changes",
+        "label": "Business Name Registration/Company Name changes"
+      },
+      {
+        "key": "licences_certificates_patents_consents",
+        "label": "Licences, Certificates, Patents, Consents"
+      },
+      {
+        "key": "email_addresses_and_forwarding",
+        "label": "Email addresses and forwarding"
+      },
+      {
+        "key": "inventory_of_all_assets_to_be_sold",
+        "label": "Inventory of all assets to be sold"
+      },
+      {
+        "key": "trial_period",
+        "label": "Trial Period"
+      },
+      {
+        "key": "warrantees",
+        "label": "Warrantees"
+      },
+      {
+        "key": "gst_going_concern_assurance",
+        "label": "GST. “Going Concern” assurance"
+      },
+      {
+        "key": "release_of_bonds_and_cessation_of_agreements_such_as_insurance",
+        "label": "Release of bonds and cessation of agreements such as insurance"
+      },
+      {
+        "key": "power_phone_internet_security_providers",
+        "label": "Power, Phone, Internet, Security providers"
+      },
+      {
+        "key": "cash_float",
+        "label": "Cash Float"
+      },
+      {
+        "key": "stamp_duty",
+        "label": "Stamp Duty"
+      },
+      {
+        "key": "legal_costs",
+        "label": "Legal Costs"
+      },
+      {
+        "key": "right_of_entry",
+        "label": "Right of Entry"
+      },
+      {
+        "key": "due_diligence",
+        "label": "Due Diligence"
+      },
+      {
+        "key": "buyer_s_security_requirements",
+        "label": "Buyer’s security requirements"
+      },
+      {
+        "key": "environmental_site_assessment_testing_local_government_approvals",
+        "label": "Environmental Site Assessment, Testing, Local Government Approvals"
+      },
+      {
+        "key": "first_right_of_refusal",
+        "label": "First Right Of Refusal"
+      },
+      {
+        "key": "engagement_of_advisors",
+        "label": "Engagement of advisors"
+      },
+      {
+        "key": "regular_meetings",
+        "label": "Regular Meetings"
+      },
+      {
+        "key": "draft_contract_preparation",
+        "label": "Draft Contract Preparation"
+      },
+      {
+        "key": "communication_agreement",
+        "label": "Communication Agreement"
+      },
+      {
+        "key": "apportionment_of_asset_values",
+        "label": "Apportionment of Asset Values"
+      },
+      {
+        "key": "capital_gains_tax_issues",
+        "label": "Capital Gains Tax Issues"
+      },
+      {
+        "key": "division_7_a_loans",
+        "label": "Division 7 (A) Loans"
+      }
+    ]
+  }
+}

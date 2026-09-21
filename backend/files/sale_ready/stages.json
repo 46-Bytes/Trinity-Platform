@@ -1,0 +1,173 @@
+{
+  "source": {
+    "file": "Client_XYZ - Program Management Sheet - Sale Ready Program (2).xlsx",
+    "sha256": "93640ac00d3c327ccf4e607ea9f5fa9ae2242280db982384e02190ee03e82b7b"
+  },
+  "items": [
+    {
+      "program_type": "sale_ready",
+      "stage_code": "DIAG",
+      "stage_type": "pre_module",
+      "display_code": "P1",
+      "title": "Diagnostic",
+      "default_order": 1,
+      "task_creation": "on_engagement_create",
+      "ui_variant": null,
+      "source_sheet": "Diagnostic"
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "APPRAISAL",
+      "stage_type": "pre_module",
+      "display_code": "P2",
+      "title": "Appraisal",
+      "default_order": 2,
+      "task_creation": "on_engagement_create",
+      "ui_variant": null,
+      "source_sheet": "Appraisal"
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "PRIORITISE",
+      "stage_type": "pre_module",
+      "display_code": "P3",
+      "title": "Prioritisation & Roadmap",
+      "default_order": 3,
+      "task_creation": "on_engagement_create",
+      "ui_variant": null,
+      "source_sheet": "Prioritisation"
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "WORKSHOP",
+      "stage_type": "pre_module",
+      "display_code": "P4",
+      "title": "Planning Workshop",
+      "default_order": 4,
+      "task_creation": "on_engagement_create",
+      "ui_variant": null,
+      "source_sheet": "Planning Workshop"
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M1",
+      "stage_type": "module",
+      "display_code": "M1",
+      "title": "Financial Clarity & Reporting",
+      "default_order": 5,
+      "task_creation": "on_start",
+      "ui_variant": null,
+      "source_sheet": "Module 1 - Financials"
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M2",
+      "stage_type": "module",
+      "display_code": "M2",
+      "title": "Legal, Compliance & Property",
+      "default_order": 6,
+      "task_creation": "on_start",
+      "ui_variant": null,
+      "source_sheet": "Module 2 - Legal, Property, Ass"
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M3",
+      "stage_type": "module",
+      "display_code": "M3",
+      "title": "Owner Dependency & Operations",
+      "default_order": 7,
+      "task_creation": "on_start",
+      "ui_variant": null,
+      "source_sheet": "Module 3 -Owner & Operations"
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M4",
+      "stage_type": "module",
+      "display_code": "M4",
+      "title": "People",
+      "default_order": 8,
+      "task_creation": "on_start",
+      "ui_variant": null,
+      "source_sheet": "Module 4 - People"
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M5",
+      "stage_type": "module",
+      "display_code": "M5",
+      "title": "Customer, Product & Revenue Quality",
+      "default_order": 9,
+      "task_creation": "on_start",
+      "ui_variant": null,
+      "source_sheet": "Module 5 - Customer & Product"
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M6",
+      "stage_type": "module",
+      "display_code": "M6",
+      "title": "Brand, IP & Intangibles",
+      "default_order": 10,
+      "task_creation": "on_start",
+      "ui_variant": null,
+      "source_sheet": "Module 6 - Brand & IP"
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M7",
+      "stage_type": "module",
+      "display_code": "M7",
+      "title": "Tax, Compliance & Regulatory",
+      "default_order": 11,
+      "task_creation": "on_start",
+      "ui_variant": null,
+      "source_sheet": "Module 7 - Tax & Compliance"
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M8",
+      "stage_type": "module",
+      "display_code": "M8",
+      "title": "Due Diligence Preparation",
+      "default_order": 12,
+      "task_creation": "on_start",
+      "ui_variant": null,
+      "source_sheet": "Module 8 - DD Preparation"
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "TRANSITION",
+      "stage_type": "post_module",
+      "display_code": "P5",
+      "title": "Transition & Handover Planning",
+      "default_order": 13,
+      "task_creation": "on_engagement_create",
+      "ui_variant": null,
+      "source_sheet": "Transition & Handover Planning"
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "SALE_PLANNER",
+      "stage_type": "post_module",
+      "display_code": "P6",
+      "title": "Sale Planner Checklist",
+      "default_order": 14,
+      "task_creation": "on_engagement_create",
+      "ui_variant": "sale_planner",
+      "source_sheet": "Sale Planner Checklist"
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "CLOSEOUT",
+      "stage_type": "post_module",
+      "display_code": "P7",
+      "title": "Re-appraisal / Listing / Close-out",
+      "default_order": 15,
+      "task_creation": "on_engagement_create",
+      "ui_variant": "closeout",
+      "source_sheet": null
+    }
+  ]
+}

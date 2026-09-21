@@ -160,8 +160,12 @@ class AuthService:
             auth0_picture = user_info.get('picture')
             current_picture = user.picture
             
-            # Check if current picture is user-uploaded (stored in our filesystem in profilepicture directory)
+            # Check if current picture is user-uploaded (stored in our filesystem).
+            # Avatars now live under /files/public/avatars/{user_id}/; the older
+            # /files/uploads/users/{user_id}/profilepicture/ form is still matched
+            # so a login does not replace a picture that has not been moved yet.
             is_user_uploaded = current_picture and (
+                current_picture.startswith(f'/files/public/avatars/{str(user.id)}/') or
                 f'/users/{str(user.id)}/profilepicture/' in current_picture or
                 current_picture.startswith('/files/uploads/users/') and '/profilepicture/' in current_picture
             )

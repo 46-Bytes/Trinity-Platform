@@ -63,3 +63,7 @@ Thumbs.db
 
 *.docx
 uploads/
+
+# Uploaded profile pictures. main.py serves backend/files/public, so avatars
+# live here instead of under uploads/ - which this file already ignores.
+files/public/avatars/

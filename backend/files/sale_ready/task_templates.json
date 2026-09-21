@@ -1,0 +1,1478 @@
+{
+  "source": {
+    "file": "Client_XYZ - Program Management Sheet - Sale Ready Program (2).xlsx",
+    "sha256": "93640ac00d3c327ccf4e607ea9f5fa9ae2242280db982384e02190ee03e82b7b"
+  },
+  "items": [
+    {
+      "program_type": "sale_ready",
+      "stage_code": "DIAG",
+      "template_key": "DIAG-MUST-01",
+      "section": "must_do",
+      "group_title": "Diagnostic Completion",
+      "title": "Client to commence the diagnostic form",
+      "default_order": 1,
+      "source_row": 11
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "DIAG",
+      "template_key": "DIAG-MUST-02",
+      "section": "must_do",
+      "group_title": "Diagnostic Completion",
+      "title": "IF REQUIRED - schedule time to meet client and complete diagnostic form with them",
+      "default_order": 2,
+      "source_row": 12
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "DIAG",
+      "template_key": "DIAG-MUST-03",
+      "section": "must_do",
+      "group_title": "Diagnostic Completion",
+      "title": "Diagnostic form completed",
+      "default_order": 3,
+      "source_row": 13
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "DIAG",
+      "template_key": "DIAG-MUST-04",
+      "section": "must_do",
+      "group_title": "Diagnostic Completion",
+      "title": "Save all uploaded documents into the relevant folder in the Client Google Folder",
+      "default_order": 4,
+      "source_row": 14
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "DIAG",
+      "template_key": "DIAG-MUST-05",
+      "section": "must_do",
+      "group_title": "Report Generation",
+      "title": "Submit the diagnostic form and confirm the report has been generated",
+      "default_order": 5,
+      "source_row": 16
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "DIAG",
+      "template_key": "DIAG-MUST-06",
+      "section": "must_do",
+      "group_title": "Report Generation",
+      "title": "Review the Diagnostic Report and make any notes for further review/discussion etc. as needed",
+      "default_order": 6,
+      "source_row": 17
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "APPRAISAL",
+      "template_key": "APPRAISAL-MUST-01",
+      "section": "must_do",
+      "group_title": "Information Collection & Analysis",
+      "title": "Review all collected and generated information and documentation (including financials), create a list of anything missing that is required for the purpose of completing the appraisal",
+      "default_order": 1,
+      "source_row": 11
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "APPRAISAL",
+      "template_key": "APPRAISAL-MUST-02",
+      "section": "must_do",
+      "group_title": "Information Collection & Analysis",
+      "title": "IF REQUIRED - contact client and/or their accountant/lawyer to acquire mising documentation or information",
+      "default_order": 2,
+      "source_row": 12
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "APPRAISAL",
+      "template_key": "APPRAISAL-MUST-03",
+      "section": "must_do",
+      "group_title": "Information Collection & Analysis",
+      "title": "Identify and document all addbacks using Addback Tracker",
+      "default_order": 3,
+      "source_row": 13
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "APPRAISAL",
+      "template_key": "APPRAISAL-MUST-04",
+      "section": "must_do",
+      "group_title": "Information Collection & Analysis",
+      "title": "Complete the required appraisal analysis to ascertain price range",
+      "default_order": 4,
+      "source_row": 14
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "APPRAISAL",
+      "template_key": "APPRAISAL-MUST-05",
+      "section": "must_do",
+      "group_title": "Information Collection & Analysis",
+      "title": "Address Category 1. Type & Structure of Sale of the DD Checklist",
+      "default_order": 5,
+      "source_row": 15
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "APPRAISAL",
+      "template_key": "APPRAISAL-MUST-06",
+      "section": "must_do",
+      "group_title": "Information Collection & Analysis",
+      "title": "IF YOU NEED TO OUTSOURCE THE APPRAISAL - talk to Pete",
+      "default_order": 6,
+      "source_row": 16
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "APPRAISAL",
+      "template_key": "APPRAISAL-MUST-07",
+      "section": "must_do",
+      "group_title": "Report Generation",
+      "title": "Send the information to Marc for Appraisal Report generation",
+      "default_order": 7,
+      "source_row": 18
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "APPRAISAL",
+      "template_key": "APPRAISAL-MUST-08",
+      "section": "must_do",
+      "group_title": "Report Generation",
+      "title": "Review the Appraisal Report and make any notes for further review/discussion etc. as needed.\n\nEnsure you have given the sale structure due consideration and this is in your report.",
+      "default_order": 8,
+      "source_row": 19
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "PRIORITISE",
+      "template_key": "PRIORITISE-MUST-01",
+      "section": "must_do",
+      "group_title": "Review, Prioritisation & Roadmap",
+      "title": "Review the Trinity report, compare the prioritisation against your other documents - decide on how to move forward",
+      "default_order": 1,
+      "source_row": 11
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "PRIORITISE",
+      "template_key": "PRIORITISE-MUST-02",
+      "section": "must_do",
+      "group_title": "Review, Prioritisation & Roadmap",
+      "title": "Open the :Roadmap\" tab in the program management sheet and setup the sale ready program using the previous step outputs",
+      "default_order": 2,
+      "source_row": 12
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "PRIORITISE",
+      "template_key": "PRIORITISE-MUST-03",
+      "section": "must_do",
+      "group_title": "Review, Prioritisation & Roadmap",
+      "title": "Move the Module tabs around, ensuring that they appear in the order of required completion based on the Prioritisation Report - note that you may have 2 or more modules and tasks running simultaneously",
+      "default_order": 3,
+      "source_row": 13
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "PRIORITISE",
+      "template_key": "PRIORITISE-MUST-04",
+      "section": "must_do",
+      "group_title": "Review, Prioritisation & Roadmap",
+      "title": "Review each module and add in any additional tasks to be delivered as part of a module",
+      "default_order": 4,
+      "source_row": 14
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "WORKSHOP",
+      "template_key": "WORKSHOP-MUST-01",
+      "section": "must_do",
+      "group_title": "Preparation",
+      "title": "Book initial Planning Workshop session with client",
+      "default_order": 1,
+      "source_row": 11
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "WORKSHOP",
+      "template_key": "WORKSHOP-MUST-02",
+      "section": "must_do",
+      "group_title": "Preparation",
+      "title": "Create Planning Workshop agenda - share with client",
+      "default_order": 2,
+      "source_row": 12
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "WORKSHOP",
+      "template_key": "WORKSHOP-MUST-03",
+      "section": "must_do",
+      "group_title": "Workshop",
+      "title": "The following is the minimum to be reviewed in your client workshop:\n- Trinity Report\n- Appraisal\n- Type of Sale, Sale structure, Best Value Proposition\n- Sale ready prioritisation matrix and roadmap\n- When to tell staff",
+      "default_order": 3,
+      "source_row": 14
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "WORKSHOP",
+      "template_key": "WORKSHOP-MUST-04",
+      "section": "must_do",
+      "group_title": "Workshop",
+      "title": "Seek approval to contact the accountant and lawyer to discuss the impending sale and the sale ready program",
+      "default_order": 4,
+      "source_row": 15
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "WORKSHOP",
+      "template_key": "WORKSHOP-MUST-05",
+      "section": "must_do",
+      "group_title": "Workshop",
+      "title": "IF REQUIRED - introduce the client to accountant and/or lawyer",
+      "default_order": 5,
+      "source_row": 16
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "WORKSHOP",
+      "template_key": "WORKSHOP-MUST-06",
+      "section": "must_do",
+      "group_title": "Workshop",
+      "title": "IF REQUIRED - make changes to the prioritiation matrix and roadmap",
+      "default_order": 6,
+      "source_row": 17
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "WORKSHOP",
+      "template_key": "WORKSHOP-MUST-07",
+      "section": "must_do",
+      "group_title": "Workshop",
+      "title": "IF REQUIRED - Move the Module tabs around, ensuring that they appear in the order of required completion based on the updated prioritisation and roadmap",
+      "default_order": 7,
+      "source_row": 18
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M1",
+      "template_key": "M1-MUST-01",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Request access to financial tool such as Xero (preferred) or exported financial reports (not ideal)",
+      "default_order": 1,
+      "source_row": 11
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M1",
+      "template_key": "M1-MUST-02",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Review 3 years of P&L and balance sheets for inconsistencies",
+      "default_order": 2,
+      "source_row": 12
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M1",
+      "template_key": "M1-MUST-03",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Work with bookkeeper/accountant to clean up key accounts (e.g. drawings, intercompany, assets)",
+      "default_order": 3,
+      "source_row": 13
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M1",
+      "template_key": "M1-MUST-04",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Identify and document all addbacks using Addback Tracker - you should have done this during the appraisal but is being flagged again in case that was months ago",
+      "default_order": 4,
+      "source_row": 14
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M1",
+      "template_key": "M1-MUST-05",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Create a normalised EBITDA view using the template",
+      "default_order": 5,
+      "source_row": 15
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M1",
+      "template_key": "M1-MUST-06",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Confirm BAS and tax lodgements are up to date",
+      "default_order": 6,
+      "source_row": 16
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M1",
+      "template_key": "M1-MUST-07",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Clarify and separate personal vs business expenses",
+      "default_order": 7,
+      "source_row": 17
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M1",
+      "template_key": "M1-MUST-08",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Advisor to review and approve addbacks with client",
+      "default_order": 8,
+      "source_row": 18
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M1",
+      "template_key": "M1-MUST-09",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Finalise clean, reconciled financials (3 years + YTD)",
+      "default_order": 9,
+      "source_row": 19
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M1",
+      "template_key": "M1-MUST-10",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Ensure you have stored a copy of all financial documents in the relevant client folder in Google Drive",
+      "default_order": 10,
+      "source_row": 20
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M1",
+      "template_key": "M1-OPT-01",
+      "section": "optional",
+      "group_title": null,
+      "title": "Create a financial dashboard with visual P&L and trend graphs",
+      "default_order": 11,
+      "source_row": 22
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M1",
+      "template_key": "M1-OPT-02",
+      "section": "optional",
+      "group_title": null,
+      "title": "Request accountant summary letter or recorded walkthrough",
+      "default_order": 12,
+      "source_row": 23
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M1",
+      "template_key": "M1-OPT-03",
+      "section": "optional",
+      "group_title": null,
+      "title": "Run a pre-sale review meeting with the accountant or finance lead",
+      "default_order": 13,
+      "source_row": 24
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M2",
+      "template_key": "M2-MUST-01",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Request all legal structure documents (e.g. constitution, shareholder agreements, trust deeds)",
+      "default_order": 1,
+      "source_row": 11
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M2",
+      "template_key": "M2-MUST-02",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Review ASIC records, verify share registers and director details",
+      "default_order": 2,
+      "source_row": 12
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M2",
+      "template_key": "M2-MUST-03",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Confirm all registrations (ABN, ACN, GST, business name) are valid and current",
+      "default_order": 3,
+      "source_row": 13
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M2",
+      "template_key": "M2-MUST-04",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Request and review all supplier, customer, and contractor contracts",
+      "default_order": 4,
+      "source_row": 14
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M2",
+      "template_key": "M2-MUST-05",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Identify missing, expired, or non-transferrable contracts",
+      "default_order": 5,
+      "source_row": 15
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M2",
+      "template_key": "M2-MUST-06",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Review lease agreement (term, rent review, assignment clause, expiry date)",
+      "default_order": 6,
+      "source_row": 16
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M2",
+      "template_key": "M2-MUST-07",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Document any risks or upcoming lease negotiations",
+      "default_order": 7,
+      "source_row": 17
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M2",
+      "template_key": "M2-MUST-08",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Confirm current insurance policies (public liability, PI, workers’ comp, cyber)",
+      "default_order": 8,
+      "source_row": 18
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M2",
+      "template_key": "M2-MUST-09",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Create legal risk summary and recommended actions",
+      "default_order": 9,
+      "source_row": 19
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M2",
+      "template_key": "M2-MUST-10",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Save legal and lease documents in the relevant client folder in Google Drive",
+      "default_order": 10,
+      "source_row": 20
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M2",
+      "template_key": "M2-OPT-01",
+      "section": "optional",
+      "group_title": null,
+      "title": "Run a legal risk review session with client + lawyer",
+      "default_order": 11,
+      "source_row": 22
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M2",
+      "template_key": "M2-OPT-02",
+      "section": "optional",
+      "group_title": null,
+      "title": "Assist in addressing expiring leases and/or other contracts - act as liaison",
+      "default_order": 12,
+      "source_row": 23
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M2",
+      "template_key": "M2-OPT-03",
+      "section": "optional",
+      "group_title": null,
+      "title": "Conduct insurance coverage comparison (optional expert)",
+      "default_order": 13,
+      "source_row": 24
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M2",
+      "template_key": "M2-OPT-04",
+      "section": "optional",
+      "group_title": null,
+      "title": "Map landlord approval requirements for transfer",
+      "default_order": 14,
+      "source_row": 25
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M3",
+      "template_key": "M3-MUST-01",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Create or review and update the organisational chart showing roles and reporting lines",
+      "default_order": 1,
+      "source_row": 11
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M3",
+      "template_key": "M3-MUST-02",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Run a role mapping session, focused solely on the owners - identify and list all responsibilities",
+      "default_order": 2,
+      "source_row": 12
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M3",
+      "template_key": "M3-MUST-03",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Identify all tasks that could be delegated to the team and create a delegation roadmap (who takes over what, by when) - note that this will be the input into the roles/responsibilities mapping session in the People Module",
+      "default_order": 3,
+      "source_row": 13
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M3",
+      "template_key": "M3-MUST-04",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Collect all existing SOPs - verify they are correct and up to date",
+      "default_order": 4,
+      "source_row": 14
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M3",
+      "template_key": "M3-MUST-05",
+      "section": "must_do",
+      "group_title": null,
+      "title": "If any SOPs are missing - document the most important ones and guide the business on building these out",
+      "default_order": 5,
+      "source_row": 15
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M3",
+      "template_key": "M3-MUST-06",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Identify operational and key persons risks - include mitigation strategies",
+      "default_order": 6,
+      "source_row": 16
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M3",
+      "template_key": "M3-MUST-07",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Discuss succession strategy or transition plan if owner plans to exit",
+      "default_order": 7,
+      "source_row": 17
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M3",
+      "template_key": "M3-MUST-08",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Review customer and supplier relationships and identify those tied to the owner",
+      "default_order": 8,
+      "source_row": 18
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M3",
+      "template_key": "M3-MUST-09",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Prepare succession of customer/supplier relationships tied to owner",
+      "default_order": 9,
+      "source_row": 19
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M3",
+      "template_key": "M3-OPT-01",
+      "section": "optional",
+      "group_title": null,
+      "title": "Record short Loom videos of key owner tasks or handovers",
+      "default_order": 10,
+      "source_row": 21
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M3",
+      "template_key": "M3-OPT-02",
+      "section": "optional",
+      "group_title": null,
+      "title": "Assign SOP owners and schedule internal training",
+      "default_order": 11,
+      "source_row": 22
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M3",
+      "template_key": "M3-OPT-03",
+      "section": "optional",
+      "group_title": null,
+      "title": "Develop an internal onboarding manual or team handbook",
+      "default_order": 12,
+      "source_row": 23
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M3",
+      "template_key": "M3-OPT-04",
+      "section": "optional",
+      "group_title": null,
+      "title": "Draft and share a client-facing “Meet the Team” summary",
+      "default_order": 13,
+      "source_row": 24
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M4",
+      "template_key": "M4-MUST-01",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Request all current employment and contractor agreements - save in DD folder",
+      "default_order": 1,
+      "source_row": 11
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M4",
+      "template_key": "M4-MUST-02",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Review contracts for currency, validity, and Fair Work compliance - any issue need to be addressed",
+      "default_order": 2,
+      "source_row": 12
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M4",
+      "template_key": "M4-MUST-03",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Create or update a staff summary table (name, role, start date, FT/PT, entitlements)",
+      "default_order": 3,
+      "source_row": 13
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M4",
+      "template_key": "M4-MUST-04",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Verify that payroll, superannuation, and entitlements are current",
+      "default_order": 4,
+      "source_row": 14
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M4",
+      "template_key": "M4-MUST-05",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Review or prepare organisational chart, including reporting lines",
+      "default_order": 5,
+      "source_row": 15
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M4",
+      "template_key": "M4-MUST-06",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Identify missing contracts or unclear work arrangements",
+      "default_order": 6,
+      "source_row": 16
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M4",
+      "template_key": "M4-MUST-07",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Run a Role Mapping session (team-specific) to confirm responsibilities",
+      "default_order": 7,
+      "source_row": 17
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M4",
+      "template_key": "M4-MUST-08",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Identify key staff, flight risks, and team gaps",
+      "default_order": 8,
+      "source_row": 18
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M4",
+      "template_key": "M4-MUST-09",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Redesign roles and responsibilities as required, based on the owner and team role mapping sessions",
+      "default_order": 9,
+      "source_row": 19
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M4",
+      "template_key": "M4-MUST-10",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Review existing job descriptions and update where gaps exist",
+      "default_order": 10,
+      "source_row": 20
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M4",
+      "template_key": "M4-OPT-01",
+      "section": "optional",
+      "group_title": null,
+      "title": "Prepare a “Meet the Team” section for inclusion in the IM",
+      "default_order": 11,
+      "source_row": 22
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M4",
+      "template_key": "M4-OPT-02",
+      "section": "optional",
+      "group_title": null,
+      "title": "Create staff profiles with photos and role summaries",
+      "default_order": 12,
+      "source_row": 23
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M4",
+      "template_key": "M4-OPT-03",
+      "section": "optional",
+      "group_title": null,
+      "title": "Include internal policies in DD folder (e.g. HR Manual, WHS, training log)",
+      "default_order": 13,
+      "source_row": 24
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M4",
+      "template_key": "M4-OPT-04",
+      "section": "optional",
+      "group_title": null,
+      "title": "Document internal career development or training programs",
+      "default_order": 14,
+      "source_row": 25
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M4",
+      "template_key": "M4-OPT-05",
+      "section": "optional",
+      "group_title": null,
+      "title": "Develop internal staff onboarding handbook",
+      "default_order": 15,
+      "source_row": 26
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M4",
+      "template_key": "M4-OPT-06",
+      "section": "optional",
+      "group_title": null,
+      "title": "Develop a light-touch retention or incentive plan (if required)",
+      "default_order": 16,
+      "source_row": 27
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M5",
+      "template_key": "M5-MUST-01",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Request detailed sales data (12 months & 3-year history by customer)",
+      "default_order": 1,
+      "source_row": 11
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M5",
+      "template_key": "M5-MUST-02",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Analyse customer concentration (identify reliance on top 3–5 customers)",
+      "default_order": 2,
+      "source_row": 12
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M5",
+      "template_key": "M5-MUST-03",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Confirm existence and validity of customer contracts or agreements",
+      "default_order": 3,
+      "source_row": 13
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M5",
+      "template_key": "M5-MUST-04",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Create or formalise written agreements with key customers (top 5–10)",
+      "default_order": 4,
+      "source_row": 14
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M5",
+      "template_key": "M5-MUST-05",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Review forward orders and guaranteed sales commitments",
+      "default_order": 5,
+      "source_row": 15
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M5",
+      "template_key": "M5-MUST-06",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Identify and summarise risks (high dependency, vulnerable clients, churn)",
+      "default_order": 6,
+      "source_row": 16
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M5",
+      "template_key": "M5-MUST-07",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Document renewal, pricing, and exclusivity terms clearly",
+      "default_order": 7,
+      "source_row": 17
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M5",
+      "template_key": "M5-MUST-08",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Create client profiles/case studies for key customers",
+      "default_order": 8,
+      "source_row": 18
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M5",
+      "template_key": "M5-MUST-09",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Reliance on Government contracts, such as NDIS - ratio GOV vs Private",
+      "default_order": 9,
+      "source_row": 19
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M5",
+      "template_key": "M5-MUST-10",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Confirm product/service revenue mix (recurring vs. one-off)",
+      "default_order": 10,
+      "source_row": 20
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M5",
+      "template_key": "M5-MUST-11",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Identify product/service lines at risk (low margin, declining demand)",
+      "default_order": 11,
+      "source_row": 21
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M5",
+      "template_key": "M5-OPT-01",
+      "section": "optional",
+      "group_title": null,
+      "title": "Run customer satisfaction (NPS) survey for key clients",
+      "default_order": 12,
+      "source_row": 23
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M5",
+      "template_key": "M5-OPT-02",
+      "section": "optional",
+      "group_title": null,
+      "title": "Create visual “Customer Map” by geography or industry segment",
+      "default_order": 13,
+      "source_row": 24
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M5",
+      "template_key": "M5-OPT-03",
+      "section": "optional",
+      "group_title": null,
+      "title": "Prepare detailed revenue concentration graph/chart",
+      "default_order": 14,
+      "source_row": 25
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M5",
+      "template_key": "M5-OPT-04",
+      "section": "optional",
+      "group_title": null,
+      "title": "Document testimonials or reviews from key customers",
+      "default_order": 15,
+      "source_row": 26
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M5",
+      "template_key": "M5-OPT-05",
+      "section": "optional",
+      "group_title": null,
+      "title": "Create detailed analysis of churn (lost customers, reasons, retention strategies)",
+      "default_order": 16,
+      "source_row": 27
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M5",
+      "template_key": "M5-OPT-06",
+      "section": "optional",
+      "group_title": null,
+      "title": "Refresh CRM tagging and segmentation for reporting clarity",
+      "default_order": 17,
+      "source_row": 28
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M6",
+      "template_key": "M6-MUST-01",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Request details of all intellectual property (IP) registrations (trademarks, copyrights, patents)",
+      "default_order": 1,
+      "source_row": 11
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M6",
+      "template_key": "M6-MUST-02",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Verify domain name ownership and renewal status",
+      "default_order": 2,
+      "source_row": 12
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M6",
+      "template_key": "M6-MUST-03",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Confirm business ownership of all critical digital assets (websites, emails, social media)",
+      "default_order": 3,
+      "source_row": 13
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M6",
+      "template_key": "M6-MUST-04",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Identify and document any licensing agreements, royalties, or IP sharing",
+      "default_order": 4,
+      "source_row": 14
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M6",
+      "template_key": "M6-MUST-05",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Create or update an IP Register clearly listing assets, expiry, and ownership status",
+      "default_order": 5,
+      "source_row": 15
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M6",
+      "template_key": "M6-MUST-06",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Summarise brand positioning, online presence, and key marketing assets",
+      "default_order": 6,
+      "source_row": 16
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M6",
+      "template_key": "M6-MUST-07",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Identify and document confidentiality and non-compete agreements (staff/suppliers)",
+      "default_order": 7,
+      "source_row": 17
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M6",
+      "template_key": "M6-MUST-08",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Document any trade secret protections or trade restriction clauses",
+      "default_order": 8,
+      "source_row": 18
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M6",
+      "template_key": "M6-MUST-09",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Summarise goodwill assets (reputation, awards, client goodwill)",
+      "default_order": 9,
+      "source_row": 19
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M6",
+      "template_key": "M6-OPT-01",
+      "section": "optional",
+      "group_title": null,
+      "title": "Conduct trademark/brand audit via IP specialist",
+      "default_order": 10,
+      "source_row": 21
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M6",
+      "template_key": "M6-OPT-02",
+      "section": "optional",
+      "group_title": null,
+      "title": "Refresh visual identity or branding guidelines (logo, colours, typography) - to be done by brand/deisgn specialist",
+      "default_order": 11,
+      "source_row": 22
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M6",
+      "template_key": "M6-OPT-03",
+      "section": "optional",
+      "group_title": null,
+      "title": "Prepare client testimonials showcasing brand value",
+      "default_order": 12,
+      "source_row": 23
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M6",
+      "template_key": "M6-OPT-04",
+      "section": "optional",
+      "group_title": null,
+      "title": "Create visual summary of intangible assets for IM/presentation use",
+      "default_order": 13,
+      "source_row": 24
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M6",
+      "template_key": "M6-OPT-05",
+      "section": "optional",
+      "group_title": null,
+      "title": "Map out brand and IP risks and prepare mitigation strategies",
+      "default_order": 14,
+      "source_row": 25
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M7",
+      "template_key": "M7-MUST-01",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Request copies of corporate tax returns (last 3–5 years)",
+      "default_order": 1,
+      "source_row": 11
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M7",
+      "template_key": "M7-MUST-02",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Confirm status of BAS lodgements (current year and previous periods)",
+      "default_order": 2,
+      "source_row": 12
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M7",
+      "template_key": "M7-MUST-03",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Verify PAYG withholding summaries and year-end payment summaries",
+      "default_order": 3,
+      "source_row": 13
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M7",
+      "template_key": "M7-MUST-04",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Confirm payroll tax obligations and lodgements (state-based)",
+      "default_order": 4,
+      "source_row": 14
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M7",
+      "template_key": "M7-MUST-05",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Identify and document any outstanding ATO liabilities or payment plans",
+      "default_order": 5,
+      "source_row": 15
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M7",
+      "template_key": "M7-MUST-06",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Confirm GST “going concern” documentation if applicable",
+      "default_order": 6,
+      "source_row": 16
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M7",
+      "template_key": "M7-MUST-07",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Review ASIC registrations and ensure details are current (ABN, ACN, GST)",
+      "default_order": 7,
+      "source_row": 17
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M7",
+      "template_key": "M7-MUST-08",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Review and document PPSR register",
+      "default_order": 8,
+      "source_row": 18
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M7",
+      "template_key": "M7-MUST-09",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Summarise stamp duty implications or industry-specific levies and taxes",
+      "default_order": 9,
+      "source_row": 19
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M7",
+      "template_key": "M7-MUST-10",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Confirm compliance status for industry-specific regulations and taxes",
+      "default_order": 10,
+      "source_row": 20
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M7",
+      "template_key": "M7-MUST-11",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Identify and document any Division 7A loan arrangements and CGT implications",
+      "default_order": 11,
+      "source_row": 21
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M7",
+      "template_key": "M7-MUST-12",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Review and document any ASIC, ACCC, Safe Work Australia, WorkCover investigations or notices",
+      "default_order": 12,
+      "source_row": 22
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M7",
+      "template_key": "M7-MUST-13",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Review recent correspondence with regulatory bodies (ATO, ASIC, ACCC, etc.) and document audit or compliance issues",
+      "default_order": 13,
+      "source_row": 23
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M7",
+      "template_key": "M7-OPT-01",
+      "section": "optional",
+      "group_title": null,
+      "title": "Obtain a “clearance letter” from the ATO (if applicable)",
+      "default_order": 14,
+      "source_row": 25
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M7",
+      "template_key": "M7-OPT-02",
+      "section": "optional",
+      "group_title": null,
+      "title": "Conduct a proactive compliance review/audit (by accountant or specialist)",
+      "default_order": 15,
+      "source_row": 26
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M7",
+      "template_key": "M7-OPT-03",
+      "section": "optional",
+      "group_title": null,
+      "title": "Provide detailed commentary on any historical tax compliance issues and resolutions",
+      "default_order": 16,
+      "source_row": 27
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M7",
+      "template_key": "M7-OPT-04",
+      "section": "optional",
+      "group_title": null,
+      "title": "Create visual compliance status summary (e.g., dashboard view)",
+      "default_order": 17,
+      "source_row": 28
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M7",
+      "template_key": "M7-OPT-05",
+      "section": "optional",
+      "group_title": null,
+      "title": "Document historical compliance track record clearly (to reassure buyers)",
+      "default_order": 18,
+      "source_row": 29
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M8",
+      "template_key": "M8-MUST-01",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Verify completeness of documentation using DD Checklist",
+      "default_order": 1,
+      "source_row": 11
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M8",
+      "template_key": "M8-MUST-02",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Verify currency of documentation and information using DD Checklist",
+      "default_order": 2,
+      "source_row": 12
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M8",
+      "template_key": "M8-MUST-03",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Update any documents whose currency is no longer correct",
+      "default_order": 3,
+      "source_row": 13
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M8",
+      "template_key": "M8-MUST-04",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Create and maintain a comprehensive index of all documents and files",
+      "default_order": 4,
+      "source_row": 14
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M8",
+      "template_key": "M8-MUST-05",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Ensure all uploaded documents are clear, current, and accurately named",
+      "default_order": 5,
+      "source_row": 15
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M8",
+      "template_key": "M8-MUST-06",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Run a mock due diligence session (internal review to test data room completeness and clarity)",
+      "default_order": 6,
+      "source_row": 16
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M8",
+      "template_key": "M8-MUST-07",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Summarise and highlight key business strengths, opportunities, and risks clearly in an executive summary",
+      "default_order": 7,
+      "source_row": 17
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M8",
+      "template_key": "M8-MUST-08",
+      "section": "must_do",
+      "group_title": null,
+      "title": "Clearly define protocols for updates/version control of DD documents",
+      "default_order": 8,
+      "source_row": 18
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M8",
+      "template_key": "M8-OPT-01",
+      "section": "optional",
+      "group_title": null,
+      "title": "Create a \"buyer welcome\" document explaining the data room structure and contents",
+      "default_order": 9,
+      "source_row": 20
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M8",
+      "template_key": "M8-OPT-02",
+      "section": "optional",
+      "group_title": null,
+      "title": "Generate visual business summary/one-page highlights document",
+      "default_order": 10,
+      "source_row": 21
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M8",
+      "template_key": "M8-OPT-03",
+      "section": "optional",
+      "group_title": null,
+      "title": "Prepare \"Quick Access\" folder or shortcuts for critical DD documents",
+      "default_order": 11,
+      "source_row": 22
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M8",
+      "template_key": "M8-OPT-04",
+      "section": "optional",
+      "group_title": null,
+      "title": "Prepare buyer Q&A sheet or FAQ document anticipating common buyer questions",
+      "default_order": 12,
+      "source_row": 23
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "M8",
+      "template_key": "M8-OPT-05",
+      "section": "optional",
+      "group_title": null,
+      "title": "Produce short video or recorded tour guiding buyers through the data room",
+      "default_order": 13,
+      "source_row": 24
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "CLOSEOUT",
+      "template_key": "CLOSEOUT-MUST-01",
+      "section": "must_do",
+      "group_title": "Close-out",
+      "title": "Review the final position against the original appraisal",
+      "default_order": 1,
+      "source_row": null
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "CLOSEOUT",
+      "template_key": "CLOSEOUT-MUST-02",
+      "section": "must_do",
+      "group_title": "Close-out",
+      "title": "Decide whether a fresh appraisal is required and, if so, run it",
+      "default_order": 2,
+      "source_row": null
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "CLOSEOUT",
+      "template_key": "CLOSEOUT-MUST-03",
+      "section": "must_do",
+      "group_title": "Close-out",
+      "title": "Refer the client to Benchmark Business Sales for listing",
+      "default_order": 3,
+      "source_row": null
+    },
+    {
+      "program_type": "sale_ready",
+      "stage_code": "CLOSEOUT",
+      "template_key": "CLOSEOUT-MUST-04",
+      "section": "must_do",
+      "group_title": "Close-out",
+      "title": "Agree the ongoing assistance arrangement",
+      "default_order": 4,
+      "source_row": null
+    }
+  ]
+}

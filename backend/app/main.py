@@ -23,6 +23,7 @@ from .api.strategy_workbook import router as strategy_workbook_router
 from .api.strategic_business_plan import router as sbp_router
 from .api.program_guide import router as program_guide_router
 from .api.program_deliverable import router as program_deliverable_router
+from .api.sale_ready import router as sale_ready_router
 from .api.ai_field_privacy import router as ai_field_privacy_router
 from .api.roles_matrix import router as roles_matrix_router
 from .api.pd_scorecard import router as pd_scorecard_router
@@ -103,18 +104,25 @@ app.include_router(strategy_workbook_router, prefix="/api")
 app.include_router(sbp_router, prefix="/api")
 app.include_router(program_guide_router, prefix="/api")
 app.include_router(program_deliverable_router, prefix="/api")
+app.include_router(sale_ready_router)  # already has /api prefix
 app.include_router(ai_field_privacy_router)
 app.include_router(roles_matrix_router)  # already has /api prefix
 app.include_router(pd_scorecard_router)  # already has /api prefix
 app.include_router(help_router)  # already carries the /api/help prefix
 
-# Mount static files directory for serving uploaded files
-# This allows /files/... URLs to be served directly
+# Publicly served files.
+#
+# Only backend/files/public is mounted, and it holds one thing: profile
+# pictures, which an <img> tag must fetch without a bearer token. The rest of
+# backend/files - uploads, prompts, scoring maps, fixtures, exports - is
+# private and reachable only through an authenticated endpoint. Mounting
+# backend/files itself, as this once did, served every one of those to anyone
+# who knew the path.
 base_dir = Path(__file__).resolve().parents[1]  # Go up to backend/
-files_dir = base_dir / "files"
-files_dir.mkdir(exist_ok=True)  # Create directory if it doesn't exist
+public_dir = base_dir / "files" / "public"
+public_dir.mkdir(parents=True, exist_ok=True)
 
-app.mount("/files", StaticFiles(directory=str(files_dir)), name="files")
+app.mount("/files/public", StaticFiles(directory=str(public_dir)), name="public-files")
 
 
 @app.on_event("startup")

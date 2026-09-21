@@ -1,0 +1,205 @@
+{
+  "source": {
+    "file": "Client_XYZ - Program Management Sheet - Sale Ready Program (2).xlsx",
+    "sha256": "93640ac00d3c327ccf4e607ea9f5fa9ae2242280db982384e02190ee03e82b7b"
+  },
+  "items": {
+    "C1_onboarding_tasks": {
+      "note": "Onboarding is not one of the brief's 15 stages; these tasks are not seeded.",
+      "tasks": [
+        {
+          "section": "must_do",
+          "group_title": "Folder & Tracker Setup",
+          "title": "Setup new client in Trinity"
+        },
+        {
+          "section": "must_do",
+          "group_title": "Client Communications & Documents",
+          "title": "Share Diagnostic Questionnaire link via email, and sms for credentials"
+        },
+        {
+          "section": "must_do",
+          "group_title": "Client Communications & Documents",
+          "title": "Confirm client expectations and scope (custom modules, advisory hours, etc.)"
+        },
+        {
+          "section": "must_do",
+          "group_title": "Client Communications & Documents",
+          "title": "Discuss the completion of the questionnaire with the client; if they seek your assistance, book this in"
+        },
+        {
+          "section": "must_do",
+          "group_title": "Internal Briefing",
+          "title": "Agree on delivery team"
+        },
+        {
+          "section": "must_do",
+          "group_title": "Internal Briefing",
+          "title": "Review any known risks, sensitivities, or red flags"
+        },
+        {
+          "section": "must_do",
+          "group_title": "Internal Briefing",
+          "title": "Email Pete to send first invoice"
+        }
+      ]
+    },
+    "C2_closeout_tasks": {
+      "note": "RESOLVED 21 Sep 2026: the Excel has no close-out tasks; the brief makes the mockup the spec, so the mockup's four are emitted by closeout_tasks() and seeded.",
+      "tasks": [
+        "Review the final position against the original appraisal",
+        "Decide whether a fresh appraisal is required and, if so, run it",
+        "Refer the client to Benchmark Business Sales for listing",
+        "Agree the ongoing assistance arrangement"
+      ]
+    },
+    "C2_named_people_in_tasks": {
+      "note": "Seeded verbatim from the Excel; the mockup rewords them without names.",
+      "template_keys": [
+        "APPRAISAL-MUST-06",
+        "APPRAISAL-MUST-07"
+      ]
+    },
+    "C2_closeout_title": {
+      "note": "Brief: 'Re-appraisal / Listing / Close-out'. Mockup: 'Re-appraisal, Listing & Close-out'.",
+      "seeded": "Re-appraisal / Listing / Close-out"
+    },
+    "C2_dd_wording_differences": {
+      "note": "Master checklist wording (seeded) differs from the stage sheet's wording.",
+      "items": [
+        {
+          "sub_item_code": "3.6",
+          "master": "Past 12 months of bank statements (min - or period of audit timeframe e.g. 2 years etc)",
+          "stage_sheet": "past 12 months of bank statements",
+          "stage_code": "M1"
+        }
+      ]
+    },
+    "C3_m2_title": {
+      "note": "RESOLVED 21 Sep 2026: use the Diagnostic's name. Note the Excel and the brief both say 'Legal, Compliance, Property & Assets'.",
+      "seeded_stage_title": "Legal, Compliance & Property",
+      "excel_and_brief_title": "Legal, Compliance, Property & Assets"
+    },
+    "C4_stage_guide_text": {
+      "note": "Purpose / how it runs / watch for / per-stage templates exist only in the mockup; not extracted."
+    },
+    "C9_register_renewal_cost": {
+      "note": "Excel register has Renewal Cost; the mockup register does not. Register not seeded."
+    },
+    "C18_templates_sheet_notes": {
+      "note": "Templates sheet rows after the 24-item library; not seeded.",
+      "rows": [
+        {
+          "row": 26,
+          "text": "Create a normalised EBITDA view using the template"
+        },
+        {
+          "row": 27,
+          "text": "BAS Tax tab"
+        },
+        {
+          "row": 28,
+          "text": "Legal documents"
+        },
+        {
+          "row": 29,
+          "text": "ASIC compamny structure"
+        },
+        {
+          "row": 30,
+          "text": "CO registrations"
+        },
+        {
+          "row": 31,
+          "text": "Request and review all supplier, customer, and contractor contracts"
+        },
+        {
+          "row": 32,
+          "text": "Lease details - property"
+        },
+        {
+          "row": 33,
+          "text": "Insurance register"
+        },
+        {
+          "row": 34,
+          "text": "Legal risk summary"
+        },
+        {
+          "row": 35,
+          "text": "role mapping"
+        },
+        {
+          "row": 36,
+          "text": "SOP list"
+        },
+        {
+          "row": 37,
+          "text": "Ops and people risks"
+        },
+        {
+          "row": 38,
+          "text": "Customer matrix, including Document renewal, pricing, and exclusivity terms clearly"
+        },
+        {
+          "row": 39,
+          "text": "Employees table"
+        },
+        {
+          "row": 40,
+          "text": "Forward orders/guaranteed sales comitments"
+        },
+        {
+          "row": 41,
+          "text": "Customer risks"
+        },
+        {
+          "row": 42,
+          "text": "Request details of all intellectual property (IP) registrations (trademarks, copyrights, patents)"
+        },
+        {
+          "row": 43,
+          "text": "Confirm business ownership of all critical digital assets (websites, emails, social media)"
+        },
+        {
+          "row": 44,
+          "text": "Identify and document any licensing agreements, royalties, or IP sharing"
+        },
+        {
+          "row": 45,
+          "text": "Create or update an IP Register clearly listing assets, expiry, and ownership status"
+        },
+        {
+          "row": 46,
+          "text": "Identify and document confidentiality and non-compete agreements (staff/suppliers)"
+        },
+        {
+          "row": 47,
+          "text": "Document any trade secret protections or trade restriction clauses"
+        },
+        {
+          "row": 48,
+          "text": "Summarise goodwill assets (reputation, awards, client goodwill)"
+        },
+        {
+          "row": 49,
+          "text": "Div 7a and CGT"
+        }
+      ]
+    },
+    "C19_sheet5": {
+      "note": "Sheet5 content; not seeded.",
+      "cells": [
+        "Company bank statements",
+        "Physical invoice of any large expenditure",
+        "% of turnover",
+        "Are you holding other businesses?",
+        "Will you be holding onto related businesses that you will not be selling?"
+      ]
+    },
+    "ignored_client_specific_rows": {
+      "note": "Text found under 'Additional Client Specific Tasks'; client-specific tasks are never templated.",
+      "rows": {}
+    }
+  }
+}

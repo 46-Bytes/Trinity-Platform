@@ -101,8 +101,11 @@ async def update_profile(
         
         # Base files directory (backend/files)
         base_dir = Path(__file__).resolve().parents[2] / "files"
-        # Store profile pictures in files/uploads/users/{user_id}/profilepicture/
-        profile_picture_dir = base_dir / "uploads" / "users" / str(user.id) / "profilepicture"
+        # Avatars are the one thing served without authentication - an <img> tag
+        # cannot send a bearer token - so they live under files/public, which is
+        # the only directory main.py mounts. Everything else under files/ stays
+        # private and is served through an authenticated endpoint.
+        profile_picture_dir = base_dir / "public" / "avatars" / str(user.id)
         profile_picture_dir.mkdir(parents=True, exist_ok=True)
 
         # Remove any existing profile pictures in this directory

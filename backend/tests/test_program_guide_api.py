@@ -331,3 +331,138 @@ class TestModuleOrdering:
             f"{BASE}/{test_engagement.id}/order",
             json={"module_order": ["V11", "V1"]},
         ).status_code == 403
+
+
+# ----------------------------------------------------------------------
+# Program guard: the taxonomy an engagement is reported against
+# ----------------------------------------------------------------------
+@pytest.fixture
+def foreign_engagement(db_session, advisor, clean_library, request):
+    """
+    An engagement whose tool is not a Program Guide program.
+
+    Parametrised over 'bba_builder' and None because they fail differently:
+    an unrecognised string and a NULL tool both fall through
+    ScoringService.get_modules() to SALE_READY_MODULES.
+    """
+    from app.models.engagement import Engagement
+
+    engagement = Engagement(
+        engagement_name="Not a program guide engagement",
+        primary_advisor_id=advisor.id,
+        tool=getattr(request, "param", "bba_builder"),
+    )
+    db_session.add(engagement)
+    db_session.flush()
+    return engagement
+
+
+@pytest.fixture
+def two_completed_diagnostics(db_session, test_user):
+    """Two completed diagnostics on an engagement, so movement is computable."""
+    from datetime import datetime, timedelta
+
+    from app.models.diagnostic import Diagnostic
+
+    def _make(engagement):
+        now = datetime.utcnow()
+        for offset, score in ((2, 3.0), (1, 4.0)):
+            db_session.add(Diagnostic(
+                engagement_id=engagement.id,
+                created_by_user_id=test_user.id,
+                status="completed",
+                questions=[],
+                overall_score=score,
+                module_scores={"modules": {
+                    "V1": {"score": score}, "M1": {"score": score},
+                }},
+                completed_at=now - timedelta(days=offset),
+            ))
+        db_session.flush()
+
+    return _make
+
+@pytest.mark.parametrize("foreign_engagement", ["bba_builder", None], indirect=True)
+class TestUnsupportedToolIsRefused:
+    """
+    ScoringService.get_modules() answers SALE_READY_MODULES for anything that
+    is not value_builder. These three endpoints reached it without checking the
+    tool, so a bba_builder or NULL engagement was reported against Sale Ready
+    M1-M8 instead of being refused.
+    """
+
+    def test_reorder_is_refused(self, api, advisor, foreign_engagement):
+        resp = api.as_user(advisor).put(
+            f"{BASE}/{foreign_engagement.id}/order",
+            json={"module_order": ["V11", "V1"]},
+        )
+        assert resp.status_code == 400, resp.text
+
+    def test_reset_is_refused(self, api, advisor, foreign_engagement):
+        resp = api.as_user(advisor).post(f"{BASE}/{foreign_engagement.id}/order/reset")
+        assert resp.status_code == 400, resp.text
+
+    def test_value_movement_is_refused(self, api, advisor, foreign_engagement):
+        resp = api.as_user(advisor).get(f"{BASE}/{foreign_engagement.id}/value-movement")
+        assert resp.status_code == 400, resp.text
+
+    def test_reorder_persists_nothing(self, api, db_session, advisor, foreign_engagement):
+        """The refusal must land before set_custom_order writes a state row."""
+        from app.models.program_guide import EngagementProgramModuleState
+
+        api.as_user(advisor).put(
+            f"{BASE}/{foreign_engagement.id}/order",
+            json={"module_order": ["V11", "V1"]},
+        )
+        assert db_session.query(EngagementProgramModuleState).filter(
+            EngagementProgramModuleState.engagement_id == foreign_engagement.id
+        ).first() is None
+
+    def test_service_never_answers_with_sale_ready_modules(
+        self, db_session, test_user, foreign_engagement, two_completed_diagnostics
+    ):
+        """
+        Defence in depth: the service refuses too, not just the endpoint.
+
+        Needs two completed diagnostics, otherwise compute_value_movement
+        short-circuits on "no comparison" and the assertion passes without
+        ever reaching the taxonomy lookup it is meant to cover.
+        """
+        from app.services.program_guide_service import get_program_guide_service
+
+        two_completed_diagnostics(foreign_engagement)
+
+        result = get_program_guide_service(db_session).compute_value_movement(foreign_engagement)
+        assert result == {"has_comparison": False}
+
+
+class TestSupportedToolsKeepTheirOwnTaxonomy:
+    """The guard must not flatten the two programs onto one taxonomy."""
+
+    def test_value_builder_with_the_same_data_does_report_movement(
+        self, db_session, test_engagement, two_completed_diagnostics
+    ):
+        """
+        The control for the test above: identical data on a supported program
+        DOES produce a comparison, so the refusal there is the guard talking
+        and not a missing fixture.
+        """
+        from app.services.program_guide_service import get_program_guide_service
+
+        two_completed_diagnostics(test_engagement)
+
+        result = get_program_guide_service(db_session).compute_value_movement(test_engagement)
+        assert result["has_comparison"] is True
+        assert [m["module_code"] for m in result["module_movements"]][0] == "V1"
+
+    def test_value_builder_uses_v_codes(self, test_engagement):
+        from app.services.scoring_service import ScoringService
+
+        codes = list(ScoringService.get_modules(test_engagement.tool).keys())
+        assert codes[0] == "V1" and len(codes) == 11
+
+    def test_sale_ready_uses_m_codes(self):
+        from app.services.scoring_service import ScoringService
+
+        codes = list(ScoringService.get_modules("sale_ready").keys())
+        assert codes[0] == "M1" and len(codes) == 8

@@ -266,7 +266,9 @@ async def get_closeout(
     current_user: User = Depends(get_current_user),
 ):
     engagement = _engagement(engagement_id, db, current_user, require_advisor=True)
-    return get_sale_ready_planner_service(db).get_closeout(engagement)
+    return get_sale_ready_planner_service(db).get_closeout(
+        engagement, can_close=can_change_engagement_status(engagement, current_user),
+    )
 
 
 @router.patch("/engagements/{engagement_id}/closeout", response_model=CloseoutView)
@@ -278,7 +280,10 @@ async def update_closeout(
 ):
     engagement = _engagement(engagement_id, db, current_user, require_advisor=True)
     service = get_sale_ready_planner_service(db)
-    return _run(lambda: service.update_closeout(engagement, body.model_dump(exclude_unset=True)))
+    return _run(lambda: service.update_closeout(
+        engagement, body.model_dump(exclude_unset=True),
+        can_close=can_change_engagement_status(engagement, current_user),
+    ))
 
 
 @router.post("/engagements/{engagement_id}/closeout/close", response_model=CloseoutView)

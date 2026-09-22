@@ -39,6 +39,22 @@ def _name(user: Optional[User]) -> Optional[str]:
     return user.name or full or user.email
 
 
+def _merge_issue(current: Optional[Dict[str, Any]], changes: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Apply only the fields the payload carries, keeping the rest.
+    The checkbox sends `addressed` alone and must not clear the note.
+    """
+    entry = {
+        "addressed": bool((current or {}).get("addressed", False)),
+        "note": (current or {}).get("note") or "",
+    }
+    if "addressed" in changes:
+        entry["addressed"] = bool(changes["addressed"])
+    if "note" in changes:
+        entry["note"] = changes["note"] or ""
+    return entry
+
+
 class SaleReadyPlannerService:
     def __init__(self, db: Session):
         self.db = db
@@ -142,7 +158,7 @@ class SaleReadyPlannerService:
                 if value is None:
                     merged.pop(key, None)
                 elif field == "issues":
-                    merged[key] = {"addressed": bool(value.get("addressed", False)), "note": value.get("note") or ""}
+                    merged[key] = _merge_issue(merged.get(key), value)
                 else:
                     merged[key] = value
             setattr(row, field, merged)
@@ -158,7 +174,7 @@ class SaleReadyPlannerService:
             EngagementProgramCloseout.engagement_id == engagement_id
         ).first()
 
-    def get_closeout(self, engagement: Engagement) -> Dict[str, Any]:
+    def get_closeout(self, engagement: Engagement, can_close: bool = False) -> Dict[str, Any]:
         row = self._closeout(engagement.id)
         closed_by = None
         if row and row.closed_by_user_id:
@@ -172,6 +188,8 @@ class SaleReadyPlannerService:
             "closed_by_name": _name(closed_by),
             "engagement_status": engagement.status,
             "engagement_completed_at": engagement.completed_at,
+            # Reading the panel is wider than closing it, so the UI is told which it has.
+            "can_close": can_close,
         }
 
     def _apply_decisions(self, row: EngagementProgramCloseout, fields: Dict[str, Any]) -> None:
@@ -188,14 +206,15 @@ class SaleReadyPlannerService:
             self.db.add(row)
         return row
 
-    def update_closeout(self, engagement: Engagement, fields: Dict[str, Any]) -> Dict[str, Any]:
+    def update_closeout(self, engagement: Engagement, fields: Dict[str, Any],
+                        can_close: bool = False) -> Dict[str, Any]:
         row = self._closeout(engagement.id)
         if row and row.closed_at:
             raise ValueError("The program is closed. Reopen it to change the close-out decisions")
         row = self._get_or_new_closeout(engagement)
         self._apply_decisions(row, fields)
         self.db.commit()
-        return self.get_closeout(engagement)
+        return self.get_closeout(engagement, can_close)
 
     def close_program(
         self,
@@ -229,14 +248,38 @@ class SaleReadyPlannerService:
             row.closed_by_user_id = user.id
             row.closed_by_original_user_id = original_user.id if original_user else None
             # The existing lifecycle "end": hides tasks, and automation never overwrites it.
+            # engagement.completed_at is deliberately left alone - the generic End does not
+            # set it either, nothing reads it here, and the three writers that do own it
+            # (diagnostic completion) treat it as write-once. row.closed_at is our date.
             engagement.status = STATUS_ENDED
-            engagement.completed_at = now
             self.db.commit()
         except Exception:
             self.db.rollback()
             raise
         logger.info("Sale Ready program closed for engagement %s by user %s", engagement.id, user.id)
-        return self.get_closeout(engagement)
+        return self.get_closeout(engagement, can_change_status)
+
+    @staticmethod
+    def _clear_close(row: EngagementProgramCloseout) -> None:
+        """The close fields, undone. Decisions are kept so a reopen does not lose them."""
+        row.closed_at = None
+        row.closed_by_user_id = None
+        row.closed_by_original_user_id = None
+
+    def clear_close_for_recommence(self, engagement: Engagement) -> bool:
+        """
+        Undo the program close when the lifecycle recommences the engagement.
+
+        Called by the engagement status endpoint, which has already checked the
+        same permission Reopen uses. Does not commit - it joins that caller's
+        transaction. Returns whether anything was cleared.
+        """
+        row = self._closeout(engagement.id)
+        if not row or not row.closed_at:
+            return False
+        self._clear_close(row)
+        logger.info("Sale Ready close cleared for engagement %s by the lifecycle recommence", engagement.id)
+        return True
 
     def reopen_program(self, engagement: Engagement, user: User, can_change_status: bool) -> Dict[str, Any]:
         """Clears the close and recommences the engagement, as the lifecycle Recommence does."""
@@ -246,9 +289,7 @@ class SaleReadyPlannerService:
         if not row or not row.closed_at:
             raise ValueError("The program is not closed")
         try:
-            row.closed_at = None
-            row.closed_by_user_id = None
-            row.closed_by_original_user_id = None
+            self._clear_close(row)
             # Only undo our own "ended"; a status set since then through the lifecycle stays.
             if engagement.status == STATUS_ENDED:
                 engagement.status = STATUS_ACTIVE
@@ -257,7 +298,7 @@ class SaleReadyPlannerService:
             self.db.rollback()
             raise
         logger.info("Sale Ready program reopened for engagement %s by user %s", engagement.id, user.id)
-        return self.get_closeout(engagement)
+        return self.get_closeout(engagement, can_change_status)
 
 
 def get_sale_ready_planner_service(db: Session) -> SaleReadyPlannerService:

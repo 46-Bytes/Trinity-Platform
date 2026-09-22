@@ -42,10 +42,13 @@ from ..utils.auth import get_current_user
 from ..services.role_check import check_engagement_access
 from ..services.engagement_status import (
     SETTABLE_STATUSES,
+    STATUS_ACTIVE,
     TASK_HIDDEN_STATUSES,
     can_change_engagement_status,
     may_automation_set_status,
 )
+from ..services.program_registry import PROGRAM_SALE_READY
+from ..services.sale_ready_planner_service import get_sale_ready_planner_service
 from ..services.file_service import get_file_service
 from ..services.bba_service import get_bba_service
 from ..services.strategy_workbook_service import get_strategy_workbook_service
@@ -1339,6 +1342,14 @@ async def set_engagement_status(
 
     previous_status = engagement.status
     engagement.status = new_status
+
+    # Recommencing a Sale Ready engagement also reopens its closed program, so the
+    # lifecycle and the program cannot disagree. Scoped to that one transition and
+    # that one tool; the permission checked above is the one Reopen uses. Ending is
+    # deliberately not mirrored - closing a program records decisions and is its own act.
+    if new_status == STATUS_ACTIVE and engagement.tool == PROGRAM_SALE_READY:
+        get_sale_ready_planner_service(db).clear_close_for_recommence(engagement)
+
     db.commit()
     db.refresh(engagement)
 

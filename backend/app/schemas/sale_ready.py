@@ -246,6 +246,9 @@ class CloseoutView(BaseModel):
     closed_by_name: Optional[str] = None
     engagement_status: str
     engagement_completed_at: Optional[datetime] = None
+    can_close: bool = Field(
+        False, description="Whether the current user may close or reopen the program"
+    )
 
 
 class CloseoutUpdate(BaseModel):

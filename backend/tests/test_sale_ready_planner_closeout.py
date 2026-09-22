@@ -2,7 +2,9 @@
 Sale Ready Sale Planner and Close-out.
 
 Closing the program saves the close-out decisions, records who closed it, and
-ends the engagement (lifecycle status 'ended', completed_at) in one commit.
+ends the engagement (lifecycle status 'ended') in one commit. It deliberately
+leaves engagement.completed_at alone - that column belongs to the diagnostic
+flows, which treat it as write-once, and the generic End does not set it either.
 Runs inside the rollback-only db_session; nothing is written to the database.
 """
 import pytest
@@ -136,12 +138,14 @@ def test_close_ends_engagement_and_reopen_recommences(api, db_session, engagemen
     assert view["is_closed"] and view["closed_at"] and view["closed_by_name"]
     assert view["fresh_appraisal_required"] and view["referred_to_benchmark"]
     assert view["ongoing_assistance"] == "Monthly calls"
-    assert view["engagement_status"] == "ended" and view["engagement_completed_at"]
+    assert view["engagement_status"] == "ended"
+    assert view["engagement_completed_at"] is None, "close must not write the shared column"
 
     row = db_session.query(EngagementProgramCloseout).filter_by(engagement_id=engagement.id).one()
     assert row.closed_by_user_id == advisor.id and row.closed_by_original_user_id is None
     db_session.refresh(engagement)
-    assert engagement.status == "ended" and engagement.completed_at is not None
+    assert engagement.status == "ended"
+    assert engagement.completed_at is None, "close must not write the shared column"
 
     roadmap = client.get(f"{BASE}/{engagement.id}/roadmap").json()
     assert roadmap["closeout"]["is_closed"] and roadmap["closeout"]["referred_to_benchmark"]
@@ -241,3 +245,221 @@ def test_close_is_all_or_nothing(db_session, engagement, advisor, monkeypatch):
     db_session.refresh(engagement)
     assert engagement.status == "active" and engagement.completed_at is None
     assert db_session.query(EngagementProgramCloseout).filter_by(engagement_id=engagement.id).count() == 0
+
+
+@pytest.fixture
+def seeded_issue_keys(db_session):
+    """The Sale Planner issue keys, from the seeded stage config."""
+    stage = db_session.query(ProgramStage).filter_by(
+        program_type="sale_ready", stage_code="SALE_PLANNER").first()
+    return [i["key"] for i in stage.ui_config["issues"]]
+
+
+# ----------------------------------------------------------------------
+# Regressions
+# ----------------------------------------------------------------------
+class TestIssueNoteIsNotLostByTheCheckbox:
+    """
+    A partial issue payload patches only the fields it carries. The checkbox
+    sends `addressed` alone, so it can no longer overwrite a note saved a
+    moment earlier by the note field's blur.
+    """
+
+    KEY = "staff_entitlements"
+
+    def _patch(self, client, engagement, issue):
+        return client.patch(f"{BASE}/{engagement.id}/sale-planner", json={"issues": {self.KEY: issue}})
+
+    def test_toggling_addressed_keeps_the_note(self, api, engagement, advisor):
+        client = api.as_user(advisor)
+        self._patch(client, engagement, {"addressed": False, "note": "Covered in M4"})
+        view = self._patch(client, engagement, {"addressed": True}).json()
+        assert view["issues"][self.KEY] == {"addressed": True, "note": "Covered in M4"}
+
+    def test_saving_a_note_keeps_addressed(self, api, engagement, advisor):
+        client = api.as_user(advisor)
+        self._patch(client, engagement, {"addressed": True, "note": ""})
+        view = self._patch(client, engagement, {"note": "Handled in M2"}).json()
+        assert view["issues"][self.KEY] == {"addressed": True, "note": "Handled in M2"}
+
+    def test_the_reported_two_request_sequence(self, api, engagement, advisor):
+        """
+        The exact pair the UI emits: the note's blur commit, then the checkbox
+        built from the state rendered before that commit returned.
+        """
+        client = api.as_user(advisor)
+        a = self._patch(client, engagement, {"note": "Handled in M2"})
+        assert a.json()["issues"][self.KEY]["note"] == "Handled in M2"
+        b = self._patch(client, engagement, {"addressed": True})
+        assert b.json()["issues"][self.KEY] == {"addressed": True, "note": "Handled in M2"}
+
+    def test_a_new_key_still_defaults(self, api, engagement, advisor):
+        view = self._patch(api.as_user(advisor), engagement, {"note": "Only a note"}).json()
+        assert view["issues"][self.KEY] == {"addressed": False, "note": "Only a note"}
+
+    def test_null_still_removes_the_issue(self, api, engagement, advisor):
+        client = api.as_user(advisor)
+        self._patch(client, engagement, {"addressed": True, "note": "Covered in M4"})
+        view = self._patch(client, engagement, None).json()
+        assert self.KEY not in view["issues"]
+
+    def test_other_issues_are_untouched(self, api, engagement, advisor, seeded_issue_keys):
+        client = api.as_user(advisor)
+        other = next(k for k in seeded_issue_keys if k != self.KEY)
+        client.patch(f"{BASE}/{engagement.id}/sale-planner", json={"issues": {
+            self.KEY: {"addressed": True, "note": "Covered in M4"},
+            other: {"addressed": False, "note": "Still open"},
+        }})
+        view = self._patch(client, engagement, {"addressed": False}).json()
+        assert view["issues"][other] == {"addressed": False, "note": "Still open"}
+
+
+class TestCanCloseIsReportedToTheUi:
+    """
+    Opening the panel is wider than closing it, so the view carries the
+    capability and the button follows it instead of 403ing.
+    """
+
+    def _view(self, api, engagement, user):
+        return api.as_user(user).get(f"{BASE}/{engagement.id}/closeout").json()
+
+    def test_assigned_primary_advisor_can_close(self, api, engagement, advisor):
+        assert self._view(api, engagement, advisor)["can_close"] is True
+
+    def test_secondary_advisor_can_close(self, api, db_session, engagement, make_user):
+        second = make_user(UserRole.ADVISOR)
+        engagement.secondary_advisor_ids = [second.id]
+        db_session.flush()
+        assert self._view(api, engagement, second)["can_close"] is True
+
+    @pytest.mark.parametrize("role", [UserRole.ADMIN, UserRole.SUPER_ADMIN])
+    def test_admins_can_close(self, api, engagement, make_user, role):
+        assert self._view(api, engagement, make_user(role))["can_close"] is True
+
+    def test_associated_but_unassigned_advisor_cannot_close(
+        self, api, db_session, engagement, owner, make_user
+    ):
+        """Reaches the panel through AdvisorClient, but is not on the engagement."""
+        from app.models.adv_client import AdvisorClient
+        other = make_user(UserRole.ADVISOR)
+        engagement.client_id = owner.id
+        db_session.add(AdvisorClient(advisor_id=other.id, client_id=owner.id, status="active"))
+        db_session.flush()
+
+        view = self._view(api, engagement, other)
+        assert view["can_close"] is False
+        # The backend guard is unchanged - the flag only stops the pointless click.
+        assert api.as_user(other).post(
+            f"{BASE}/{engagement.id}/closeout/close", json={"referred_to_benchmark": True}
+        ).status_code == 403
+
+    def test_can_close_is_reported_on_every_closeout_response(self, api, engagement, advisor):
+        client = api.as_user(advisor)
+        assert client.patch(f"{BASE}/{engagement.id}/closeout",
+                            json={"fresh_appraisal_required": True}).json()["can_close"] is True
+        assert client.post(f"{BASE}/{engagement.id}/closeout/close",
+                           json={"referred_to_benchmark": True}).json()["can_close"] is True
+        assert client.post(f"{BASE}/{engagement.id}/closeout/reopen").json()["can_close"] is True
+
+
+class TestCloseDoesNotTouchTheSharedCompletedAt:
+    """
+    engagement.completed_at belongs to the diagnostic flows, which all write it
+    once and never again, and it is published as end_date. Sale Ready must not
+    write it, so a close cannot destroy a date it did not set.
+    """
+
+    def test_a_pre_existing_value_survives_close_and_reopen(self, api, db_session, engagement, advisor):
+        from datetime import datetime
+        original = datetime(2025, 1, 15, 9, 0, 0)
+        engagement.completed_at = original
+        db_session.flush()
+
+        client = api.as_user(advisor)
+        assert client.post(f"{BASE}/{engagement.id}/closeout/close",
+                           json={"referred_to_benchmark": True}).status_code == 200
+        db_session.refresh(engagement)
+        assert engagement.completed_at == original, "close overwrote a date it does not own"
+
+        assert client.post(f"{BASE}/{engagement.id}/closeout/reopen").status_code == 200
+        db_session.refresh(engagement)
+        assert engagement.completed_at == original, "reopen cleared a date it does not own"
+
+    def test_close_leaves_it_null_when_it_was_null(self, api, db_session, engagement, advisor):
+        api.as_user(advisor).post(f"{BASE}/{engagement.id}/closeout/close",
+                                  json={"referred_to_benchmark": True})
+        db_session.refresh(engagement)
+        assert engagement.completed_at is None
+
+
+class TestGenericRecommenceReopensTheProgram:
+    """
+    The lifecycle Recommence and the dedicated Reopen must agree, so the
+    engagement can never be active while the program says it is closed.
+    """
+
+    STATUS_URL = "/api/engagements"
+
+    def _close(self, client, engagement):
+        return client.post(f"{BASE}/{engagement.id}/closeout/close", json={"referred_to_benchmark": True})
+
+    def test_recommence_clears_the_close(self, api, db_session, engagement, advisor):
+        client = api.as_user(advisor)
+        assert self._close(client, engagement).status_code == 200
+
+        r = client.post(f"{self.STATUS_URL}/{engagement.id}/status", json={"status": "active"})
+        assert r.status_code == 200
+
+        row = db_session.query(EngagementProgramCloseout).filter_by(engagement_id=engagement.id).one()
+        assert row.closed_at is None and row.closed_by_user_id is None
+
+        view = client.get(f"{BASE}/{engagement.id}/closeout").json()
+        assert view["is_closed"] is False
+        # Unlocked again: the decisions are editable and a second close is possible.
+        assert client.patch(f"{BASE}/{engagement.id}/closeout",
+                            json={"fresh_appraisal_required": True}).status_code == 200
+        assert self._close(client, engagement).status_code == 200
+
+    def test_recommence_keeps_the_close_out_decisions(self, api, engagement, advisor):
+        client = api.as_user(advisor)
+        client.patch(f"{BASE}/{engagement.id}/closeout", json={"ongoing_assistance": "Monthly calls"})
+        self._close(client, engagement)
+        client.post(f"{self.STATUS_URL}/{engagement.id}/status", json={"status": "active"})
+        view = client.get(f"{BASE}/{engagement.id}/closeout").json()
+        assert view["ongoing_assistance"] == "Monthly calls" and view["referred_to_benchmark"] is True
+
+    def test_generic_end_does_not_close_the_program(self, api, db_session, engagement, advisor):
+        """Closing records decisions and stays a deliberate act; ending is not mirrored."""
+        client = api.as_user(advisor)
+        assert client.post(f"{self.STATUS_URL}/{engagement.id}/status",
+                           json={"status": "ended"}).status_code == 200
+        assert client.get(f"{BASE}/{engagement.id}/closeout").json()["is_closed"] is False
+        db_session.refresh(engagement)
+        assert engagement.completed_at is None
+
+    def test_pausing_a_closed_program_leaves_it_closed(self, api, engagement, advisor):
+        """Only the recommence transition reconciles; pause must not reopen."""
+        client = api.as_user(advisor)
+        self._close(client, engagement)
+        assert client.post(f"{self.STATUS_URL}/{engagement.id}/status",
+                           json={"status": "paused"}).status_code == 200
+        assert client.get(f"{BASE}/{engagement.id}/closeout").json()["is_closed"] is True
+
+    def test_recommence_without_a_closeout_row_is_a_no_op(self, api, db_session, engagement, advisor):
+        client = api.as_user(advisor)
+        assert client.post(f"{self.STATUS_URL}/{engagement.id}/status",
+                           json={"status": "active"}).status_code == 200
+        assert db_session.query(EngagementProgramCloseout).filter_by(
+            engagement_id=engagement.id).count() == 0
+
+    @pytest.mark.parametrize("tool", ["value_builder", "bba_builder", None])
+    def test_other_programs_recommence_untouched(self, api, db_session, advisor, owner, tool):
+        """The hook is scoped to sale_ready; every other tool takes the original path."""
+        eng = Engagement(engagement_name=f"{tool} lifecycle", primary_advisor_id=advisor.id,
+                         client_ids=[owner.id], tool=tool, status="ended")
+        db_session.add(eng)
+        db_session.flush()
+        r = api.as_user(advisor).post(f"{self.STATUS_URL}/{eng.id}/status", json={"status": "active"})
+        assert r.status_code == 200
+        db_session.refresh(eng)
+        assert eng.status == "active" and eng.completed_at is None

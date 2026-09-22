@@ -354,7 +354,15 @@ class ProgramGuideService:
 
         Takes the engagement rather than its id because the module taxonomy to
         report against depends on the program - the caller already holds it.
+
+        Guarded like compute_recommended_order and compute_module_insights:
+        get_modules() answers SALE_READY_MODULES for anything that is not
+        value_builder, so an unsupported tool would otherwise be reported
+        against M1-M8 rather than refused.
         """
+        if not is_supported_program(engagement.tool):
+            return {"has_comparison": False}
+
         recent = (
             self.db.query(Diagnostic)
             .filter(

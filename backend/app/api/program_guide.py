@@ -126,6 +126,7 @@ async def update_module_order(
 ):
     engagement = _get_engagement_or_404(engagement_id, db)
     _check_access(engagement, current_user, db, require_advisor=True)
+    _require_program_guide_tool(engagement)
 
     service = get_program_guide_service(db)
     try:
@@ -148,6 +149,7 @@ async def reset_module_order(
 ):
     engagement = _get_engagement_or_404(engagement_id, db)
     _check_access(engagement, current_user, db, require_advisor=True)
+    _require_program_guide_tool(engagement)
 
     service = get_program_guide_service(db)
     service.reset_custom_order(engagement)
@@ -166,6 +168,7 @@ async def get_value_movement(
     # Per-module scores and RAG are diagnostic findings, which Part A puts in
     # the owner's No column.
     _check_access(engagement, current_user, db, require_advisor=True)
+    _require_program_guide_tool(engagement)
 
     service = get_program_guide_service(db)
     return service.compute_value_movement(engagement)

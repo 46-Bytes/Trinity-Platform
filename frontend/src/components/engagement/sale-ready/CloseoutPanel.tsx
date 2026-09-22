@@ -26,6 +26,11 @@ interface CloseoutPanelProps {
   onReopen: () => void;
 }
 
+/** Closing and reopening follow the engagement lifecycle permission, which is narrower
+ *  than the access that opens this panel. The decisions above stay editable either way. */
+const NO_PERMISSION_HINT =
+  'Only an advisor assigned to this engagement, or an admin, can close or reopen the program.';
+
 function formatDate(value: string | null): string {
   if (!value) return '';
   const date = new Date(value);
@@ -39,6 +44,7 @@ function formatDate(value: string | null): string {
  * (lifecycle status "ended"); reopening recommences it.
  */
 export function CloseoutPanel({ closeout, isSaving, onChange, onClose, onReopen }: CloseoutPanelProps) {
+  const canClose = closeout.can_close;
   const [ongoing, setOngoing] = useState(closeout.ongoing_assistance ?? '');
   const [confirmOpen, setConfirmOpen] = useState(false);
   useEffect(() => setOngoing(closeout.ongoing_assistance ?? ''), [closeout.ongoing_assistance]);
@@ -65,9 +71,10 @@ export function CloseoutPanel({ closeout, isSaving, onChange, onClose, onReopen 
             : 'No ongoing assistance recorded.'}
         </div>
         <p className="mt-2 text-xs text-muted-foreground">The engagement has ended in Trinity.</p>
-        <Button variant="outline" className="mt-4" disabled={isSaving} onClick={onReopen}>
+        <Button variant="outline" className="mt-4" disabled={isSaving || !canClose} onClick={onReopen}>
           Reopen program
         </Button>
+        {!canClose && <p className="mt-2 text-xs text-muted-foreground">{NO_PERMISSION_HINT}</p>}
       </section>
     );
   }
@@ -121,9 +128,16 @@ export function CloseoutPanel({ closeout, isSaving, onChange, onClose, onReopen 
         className="min-h-[52px] text-sm"
       />
 
-      <Button variant="destructive" className="mt-4" disabled={isSaving} onClick={requestClose} data-close-program="true">
+      <Button
+        variant="destructive"
+        className="mt-4"
+        disabled={isSaving || !canClose}
+        onClick={requestClose}
+        data-close-program="true"
+      >
         Close program
       </Button>
+      {!canClose && <p className="mt-2 text-xs text-muted-foreground">{NO_PERMISSION_HINT}</p>}
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>

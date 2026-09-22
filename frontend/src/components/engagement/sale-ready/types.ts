@@ -218,7 +218,8 @@ export interface SalePlannerUpdate {
   sale_structures?: string[];
   value_propositions?: Record<string, string | null>;
   marketing_answers?: Record<string, string | null>;
-  issues?: Record<string, PlannerIssue | null>;
+  // A partial entry patches only the fields it carries; null removes the issue.
+  issues?: Record<string, Partial<PlannerIssue> | null>;
 }
 
 export interface Closeout {
@@ -230,6 +231,8 @@ export interface Closeout {
   closed_by_name: string | null;
   engagement_status: string;
   engagement_completed_at: string | null;
+  /** Whether the current user may close or reopen the program. */
+  can_close: boolean;
 }
 
 export type CloseoutUpdate = Partial<

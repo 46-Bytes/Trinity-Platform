@@ -185,7 +185,7 @@ export function SalePlannerPanel({ planner, disabled = false, onChange }: SalePl
                 id={`issue-${issue.key}`}
                 checked={state.addressed}
                 disabled={disabled}
-                onCheckedChange={(v) => onChange({ issues: { [issue.key]: { ...state, addressed: v === true } } })}
+                onCheckedChange={(v) => onChange({ issues: { [issue.key]: { addressed: v === true } } })}
                 className="mt-0.5"
               />
               <Label
@@ -200,7 +200,7 @@ export function SalePlannerPanel({ planner, disabled = false, onChange }: SalePl
                   value={state.note}
                   disabled={disabled}
                   placeholder="Where handled / note"
-                  onCommit={(note) => onChange({ issues: { [issue.key]: { ...state, note } } })}
+                  onCommit={(note) => onChange({ issues: { [issue.key]: { note } } })}
                 />
               </div>
             </div>

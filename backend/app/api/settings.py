@@ -176,9 +176,15 @@ async def remove_profile_picture(
                     # Log error but continue - we'll still clear the DB field
                     print(f"Error deleting profile picture file: {e}")
         
-        # Also try to delete entire directory if it's empty
-        profile_picture_dir = base_dir / "uploads" / "users" / str(user.id) / "profilepicture"
-        if profile_picture_dir.exists():
+        # Also try to delete entire directory if it's empty. Avatars now live
+        # under files/public/avatars/{user_id}/; the old uploads path is still
+        # cleaned for rows that have not been migrated yet.
+        for profile_picture_dir in (
+            base_dir / "public" / "avatars" / str(user.id),
+            base_dir / "uploads" / "users" / str(user.id) / "profilepicture",
+        ):
+            if not profile_picture_dir.exists():
+                continue
             try:
                 # Remove directory if empty
                 if not any(profile_picture_dir.iterdir()):

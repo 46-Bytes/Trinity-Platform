@@ -380,7 +380,17 @@ export function StageDetailView(props: StageDetailViewProps) {
   const { detail, modulesTotal, isSaving, onBack, onStart, onComplete, onReopen, onUpdateStage, variantPanel } = props;
   const { stage, qa } = detail;
   const status = STATUS_CONFIG[stage.status];
-  const guide = STAGE_GUIDES[stage.stage_code];
+  // The engagement's own frozen copy. The constants are the fallback for
+  // engagements created before guide snapshots existed.
+  const fallback = STAGE_GUIDES[stage.stage_code];
+  const snapshot = detail.guide ?? {};
+  const guide = {
+    purpose: snapshot.purpose ?? fallback?.purpose ?? '',
+    steps: snapshot.steps ?? fallback?.steps ?? [],
+    watch: snapshot.watch ?? fallback?.watch ?? [],
+    templates: snapshot.templates ?? fallback?.templates ?? [],
+  };
+  const runWith = snapshot.run_with ?? RUN_WITH[stage.stage_code] ?? null;
   const advisors = detail.people.filter((p) => p.role !== 'client');
   const isModule = stage.stage_type === 'module';
   const needsStart = isModule && !stage.tasks_created;
@@ -475,7 +485,7 @@ export function StageDetailView(props: StageDetailViewProps) {
 
       <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[1fr_20rem]">
         <div className="min-w-0 space-y-5">
-          {guide && (
+          {guide.purpose && (
             <Card>
               <span className="mb-3 inline-block rounded bg-muted px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 Program guide
@@ -573,7 +583,7 @@ export function StageDetailView(props: StageDetailViewProps) {
             )}
           </Card>
 
-          {guide && guide.templates.length > 0 && (
+          {guide.templates.length > 0 && (
             <Card>
               <h2 className="font-heading text-base font-semibold">Templates</h2>
               <p className="mb-2 mt-1 text-xs text-muted-foreground">From the Templates library.</p>
@@ -590,11 +600,11 @@ export function StageDetailView(props: StageDetailViewProps) {
             </Card>
           )}
 
-          {RUN_WITH[stage.stage_code] && (
+          {runWith && (
             <Card>
               <h2 className="font-heading text-base font-semibold">Run with</h2>
               <p className="mt-2 rounded-lg bg-muted/40 px-3.5 py-3 text-xs leading-relaxed text-muted-foreground">
-                {RUN_WITH[stage.stage_code]}
+                {runWith}
               </p>
             </Card>
           )}

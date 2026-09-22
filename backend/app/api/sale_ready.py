@@ -23,6 +23,7 @@ from app.schemas.sale_ready import (
     ModuleOrderUpdate,
     SalePlannerUpdate,
     SalePlannerView,
+    SaleReadyGuideView,
     SaleReadyRoadmap,
     StageDetail,
     StageTaskCreate,
@@ -108,6 +109,17 @@ async def reset_module_order(
 # ----------------------------------------------------------------------
 # Stages
 # ----------------------------------------------------------------------
+@router.get("/engagements/{engagement_id}/guide", response_model=SaleReadyGuideView)
+async def get_guide(
+    engagement_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """This engagement's program guide, frozen when it was created."""
+    engagement = _engagement(engagement_id, db, current_user, require_advisor=True)
+    return get_sale_ready_service(db).get_guide(engagement, current_user)
+
+
 @router.get("/engagements/{engagement_id}/stages/{stage_code}", response_model=StageDetail)
 async def get_stage(
     engagement_id: UUID,

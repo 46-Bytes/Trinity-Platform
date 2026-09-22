@@ -1,9 +1,11 @@
 import { cn } from '@/lib/utils';
 import { PROGRAM_RULES, WORKFLOW } from './saleReadyGuide';
-import type { RoadmapStage, SaleReadyRoadmap } from './types';
+import type { RoadmapStage, SaleReadyGuide, SaleReadyRoadmap } from './types';
 
 interface ProgramGuideViewProps {
   roadmap: SaleReadyRoadmap;
+  /** The engagement's frozen guide. Omitted on engagements that predate snapshots. */
+  guide?: SaleReadyGuide | null;
   /** Omitted in read-only mode. */
   onOpenStage?: (stageCode: string) => void;
 }
@@ -11,7 +13,10 @@ interface ProgramGuideViewProps {
 type StepState = 'done' | 'now' | '';
 
 /** How the Sale Ready program runs, shown against this engagement, then the program rules. */
-export function ProgramGuideView({ roadmap, onOpenStage }: ProgramGuideViewProps) {
+export function ProgramGuideView({ roadmap, guide, onOpenStage }: ProgramGuideViewProps) {
+  // The constants are the fallback for engagements created before snapshots.
+  const workflow = guide?.program?.workflow?.length ? guide.program.workflow : WORKFLOW;
+  const rules = guide?.program?.rules?.length ? guide.program.rules : PROGRAM_RULES;
   const stages: RoadmapStage[] = [...roadmap.phases, ...roadmap.modules, ...roadmap.post_phases];
   const byCode = new Map(stages.map((s) => [s.stage_code, s]));
   const unpinned = roadmap.modules.filter((m) => !m.is_pinned_last);
@@ -33,7 +38,7 @@ export function ProgramGuideView({ roadmap, onOpenStage }: ProgramGuideViewProps
           The workflow from the program sheet, shown against this engagement.
         </p>
         <ol className="relative border-l-2 border-border pl-6">
-          {WORKFLOW.map((step) => {
+          {workflow.map((step) => {
             const state = stateOf(step.stage);
             const openable = onOpenStage && step.stage !== 'modules' && byCode.has(step.stage);
             return (
@@ -70,7 +75,7 @@ export function ProgramGuideView({ roadmap, onOpenStage }: ProgramGuideViewProps
 
       <section className="card-trinity p-4 sm:p-6">
         <h2 className="mb-2 font-heading text-lg font-semibold">Program rules</h2>
-        {PROGRAM_RULES.map((rule, i) => (
+        {rules.map((rule, i) => (
           <div key={rule.title} className="flex gap-3 border-b border-border/60 py-3 text-sm last:border-b-0">
             <span className="grid h-6 w-6 flex-shrink-0 place-items-center rounded-md bg-success/10 text-[11px] font-bold text-success">
               {i + 1}

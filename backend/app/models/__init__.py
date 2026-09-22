@@ -25,7 +25,7 @@ from .pd_scorecard import PDScorecard, PDScorecardRole
 from .help_video import HelpVideoCategory, HelpVideo
 from .sale_ready import (
     ProgramStage, ProgramTaskTemplate, ProgramDDTemplate, EngagementStageState, EngagementDDItem,
-    EngagementSalePlanner, EngagementProgramCloseout,
+    EngagementSalePlanner, EngagementProgramCloseout, ProgramGuideContent, EngagementSaleReadyGuide,
 )
 
 __all__ = [
@@ -64,6 +64,8 @@ __all__ = [
     "EngagementDDItem",
     "EngagementSalePlanner",
     "EngagementProgramCloseout",
+    "ProgramGuideContent",
+    "EngagementSaleReadyGuide",
 ]
 
 

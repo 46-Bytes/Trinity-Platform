@@ -47,6 +47,10 @@ class ProgramStage(Base):
     # none_as_null: Python None must be SQL NULL, not a stored JSON 'null'.
     ui_config = Column(JSONB(none_as_null=True), nullable=True,
                        comment="Screen configuration, e.g. the Sale Planner's option lists and questions")
+    # Admin-editable guide shown on the stage: purpose, steps, watch, templates, run_with.
+    # Master copy only - an engagement reads its own snapshot (EngagementSaleReadyGuide).
+    guide = Column(JSONB(none_as_null=True), nullable=True,
+                   comment="Admin-editable stage guide: purpose, steps, watch, templates, run_with")
 
     is_active = Column(Boolean, nullable=False, server_default='true')
     created_at = Column(DateTime, nullable=False, server_default=func.current_timestamp())
@@ -331,3 +335,67 @@ class EngagementProgramCloseout(Base):
 
     def __repr__(self):
         return f"<EngagementProgramCloseout {self.engagement_id} closed={self.closed_at is not None}>"
+
+
+# ----------------------------------------------------------------------
+# Program guide: master content and the per-engagement snapshot
+# ----------------------------------------------------------------------
+class ProgramGuideContent(Base):
+    """
+    Program-level guide content: the workflow steps and the program rules.
+
+    Per-stage guide content lives on ProgramStage.guide; this holds only what is
+    not attached to a stage. One row per program_type. Admin-editable master -
+    an engagement never reads it directly, only its own snapshot.
+    """
+    __tablename__ = "program_guide_content"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
+
+    program_type = Column(String(100), nullable=False)
+    content = Column(JSONB(none_as_null=True), nullable=False,
+                     comment="{'workflow': [{stage,label}], 'rules': [{title,body}]}")
+
+    is_active = Column(Boolean, nullable=False, server_default='true')
+    created_at = Column(DateTime, nullable=False, server_default=func.current_timestamp())
+    updated_at = Column(DateTime, nullable=False, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
+
+    __table_args__ = (
+        UniqueConstraint('program_type', name='uq_program_guide_content_type'),
+    )
+
+    def __repr__(self):
+        return f"<ProgramGuideContent {self.program_type}>"
+
+
+class EngagementSaleReadyGuide(Base):
+    """
+    One engagement's frozen copy of the program guide.
+
+    Written once, when the engagement is first initialized, from whatever the
+    master content said at that moment. Never updated afterwards, so an admin
+    editing the guide changes what future engagements get and nothing else -
+    the same rule the task and DD templates follow.
+    """
+    __tablename__ = "engagement_sale_ready_guide"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
+
+    # No index=True: the UNIQUE constraint below already indexes this column,
+    # matching engagement_sale_planner and engagement_program_closeout.
+    engagement_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey('engagements.id', ondelete='CASCADE', name='fk_engagement_sale_ready_guide_engagement'),
+        nullable=False,
+    )
+    content = Column(JSONB(none_as_null=True), nullable=False,
+                     comment="{'program': {workflow, rules}, 'stages': {<stage_code>: {...}}}")
+
+    created_at = Column(DateTime, nullable=False, server_default=func.current_timestamp())
+
+    __table_args__ = (
+        UniqueConstraint('engagement_id', name='uq_engagement_sale_ready_guide_engagement'),
+    )
+
+    def __repr__(self):
+        return f"<EngagementSaleReadyGuide {self.engagement_id}>"

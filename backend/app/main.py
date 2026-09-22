@@ -24,6 +24,7 @@ from .api.strategic_business_plan import router as sbp_router
 from .api.program_guide import router as program_guide_router
 from .api.program_deliverable import router as program_deliverable_router
 from .api.sale_ready import router as sale_ready_router
+from .api.sale_ready_admin import router as sale_ready_admin_router
 from .api.ai_field_privacy import router as ai_field_privacy_router
 from .api.roles_matrix import router as roles_matrix_router
 from .api.pd_scorecard import router as pd_scorecard_router
@@ -105,6 +106,7 @@ app.include_router(sbp_router, prefix="/api")
 app.include_router(program_guide_router, prefix="/api")
 app.include_router(program_deliverable_router, prefix="/api")
 app.include_router(sale_ready_router)  # already has /api prefix
+app.include_router(sale_ready_admin_router)  # already has /api prefix
 app.include_router(ai_field_privacy_router)
 app.include_router(roles_matrix_router)  # already has /api prefix
 app.include_router(pd_scorecard_router)  # already has /api prefix

@@ -187,6 +187,10 @@ class StageDetail(BaseModel):
         default_factory=list, description="M8 only: DD items flagged for review, across every stage"
     )
     ui_config: Optional[Dict[str, Any]] = None
+    guide: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="This engagement's frozen stage guide: purpose, steps, watch, templates, run_with",
+    )
     people: List[SaleReadyPerson]
 
 
@@ -260,3 +264,13 @@ class CloseoutUpdate(BaseModel):
 class CloseProgramRequest(CloseoutUpdate):
     """The decisions are saved with the close, in the same transaction."""
     confirm_without_referral: bool = False
+
+
+class SaleReadyGuideView(BaseModel):
+    """An engagement's frozen program guide, as the Program guide tab renders it."""
+    program: Dict[str, Any] = Field(
+        default_factory=dict, description="{'workflow': [{stage,label}], 'rules': [{title,body}]}"
+    )
+    stages: Dict[str, Any] = Field(
+        default_factory=dict, description="Stage code -> {purpose, steps, watch, templates, run_with}"
+    )

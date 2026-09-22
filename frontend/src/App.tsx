@@ -39,6 +39,7 @@ import FileUploadPOCPage from "./pages/poc/FileUploadPOCPage";
 import StrategyWorkbookPage from "./pages/dashboard/StrategyWorkbookPage";
 import StrategicBusinessPlanPage from "./pages/dashboard/StrategicBusinessPlanPage";
 import AIPrivacyPage from "./pages/dashboard/AIPrivacyPage";
+import SaleReadyManagementPage from "./pages/dashboard/sale-ready/SaleReadyManagementPage";
 import RolesMatrixPage from "./pages/dashboard/RolesMatrixPage";
 import PDScorecardPage from "./pages/dashboard/PDScorecardPage";
 import HelpPage from "./pages/dashboard/help/HelpPage";
@@ -107,6 +108,7 @@ function AppRoutes() {
         </Route>
         <Route path="subscriptions" element={<SubscriptionsPage />} />
         <Route path="ai-privacy" element={<AIPrivacyPage />} />
+        <Route path="sale-ready-management" element={<SaleReadyManagementPage />} />
         {/* Placeholder routes */}
         <Route path="chat" element={<DashboardHome />} />
         <Route path="analytics" element={<DashboardHome />} />

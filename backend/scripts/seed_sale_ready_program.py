@@ -42,7 +42,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.database import SessionLocal
 from app.models.program_deliverable import ProgramModuleDeliverable
 from app.models.program_guide import ProgramModuleContent
-from app.models.sale_ready import ProgramDDTemplate, ProgramStage, ProgramTaskTemplate
+from app.models.sale_ready import (
+    ProgramDDTemplate, ProgramGuideContent, ProgramStage, ProgramTaskTemplate,
+)
 from app.services.program_registry import PROGRAM_SALE_READY
 from app.services.sale_ready_rules import (
     SECTION_MUST_DO,
@@ -81,6 +83,7 @@ def load_fixtures(fixture_dir: str = FIXTURE_DIR) -> dict:
         "tasks": read("task_templates.json")["items"],
         "dd": read("dd_templates.json")["items"],
         "sale_planner": read("sale_planner.json")["config"],
+        "guide": read("guide.json"),
     }
 
 
@@ -314,10 +317,59 @@ def value_builder_fingerprint(db) -> tuple:
 # ----------------------------------------------------------------------
 # Entry point
 # ----------------------------------------------------------------------
-def seed_from_fixtures(fixture_dir: str = FIXTURE_DIR, db=None, dry_run: bool = False) -> dict:
+def _sync_guide(db, guide: dict) -> dict:
     """
-    Seed the three template tables. Pass `db` to run inside an existing session
+    Seed the program guide: program-level content plus each stage's block.
+
+    Only fills what is empty. Once an admin has edited a stage guide through
+    Sale Ready Management, re-seeding leaves it alone - the fixtures are the
+    starting content, not the authority.
+    """
+    tally = _new_tally()
+
+    row = db.query(ProgramGuideContent).filter(
+        ProgramGuideContent.program_type == PROGRAM_SALE_READY
+    ).first()
+    if row is None:
+        db.add(ProgramGuideContent(program_type=PROGRAM_SALE_READY, content=guide["program"], is_active=True))
+        tally["created"] += 1
+    else:
+        tally["unchanged"] += 1
+
+    by_code = {
+        st.stage_code: st
+        for st in db.query(ProgramStage).filter(ProgramStage.program_type == PROGRAM_SALE_READY)
+    }
+    for stage_code, block in guide["stages"].items():
+        stage = by_code.get(stage_code)
+        if stage is None:
+            continue
+        if stage.guide:
+            tally["unchanged"] += 1
+            continue
+        stage.guide = block
+        tally["updated"] += 1
+    return tally
+
+
+def _templates_are_empty(db) -> bool:
+    """True when no Sale Ready template rows exist at all - a fresh environment."""
+    for model in (ProgramStage, ProgramTaskTemplate, ProgramDDTemplate):
+        if db.query(model).filter(model.program_type == PROGRAM_SALE_READY).first() is not None:
+            return False
+    return True
+
+
+def seed_from_fixtures(fixture_dir: str = FIXTURE_DIR, db=None, dry_run: bool = False,
+                       force: bool = False) -> dict:
+    """
+    Seed the template tables. Pass `db` to run inside an existing session
     (the tests do, so everything rolls back); otherwise one is opened here.
+
+    Admins can now edit this content through Sale Ready Management, so the
+    destructive sync - which upserts every fixture row and retires anything the
+    fixtures no longer list - only runs on an empty environment unless `force`
+    is given. Guide blocks are never overwritten once set.
     """
     fixtures = load_fixtures(fixture_dir)
     validate_fixtures(fixtures)
@@ -327,11 +379,18 @@ def seed_from_fixtures(fixture_dir: str = FIXTURE_DIR, db=None, dry_run: bool = 
     try:
         vb_before = value_builder_fingerprint(db)
 
-        result = {
-            "stages": _sync_stages(db, fixtures["stages"], fixtures["sale_planner"]),
-            "task_templates": _sync_task_templates(db, fixtures["tasks"]),
-            "dd_templates": _sync_dd_templates(db, fixtures["dd"]),
-        }
+        if not force and not _templates_are_empty(db):
+            result = {name: _new_tally() for name in ("stages", "task_templates", "dd_templates")}
+            result["skipped"] = True
+        else:
+            result = {
+                "stages": _sync_stages(db, fixtures["stages"], fixtures["sale_planner"]),
+                "task_templates": _sync_task_templates(db, fixtures["tasks"]),
+                "dd_templates": _sync_dd_templates(db, fixtures["dd"]),
+            }
+            result["skipped"] = False
+        db.flush()
+        result["guide"] = _sync_guide(db, fixtures["guide"])
         db.flush()
 
         vb_after = value_builder_fingerprint(db)
@@ -357,15 +416,21 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--dir", default=FIXTURE_DIR, help="Directory holding the Sale Ready fixtures")
     parser.add_argument("--dry-run", action="store_true", help="Validate and roll back without writing")
+    parser.add_argument("--force", action="store_true",
+                        help="Re-sync templates even when rows exist. OVERWRITES admin edits.")
     args = parser.parse_args()
 
     try:
-        result = seed_from_fixtures(args.dir, dry_run=args.dry_run)
+        result = seed_from_fixtures(args.dir, dry_run=args.dry_run, force=args.force)
     except FixtureError as e:
         print(f"ERROR: {e}", file=sys.stderr)
         sys.exit(1)
 
     print("DRY RUN - nothing written." if args.dry_run else "Seeded.")
+    if result.get("skipped"):
+        print("  Templates already present: left untouched (admin-owned). Use --force to re-sync.")
+    g = result["guide"]
+    print(f"  {'guide':15s} {g['created']} created, {g['updated']} filled, {g['unchanged']} left as-is")
     for name in ("stages", "task_templates", "dd_templates"):
         t = result[name]
         print(f"  {name:15s} fixture={result['fixture_counts'][name]:3d}  "

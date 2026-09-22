@@ -15,6 +15,7 @@ import strategicBusinessPlanReducer from './slices/strategicBusinessPlanReducer'
 import programGuideReducer from './slices/programGuideReducer';
 import deliverablesReducer from './slices/deliverablesReducer';
 import saleReadyReducer from './slices/saleReadyReducer';
+import saleReadyAdminReducer from './slices/saleReadyAdminReducer';
 import rolesMatrixReducer from './slices/rolesMatrixReducer';
 import pdScorecardReducer from './slices/pdScorecardReducer';
 import helpReducer from './slices/helpReducer';
@@ -39,6 +40,7 @@ export const store = configureStore({
     programGuide: programGuideReducer,
     deliverables: deliverablesReducer,
     saleReady: saleReadyReducer,
+    saleReadyAdmin: saleReadyAdminReducer,
     rolesMatrix: rolesMatrixReducer,
     pdScorecard: pdScorecardReducer,
     help: helpReducer,

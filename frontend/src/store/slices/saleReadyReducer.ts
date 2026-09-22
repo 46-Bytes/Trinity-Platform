@@ -9,6 +9,7 @@ import type {
   DDStats,
   SalePlanner,
   SalePlannerUpdate,
+  SaleReadyGuide,
   SaleReadyRoadmap,
   StageDetail,
   StageTaskUpdate,
@@ -21,6 +22,8 @@ interface SaleReadyState {
   stage: StageDetail | null;
   salePlanner: SalePlanner | null;
   closeout: Closeout | null;
+  /** The engagement's frozen program guide; null until fetched. */
+  guide: SaleReadyGuide | null;
   isLoadingRoadmap: boolean;
   isLoadingChecklist: boolean;
   isLoadingStage: boolean;
@@ -36,6 +39,7 @@ const initialState: SaleReadyState = {
   stage: null,
   salePlanner: null,
   closeout: null,
+  guide: null,
   isLoadingRoadmap: false,
   isLoadingChecklist: false,
   isLoadingStage: false,
@@ -148,6 +152,9 @@ export const updateSalePlanner = thunk('updateSalePlanner', 'Failed to save the 
       method: 'PATCH',
       body: JSON.stringify(changes),
     }));
+
+export const fetchSaleReadyGuide = thunk('fetchGuide', 'Failed to load the program guide',
+  (engagementId: string) => request<SaleReadyGuide>(`${engagementId}/guide`, 'Failed to load the program guide'));
 
 export const fetchCloseout = thunk('fetchCloseout', 'Failed to load the close-out',
   (engagementId: string) => request<Closeout>(`${engagementId}/closeout`, 'Failed to load the close-out'));
@@ -279,6 +286,9 @@ const saleReadySlice = createSlice({
         state.salePlanner = action.payload;
       });
     }
+    builder.addCase(fetchSaleReadyGuide.fulfilled, (state, action) => {
+      state.guide = action.payload;
+    });
     for (const t of [fetchCloseout, updateCloseout]) {
       builder.addCase(t.fulfilled, (state, action) => {
         state.closeout = action.payload;

@@ -163,6 +163,8 @@ export interface StageDetail {
   /** M8 only: DD items flagged for review across every stage. */
   flagged_for_review: DDItem[];
   ui_config: Record<string, unknown> | null;
+  /** This engagement's frozen stage guide. Empty on engagements that predate snapshots. */
+  guide: Partial<StageGuideContent>;
   people: SaleReadyPerson[];
 }
 
@@ -238,3 +240,21 @@ export interface Closeout {
 export type CloseoutUpdate = Partial<
   Pick<Closeout, 'fresh_appraisal_required' | 'referred_to_benchmark' | 'ongoing_assistance'>
 >;
+
+/** A stage's guide content, as stored on the engagement's snapshot. */
+export interface StageGuideContent {
+  purpose: string;
+  steps: string[];
+  watch: string[];
+  templates: string[];
+  run_with: string | null;
+}
+
+/** The engagement's frozen program guide. */
+export interface SaleReadyGuide {
+  program: {
+    workflow?: { stage: string; label: string }[];
+    rules?: { title: string; body: string }[];
+  };
+  stages: Record<string, Partial<StageGuideContent>>;
+}

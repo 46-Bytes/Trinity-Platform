@@ -11,7 +11,9 @@ import json
 
 import pytest
 
-from app.models.sale_ready import ProgramDDTemplate, ProgramStage, ProgramTaskTemplate
+from app.models.sale_ready import (
+    ProgramDDTemplate, ProgramGuideContent, ProgramStage, ProgramTaskTemplate,
+)
 from scripts.seed_sale_ready_program import (
     FixtureError,
     load_fixtures,
@@ -35,6 +37,7 @@ def write_fixtures(directory, data):
         "task_templates.json": {"items": data["tasks"]},
         "dd_templates.json": {"items": data["dd"]},
         "sale_planner.json": {"config": data["sale_planner"]},
+        "guide.json": data["guide"],
     }
     for name, payload in files.items():
         (directory / name).write_text(json.dumps(payload), encoding="utf-8")
@@ -98,9 +101,14 @@ class TestValidation:
 # Seeding (rolled back)
 # ----------------------------------------------------------------------
 class TestSeed:
+    """
+    The sync path, exercised with force=True. Without it the seed now leaves a
+    populated database alone so Sale Ready Management edits survive a re-seed;
+    that guard is covered by TestSeedLeavesAdminEditsAlone below.
+    """
 
     def test_active_rows_match_the_fixtures(self, db_session, fixtures):
-        result = seed_from_fixtures(db=db_session)
+        result = seed_from_fixtures(db=db_session, force=True)
         for name, model in TABLES.items():
             t = result[name]
             expected = result["fixture_counts"][name]
@@ -109,50 +117,50 @@ class TestSeed:
         assert result["fixture_counts"] == {"stages": 15, "task_templates": 147, "dd_templates": 210}
 
     def test_reseed_is_a_no_op(self, db_session):
-        seed_from_fixtures(db=db_session)
-        second = seed_from_fixtures(db=db_session)
+        seed_from_fixtures(db=db_session, force=True)
+        second = seed_from_fixtures(db=db_session, force=True)
         for name in TABLES:
             t = second[name]
             assert (t["created"], t["updated"], t["reactivated"], t["retired"]) == (0, 0, 0, 0), name
 
     def test_ids_survive_a_reseed(self, db_session):
-        seed_from_fixtures(db=db_session)
+        seed_from_fixtures(db=db_session, force=True)
         before = {r.item_key: r.id for r in db_session.query(ProgramDDTemplate).filter_by(program_type="sale_ready")}
-        seed_from_fixtures(db=db_session)
+        seed_from_fixtures(db=db_session, force=True)
         after = {r.item_key: r.id for r in db_session.query(ProgramDDTemplate).filter_by(program_type="sale_ready")}
         assert before == after
 
     def test_dropped_row_is_retired_then_reactivated(self, db_session, fixtures, tmp_path):
-        seed_from_fixtures(db=db_session)
+        seed_from_fixtures(db=db_session, force=True)
         dropped_key = fixtures["dd"][-1]["item_key"]
         row_id = db_session.query(ProgramDDTemplate).filter_by(item_key=dropped_key).one().id
 
         without = copy.deepcopy(fixtures)
         without["dd"] = without["dd"][:-1]
-        retired = seed_from_fixtures(write_fixtures(tmp_path, without), db=db_session)
+        retired = seed_from_fixtures(write_fixtures(tmp_path, without), db=db_session, force=True)
         assert retired["dd_templates"]["retired"] == 1
         row = db_session.query(ProgramDDTemplate).filter_by(item_key=dropped_key).one()
         assert row.is_active is False and row.id == row_id  # retired, not deleted
 
-        restored = seed_from_fixtures(db=db_session)
+        restored = seed_from_fixtures(db=db_session, force=True)
         assert restored["dd_templates"]["reactivated"] == 1
         assert db_session.query(ProgramDDTemplate).filter_by(item_key=dropped_key).one().id == row_id
 
     def test_dry_run_writes_nothing(self, db_session):
         before = {name: db_session.query(model).filter_by(program_type="sale_ready").count()
                   for name, model in TABLES.items()}
-        seed_from_fixtures(db=db_session, dry_run=True)
+        seed_from_fixtures(db=db_session, dry_run=True, force=True)
         after = {name: db_session.query(model).filter_by(program_type="sale_ready").count()
                  for name, model in TABLES.items()}
         assert before == after
 
     def test_value_builder_rows_untouched(self, db_session):
         before = value_builder_fingerprint(db_session)
-        seed_from_fixtures(db=db_session)
+        seed_from_fixtures(db=db_session, force=True)
         assert value_builder_fingerprint(db_session) == before
 
     def test_content_is_loaded_verbatim(self, db_session, fixtures):
-        seed_from_fixtures(db=db_session)
+        seed_from_fixtures(db=db_session, force=True)
         item = fixtures["dd"][0]
         row = db_session.query(ProgramDDTemplate).filter_by(item_key=item["item_key"]).one()
         assert (row.document_required, row.action_step, row.stage_code, row.sub_item_code) == (
@@ -164,9 +172,72 @@ class TestSeed:
         assert (trow.title, trow.section, trow.group_title) == (task["title"], task["section"], task["group_title"])
 
     def test_sale_planner_lists_are_the_stage_config(self, db_session, fixtures):
-        seed_from_fixtures(db=db_session)
+        seed_from_fixtures(db=db_session, force=True)
         stage = db_session.query(ProgramStage).filter_by(program_type="sale_ready", stage_code="SALE_PLANNER").one()
         assert stage.ui_config == fixtures["sale_planner"]
         others = db_session.query(ProgramStage).filter(
             ProgramStage.program_type == "sale_ready", ProgramStage.stage_code != "SALE_PLANNER")
         assert all(s.ui_config is None for s in others)
+
+
+# ----------------------------------------------------------------------
+# The guard that protects admin edits (rolled back)
+# ----------------------------------------------------------------------
+class TestSeedLeavesAdminEditsAlone:
+    """
+    Admins edit the templates and the guide through Sale Ready Management, so
+    the seed stopped being the authority. On a populated database it fills only
+    what is empty; the destructive sync needs --force.
+    """
+
+    def test_a_populated_database_is_skipped(self, db_session):
+        seed_from_fixtures(db=db_session, force=True)
+        again = seed_from_fixtures(db=db_session)
+        assert again["skipped"] is True
+        for name in TABLES:
+            t = again[name]
+            assert (t["created"], t["updated"], t["retired"], t["reactivated"]) == (0, 0, 0, 0), name
+
+    def test_an_edited_template_survives_a_reseed(self, db_session):
+        seed_from_fixtures(db=db_session, force=True)
+        row = db_session.query(ProgramTaskTemplate).filter_by(
+            program_type="sale_ready", stage_code="M1", section="must_do").first()
+        row.title = "Renamed by an admin"
+        db_session.flush()
+
+        seed_from_fixtures(db=db_session)
+        db_session.refresh(row)
+        assert row.title == "Renamed by an admin"
+
+    def test_force_does_re_sync_and_overwrites(self, db_session, fixtures):
+        seed_from_fixtures(db=db_session, force=True)
+        row = db_session.query(ProgramTaskTemplate).filter_by(
+            program_type="sale_ready", stage_code="M1", section="must_do").first()
+        original, row.title = row.title, "Renamed by an admin"
+        db_session.flush()
+
+        seed_from_fixtures(db=db_session, force=True)
+        db_session.refresh(row)
+        assert row.title == original
+
+    def test_guide_is_filled_when_empty_and_kept_once_set(self, db_session, fixtures):
+        seed_from_fixtures(db=db_session, force=True)
+        stage = db_session.query(ProgramStage).filter_by(
+            program_type="sale_ready", stage_code="M1").one()
+        assert stage.guide == fixtures["guide"]["stages"]["M1"]
+
+        stage.guide = {"purpose": "Edited by an admin", "steps": [], "watch": [],
+                       "templates": [], "run_with": None}
+        db_session.flush()
+        seed_from_fixtures(db=db_session)
+        db_session.refresh(stage)
+        assert stage.guide["purpose"] == "Edited by an admin"
+
+    def test_program_level_guide_row_is_created_once(self, db_session, fixtures):
+        seed_from_fixtures(db=db_session, force=True)
+        rows = db_session.query(ProgramGuideContent).filter_by(program_type="sale_ready").all()
+        assert len(rows) == 1
+        assert rows[0].content == fixtures["guide"]["program"]
+
+        seed_from_fixtures(db=db_session)
+        assert db_session.query(ProgramGuideContent).filter_by(program_type="sale_ready").count() == 1

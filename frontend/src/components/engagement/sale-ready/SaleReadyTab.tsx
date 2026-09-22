@@ -13,6 +13,7 @@ import {
   closeStage,
   completeStage,
   fetchCloseout,
+  fetchSaleReadyGuide,
   fetchDDChecklist,
   fetchSalePlanner,
   fetchSaleReadyRoadmap,
@@ -85,6 +86,7 @@ export function SaleReadyTab({ engagementId, readOnly = false, onEngagementStatu
     stage,
     salePlanner,
     closeout,
+    guide,
     isLoadingRoadmap,
     isLoadingChecklist,
     isReordering,
@@ -126,6 +128,7 @@ export function SaleReadyTab({ engagementId, readOnly = false, onEngagementStatu
   const changeTab = (next: string) => {
     if (openStage) backToRoadmap();
     if (next === 'roadmap' && !openStage) dispatch(fetchSaleReadyRoadmap(engagementId));
+    if (next === 'guide') dispatch(fetchSaleReadyGuide(engagementId));
     setTab(next as SubTab);
   };
 
@@ -316,7 +319,7 @@ export function SaleReadyTab({ engagementId, readOnly = false, onEngagementStatu
       <TabsContent value="files">{needsChecklist((c) => <FilesView items={c.items} />)}</TabsContent>
       {!readOnly && (
         <TabsContent value="guide">
-          <ProgramGuideView roadmap={roadmap} onOpenStage={openStageDetail} />
+          <ProgramGuideView roadmap={roadmap} guide={guide} onOpenStage={openStageDetail} />
         </TabsContent>
       )}
     </Tabs>

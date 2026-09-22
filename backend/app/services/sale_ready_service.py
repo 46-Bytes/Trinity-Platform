@@ -6,8 +6,14 @@ Templates are seeded by scripts/seed_sale_ready_program.py; this service copies
 them onto an engagement and applies the rules in sale_ready_rules.
 
 Initialization is lazy and idempotent (ensure_initialized): the first read
-creates the stage rows, the 210 DD items, and the tasks of every stage created
-with the engagement. Existing Sale Ready engagements are initialized the same way.
+creates the stage rows, the 210 DD items, the tasks of every stage created with
+the engagement, and a frozen copy of the program guide. Existing Sale Ready
+engagements are initialized the same way.
+
+An engagement only ever receives templates that existed when it was created
+(see _template_cutoff). An admin adding a task template or a DD item therefore
+changes what future engagements get and leaves live engagements alone, which is
+what the brief means by "for future engagements".
 """
 import logging
 from datetime import date, datetime, timedelta, timezone
@@ -22,8 +28,10 @@ from app.models.sale_ready import (
     EngagementDDItem,
     EngagementProgramCloseout,
     EngagementSalePlanner,
+    EngagementSaleReadyGuide,
     EngagementStageState,
     ProgramDDTemplate,
+    ProgramGuideContent,
     ProgramStage,
     ProgramTaskTemplate,
 )
@@ -59,6 +67,41 @@ def _role_value(user: User) -> str:
     return user.role.value if hasattr(user.role, "value") else str(user.role)
 
 
+# ----------------------------------------------------------------------
+# Stage and guide reads, shared with sale_ready_admin_service
+# ----------------------------------------------------------------------
+def active_stages(db: Session) -> List[ProgramStage]:
+    """Sale Ready's live stages, in program order."""
+    return (
+        db.query(ProgramStage)
+        .filter(ProgramStage.program_type == PROGRAM_SALE_READY, ProgramStage.is_active == True)  # noqa: E712
+        .order_by(ProgramStage.default_order.asc())
+        .all()
+    )
+
+
+def find_stage(db: Session, stage_code: str) -> Optional[ProgramStage]:
+    """A stage by code, or None. Callers raise the error their API expects."""
+    return next((s for s in active_stages(db) if s.stage_code == stage_code), None)
+
+
+def normalise_stage_guide(guide: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    A stage guide with all five keys present.
+
+    Applied when the snapshot is written and when the admin screen reads the
+    master, so a stored block and an edited one are always the same shape.
+    """
+    guide = dict(guide or {})
+    return {
+        "purpose": guide.get("purpose") or "",
+        "steps": list(guide.get("steps") or []),
+        "watch": list(guide.get("watch") or []),
+        "templates": list(guide.get("templates") or []),
+        "run_with": guide.get("run_with"),
+    }
+
+
 class SaleReadyService:
     def __init__(self, db: Session):
         self.db = db
@@ -67,26 +110,46 @@ class SaleReadyService:
     # Templates
     # ------------------------------------------------------------------
     def _stages(self) -> List[ProgramStage]:
-        return (
-            self.db.query(ProgramStage)
-            .filter(ProgramStage.program_type == PROGRAM_SALE_READY, ProgramStage.is_active == True)  # noqa: E712
-            .order_by(ProgramStage.default_order.asc())
-            .all()
-        )
+        return active_stages(self.db)
 
     def _stage_or_404(self, stage_code: str) -> ProgramStage:
-        stage = next((s for s in self._stages() if s.stage_code == stage_code), None)
+        stage = find_stage(self.db, stage_code)
         if not stage:
             raise SaleReadyNotFound(f"Stage {stage_code} not found")
         return stage
 
-    def _task_templates(self, stage_code: Optional[str] = None) -> List[ProgramTaskTemplate]:
+    @staticmethod
+    def _template_cutoff(engagement: Engagement) -> Optional[datetime]:
+        """
+        The engagement gets the templates that existed before it was created.
+
+        Anything an admin adds later is newer than this and is never copied onto
+        an engagement already running. Editing or retiring a template does not
+        touch an engagement either, because its tasks and DD items are copies.
+
+        Both sides of the comparison are stamped by the database
+        (server_default=CURRENT_TIMESTAMP), so this is one clock, never Python's
+        against Postgres'. Callers compare with `<`, not `<=`: CURRENT_TIMESTAMP
+        is the transaction's start time, so a template created in the same
+        transaction as an engagement carries an identical value, and `<=` would
+        let it through to an engagement that is already running.
+        """
+        return engagement.created_at
+
+    def _task_templates(self, stage_code: Optional[str] = None,
+                        created_before: Optional[datetime] = None) -> List[ProgramTaskTemplate]:
+        """
+        Active templates for a stage. `created_before` limits them to those an
+        engagement is entitled to; omit it to read the current master set.
+        """
         query = self.db.query(ProgramTaskTemplate).filter(
             ProgramTaskTemplate.program_type == PROGRAM_SALE_READY,
             ProgramTaskTemplate.is_active == True,  # noqa: E712
         )
         if stage_code:
             query = query.filter(ProgramTaskTemplate.stage_code == stage_code)
+        if created_before is not None:
+            query = query.filter(ProgramTaskTemplate.created_at < created_before)
         return query.order_by(ProgramTaskTemplate.default_order.asc()).all()
 
     # ------------------------------------------------------------------
@@ -135,7 +198,7 @@ class SaleReadyService:
         # Must-do tasks default to the stage lead, else the engagement's primary advisor.
         lead = state.lead_advisor_id or engagement.primary_advisor_id
         created = 0
-        for template in self._task_templates(stage_code):
+        for template in self._task_templates(stage_code, self._template_cutoff(engagement)):
             if template.id in existing:
                 continue
             due = None
@@ -185,12 +248,15 @@ class SaleReadyService:
                 self._create_template_tasks(engagement, stage.stage_code, state, creator_id)
             changed = True
 
-        dd_templates = (
-            self.db.query(ProgramDDTemplate)
-            .filter(ProgramDDTemplate.program_type == PROGRAM_SALE_READY, ProgramDDTemplate.is_active == True)  # noqa: E712
-            .order_by(ProgramDDTemplate.default_order.asc())
-            .all()
+        cutoff = self._template_cutoff(engagement)
+        dd_query = self.db.query(ProgramDDTemplate).filter(
+            ProgramDDTemplate.program_type == PROGRAM_SALE_READY,
+            ProgramDDTemplate.is_active == True,  # noqa: E712
         )
+        if cutoff is not None:
+            # A checklist item added after this engagement began is not its concern.
+            dd_query = dd_query.filter(ProgramDDTemplate.created_at < cutoff)
+        dd_templates = dd_query.order_by(ProgramDDTemplate.default_order.asc()).all()
         for t in dd_templates:
             if t.id in dd_template_ids:
                 continue
@@ -209,6 +275,9 @@ class SaleReadyService:
             ))
             changed = True
 
+        if self._ensure_guide_snapshot(engagement):
+            changed = True
+
         if not changed:
             return
         try:
@@ -217,6 +286,55 @@ class SaleReadyService:
             # A concurrent first read initialized it; the unique constraints kept one copy.
             self.db.rollback()
             logger.info("Sale Ready initialization for engagement %s raced; using existing rows", engagement.id)
+
+    # ------------------------------------------------------------------
+    # Program guide snapshot
+    # ------------------------------------------------------------------
+    def _guide_snapshot_row(self, engagement_id: UUID) -> Optional[EngagementSaleReadyGuide]:
+        return self.db.query(EngagementSaleReadyGuide).filter(
+            EngagementSaleReadyGuide.engagement_id == engagement_id
+        ).first()
+
+    def build_guide_content(self) -> Dict[str, Any]:
+        """The current master guide, assembled: program-level content plus every stage."""
+        row = self.db.query(ProgramGuideContent).filter(
+            ProgramGuideContent.program_type == PROGRAM_SALE_READY,
+            ProgramGuideContent.is_active == True,  # noqa: E712
+        ).first()
+        program = dict(row.content or {}) if row else {}
+        program.setdefault("workflow", [])
+        program.setdefault("rules", [])
+        return {
+            "program": program,
+            # Normalised on the way in, so a snapshot and the admin screen
+            # always carry the same five keys.
+            "stages": {st.stage_code: normalise_stage_guide(st.guide) for st in self._stages()},
+        }
+
+    def _ensure_guide_snapshot(self, engagement: Engagement) -> bool:
+        """
+        Freeze the guide onto the engagement, once. Returns whether a row was added.
+
+        Written at initialization and never updated: an admin editing the guide
+        changes what future engagements are given, not what a live one shows.
+        """
+        if self._guide_snapshot_row(engagement.id) is not None:
+            return False
+        self.db.add(EngagementSaleReadyGuide(
+            engagement_id=engagement.id, content=self.build_guide_content(),
+        ))
+        return True
+
+    def get_guide(self, engagement: Engagement, actor: Optional[User] = None) -> Dict[str, Any]:
+        """This engagement's frozen guide. Falls back to the master if it predates snapshots."""
+        self.ensure_initialized(engagement, actor)
+        row = self._guide_snapshot_row(engagement.id)
+        return row.content if row else self.build_guide_content()
+
+    def _stage_guide(self, engagement: Engagement, stage_code: str) -> Dict[str, Any]:
+        row = self._guide_snapshot_row(engagement.id)
+        content = row.content if row else self.build_guide_content()
+        return (content.get("stages") or {}).get(stage_code) or {}
 
     # ------------------------------------------------------------------
     # People
@@ -470,19 +588,24 @@ class SaleReadyService:
             "dd_items": [self._dd_dict(d, stage_titles) for d in entry["dd"]],
             "flagged_for_review": flagged,
             "ui_config": stage.ui_config,
+            # This engagement's frozen copy, not the current master.
+            "guide": self._stage_guide(engagement, stage_code),
             "people": self.people(engagement),
         }
 
     def start_stage(self, engagement: Engagement, stage_code: str, user: User) -> None:
         stage = self._stage_or_404(stage_code)
         state = self._state_or_404(engagement, stage_code, user)
-        if state.status == rules.STAGE_STATE_NOT_STARTED:
+        first_start = state.status == rules.STAGE_STATE_NOT_STARTED
+        if first_start:
             state.status = rules.STAGE_STATE_STARTED
             state.started_at = _now()
             state.started_by_user_id = user.id
             state.start_date = state.start_date or date.today()
-        if stage.task_creation == TASK_CREATION_ON_START:
-            # Idempotent: templates that already have a live task are skipped.
+        # Only the first start creates tasks. Starting an already-started module
+        # again must not pull in templates added since; those are for engagements
+        # created after them.
+        if first_start and stage.task_creation == TASK_CREATION_ON_START:
             self._create_template_tasks(engagement, stage_code, state, self._creator_id(engagement, user))
         self.db.commit()
 

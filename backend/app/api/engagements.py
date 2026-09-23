@@ -38,7 +38,7 @@ from ..schemas.engagement import (
     EngagementFileItem,
     GeneratedDocumentItem,
 )
-from ..utils.auth import get_current_user
+from ..utils.auth import get_current_user, deny_buyers
 from ..services.role_check import check_engagement_access
 from ..services.engagement_status import (
     SETTABLE_STATUSES,
@@ -58,8 +58,10 @@ from ..models.adv_client import AdvisorClient
 # Configure logger for this module
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/engagements", tags=["engagements"])
-
+router = APIRouter(prefix="/api/engagements", tags=["engagements"],
+    # Buyers are external parties confined to their own portal.
+    dependencies=[Depends(deny_buyers)],
+)
 # Matches the cap on the other multi-file upload endpoints.
 MAX_ENGAGEMENT_FILES_PER_UPLOAD = 20
 

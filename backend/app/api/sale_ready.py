@@ -35,13 +35,14 @@ from app.services.program_registry import PROGRAM_SALE_READY
 from app.services.role_check import check_engagement_access
 from app.services.sale_ready_planner_service import CloseoutPermissionError, get_sale_ready_planner_service
 from app.services.sale_ready_service import SaleReadyNotFound, get_sale_ready_service
-from app.utils.auth import get_current_user, get_original_user
+from app.utils.auth import get_current_user, get_original_user, deny_buyers
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/sale-ready", tags=["sale-ready"])
-
-
+router = APIRouter(prefix="/api/sale-ready", tags=["sale-ready"],
+    # Buyers are external parties confined to their own portal.
+    dependencies=[Depends(deny_buyers)],
+)
 def _engagement(engagement_id: UUID, db: Session, user: User, require_advisor: bool) -> Engagement:
     engagement = db.query(Engagement).filter(
         Engagement.id == engagement_id,

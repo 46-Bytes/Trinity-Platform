@@ -359,3 +359,23 @@ def get_original_user(
         return None
 
 
+
+
+def deny_buyers(user: User = Depends(get_current_user)) -> User:
+    """
+    Refuse a buyer on any route that is not part of the buyer portal.
+
+    Buyers are external parties with read-only sight of one engagement's
+    released folders. check_engagement_access already default-denies them, but
+    several routers authenticate without ever calling it, so the exclusion is
+    stated here and applied at router level rather than left to be inferred.
+
+    Usage:
+        router = APIRouter(..., dependencies=[Depends(deny_buyers)])
+    """
+    if user.role == UserRole.BUYER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Buyers can only access their engagement's released documents.",
+        )
+    return user

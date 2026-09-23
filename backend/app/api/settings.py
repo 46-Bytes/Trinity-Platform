@@ -7,12 +7,13 @@ import time
 
 from app.database import get_db
 from app.models.user import User
-from app.utils.auth import get_current_user
+from app.utils.auth import get_current_user, deny_buyers
 
 
-router = APIRouter(prefix="/api/settings", tags=["settings"])
-
-
+router = APIRouter(prefix="/api/settings", tags=["settings"],
+    # Buyers are external parties confined to their own portal.
+    dependencies=[Depends(deny_buyers)],
+)
 @router.get("/profile")
 async def get_profile(
     db: Session = Depends(get_db),

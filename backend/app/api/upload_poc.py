@@ -48,7 +48,7 @@ from app.services.bba_task_planner_service import get_bba_task_planner_service
 from app.services.bba_task_list_export import get_bba_task_list_exporter
 from app.services.bba_presentation_service import get_bba_presentation_service
 from app.services.bba_pptx_export import BBAPptxExporter
-from app.utils.auth import get_current_user
+from app.utils.auth import get_current_user, deny_buyers
 from app.models.user import User
 from app.models.diagnostic import Diagnostic
 from app.models.engagement import Engagement
@@ -94,8 +94,10 @@ def _check_bba_access(bba, current_user: User, db: Session) -> None:
             detail="You don't have access to this project",
         )
 
-router = APIRouter(prefix="/api/poc", tags=["bba"])
-
+router = APIRouter(prefix="/api/poc", tags=["bba"],
+    # Buyers are external parties confined to their own portal.
+    dependencies=[Depends(deny_buyers)],
+)
 # Base directory for persisting BBA uploaded files (under app UPLOAD_DIR)
 def _bba_uploads_base() -> Path:
     base = Path(settings.UPLOAD_DIR)

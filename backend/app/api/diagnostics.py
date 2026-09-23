@@ -33,7 +33,7 @@ from app.services.report_service import ReportService
 from app.services.document_template_service import get_document_template_service
 from app.services.role_check import check_engagement_access
 from app.utils.file_loader import load_diagnostic_questions
-from app.utils.auth import get_current_user
+from app.utils.auth import get_current_user, deny_buyers
 from app.utils.diagnostic_utils import get_admin_role_if_applicable, enrich_diagnostic_with_roles, filter_diagnostic_report_for_user
 from app.models.user import User, UserRole
 from app.models.diagnostic import Diagnostic
@@ -41,8 +41,10 @@ from app.models.engagement import Engagement
 from app.models.media import Media
 
 
-router = APIRouter(prefix="/diagnostics", tags=["diagnostics"])
-
+router = APIRouter(prefix="/diagnostics", tags=["diagnostics"],
+    # Buyers are external parties confined to their own portal.
+    dependencies=[Depends(deny_buyers)],
+)
 def _require_engagement_access(db: Session, engagement_id: UUID, current_user: User) -> Engagement:
     """
     Load an engagement and enforce that the current user has access to it.

@@ -14,7 +14,7 @@ import traceback
 logger = logging.getLogger(__name__)
 
 from app.database import get_db
-from app.utils.auth import get_current_user
+from app.utils.auth import get_current_user, deny_buyers
 from app.models.user import User
 from app.models.strategy_workbook import StrategyWorkbook
 from app.models.diagnostic import Diagnostic
@@ -35,9 +35,10 @@ from app.schemas.strategy_workbook import (
     StrategyWorkbookPrecheckResponse,
 )
 
-router = APIRouter(prefix="/strategy-workbook", tags=["strategy-workbook"])
-
-
+router = APIRouter(prefix="/strategy-workbook", tags=["strategy-workbook"],
+    # Buyers are external parties confined to their own portal.
+    dependencies=[Depends(deny_buyers)],
+)
 @router.get("/", status_code=status.HTTP_200_OK)
 async def list_strategy_workbooks(
     engagement_id: Optional[UUID] = Query(None, description="Filter workbooks by engagement ID"),

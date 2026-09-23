@@ -19,6 +19,9 @@ class UserRole(str, enum.Enum):
     SUPER_ADMIN = "super_admin"
     FIRM_ADMIN = "firm_admin"
     FIRM_ADVISOR = "firm_advisor"
+    # Read-only external party invited to one engagement's released data room.
+    # Deliberately absent from check_engagement_access, which default-denies.
+    BUYER = "buyer"
 
 
 class UserRoleType(TypeDecorator):
@@ -52,6 +55,7 @@ class UserRoleType(TypeDecorator):
                 'super_admin': 'SUPER_ADMIN',
                 'firm_admin': 'firm_admin',  # Keep lowercase (DB has it as lowercase)
                 'firm_advisor': 'firm_advisor',  # Keep lowercase (DB has it as lowercase)
+                'buyer': 'buyer',  # Keep lowercase, like the other roles added after the enum
             }
             return db_value_map.get(value_str, value_str.upper())
         if isinstance(value, str):
@@ -64,6 +68,7 @@ class UserRoleType(TypeDecorator):
                 'super_admin': 'SUPER_ADMIN',
                 'firm_admin': 'firm_admin',
                 'firm_advisor': 'firm_advisor',
+                'buyer': 'buyer',
             }
             if value_lower in db_value_map:
                 return db_value_map[value_lower]
@@ -90,6 +95,8 @@ class UserRoleType(TypeDecorator):
             # Also handle lowercase if they exist in DB
             'firm_admin': 'firm_admin',
             'firm_advisor': 'firm_advisor',
+            'BUYER': 'buyer',
+            'buyer': 'buyer',
         }
         normalized = lowercase_map.get(value_str, value_str.lower())
         try:

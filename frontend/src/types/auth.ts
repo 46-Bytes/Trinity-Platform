@@ -1,4 +1,4 @@
-export type UserRole = 'super_admin' | 'admin' | 'advisor' | 'client' | 'firm_admin' | 'firm_advisor';
+export type UserRole = 'super_admin' | 'admin' | 'advisor' | 'client' | 'firm_admin' | 'firm_advisor' | 'buyer';
 
 export interface User {
   id: string;
@@ -27,6 +27,7 @@ export const roleLabels: Record<UserRole, string> = {
   client: 'Client',
   firm_admin: 'Firm Admin',
   firm_advisor: 'Firm Advisor',
+  buyer: 'Buyer',
 };
 
 export const roleColors: Record<UserRole, string> = {
@@ -36,4 +37,5 @@ export const roleColors: Record<UserRole, string> = {
   client: 'bg-muted text-muted-foreground',
   firm_admin: 'bg-orange-100 text-orange-700',
   firm_advisor: 'bg-teal-100 text-teal-700',
+  buyer: 'bg-slate-100 text-slate-700',
 };

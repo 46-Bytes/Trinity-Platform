@@ -32,6 +32,7 @@ import {
 import { CloseoutPanel } from './CloseoutPanel';
 import { DDChecklistView } from './DDChecklistView';
 import { FilesView } from './FilesView';
+import { BuyerAccessPanel } from './BuyerAccessPanel';
 import { ProgramGuideView } from './ProgramGuideView';
 import { RoadmapView } from './RoadmapView';
 import { SalePlannerPanel } from './SalePlannerPanel';
@@ -46,7 +47,7 @@ interface SaleReadyTabProps {
   onEngagementStatusChange?: () => void;
 }
 
-type SubTab = 'roadmap' | 'dd' | 'files' | 'guide';
+type SubTab = 'roadmap' | 'dd' | 'files' | 'buyers' | 'guide';
 
 // Underlined sub-tabs, as in the mockup, so they read as a level below the engagement tabs.
 const SUB_TAB =
@@ -295,6 +296,11 @@ export function SaleReadyTab({ engagementId, readOnly = false, onEngagementStatu
             </span>
           )}
         </TabsTrigger>
+        {!readOnly && (
+          <TabsTrigger value="buyers" className={SUB_TAB}>
+            Buyer access
+          </TabsTrigger>
+        )}
         <TabsTrigger value="files" className={SUB_TAB}>
           Files
         </TabsTrigger>
@@ -317,6 +323,13 @@ export function SaleReadyTab({ engagementId, readOnly = false, onEngagementStatu
         ))}
       </TabsContent>
       <TabsContent value="files">{needsChecklist((c) => <FilesView items={c.items} />)}</TabsContent>
+      {!readOnly && (
+        <TabsContent value="buyers">
+          {needsChecklist((c) => (
+            <BuyerAccessPanel engagementId={engagementId} ddItems={c.items} />
+          ))}
+        </TabsContent>
+      )}
       {!readOnly && (
         <TabsContent value="guide">
           <ProgramGuideView roadmap={roadmap} guide={guide} onOpenStage={openStageDetail} />

@@ -10,7 +10,7 @@ from ..database import get_db
 from ..models.user import User, UserRole
 from ..models.firm import Firm
 from ..models.subscription import Subscription
-from ..utils.auth import get_current_user
+from ..utils.auth import get_current_user, deny_buyers
 from ..services.firm_service import get_firm_service, FirmService
 from ..services.firm_permissions import (
     can_manage_firm_users,
@@ -49,9 +49,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/firms", tags=["firms"])
-
-
+router = APIRouter(prefix="/api/firms", tags=["firms"],
+    # Buyers are external parties confined to their own portal.
+    dependencies=[Depends(deny_buyers)],
+)
 # ==================== Firm CRUD ====================
 
 @router.post("", response_model=FirmResponse, status_code=status.HTTP_201_CREATED)

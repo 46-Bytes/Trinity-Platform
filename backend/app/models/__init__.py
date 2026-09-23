@@ -23,6 +23,7 @@ from .ai_field_privacy import AIFieldPrivacy
 from .roles_matrix import RolesMatrix
 from .pd_scorecard import PDScorecard, PDScorecardRole
 from .help_video import HelpVideoCategory, HelpVideo
+from .buyer import BuyerAccessLog, EngagementBuyer, EngagementReleasedFolder
 from .sale_ready import (
     ProgramStage, ProgramTaskTemplate, ProgramDDTemplate, EngagementStageState, EngagementDDItem,
     EngagementSalePlanner, EngagementProgramCloseout, ProgramGuideContent, EngagementSaleReadyGuide,
@@ -66,6 +67,9 @@ __all__ = [
     "EngagementProgramCloseout",
     "ProgramGuideContent",
     "EngagementSaleReadyGuide",
+    "EngagementBuyer",
+    "EngagementReleasedFolder",
+    "BuyerAccessLog",
 ]
 
 

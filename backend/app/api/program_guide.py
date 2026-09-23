@@ -8,7 +8,7 @@ from uuid import UUID
 import logging
 
 from app.database import get_db
-from app.utils.auth import get_current_user
+from app.utils.auth import get_current_user, deny_buyers
 from app.models.user import User, UserRole
 from app.models.engagement import Engagement
 from app.services.role_check import check_engagement_access
@@ -25,9 +25,10 @@ from app.schemas.program_guide import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/program-guide", tags=["program-guide"])
-
-
+router = APIRouter(prefix="/program-guide", tags=["program-guide"],
+    # Buyers are external parties confined to their own portal.
+    dependencies=[Depends(deny_buyers)],
+)
 def _get_engagement_or_404(engagement_id: UUID, db: Session) -> Engagement:
     engagement = db.query(Engagement).filter(
         Engagement.id == engagement_id,

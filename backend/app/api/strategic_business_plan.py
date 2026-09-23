@@ -16,7 +16,7 @@ import uuid as uuid_mod
 logger = logging.getLogger(__name__)
 
 from app.database import get_db
-from app.utils.auth import get_current_user
+from app.utils.auth import get_current_user, deny_buyers
 from app.models.user import User
 from app.models.strategic_business_plan import StrategicBusinessPlan
 from app.models.diagnostic import Diagnostic
@@ -43,8 +43,10 @@ from app.schemas.strategic_business_plan import (
     SBPListItem,
 )
 
-router = APIRouter(prefix="/strategic-business-plan", tags=["strategic-business-plan"])
-
+router = APIRouter(prefix="/strategic-business-plan", tags=["strategic-business-plan"],
+    # Buyers are external parties confined to their own portal.
+    dependencies=[Depends(deny_buyers)],
+)
 # Upload directory
 UPLOAD_DIR = Path(__file__).resolve().parents[2] / "files" / "uploads" / "sbp"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)

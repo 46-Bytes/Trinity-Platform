@@ -17,11 +17,12 @@ from ..schemas.adv_client import (
     AdvisorClientSummary,
 )
 from ..services.advisor_client_service import get_advisor_clients
-from ..utils.auth import get_current_user, require_role
+from ..utils.auth import get_current_user, require_role, deny_buyers
 
-router = APIRouter(prefix="/api/advisor-client", tags=["advisor-client"])
-
-
+router = APIRouter(prefix="/api/advisor-client", tags=["advisor-client"],
+    # Buyers are external parties confined to their own portal.
+    dependencies=[Depends(deny_buyers)],
+)
 @router.post("", response_model=AdvisorClientWithUsers, status_code=status.HTTP_201_CREATED)
 async def create_association(
     association_data: AdvisorClientCreate,

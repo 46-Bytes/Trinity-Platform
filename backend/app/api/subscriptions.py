@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from ..database import get_db
 from ..models.user import User, UserRole
 from ..models.subscription import Subscription
-from ..utils.auth import get_current_user
+from ..utils.auth import get_current_user, deny_buyers
 from ..schemas.subscription import (
     SubscriptionCreate,
     SubscriptionUpdate,
@@ -21,9 +21,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/subscriptions", tags=["subscriptions"])
-
-
+router = APIRouter(prefix="/api/subscriptions", tags=["subscriptions"],
+    # Buyers are external parties confined to their own portal.
+    dependencies=[Depends(deny_buyers)],
+)
 # ==================== Subscription CRUD ====================
 
 @router.post("", response_model=SubscriptionResponse, status_code=status.HTTP_201_CREATED)

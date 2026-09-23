@@ -9,7 +9,7 @@ from uuid import UUID
 from app.database import get_db
 from app.services.file_service import get_file_service
 from app.services.role_check import check_engagement_access
-from app.utils.auth import get_current_user
+from app.utils.auth import get_current_user, deny_buyers
 from app.models.media import Media
 from app.models.diagnostic import Diagnostic
 from app.models.engagement import Engagement
@@ -19,8 +19,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/files", tags=["files"])
-
+router = APIRouter(prefix="/files", tags=["files"],
+    # Buyers are external parties confined to their own portal.
+    dependencies=[Depends(deny_buyers)],
+)
 MAX_UPLOAD_FILES = 20
 
 

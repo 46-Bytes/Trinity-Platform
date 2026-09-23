@@ -7,7 +7,7 @@ from typing import Union
 
 from ..database import get_db
 from ..models.user import User, UserRole
-from ..utils.auth import get_current_user
+from ..utils.auth import get_current_user, deny_buyers
 from ..schemas.dashboard import (
     DashboardStatsResponse,
     ClientDashboardStatsResponse,
@@ -21,9 +21,10 @@ from ..services.dashboard_service import (
 )
 from ..services.activity_service import get_superadmin_activity_data
 
-router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
-
-
+router = APIRouter(prefix="/api/dashboard", tags=["dashboard"],
+    # Buyers are external parties confined to their own portal.
+    dependencies=[Depends(deny_buyers)],
+)
 @router.get("/stats", response_model=Union[DashboardStatsResponse, ClientDashboardStatsResponse, FirmAdvisorDashboardStatsResponse])
 async def get_dashboard_stats(
     db: Session = Depends(get_db),

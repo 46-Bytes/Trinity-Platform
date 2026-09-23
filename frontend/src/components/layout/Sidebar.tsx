@@ -20,7 +20,8 @@ import {
   CreditCard,
   ShieldCheck,
   HelpCircle,
-  ClipboardList
+  ClipboardList,
+  FolderOpen as FolderOpenIcon
 } from 'lucide-react';
 import { UserRole } from '@/types/auth';
 
@@ -40,6 +41,8 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor'] },
+  // A buyer sees one item: the data room they were invited to.
+  { label: 'Documents', href: '/dashboard/documents', icon: FolderOpenIcon, roles: ['buyer'] },
   { label: 'Users', href: '/dashboard/users', icon: Users, roles: ['super_admin', 'admin'] },
   { label: 'Firms', href: '/dashboard/firms', icon: Building2, roles: ['super_admin'] },
   { label: 'Subscriptions', href: '/dashboard/subscriptions', icon: CreditCard, roles: ['super_admin'] },

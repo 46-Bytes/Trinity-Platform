@@ -14,12 +14,14 @@ from ..schemas.ai_field_privacy import (
     AIFieldPrivacyItemDetail,
     AIFieldPrivacyResponse,
 )
-from ..utils.auth import get_current_user
+from ..utils.auth import get_current_user, deny_buyers
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/ai-field-privacy", tags=["ai-field-privacy"])
-
+router = APIRouter(prefix="/api/ai-field-privacy", tags=["ai-field-privacy"],
+    # Buyers are external parties confined to their own portal.
+    dependencies=[Depends(deny_buyers)],
+)
 ALLOWED_TYPES = {"sale_ready", "value_builder"}
 
 

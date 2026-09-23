@@ -19,8 +19,14 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 // Map backend user shape to frontend User type
 function mapBackendUserToFrontend(backendUser: any): User {
-  // Use role from backend, default to 'advisor' if not present
-  const role = (backendUser.role || 'advisor') as UserRole;
+  // Never default to a privileged role. A missing or unrecognised role used to
+  // become 'advisor', which would have shown a buyer the advisor shell; an
+  // unknown role now stays unknown and every role-gated control stays hidden.
+  const KNOWN_ROLES: UserRole[] = [
+    'super_admin', 'admin', 'advisor', 'client', 'firm_admin', 'firm_advisor', 'buyer',
+  ];
+  const raw = backendUser.role as UserRole | undefined;
+  const role = (raw && KNOWN_ROLES.includes(raw) ? raw : undefined) as UserRole;
   
   return {
     id: backendUser.id,

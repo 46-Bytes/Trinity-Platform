@@ -31,12 +31,14 @@ from app.schemas.program_deliverable import (
     DeliverableView,
     TaskGenerationResult,
 )
-from app.utils.auth import get_current_user
+from app.utils.auth import get_current_user, deny_buyers
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/deliverables", tags=["deliverables"])
-
+router = APIRouter(prefix="/deliverables", tags=["deliverables"],
+    # Buyers are external parties confined to their own portal.
+    dependencies=[Depends(deny_buyers)],
+)
 _INVALID_REQUEST = "Invalid request data"
 _NOT_FOUND = "Deliverable not found"
 

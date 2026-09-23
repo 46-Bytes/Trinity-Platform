@@ -16,6 +16,8 @@ import programGuideReducer from './slices/programGuideReducer';
 import deliverablesReducer from './slices/deliverablesReducer';
 import saleReadyReducer from './slices/saleReadyReducer';
 import saleReadyAdminReducer from './slices/saleReadyAdminReducer';
+import buyerReducer from './slices/buyerReducer';
+import buyerAdminReducer from './slices/buyerAdminReducer';
 import rolesMatrixReducer from './slices/rolesMatrixReducer';
 import pdScorecardReducer from './slices/pdScorecardReducer';
 import helpReducer from './slices/helpReducer';
@@ -41,6 +43,8 @@ export const store = configureStore({
     deliverables: deliverablesReducer,
     saleReady: saleReadyReducer,
     saleReadyAdmin: saleReadyAdminReducer,
+    buyer: buyerReducer,
+    buyerAdmin: buyerAdminReducer,
     rolesMatrix: rolesMatrixReducer,
     pdScorecard: pdScorecardReducer,
     help: helpReducer,

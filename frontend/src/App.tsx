@@ -40,12 +40,32 @@ import StrategyWorkbookPage from "./pages/dashboard/StrategyWorkbookPage";
 import StrategicBusinessPlanPage from "./pages/dashboard/StrategicBusinessPlanPage";
 import AIPrivacyPage from "./pages/dashboard/AIPrivacyPage";
 import SaleReadyManagementPage from "./pages/dashboard/sale-ready/SaleReadyManagementPage";
+import BuyerDocumentsPage from "./pages/dashboard/buyer/BuyerDocumentsPage";
 import RolesMatrixPage from "./pages/dashboard/RolesMatrixPage";
 import PDScorecardPage from "./pages/dashboard/PDScorecardPage";
 import HelpPage from "./pages/dashboard/help/HelpPage";
 import HelpManagePage from "./pages/dashboard/help/HelpManagePage";
 
 const queryClient = new QueryClient();
+
+/** A buyer has no dashboard - send them to the data room they were invited to. */
+function DashboardIndex() {
+  const { user } = useAuth();
+  if (user?.role === 'buyer') return <Navigate to="/dashboard/documents" replace />;
+  return <DashboardHome />;
+}
+
+/**
+ * /dashboard/documents serves two audiences.
+ *
+ * Declaring it twice let React Router match the first and silently send buyers
+ * to the existing page, so the single route dispatches on role instead. Every
+ * other role keeps DocumentsPage exactly as before.
+ */
+function DocumentsRoute() {
+  const { user } = useAuth();
+  return user?.role === 'buyer' ? <BuyerDocumentsPage /> : <DocumentsPage />;
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -75,7 +95,7 @@ function AppRoutes() {
           <DashboardLayout />
         </ProtectedRoute>
       }>
-        <Route index element={<DashboardHome />} />
+        <Route index element={<DashboardIndex />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="users/:id" element={<UserDetailPage />} />
         <Route path="clients" element={<ClientsPage />} />
@@ -93,7 +113,7 @@ function AppRoutes() {
         <Route path="ai-tools/roles-matrix" element={<RolesMatrixPage />} />
         <Route path="ai-tools/pd-scorecard" element={<PDScorecardPage />} />
         <Route path="tasks" element={<TasksPage />} />
-        <Route path="documents" element={<DocumentsPage />} />
+        <Route path="documents" element={<DocumentsRoute />} />
         <Route path="ai-tools" element={<AIToolsPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="help" element={<HelpPage />} />

@@ -16,15 +16,16 @@ from ..schemas.chat import (
     ConversationListResponse
 )
 from ..services.chat_service import get_chat_service
-from ..utils.auth import get_current_user
+from ..utils.auth import get_current_user, deny_buyers
 
 import logging
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/chat", tags=["chat"])
-
-
+router = APIRouter(prefix="/api/chat", tags=["chat"],
+    # Buyers are external parties confined to their own portal.
+    dependencies=[Depends(deny_buyers)],
+)
 @router.get("/conversations", response_model=ConversationListResponse)
 async def list_conversations(
     db: Session = Depends(get_db),

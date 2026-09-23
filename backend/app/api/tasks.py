@@ -24,7 +24,7 @@ from ..schemas.task import (
     BulkTaskCreate,
 )
 from ..models.diagnostic import Diagnostic
-from ..utils.auth import get_current_user
+from ..utils.auth import get_current_user, deny_buyers
 from ..services.role_check import check_engagement_access
 from ..services.engagement_status import TASK_HIDDEN_STATUSES
 from ..services.program_deliverable_service import get_program_deliverable_service
@@ -32,9 +32,10 @@ from .note import check_note_visibility
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/tasks", tags=["tasks"])
-
-
+router = APIRouter(prefix="/api/tasks", tags=["tasks"],
+    # Buyers are external parties confined to their own portal.
+    dependencies=[Depends(deny_buyers)],
+)
 @router.post("", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
 async def create_task(
     task_data: TaskCreate,

@@ -17,12 +17,13 @@ from ..schemas.note import (
     NoteResponse,
     NoteListItem,
 )
-from ..utils.auth import get_current_user
+from ..utils.auth import get_current_user, deny_buyers
 from ..services.role_check import check_engagement_access
 
-router = APIRouter(prefix="/api/notes", tags=["notes"])
-
-
+router = APIRouter(prefix="/api/notes", tags=["notes"],
+    # Buyers are external parties confined to their own portal.
+    dependencies=[Depends(deny_buyers)],
+)
 def check_note_visibility(note: Note, user: User) -> bool:
     """
     Check if user can view a note based on visibility settings.

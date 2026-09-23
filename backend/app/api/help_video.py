@@ -24,11 +24,13 @@ from ..schemas.help_video import (
     VideoResponse,
     ReorderRequest,
 )
-from ..utils.auth import get_current_user, require_role
+from ..utils.auth import get_current_user, require_role, deny_buyers
 from ..utils.youtube import extract_youtube_id
 
-router = APIRouter(prefix="/api/help", tags=["help"])
-
+router = APIRouter(prefix="/api/help", tags=["help"],
+    # Buyers are external parties confined to their own portal.
+    dependencies=[Depends(deny_buyers)],
+)
 # Only super_admin and admin may manage help content.
 admin_required = require_role([UserRole.SUPER_ADMIN, UserRole.ADMIN])
 

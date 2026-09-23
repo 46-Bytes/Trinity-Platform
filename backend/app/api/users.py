@@ -26,7 +26,7 @@ from ..models.bba import BBA
 from ..models.strategy_workbook import StrategyWorkbook
 from ..models.strategic_business_plan import StrategicBusinessPlan
 from ..schemas.user import UserResponse, UserUpdate, UserDetailResponse, UserFileResponse, UserDiagnosticResponse, PaginatedUsersResponse
-from ..utils.auth import get_current_user
+from ..utils.auth import get_current_user, deny_buyers
 from ..services.auth_service import AuthService
 from ..services.audit_service import AuditService
 from ..services.auth0_management import Auth0Management
@@ -38,9 +38,10 @@ logger = logging.getLogger(__name__)
 from datetime import datetime, timedelta, timezone
 from jose import jwt
 
-router = APIRouter(prefix="/api/users", tags=["users"])
-
-
+router = APIRouter(prefix="/api/users", tags=["users"],
+    # Buyers are external parties confined to their own portal.
+    dependencies=[Depends(deny_buyers)],
+)
 @router.get("", response_model=PaginatedUsersResponse)
 async def list_users(
     db: Session = Depends(get_db),
@@ -210,6 +211,19 @@ async def create_user(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid role: {user_data.role}. Must be one of: client, advisor, admin, super_admin, firm_admin, firm_advisor"
+        )
+
+    # Buyers are not created here. A buyer only means anything alongside the
+    # engagement they were invited to - one created loose would be an account
+    # that can sign in and reach nothing. The role check above tests the enum,
+    # so adding BUYER to it would otherwise have opened this path by accident.
+    if role_enum == UserRole.BUYER:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Buyers are invited from the engagement they will see, at "
+                "POST /api/engagements/{engagement_id}/buyers, not created here."
+            )
         )
     
     # Check if an active (non-deleted) user with this email already exists

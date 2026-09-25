@@ -15,6 +15,7 @@ import pytest
 from sqlalchemy import text
 
 from app.models.buyer import BuyerAccessLog, EngagementBuyer, EngagementReleasedFolder
+from app.models.sale_ready import EngagementDDItem
 from app.models.engagement import Engagement
 from app.models.user import User, UserRole
 
@@ -497,3 +498,196 @@ class TestDocumentsAreServedNotLinked:
             assert "/files/" not in body
             assert "drive.google" not in body
             assert "file_path" not in body
+
+
+# ======================================================================
+# Activity shown to the advisor
+# ======================================================================
+class TestBuyerActivity:
+    """
+    Last access, opens and the "invited" label are derived from the access log
+    on read. Nothing about them is stored, so `status` must stay two-valued.
+    """
+
+    def _row(self, api, advisor, engagement, user):
+        body = api.as_user(advisor).get(f"{ENG}/{engagement.id}/buyers").json()
+        return next(b for b in body if b["user_id"] == str(user.id))
+
+    def test_a_buyer_who_has_never_looked_reads_as_invited(self, api, advisor, buyer, engagement):
+        user, _ = buyer
+        row = self._row(api, advisor, engagement, user)
+        assert row["status"] == "active"
+        assert row["display_status"] == "invited"
+        assert row["last_access_at"] is None and row["open_count"] == 0
+
+    def test_a_visit_makes_them_active_and_sets_last_access(
+        self, api, db_session, advisor, buyer, engagement
+    ):
+        user, _ = buyer
+        api.as_user(user).get(f"{PORTAL}/me/engagement")
+        db_session.expire_all()
+        row = self._row(api, advisor, engagement, user)
+        assert row["display_status"] == "active"
+        assert row["last_access_at"] is not None
+
+    def test_listing_is_a_visit_but_not_an_open(
+        self, api, db_session, advisor, buyer, engagement
+    ):
+        """A folder listing counts as access; only a view or download is an open."""
+        user, _ = buyer
+        client = api.as_user(user)
+        client.get(f"{PORTAL}/me/engagement")
+        client.get(f"{PORTAL}/me/folders")
+        db_session.expire_all()
+        row = self._row(api, advisor, engagement, user)
+        assert row["last_access_at"] is not None
+        assert row["open_count"] == 0
+
+    def test_opening_a_folder_counts_as_an_open(
+        self, api, db_session, advisor, buyer, engagement
+    ):
+        user, _ = buyer
+        _release(db_session, engagement, "3", "3.1")
+        client = api.as_user(user)
+        client.get(f"{PORTAL}/me/folders/3/3.1")
+        client.get(f"{PORTAL}/me/folders/3/3.1")
+        db_session.expire_all()
+        row = self._row(api, advisor, engagement, user)
+        assert row["open_count"] == 2
+
+    def test_revoked_keeps_its_own_label(self, api, db_session, advisor, buyer, engagement):
+        user, row = buyer
+        api.as_user(user).get(f"{PORTAL}/me/engagement")
+        api.as_user(advisor).post(f"{ENG}/{engagement.id}/buyers/{row.id}/revoke")
+        db_session.expire_all()
+        got = self._row(api, advisor, engagement, user)
+        assert got["status"] == "revoked" and got["display_status"] == "revoked"
+
+    def test_a_revoked_buyer_keeps_the_activity_they_had(
+        self, api, db_session, advisor, buyer, engagement
+    ):
+        """Revoking is a soft delete; the log survives, so the counts must too."""
+        user, row = buyer
+        _release(db_session, engagement, "3", "3.1")
+        api.as_user(user).get(f"{PORTAL}/me/folders/3/3.1")
+        api.as_user(advisor).post(f"{ENG}/{engagement.id}/buyers/{row.id}/revoke")
+        db_session.expire_all()
+        got = self._row(api, advisor, engagement, user)
+        assert got["open_count"] == 1 and got["last_access_at"] is not None
+
+    def test_a_mutation_response_carries_the_same_activity_as_the_list(
+        self, api, db_session, advisor, buyer, engagement
+    ):
+        """The panel upserts this row into its list, so the shapes have to agree."""
+        user, row = buyer
+        _release(db_session, engagement, "3", "3.1")
+        api.as_user(user).get(f"{PORTAL}/me/folders/3/3.1")
+        db_session.expire_all()
+        patched = api.as_user(advisor).patch(
+            f"{ENG}/{engagement.id}/buyers/{row.id}", json={"nda_signed_date": "2026-09-01"}
+        ).json()
+        listed = self._row(api, advisor, engagement, user)
+        assert patched["open_count"] == listed["open_count"] == 1
+        assert patched["display_status"] == listed["display_status"] == "active"
+
+    def test_another_engagements_activity_is_not_counted(
+        self, api, db_session, advisor, buyer, engagement, make_user
+    ):
+        """A log row on a different engagement must never inflate this one."""
+        user, _ = buyer
+        other = Engagement(engagement_name="other", primary_advisor_id=advisor.id,
+                           client_id=advisor.id, client_ids=[advisor.id],
+                           tool="sale_ready", status="active")
+        db_session.add(other)
+        db_session.flush()
+        db_session.add(BuyerAccessLog(engagement_id=other.id, user_id=user.id, action="view"))
+        db_session.flush()
+        row = self._row(api, advisor, engagement, user)
+        assert row["open_count"] == 0 and row["display_status"] == "invited"
+
+
+# ======================================================================
+# What the buyer's folder list actually contains
+# ======================================================================
+def _dd_item(db_session, engagement, cat="3", cat_name="Financial Documentation",
+             sub="3.1", sub_name="Historical Financial Statements", key="DD-001"):
+    """A DD item on this engagement. template_item_id is NOT NULL, so borrow any template."""
+    template_id = db_session.execute(
+        text("SELECT id FROM program_dd_template LIMIT 1")
+    ).scalar()
+    if template_id is None:
+        pytest.skip("program_dd_template is not seeded")
+    row = EngagementDDItem(
+        engagement_id=engagement.id, template_item_id=template_id, item_key=key,
+        stage_code="M1", category_code=cat, category=cat_name,
+        sub_item_code=sub, sub_item=sub_name,
+    )
+    db_session.add(row)
+    db_session.flush()
+    return row
+
+
+class TestTheBuyerFolderPayload:
+    """
+    A buyer gets folder names and none of the advisor's release metadata. The
+    names come from the engagement's own DD items, which is where the folder
+    structure comes from, so the two can never disagree.
+    """
+
+    def test_folders_are_named_not_bare_codes(self, api, db_session, buyer, engagement):
+        user, _ = buyer
+        _dd_item(db_session, engagement)
+        _release(db_session, engagement, "3", "3.1")
+        folder = api.as_user(user).get(f"{PORTAL}/me/folders").json()[0]
+        assert folder["sub_item"] == "Historical Financial Statements"
+        assert folder["category"] == "Financial Documentation"
+
+    def test_advisor_metadata_is_not_sent_to_the_buyer(self, api, db_session, buyer, engagement):
+        user, _ = buyer
+        _dd_item(db_session, engagement)
+        _release(db_session, engagement, "3", "3.1")
+        folder = api.as_user(user).get(f"{PORTAL}/me/folders").json()[0]
+        assert "released_by_user_id" not in folder
+        assert "released_at" not in folder
+
+    def test_the_advisor_still_gets_the_release_metadata(
+        self, api, db_session, advisor, engagement
+    ):
+        """Slimming the buyer payload must not slim the advisor's."""
+        _release(db_session, engagement, "3", "3.1")
+        folder = api.as_user(advisor).get(f"{ENG}/{engagement.id}/released-folders").json()[0]
+        assert "released_at" in folder and "released_by_user_id" in folder
+
+    def test_a_folder_with_no_dd_item_still_lists(self, api, db_session, buyer, engagement):
+        """Names are a courtesy; a released folder is never hidden for want of one."""
+        user, _ = buyer
+        _release(db_session, engagement, "9", "9.9")
+        folder = api.as_user(user).get(f"{PORTAL}/me/folders").json()[0]
+        assert folder["sub_item_code"] == "9.9" and folder["sub_item"] is None
+
+    def test_the_folder_detail_is_named_too(self, api, db_session, buyer, engagement):
+        user, _ = buyer
+        _dd_item(db_session, engagement)
+        _release(db_session, engagement, "3", "3.1")
+        body = api.as_user(user).get(f"{PORTAL}/me/folders/3/3.1").json()
+        assert body["sub_item"] == "Historical Financial Statements"
+        assert body["documents"] == []
+
+    def test_names_come_from_this_engagement_only(
+        self, api, db_session, buyer, engagement, other_engagement
+    ):
+        """Another engagement's DD item must not name this engagement's folder."""
+        user, _ = buyer
+        _dd_item(db_session, other_engagement, sub_name="Someone else's label")
+        _release(db_session, engagement, "3", "3.1")
+        folder = api.as_user(user).get(f"{PORTAL}/me/folders").json()[0]
+        assert folder["sub_item"] is None
+
+    def test_an_unreleased_folder_is_still_invisible_however_it_is_named(
+        self, api, db_session, buyer, engagement
+    ):
+        """Naming must not widen what is listed."""
+        user, _ = buyer
+        _dd_item(db_session, engagement)
+        assert api.as_user(user).get(f"{PORTAL}/me/folders").json() == []
+        assert api.as_user(user).get(f"{PORTAL}/me/folders/3/3.1").status_code == 404

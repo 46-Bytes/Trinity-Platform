@@ -19,15 +19,17 @@ Nothing in this module widens check_engagement_access. A buyer's engagement is
 resolved forward from their binding, never from a path parameter they supply.
 """
 import logging
-from datetime import date
-from typing import Any, Dict, List, Optional
+from datetime import date, datetime
+from typing import Any, Dict, List, NamedTuple, Optional
 from uuid import UUID
 
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.models.buyer import BuyerAccessLog, EngagementBuyer, EngagementReleasedFolder
 from app.models.engagement import Engagement
 from app.models.media import Media
+from app.models.sale_ready import EngagementDDItem
 from app.models.user import User, UserRole
 from app.services import buyer_rules as rules
 from app.services.auth_service import AuthService
@@ -54,6 +56,16 @@ class DataRoomNotConnected(NotImplementedError):
     caller has to decide what to do about this exception, and the compiler of
     last resort - a 500 - is still safer than a silent allow.
     """
+
+
+# An "open" is a document being opened; a folder listing is not one.
+OPEN_ACTIONS = (rules.ACTION_VIEW, rules.ACTION_DOWNLOAD)
+
+
+class Activity(NamedTuple):
+    """What the access log says about one buyer on one engagement."""
+    last_access_at: Optional[datetime]
+    open_count: int
 
 
 def _display_name(user: Optional[User]) -> Optional[str]:
@@ -93,7 +105,31 @@ class BuyerService:
             EngagementBuyer.is_deleted == False,  # noqa: E712
         ).first()
 
-    def _as_dict(self, row: EngagementBuyer, user: Optional[User]) -> Dict[str, Any]:
+    def _activity(self, engagement_id: UUID, user_ids: List[UUID]) -> Dict[UUID, "Activity"]:
+        """
+        Last access and open count per buyer, from the access log.
+
+        Last access counts any action, so listing the data room reads as a
+        visit. Opens counts only 'view' and 'download', because an open means a
+        document was opened, not that the folder list loaded. Scoped to the
+        engagement, so a buyer invited elsewhere later never carries another
+        sale's activity onto this one.
+        """
+        if not user_ids:
+            return {}
+        rows = self.db.query(
+            BuyerAccessLog.user_id,
+            func.max(BuyerAccessLog.created_at),
+            func.count(case((BuyerAccessLog.action.in_(OPEN_ACTIONS), 1))),
+        ).filter(
+            BuyerAccessLog.engagement_id == engagement_id,
+            BuyerAccessLog.user_id.in_(user_ids),
+        ).group_by(BuyerAccessLog.user_id).all()
+        return {r[0]: Activity(r[1], int(r[2] or 0)) for r in rows}
+
+    def _as_dict(self, row: EngagementBuyer, user: Optional[User],
+                 activity: Optional["Activity"] = None) -> Dict[str, Any]:
+        seen = activity.last_access_at if activity else None
         return {
             "id": row.id,
             "engagement_id": row.engagement_id,
@@ -101,11 +137,26 @@ class BuyerService:
             "email": user.email if user else None,
             "name": _display_name(user),
             "status": row.status,
+            # Presentation only. `status` stays the stored two-state value, so
+            # the partial unique index and every access rule are untouched: a
+            # buyer granted access who has never opened it reads as "invited".
+            "display_status": (
+                rules.DISPLAY_STATUS_INVITED
+                if row.status == rules.BUYER_STATUS_ACTIVE and seen is None
+                else row.status
+            ),
+            "last_access_at": seen,
+            "open_count": activity.open_count if activity else 0,
             "nda_signed_date": row.nda_signed_date,
             "invited_by_user_id": row.invited_by_user_id,
             "created_at": row.created_at,
             "updated_at": row.updated_at,
         }
+
+    def _one(self, row: EngagementBuyer, user: Optional[User]) -> Dict[str, Any]:
+        """One buyer with its activity, so a mutation response matches the list rows."""
+        found = self._activity(row.engagement_id, [row.user_id])
+        return self._as_dict(row, user, found.get(row.user_id))
 
     def list_buyers(self, engagement: Engagement) -> List[Dict[str, Any]]:
         rows = self.db.query(EngagementBuyer).filter(
@@ -117,7 +168,8 @@ class BuyerService:
         users = {
             u.id: u for u in self.db.query(User).filter(User.id.in_([r.user_id for r in rows])).all()
         }
-        return [self._as_dict(r, users.get(r.user_id)) for r in rows]
+        activity = self._activity(engagement.id, [r.user_id for r in rows])
+        return [self._as_dict(r, users.get(r.user_id), activity.get(r.user_id)) for r in rows]
 
     # ------------------------------------------------------------------
     # Invite
@@ -186,7 +238,7 @@ class BuyerService:
         self.db.commit()
         self.db.refresh(row)
         logger.info("Buyer %s invited to engagement %s by %s", user.id, engagement.id, inviter.id)
-        return self._as_dict(row, user)
+        return self._one(row, user)
 
     # ------------------------------------------------------------------
     # Revoke / restore
@@ -203,13 +255,13 @@ class BuyerService:
         self.db.commit()
         self.db.refresh(row)
         logger.info("Buyer %s revoked on engagement %s", row.user_id, engagement.id)
-        return self._as_dict(row, self.db.query(User).filter(User.id == row.user_id).first())
+        return self._one(row, self.db.query(User).filter(User.id == row.user_id).first())
 
     def restore(self, engagement: Engagement, binding_id: UUID) -> Dict[str, Any]:
         """Re-grant a revoked buyer. Same row, so the history stays attached."""
         row = self._binding_or_404(engagement.id, binding_id)
         if rules.is_live(row.status, row.is_deleted):
-            return self._as_dict(row, self.db.query(User).filter(User.id == row.user_id).first())
+            return self._one(row, self.db.query(User).filter(User.id == row.user_id).first())
         clash = self.live_binding_for_user(row.user_id)
         if clash is not None:
             raise BuyerConflict(
@@ -220,7 +272,7 @@ class BuyerService:
         self.db.commit()
         self.db.refresh(row)
         logger.info("Buyer %s restored on engagement %s", row.user_id, engagement.id)
-        return self._as_dict(row, self.db.query(User).filter(User.id == row.user_id).first())
+        return self._one(row, self.db.query(User).filter(User.id == row.user_id).first())
 
     def update(self, engagement: Engagement, binding_id: UUID, fields: Dict[str, Any]) -> Dict[str, Any]:
         """Record-only fields. The NDA date does not gate access."""
@@ -229,7 +281,7 @@ class BuyerService:
             row.nda_signed_date = fields["nda_signed_date"]
         self.db.commit()
         self.db.refresh(row)
-        return self._as_dict(row, self.db.query(User).filter(User.id == row.user_id).first())
+        return self._one(row, self.db.query(User).filter(User.id == row.user_id).first())
 
     # ------------------------------------------------------------------
     # Released folders
@@ -245,6 +297,51 @@ class BuyerService:
              "released_at": r.released_at, "released_by_user_id": r.released_by_user_id}
             for r in rows
         ]
+
+    def _folder_names(self, engagement_id: UUID) -> Dict[tuple, Dict[str, Optional[str]]]:
+        """
+        Folder names keyed by (category_code, sub_item_code).
+
+        Taken from the engagement's own due diligence items, which is where the
+        folder structure comes from in the first place. One name per code pair.
+        """
+        rows = self.db.query(
+            EngagementDDItem.category_code,
+            EngagementDDItem.category,
+            EngagementDDItem.sub_item_code,
+            EngagementDDItem.sub_item,
+        ).filter(EngagementDDItem.engagement_id == engagement_id).distinct().all()
+        return {
+            (r.category_code, r.sub_item_code): {"category": r.category, "sub_item": r.sub_item}
+            for r in rows
+        }
+
+    def buyer_folders(self, engagement: Engagement) -> List[Dict[str, Any]]:
+        """
+        The released folders as a buyer sees them: named, and without the
+        advisor metadata.
+
+        Built on list_released_folders rather than repeating its filter, so
+        there is exactly one rule for what "released" means and the advisor's
+        view and the buyer's can never drift apart.
+        """
+        names = self._folder_names(engagement.id)
+        return [
+            {
+                "category_code": f["category_code"],
+                "sub_item_code": f["sub_item_code"],
+                **names.get((f["category_code"], f["sub_item_code"]),
+                            {"category": None, "sub_item": None}),
+            }
+            for f in self.list_released_folders(engagement)
+        ]
+
+    def folder_name(self, engagement_id: UUID, category_code: str,
+                    sub_item_code: str) -> Dict[str, Optional[str]]:
+        """One folder's names, or empty ones when the engagement has no DD items."""
+        return self._folder_names(engagement_id).get(
+            (category_code, sub_item_code), {"category": None, "sub_item": None}
+        )
 
     def set_released_folders(self, engagement: Engagement, folders: List[Dict[str, str]],
                              actor: User) -> List[Dict[str, Any]]:

@@ -36,6 +36,7 @@ from app.schemas.buyer import (
     BuyerUpdate,
     BuyerView,
     ReleasedFolderUpdate,
+    BuyerFolder,
     ReleasedFolderView,
 )
 from app.services import buyer_rules as rules
@@ -241,7 +242,7 @@ async def my_engagement(
     }
 
 
-@buyer_router.get("/me/folders", response_model=List[ReleasedFolderView])
+@buyer_router.get("/me/folders", response_model=List[BuyerFolder])
 async def my_folders(
     db: Session = Depends(get_db),
     binding: EngagementBuyer = Depends(require_buyer_engagement),
@@ -250,7 +251,7 @@ async def my_folders(
     """Only the folders the advisor has released. Nothing else is listed."""
     service = get_buyer_service(db)
     engagement = db.query(Engagement).filter(Engagement.id == binding.engagement_id).first()
-    folders = service.list_released_folders(engagement)
+    folders = service.buyer_folders(engagement)
     service.log(binding.engagement_id, current_user, rules.ACTION_LIST, detail="folders")
     return folders
 
@@ -283,6 +284,7 @@ async def my_folder(
     return {
         "category_code": category_code,
         "sub_item_code": sub_item_code,
+        **service.folder_name(binding.engagement_id, category_code, sub_item_code),
         "documents": [
             {"id": m.id, "file_name": m.file_name, "file_size": m.file_size,
              "file_type": m.file_type, "created_at": m.created_at}

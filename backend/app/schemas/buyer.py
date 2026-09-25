@@ -27,7 +27,16 @@ class BuyerView(BaseModel):
     user_id: UUID
     email: Optional[str] = None
     name: Optional[str] = None
-    status: str = Field(..., description="'active' or 'revoked'")
+    status: str = Field(..., description="'active' or 'revoked'; the stored value")
+    display_status: str = Field(
+        "active",
+        description="'active', 'invited' or 'revoked'. Derived for display: an active "
+                    "buyer who has never opened the data room reads as 'invited'.",
+    )
+    last_access_at: Optional[datetime] = Field(
+        None, description="Most recent access of any kind, from the access log")
+    open_count: int = Field(
+        0, description="Documents viewed or downloaded; folder listings do not count")
     nda_signed_date: Optional[date] = None
     invited_by_user_id: Optional[UUID] = None
     created_at: Optional[datetime] = None
@@ -81,7 +90,21 @@ class BuyerDocument(BaseModel):
     created_at: Optional[datetime] = None
 
 
-class BuyerFolderView(BaseModel):
+class BuyerFolder(BaseModel):
+    """
+    A released folder as the buyer sees it.
+
+    Deliberately narrower than ReleasedFolderView, which is the advisor's: no
+    released_at and no released_by_user_id, because when a folder was released
+    and by whom is the advisor's business, not the buyer's. The names come from
+    the engagement's own due diligence items, so a buyer reads
+    "3.1 Historical Financial Statements" rather than a bare code.
+    """
     category_code: str
+    category: Optional[str] = None
     sub_item_code: str
+    sub_item: Optional[str] = None
+
+
+class BuyerFolderView(BuyerFolder):
     documents: List[BuyerDocument] = Field(default_factory=list)

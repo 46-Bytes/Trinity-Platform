@@ -96,8 +96,17 @@ export default function BuyerDocumentsPage() {
                 <span className="font-mono text-xs text-muted-foreground">
                   {folder.sub_item_code}
                 </span>
-                <span className="flex-1 font-medium">Category {folder.category_code}</span>
-                <span className="text-xs text-muted-foreground">Empty</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">
+                    {folder.sub_item ?? `Folder ${folder.sub_item_code}`}
+                  </span>
+                  {folder.category && (
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {folder.category_code}. {folder.category}
+                    </span>
+                  )}
+                </span>
+                <span className="flex-shrink-0 text-xs text-muted-foreground">Empty</span>
               </li>
             ))}
           </ul>

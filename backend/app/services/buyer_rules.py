@@ -13,6 +13,11 @@ BUYER_STATUS_ACTIVE = "active"
 BUYER_STATUS_REVOKED = "revoked"
 BUYER_STATUSES: FrozenSet[str] = frozenset({BUYER_STATUS_ACTIVE, BUYER_STATUS_REVOKED})
 
+# Shown instead of "active" for a buyer who has been granted access but has
+# never opened the data room. Derived on read from the access log and never
+# stored: the two values above remain the only statuses a row can hold.
+DISPLAY_STATUS_INVITED = "invited"
+
 ACTION_LIST = "list"
 ACTION_VIEW = "view"
 ACTION_DOWNLOAD = "download"

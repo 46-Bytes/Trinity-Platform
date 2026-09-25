@@ -18,10 +18,12 @@ export interface BuyerEngagement {
   released_folder_count: number;
 }
 
+/** A released folder. Names come from the engagement's DD items; no advisor metadata. */
 export interface BuyerFolder {
   category_code: string;
+  category: string | null;
   sub_item_code: string;
-  released_at: string | null;
+  sub_item: string | null;
 }
 
 interface BuyerState {

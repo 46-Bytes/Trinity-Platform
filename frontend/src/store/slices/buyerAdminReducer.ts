@@ -17,7 +17,14 @@ export interface EngagementBuyer {
   user_id: string;
   email: string | null;
   name: string | null;
+  /** The stored value. Only ever 'active' or 'revoked'. */
   status: 'active' | 'revoked';
+  /** Derived for display: an active buyer who has never looked reads as 'invited'. */
+  display_status?: 'active' | 'invited' | 'revoked';
+  /** Most recent access of any kind; null when they have never opened the data room. */
+  last_access_at?: string | null;
+  /** Documents viewed or downloaded. Folder listings do not count. */
+  open_count?: number;
   nda_signed_date: string | null;
   invited_by_user_id: string | null;
   created_at: string | null;

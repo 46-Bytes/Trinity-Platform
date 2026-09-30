@@ -13,7 +13,7 @@ failures say nothing useful.
 """
 import asyncio
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import uuid4
 from io import BytesIO
 
@@ -114,6 +114,16 @@ class FakeDrive:
 
     def list_changes(self, page_token):
         return [], None, "token-2"
+
+
+@pytest.fixture(autouse=True)
+def _fresh_provision_backoff():
+    """The backoff record lives in the process; no test may inherit another test's failures."""
+    from app.services.drive_folder_service import reset_provision_backoff
+
+    reset_provision_backoff()
+    yield
+    reset_provision_backoff()
 
 
 @pytest.fixture
@@ -2025,7 +2035,8 @@ class TestProvisioning:
         result = drive_folder_service.provision_pending(db_session, limit=5)
 
         # Per engagement: data room root, one category, one sub-item.
-        assert result == {"provisioned": 5, "pending": 7, "folders_created": 5 * 3}
+        assert result == {"provisioned": 5, "pending": 7, "folders_created": 5 * 3,
+                          "failed": [], "backing_off": 0}
         assert [_mapped(db_session, e)["sub_items"] for e in engagements] == [1, 1, 1, 1, 1, 0, 0]
 
     def test_throttling_ends_the_pass_and_is_raised(
@@ -2070,6 +2081,172 @@ class TestProvisioning:
         result = drive_folder_service.provision_pending(db_session)
         assert result["provisioned"] == 1
         assert _mapped(db_session, other)["sub_items"] == 1
+
+
+# ======================================================================
+# The provisioning queue: failures back off instead of blocking (audit C1)
+# ======================================================================
+def _queue(db_session, advisor, n, created=None):
+    """n Sale Ready engagements with one DD folder each, oldest first."""
+    base = created or datetime(2001, 1, 1)
+    out = []
+    for i in range(n):
+        eng = Engagement(engagement_name=f"Queue {i}", business_name=f"Queue {i}",
+                         primary_advisor_id=advisor.id, tool="sale_ready", status="active",
+                         created_at=base + timedelta(days=i))
+        db_session.add(eng)
+        db_session.flush()
+        _dd(db_session, eng, key=f"DD-Q{i}")
+        out.append(eng)
+    db_session.commit()  # failures roll back to here, not to an empty session
+    return out
+
+
+class TestProvisioningQueue:
+    T0 = datetime(2026, 10, 1, 9, 0, 0)
+
+    @pytest.fixture
+    def queue(self, db_session, fake_drive, engagement, advisor, monkeypatch):
+        from app.services import drive_folder_service
+
+        engagements = _queue(db_session, advisor, 6)
+        monkeypatch.setattr(
+            drive_folder_service, "pending_engagements",
+            lambda db: [e for e in engagements if _mapped(db_session, e)["sub_items"] == 0],
+        )
+        return engagements
+
+    def _failing_for(self, monkeypatch, bad_ids, exc_factory):
+        from app.services import drive_folder_service
+
+        real = drive_folder_service.DriveFolderService.provision_tree
+        attempts = []
+
+        def provision(self, eng, client=None):
+            attempts.append(eng.id)
+            if eng.id in bad_ids:
+                raise exc_factory()
+            return real(self, eng, client=client)
+        monkeypatch.setattr(drive_folder_service.DriveFolderService, "provision_tree", provision)
+        return attempts
+
+    def test_a_failing_old_engagement_does_not_block_newer_ones(self, db_session, queue, monkeypatch):
+        from app.services.drive_folder_service import provision_pending
+
+        oldest = queue[0]
+        attempts = self._failing_for(monkeypatch, {oldest.id}, lambda: ValueError("broken"))
+
+        first = provision_pending(db_session, limit=5, now=self.T0)
+        assert first["provisioned"] == 4 and first["failed"] == [str(oldest.id)]
+
+        # Next pass: the failing engagement is backing off and takes no slot.
+        attempts.clear()
+        second = provision_pending(db_session, limit=5, now=self.T0 + timedelta(seconds=1))
+        assert attempts == [queue[5].id]
+        assert second["provisioned"] == 1 and second["backing_off"] == 1
+        assert _mapped(db_session, queue[5])["sub_items"] == 1
+
+    def test_backoff_expires_and_the_engagement_is_retried(self, db_session, queue, monkeypatch):
+        from app.services.drive_folder_service import provision_backoff_seconds, provision_pending
+
+        oldest = queue[0]
+        attempts = self._failing_for(monkeypatch, {oldest.id}, lambda: ValueError("broken"))
+        provision_pending(db_session, limit=1, now=self.T0)
+        wait = provision_backoff_seconds(1)
+
+        attempts.clear()
+        provision_pending(db_session, limit=1, now=self.T0 + timedelta(seconds=wait - 1))
+        assert oldest.id not in attempts
+
+        attempts.clear()
+        provision_pending(db_session, limit=1, now=self.T0 + timedelta(seconds=wait + 1))
+        assert attempts == [oldest.id]
+
+    def test_a_success_clears_the_failure_record(self, db_session, queue, monkeypatch):
+        from app.services import drive_folder_service as dfs
+
+        oldest = queue[0]
+        bad = {oldest.id}
+        attempts = self._failing_for(monkeypatch, bad, lambda: ValueError("broken"))
+        dfs.provision_pending(db_session, limit=1, now=self.T0)
+        assert dfs._is_backing_off(oldest.id, self.T0)
+
+        bad.clear()  # fixed; retried once the wait is over
+        later = self.T0 + timedelta(seconds=dfs.provision_backoff_seconds(1) + 1)
+        result = dfs.provision_pending(db_session, limit=1, now=later)
+        assert result["provisioned"] == 1 and attempts[-1] == oldest.id
+        assert oldest.id not in dfs._provision_failures
+
+    def test_a_missing_folder_skips_one_engagement_not_the_pass(self, db_session, queue, monkeypatch):
+        from app.services.drive_client import DriveNotFound
+        from app.services.drive_folder_service import provision_pending
+
+        oldest = queue[0]
+        self._failing_for(monkeypatch, {oldest.id},
+                          lambda: DriveNotFound("That file or folder no longer exists in Drive."))
+        result = provision_pending(db_session, limit=3, now=self.T0)
+        assert result["failed"] == [str(oldest.id)] and result["provisioned"] == 2
+
+    @pytest.mark.parametrize("error", ["unavailable", "transient", "rate_limited"])
+    def test_a_connection_failure_still_ends_the_pass(self, db_session, queue, monkeypatch, error):
+        from app.services import drive_folder_service as dfs
+        from app.services.drive_client import DriveRateLimited, DriveTransient, DriveUnavailable
+
+        exc = {"unavailable": DriveUnavailable, "transient": DriveTransient,
+               "rate_limited": DriveRateLimited}[error]
+        oldest = queue[0]
+        attempts = self._failing_for(monkeypatch, {oldest.id}, lambda: exc("connection trouble"))
+
+        with pytest.raises(DriveUnavailable):
+            dfs.provision_pending(db_session, limit=5, now=self.T0)
+        assert attempts == [oldest.id]
+        # Not the engagement's fault, so it is not backed off.
+        assert not dfs._is_backing_off(oldest.id, self.T0)
+
+    def test_an_unexpected_error_is_logged_with_its_traceback(self, db_session, queue, monkeypatch, caplog):
+        import logging
+
+        from app.services.drive_folder_service import provision_pending
+
+        oldest = queue[0]
+        self._failing_for(monkeypatch, {oldest.id}, lambda: RuntimeError("kaboom"))
+        with caplog.at_level(logging.ERROR, logger="app.services.drive_folder_service"):
+            provision_pending(db_session, limit=1, now=self.T0)
+        record = next(r for r in caplog.records if str(oldest.id) in r.getMessage())
+        assert record.levelno == logging.ERROR and record.exc_info is not None
+        assert "kaboom" in str(record.exc_info[1])
+
+    def test_the_backoff_doubles_and_is_capped(self, monkeypatch):
+        from app.services import drive_folder_service as dfs
+
+        monkeypatch.setattr(dfs.settings, "GOOGLE_DRIVE_SYNC_INTERVAL_SECONDS", 300)
+        assert [dfs.provision_backoff_seconds(n) for n in (1, 2, 3)] == [300, 600, 1200]
+        assert dfs.provision_backoff_seconds(50) == dfs.PROVISION_BACKOFF_MAX_SECONDS
+
+    def test_a_404_from_drive_is_classified_as_not_found(self):
+        from googleapiclient.errors import HttpError
+
+        from app.services.drive_client import DriveClient, DriveNotFound
+
+        resp = type("R", (), {"status": 404, "reason": "x"})()
+
+        class Failing:
+            def execute(self):
+                raise HttpError(resp, b"{}")
+
+        with pytest.raises(DriveNotFound):
+            DriveClient._call(Failing())
+
+    def test_pending_is_oldest_first_by_creation_not_insertion(self, db_session, fake_drive, advisor):
+        from app.services.drive_folder_service import pending_engagements
+
+        # Inserted newest first, so insertion order and creation order disagree.
+        made = []
+        for year in (2003, 2001, 2002):
+            made += _queue(db_session, advisor, 1, created=datetime(year, 1, 1))
+        ours = {e.id for e in made}
+        order = [e.id for e in pending_engagements(db_session) if e.id in ours]
+        assert order == [e.id for e in sorted(made, key=lambda e: e.created_at)]
 
 
 # ======================================================================

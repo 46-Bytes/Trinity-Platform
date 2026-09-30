@@ -79,6 +79,16 @@ class DriveTransient(DriveUnavailable):
     """
 
 
+class DriveNotFound(DriveUnavailable):
+    """
+    A file or folder Trinity asked about is gone from Drive.
+
+    About one item, not the connection: callers working through many
+    engagements skip the one affected instead of stopping. A subclass so
+    every existing handler still turns it into a 503.
+    """
+
+
 # How hard we try before giving a transient failure back to the caller. Three
 # attempts over roughly a second: enough to ride out a blip, short enough that
 # a user waiting on an upload is not left hanging.
@@ -303,7 +313,7 @@ class DriveClient:
 
         status = getattr(getattr(exc, "resp", None), "status", None)
         if status == 404:
-            return DriveUnavailable("That file or folder no longer exists in Drive.")
+            return DriveNotFound("That file or folder no longer exists in Drive.")
         if status == 403 and _rate_limit_reason(exc):
             return DriveRateLimited(
                 "Google is rate limiting Trinity. This is temporary - the "

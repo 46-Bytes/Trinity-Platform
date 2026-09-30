@@ -24,6 +24,8 @@ The ensure_* helpers still create anything missing on demand.
 """
 import logging
 import re
+import threading
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
@@ -34,7 +36,9 @@ from app.config import settings
 from app.models.drive import DriveIntegration, EngagementDriveFolder
 from app.models.engagement import Engagement
 from app.models.sale_ready import EngagementDDItem
-from app.services.drive_client import DriveClient, DriveUnavailable, decrypt_token, drive_enabled
+from app.services.drive_client import (
+    DriveClient, DriveNotFound, DriveUnavailable, decrypt_token, drive_enabled,
+)
 from app.services.program_registry import PROGRAM_SALE_READY
 
 logger = logging.getLogger(__name__)
@@ -44,6 +48,10 @@ DATA_ROOM_FOLDER = "Data room"
 # Engagements provisioned per scheduler pass. Each costs ~90 Drive calls, so
 # a backlog is worked through over several passes rather than in one burst.
 PROVISION_BATCH = 5
+
+# An engagement whose provisioning fails waits before it is tried again, so it
+# never holds a slot in the batch. The wait doubles per failure, up to the cap.
+PROVISION_BACKOFF_MAX_SECONDS = 6 * 3600
 
 # Drive tolerates most characters, but a path separator or a control
 # character in a folder name is asking for trouble in every tool that later
@@ -401,6 +409,44 @@ def _code_key(code: Optional[str]) -> Tuple:
     return tuple(int(p) if p.isdigit() else p for p in (code or "").split("."))
 
 
+# In-process record of failed engagements: {engagement_id: (failures, retry_at)}.
+# Lost on restart (the engagement is simply tried once more) and kept per API
+# instance; persisting it would need a migration.
+_provision_failures: Dict[UUID, Tuple[int, datetime]] = {}
+_provision_failures_lock = threading.Lock()
+
+
+def provision_backoff_seconds(failures: int) -> float:
+    """Wait after `failures` consecutive failures: the sync interval, doubling, capped."""
+    base = float(settings.GOOGLE_DRIVE_SYNC_INTERVAL_SECONDS)
+    return min(base * (2 ** max(failures - 1, 0)), PROVISION_BACKOFF_MAX_SECONDS)
+
+
+def _record_provision_failure(engagement_id: UUID, now: datetime) -> Tuple[int, datetime]:
+    with _provision_failures_lock:
+        failures = _provision_failures.get(engagement_id, (0, now))[0] + 1
+        retry_at = now + timedelta(seconds=provision_backoff_seconds(failures))
+        _provision_failures[engagement_id] = (failures, retry_at)
+        return failures, retry_at
+
+
+def _clear_provision_failure(engagement_id: UUID) -> None:
+    with _provision_failures_lock:
+        _provision_failures.pop(engagement_id, None)
+
+
+def _is_backing_off(engagement_id: UUID, now: datetime) -> bool:
+    with _provision_failures_lock:
+        entry = _provision_failures.get(engagement_id)
+    return entry is not None and now < entry[1]
+
+
+def reset_provision_backoff() -> None:
+    """Forget every recorded failure. For tests."""
+    with _provision_failures_lock:
+        _provision_failures.clear()
+
+
 def pending_engagements(db: Session) -> List[Engagement]:
     """
     Live Sale Ready engagements whose folder tree is incomplete, oldest first.
@@ -435,13 +481,17 @@ def pending_engagements(db: Session) -> List[Engagement]:
     )
 
 
-def provision_pending(db: Session, limit: int = PROVISION_BATCH) -> Optional[Dict[str, Any]]:
+def provision_pending(db: Session, limit: int = PROVISION_BATCH,
+                      now: Optional[datetime] = None) -> Optional[Dict[str, Any]]:
     """
     One scheduler pass's share of folder provisioning. None when nothing is due.
 
-    Drive failures (outage, throttling) end the pass's provisioning and are
-    raised for the scheduler to report; the next pass carries on where this
-    one stopped. Any other failure skips that engagement only.
+    Takes the oldest pending engagements that are not backing off. A failure
+    that belongs to one engagement (a folder gone from Drive, a folder mapped
+    to another engagement, anything unexpected) is logged, backs that
+    engagement off and the pass moves on. A connection-level failure (not
+    connected, wrong account, throttled, Drive down) ends the pass and is
+    raised for the scheduler to report, since every engagement would hit it.
     """
     pending = pending_engagements(db)
     if not pending:
@@ -449,21 +499,36 @@ def provision_pending(db: Session, limit: int = PROVISION_BATCH) -> Optional[Dic
     require_expected_account(db)
     client = get_drive_client(db)
     service = get_drive_folder_service(db)
+    now = now or datetime.utcnow()
+    eligible = [e for e in pending if not _is_backing_off(e.id, now)]
     done = folders = 0
+    failed: List[str] = []
     try:
-        for engagement in pending[:limit]:
+        for engagement in eligible[:limit]:
             try:
                 folders += service.provision_tree(engagement, client=client)
                 done += 1
+                _clear_provision_failure(engagement.id)
+            except (DriveNotFound, SharedDriveFolder) as exc:
+                db.rollback()
+                count, retry_at = _record_provision_failure(engagement.id, now)
+                failed.append(str(engagement.id))
+                logger.warning("Drive folders for engagement %s failed (%d in a row): %s; next try after %s",
+                               engagement.id, count, exc, retry_at.isoformat())
             except DriveUnavailable:
                 raise
             except Exception:
                 db.rollback()
-                logger.exception("Could not provision Drive folders for engagement %s", engagement.id)
+                count, retry_at = _record_provision_failure(engagement.id, now)
+                failed.append(str(engagement.id))
+                logger.exception("Could not provision Drive folders for engagement %s (%d in a row); "
+                                 "next try after %s", engagement.id, count, retry_at.isoformat())
     finally:
-        logger.info("Drive folders provisioned %d/%d pending engagement(s) this pass; %d folder(s) created",
-                    done, len(pending), folders)
-    return {"provisioned": done, "pending": len(pending), "folders_created": folders}
+        logger.info("Drive folders provisioned %d/%d pending engagement(s) this pass; %d failed, "
+                    "%d backing off; %d folder(s) created",
+                    done, len(pending), len(failed), len(pending) - len(eligible), folders)
+    return {"provisioned": done, "pending": len(pending), "folders_created": folders,
+            "failed": failed, "backing_off": len(pending) - len(eligible)}
 
 
 def get_drive_folder_service(db: Session) -> DriveFolderService:

@@ -133,17 +133,117 @@ class TestTheRole:
 # ======================================================================
 # Every other door is shut
 # ======================================================================
-class TestBuyersReachNothingElse:
-    OTHER_ROUTES = [
-        "/api/engagements", "/api/tasks", "/api/users", "/api/firms",
-        "/api/dashboard/stats", "/api/advisor-client", "/api/advisor-client/my-clients",
-    ]
+# Routes that authenticate nobody. Adding one fails the route walk until it is reviewed here.
+EXPECTED_PUBLIC_ROUTES = {
+    ("GET", "/"),
+    ("GET", "/health"),
+    ("GET", "/api/drive/callback"),  # Google's redirect; guarded by the signed OAuth state
+}
 
-    @pytest.mark.parametrize("path", OTHER_ROUTES)
-    def test_a_buyer_is_refused(self, api, buyer, path):
-        """Routers that authenticate without an engagement check must still refuse."""
+
+def _authenticates(dependant) -> bool:
+    from app.utils.auth import get_current_user
+
+    return any(d.call is get_current_user or _authenticates(d) for d in dependant.dependencies)
+
+
+@pytest.fixture
+def real_auth(db_session):
+    """
+    A client that authenticates for real: only the database is overridden.
+
+    The `api` fixture replaces get_current_user, which would skip the very
+    check these tests are about.
+    """
+    from fastapi.testclient import TestClient
+    from jose import jwt
+
+    from app.config import settings
+    from app.database import get_db
+    from app.main import app
+
+    app.dependency_overrides[get_db] = lambda: db_session
+
+    def headers_for(user):
+        token = jwt.encode({"sub": str(user.id)}, settings.SECRET_KEY, algorithm="HS256")
+        return {"Authorization": f"Bearer {token}"}
+
+    try:
+        yield app, TestClient(app), headers_for
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+
+class TestBuyersReachNothingElse:
+    def test_every_route_outside_the_allowlist_refuses_a_buyer(self, real_auth, buyer):
+        """
+        Walks every registered route with a real buyer token. Anything outside
+        /api/buyer/* and /api/auth/* must refuse; a new route a buyer can
+        reach, or a new unauthenticated route, fails this test.
+        """
+        import re
+        from uuid import uuid4
+
+        from fastapi.routing import APIRoute
+
+        from app.utils.auth import BUYER_ROUTE_PREFIXES
+
+        app, client, headers_for = real_auth
         user, _ = buyer
-        assert api.as_user(user).get(path).status_code == 403
+        headers = headers_for(user)
+        allowlisted, public, reached, checked = [], set(), [], 0
+
+        for route in app.routes:
+            if not isinstance(route, APIRoute):
+                continue
+            for method in sorted(route.methods - {"HEAD", "OPTIONS"}):
+                if route.path.startswith(BUYER_ROUTE_PREFIXES):
+                    allowlisted.append(f"{method} {route.path}")
+                    continue
+                if not _authenticates(route.dependant):
+                    public.add((method, route.path))
+                    continue
+                url = re.sub(r"\{[^}]+\}", str(uuid4()), route.path)
+                resp = client.request(method, url, headers=headers)
+                checked += 1
+                if resp.status_code not in (401, 403):
+                    reached.append(f"{method} {route.path} -> {resp.status_code}")
+
+        print(f"\nChecked {checked} routes. Allowlisted for buyers ({len(allowlisted)}):")
+        for entry in allowlisted:
+            print(f"  {entry}")
+
+        assert checked > 200, "the walk found suspiciously few routes"
+        assert not reached, "A buyer reached: " + ", ".join(reached)
+        assert public == EXPECTED_PUBLIC_ROUTES
+
+    def test_the_buyer_portal_still_serves_a_buyer_with_real_auth(self, real_auth, buyer):
+        _, client, headers_for = real_auth
+        user, _ = buyer
+        assert client.get("/api/buyer/me/engagement", headers=headers_for(user)).status_code == 200
+
+    def test_other_roles_are_unaffected_by_the_buyer_rule(self, real_auth, make_user):
+        _, client, headers_for = real_auth
+        advisor = make_user(UserRole.ADVISOR)
+        assert client.get("/api/engagements", headers=headers_for(advisor)).status_code == 200
+
+    def test_the_rule_reads_the_matched_route_not_the_raw_url(self):
+        """A proxy prefix or crafted path cannot make another route look like the portal."""
+        from types import SimpleNamespace
+
+        from starlette.requests import Request
+
+        from app.utils.auth import buyer_may_reach
+
+        def request(raw_path, route_path):
+            scope = {"type": "http", "path": raw_path, "root_path": "/api/buyer",
+                     "headers": [], "route": SimpleNamespace(path=route_path) if route_path else None}
+            return Request(scope)
+
+        assert buyer_may_reach(request("/api/buyer/../engagements", "/api/engagements")) is False
+        assert buyer_may_reach(request("/api/buyer/me/folders", None)) is False
+        assert buyer_may_reach(request("/anything", "/api/buyer/me/folders")) is True
+        assert buyer_may_reach(request("/anything", "/api/auth/user")) is True
 
     def test_a_buyer_cannot_read_their_own_engagement_through_the_normal_route(
         self, api, buyer, engagement

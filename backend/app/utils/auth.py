@@ -244,9 +244,32 @@ def get_current_user(
             detail="User account is inactive"
         )
     
+    # Default-deny for buyers: only the buyer portal and auth routes serve them.
+    if user.role == UserRole.BUYER and not buyer_may_reach(request):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Buyers can only access their engagement's released documents.",
+        )
+
     impersonation_note = f" (impersonating as {user.email})" if result.is_impersonation else ""
     logger.debug(f"User authenticated: {user.email}, role: {user.role}{impersonation_note}")
     return user
+
+
+# Route templates a buyer may reach. Everything else refuses them.
+BUYER_ROUTE_PREFIXES = ("/api/buyer/", "/api/auth/")
+
+
+def buyer_may_reach(request: Request) -> bool:
+    """
+    Whether the matched route is one a buyer may use.
+
+    Reads the route FastAPI resolved, not the raw URL, so a proxy prefix or
+    root_path cannot make another route look like the buyer portal. No
+    resolved route means no decision to trust, so the answer is no.
+    """
+    route_path = getattr(request.scope.get("route"), "path", None)
+    return bool(route_path) and route_path.startswith(BUYER_ROUTE_PREFIXES)
 
 
 def require_role(allowed_roles: List[UserRole]):

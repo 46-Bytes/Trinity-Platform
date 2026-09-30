@@ -9,6 +9,7 @@ thrown at it, because a loop that dies stops syncing silently and for good.
 """
 import asyncio
 import threading
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import text
@@ -436,7 +437,7 @@ def _fake_sync(monkeypatch):
     # The fake session cannot run queries; provisioning has its own tests.
     monkeypatch.setattr("app.services.drive_folder_service.provision_pending", lambda db: None)
     monkeypatch.setattr("app.services.drive_folder_service.get_integration",
-                        lambda db: object())
+                        lambda db: SimpleNamespace(account_email=drive_scheduler.settings.GOOGLE_DRIVE_EXPECTED_ACCOUNT))
 
 
 class TestProvisioningInThePass:
@@ -458,3 +459,20 @@ class TestProvisioningInThePass:
         monkeypatch.setattr(drive_scheduler, "SessionLocal", _FakeSessionFactory(lambda: {"added": 0}))
 
         assert drive_scheduler.run_one_pass() == {"added": 0, "provisioning": progress}
+
+
+class TestWrongAccountPausesThePass:
+    def test_a_connection_as_another_account_pauses_sync_and_provisioning(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr("app.services.drive_folder_service.get_integration",
+                            lambda db: SimpleNamespace(account_email="someone@else.test"))
+        monkeypatch.setattr("app.services.drive_folder_service.provision_pending",
+                            lambda db: calls.append("provision"))
+        monkeypatch.setattr(drive_scheduler, "should_run", lambda: True)
+        monkeypatch.setattr(drive_scheduler, "SessionLocal",
+                            _FakeSessionFactory(lambda: calls.append("sync") or {"added": 0}))
+
+        result = drive_scheduler.run_one_pass()
+
+        assert "paused" in result and "someone@else.test" in result["paused"]
+        assert calls == []

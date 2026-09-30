@@ -30,6 +30,7 @@ from uuid import UUID
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models.drive import DriveIntegration, EngagementDriveFolder
 from app.models.engagement import Engagement
 from app.models.sale_ready import EngagementDDItem
@@ -66,6 +67,32 @@ def get_integration(db: Session) -> Optional[DriveIntegration]:
     return db.query(DriveIntegration).filter(
         DriveIntegration.is_deleted == False,  # noqa: E712
     ).first()
+
+
+class DriveAccountMismatch(DriveUnavailable):
+    """The connected Google account is not the one the data room must live in."""
+
+
+def account_matches(account_email: Optional[str]) -> bool:
+    """Whether an account may hold the data room. True when no account is pinned."""
+    expected = (settings.GOOGLE_DRIVE_EXPECTED_ACCOUNT or "").strip().lower()
+    return not expected or (account_email or "").strip().lower() == expected
+
+
+def require_expected_account(db: Session) -> None:
+    """
+    Refuse writes and syncing while Drive is connected as the wrong account.
+
+    Reads still work, so documents already indexed stay downloadable; nothing
+    new is written to, or pulled from, an account that is not the data room's.
+    """
+    integration = get_integration(db)
+    if integration is not None and not account_matches(integration.account_email):
+        raise DriveAccountMismatch(
+            f"Google Drive is connected as {integration.account_email or 'an unknown account'}, "
+            f"not {settings.GOOGLE_DRIVE_EXPECTED_ACCOUNT}. Uploads and syncing are paused "
+            "until an admin reconnects with the right account in Sale Ready Admin."
+        )
 
 
 def get_drive_client(db: Session) -> DriveClient:
@@ -419,6 +446,7 @@ def provision_pending(db: Session, limit: int = PROVISION_BATCH) -> Optional[Dic
     pending = pending_engagements(db)
     if not pending:
         return None
+    require_expected_account(db)
     client = get_drive_client(db)
     service = get_drive_folder_service(db)
     done = folders = 0

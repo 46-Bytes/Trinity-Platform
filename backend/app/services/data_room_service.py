@@ -33,7 +33,9 @@ from app.models.sale_ready import EngagementDDItem, EngagementDocumentRegisterEn
 from app.models.user import User
 from app.services import sale_ready_rules as rules
 from app.services.drive_client import GOOGLE_NATIVE_PREFIX, DriveUnavailable
-from app.services.drive_folder_service import get_drive_client, get_drive_folder_service
+from app.services.drive_folder_service import (
+    get_drive_client, get_drive_folder_service, require_expected_account,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -179,6 +181,7 @@ class DataRoomService:
         is indistinguishable from a file someone dropped into Drive by hand.
         """
         self.validate(file_name, size)
+        require_expected_account(self.db)
         self._require_dd_item(engagement.id, category_code, sub_item_code)
 
         # One client for the whole operation: ensure_sub_item may create three
@@ -260,6 +263,7 @@ class DataRoomService:
         if not name:
             raise DataRoomError("A file name is required.")
         self.validate(name, None)
+        require_expected_account(self.db)
         updated = get_drive_client(self.db).rename(media.drive_file_id, name)
         media.file_name = updated.get("name") or name
         media.file_extension = _extension(media.file_name)
@@ -270,6 +274,7 @@ class DataRoomService:
 
     def delete(self, media: Media) -> None:
         """Trash in Drive, soft delete here. The access log keeps its subject."""
+        require_expected_account(self.db)
         if media.drive_file_id:
             get_drive_client(self.db).trash(media.drive_file_id)
         media.deleted_at = datetime.utcnow()

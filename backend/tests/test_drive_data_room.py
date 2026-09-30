@@ -20,6 +20,7 @@ from io import BytesIO
 import pytest
 from sqlalchemy import text
 
+from app.config import settings
 from app.models.buyer import EngagementBuyer, EngagementReleasedFolder
 from app.models.drive import DriveIntegration, EngagementDriveFolder
 from app.models.engagement import Engagement
@@ -140,7 +141,8 @@ def engagement(db_session, advisor, make_user):
     db_session.add(eng)
     db_session.flush()
     db_session.add(DriveIntegration(status="connected", refresh_token="x",
-                                    root_folder_id="root-clients"))
+                                    root_folder_id="root-clients",
+                                    account_email=settings.GOOGLE_DRIVE_EXPECTED_ACCOUNT))
     db_session.flush()
     return eng
 
@@ -2068,3 +2070,96 @@ class TestProvisioning:
         result = drive_folder_service.provision_pending(db_session)
         assert result["provisioned"] == 1
         assert _mapped(db_session, other)["sub_items"] == 1
+
+
+# ======================================================================
+# The data room is pinned to one Google account (H1)
+# ======================================================================
+class TestDriveAccountPin:
+    EXPECTED = "benchmark@example.test"
+
+    @pytest.fixture(autouse=True)
+    def _pin(self, monkeypatch):
+        monkeypatch.setattr(settings, "GOOGLE_DRIVE_EXPECTED_ACCOUNT", self.EXPECTED)
+
+    def _callback(self, api, admin, monkeypatch, account_email):
+        import app.api.drive_admin as drive_admin
+
+        monkeypatch.setattr(drive_admin, "exchange_code", lambda code: ("refresh-token", account_email))
+        monkeypatch.setattr(drive_admin, "encrypt_token", lambda raw: f"enc:{raw}")
+        return api.as_user(admin).get(
+            "/api/drive/callback",
+            params={"state": drive_admin._issue_state(), "code": "abc"},
+            follow_redirects=False,
+        )
+
+    def test_the_wrong_account_is_refused_and_nothing_is_stored(
+        self, api, db_session, make_user, monkeypatch
+    ):
+        from app.services.drive_folder_service import get_integration
+
+        before = get_integration(db_session)
+        snapshot = (before.account_email, before.refresh_token) if before else None
+
+        resp = self._callback(api, make_user(UserRole.ADMIN), monkeypatch, "someone@else.test")
+
+        assert resp.status_code == 400
+        assert self.EXPECTED in resp.json()["detail"] and "someone@else.test" in resp.json()["detail"]
+        after = get_integration(db_session)
+        assert (after.account_email, after.refresh_token) == snapshot if after else snapshot is None
+
+    def test_an_unreadable_account_email_is_refused(self, api, db_session, make_user, monkeypatch):
+        resp = self._callback(api, make_user(UserRole.ADMIN), monkeypatch, None)
+        assert resp.status_code == 400
+
+    def test_the_expected_account_connects_whatever_its_case(self, api, db_session, make_user, monkeypatch):
+        from app.services.drive_folder_service import get_integration
+
+        resp = self._callback(api, make_user(UserRole.ADMIN), monkeypatch, "Benchmark@Example.TEST")
+
+        assert resp.status_code in (302, 307), resp.text
+        integration = get_integration(db_session)
+        assert integration.status == "connected" and integration.refresh_token == "enc:refresh-token"
+
+    def test_no_pin_accepts_any_account(self, api, db_session, make_user, monkeypatch):
+        monkeypatch.setattr(settings, "GOOGLE_DRIVE_EXPECTED_ACCOUNT", "")
+        resp = self._callback(api, make_user(UserRole.ADMIN), monkeypatch, "dev@localhost.test")
+        assert resp.status_code in (302, 307)
+
+    def test_an_existing_wrong_connection_pauses_writes_but_not_downloads(
+        self, api, db_session, fake_drive, engagement, advisor, make_user
+    ):
+        from app.services.drive_folder_service import get_integration
+
+        _dd(db_session, engagement)
+        get_integration(db_session).account_email = self.EXPECTED
+        media = _upload(db_session, engagement, advisor)
+        get_integration(db_session).account_email = "someone@else.test"
+        db_session.flush()
+        base = f"/api/sale-ready/engagements/{engagement.id}/data-room"
+        client = api.as_user(advisor)
+        files_before = dict(fake_drive.files)
+
+        upload = client.post(f"{base}/3/3.1/files", files={"file": ("x.pdf", b"x", "application/pdf")})
+        assert upload.status_code == 503 and "someone@else.test" in upload.json()["detail"]
+        assert client.patch(f"{base}/files/{media.id}", json={"file_name": "y.pdf"}).status_code == 503
+        assert client.delete(f"{base}/files/{media.id}").status_code == 503
+        assert fake_drive.files == files_before and fake_drive.trashed == [] and fake_drive.renamed == []
+
+        download = client.get(f"{base}/files/{media.id}/download")
+        assert download.status_code == 200
+
+        status = api.as_user(make_user(UserRole.ADMIN)).get("/api/drive/status").json()
+        assert status["account_mismatch"] is True and status["expected_account"] == self.EXPECTED
+
+    def test_provisioning_refuses_the_wrong_account(self, db_session, fake_drive, engagement, monkeypatch):
+        from app.services import drive_folder_service
+
+        _small_tree(db_session, engagement)
+        drive_folder_service.get_integration(db_session).account_email = "someone@else.test"
+        db_session.flush()
+        monkeypatch.setattr(drive_folder_service, "pending_engagements", lambda db: [engagement])
+
+        with pytest.raises(drive_folder_service.DriveAccountMismatch):
+            drive_folder_service.provision_pending(db_session)
+        assert fake_drive.folders == {}

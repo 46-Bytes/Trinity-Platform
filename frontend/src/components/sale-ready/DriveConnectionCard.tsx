@@ -13,6 +13,8 @@ interface DriveStatus {
   enabled: boolean;
   connected: boolean;
   account_email: string | null;
+  expected_account: string | null;
+  account_mismatch: boolean;
   root_folder_id: string | null;
   root_folder_configured: boolean;
   last_synced_at: string | null;
@@ -147,6 +149,14 @@ export function DriveConnectionCard() {
           </>
         )}
       </div>
+
+      {status.account_mismatch && (
+        <p role="alert" className="mt-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          Wrong Google account. Trinity is connected as {status.account_email ?? 'an unknown account'}, but the
+          data room must live in {status.expected_account}. Uploads and syncing are paused until you disconnect
+          and connect again with {status.expected_account}.
+        </p>
+      )}
 
       {blocked && (
         <p className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">

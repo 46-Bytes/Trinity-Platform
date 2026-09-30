@@ -27,7 +27,7 @@ from app.services.drive_client import (
     DriveRateLimited, DriveUnavailable, authorization_url, drive_enabled, encrypt_token,
     exchange_code,
 )
-from app.services.drive_folder_service import get_drive_client, get_integration
+from app.services.drive_folder_service import account_matches, get_drive_client, get_integration
 from app.utils.auth import deny_buyers, get_current_user, require_role
 
 logger = logging.getLogger(__name__)
@@ -83,6 +83,8 @@ class DriveStatus(BaseModel):
     enabled: bool = Field(..., description="Whether the integration is switched on at all")
     connected: bool
     account_email: Optional[str] = None
+    expected_account: Optional[str] = Field(None, description="The account the data room must live in")
+    account_mismatch: bool = Field(False, description="Connected as another account; uploads and sync are paused")
     root_folder_id: Optional[str] = None
     root_folder_configured: bool = False
     last_synced_at: Optional[str] = None
@@ -112,6 +114,9 @@ async def drive_status(db: Session = Depends(get_db)):
         enabled=drive_enabled(),
         connected=bool(integration and integration.status == "connected"),
         account_email=integration.account_email if integration else None,
+        expected_account=settings.GOOGLE_DRIVE_EXPECTED_ACCOUNT or None,
+        account_mismatch=bool(integration and integration.status == "connected"
+                              and not account_matches(integration.account_email)),
         root_folder_id=integration.root_folder_id if integration else None,
         root_folder_configured=bool(integration and integration.root_folder_id),
         last_synced_at=integration.last_synced_at.isoformat() if integration and integration.last_synced_at else None,
@@ -161,6 +166,21 @@ async def callback(
 
     try:
         refresh_token, account_email = exchange_code(code)
+    except DriveUnavailable as e:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
+
+    # Checked before anything is stored: the wrong account never becomes the data room.
+    if not account_matches(account_email):
+        logger.warning("Drive connection refused: authorised as %s, expected %s",
+                       account_email or "an unknown account", settings.GOOGLE_DRIVE_EXPECTED_ACCOUNT)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Trinity must be connected as {settings.GOOGLE_DRIVE_EXPECTED_ACCOUNT}, "
+                   f"but Google authorised {account_email or 'an account whose email could not be read'}. "
+                   "Nothing was saved. Start again from Sale Ready Admin and choose the right account.",
+        )
+
+    try:
         encrypted = encrypt_token(refresh_token)
     except DriveUnavailable as e:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))

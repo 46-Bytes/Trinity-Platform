@@ -113,11 +113,19 @@ def run_one_pass() -> Optional[dict]:
 
             db = SessionLocal()
             try:
-                from app.services.drive_folder_service import get_integration
+                from app.services.drive_folder_service import (
+                    DriveAccountMismatch, get_integration, require_expected_account,
+                )
                 from app.services.drive_sync_service import get_drive_sync_service
 
                 if get_integration(db) is None:
                     return None
+                try:
+                    require_expected_account(db)
+                except DriveAccountMismatch as exc:
+                    # Nothing is written to, or pulled from, the wrong account.
+                    logger.warning("Drive sync paused: %s", exc)
+                    return {"paused": str(exc)}
                 provisioning = _provision(db)
                 result = get_drive_sync_service(db).sync().as_dict()
                 if provisioning:

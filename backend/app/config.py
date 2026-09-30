@@ -90,6 +90,9 @@ class Settings(BaseSettings):
     # stored as-is and the connect endpoint refuses, rather than writing a
     # secret in plain text by accident.
     GOOGLE_DRIVE_TOKEN_KEY: Optional[str] = None
+    # The only Google account the data room may live in. A connection as any
+    # other account is refused; empty turns the check off (local development).
+    GOOGLE_DRIVE_EXPECTED_ACCOUNT: Optional[str] = "benchmarkbusinessadvisoryau@gmail.com"
     # Legacy service-account settings, retained so existing .env files still
     # parse. Unused by the OAuth flow.
     GOOGLE_DRIVE_CREDENTIALS_FILE: Optional[str] = None

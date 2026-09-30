@@ -163,7 +163,7 @@ export interface StageDetail {
   /** M8 only: DD items flagged for review across every stage. */
   flagged_for_review: DDItem[];
   ui_config: Record<string, unknown> | null;
-  /** This engagement's frozen stage guide. Empty on engagements that predate snapshots. */
+  /** This engagement's frozen stage guide. */
   guide: Partial<StageGuideContent>;
   people: SaleReadyPerson[];
 }

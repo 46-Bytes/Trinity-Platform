@@ -54,11 +54,8 @@
       ]
     },
     "C2_named_people_in_tasks": {
-      "note": "Seeded verbatim from the Excel; the mockup rewords them without names.",
-      "template_keys": [
-        "APPRAISAL-MUST-06",
-        "APPRAISAL-MUST-07"
-      ]
+      "note": "RESOLVED 30 Sep 2026: reworded to the mockup (TASK_WORDING); the meeting makes the HTML the content source. Any key listed here still names a person.",
+      "template_keys": []
     },
     "C2_closeout_title": {
       "note": "Brief: 'Re-appraisal / Listing / Close-out'. Mockup: 'Re-appraisal, Listing & Close-out'.",

@@ -8,7 +8,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { DDHeaderRow, DDItemRow } from './DDItemRow';
 import { DocumentRegisterCard } from './DocumentRegisterCard';
-import { RUN_WITH, STAGE_GUIDES } from './saleReadyGuide';
 import { STATUS_CONFIG } from './saleReadyDisplay';
 import type { DDItem, DDItemUpdate, SaleReadyPerson, StageDetail, StageTask, StageTaskUpdate, StageUpdate } from './types';
 
@@ -386,17 +385,15 @@ export function StageDetailView(props: StageDetailViewProps) {
   } = props;
   const { stage, qa } = detail;
   const status = STATUS_CONFIG[stage.status];
-  // The engagement's own frozen copy. The constants are the fallback for
-  // engagements created before guide snapshots existed.
-  const fallback = STAGE_GUIDES[stage.stage_code];
+  // The engagement's own frozen copy of the admin-edited guide; the server always sends one.
   const snapshot = detail.guide ?? {};
   const guide = {
-    purpose: snapshot.purpose ?? fallback?.purpose ?? '',
-    steps: snapshot.steps ?? fallback?.steps ?? [],
-    watch: snapshot.watch ?? fallback?.watch ?? [],
-    templates: snapshot.templates ?? fallback?.templates ?? [],
+    purpose: snapshot.purpose ?? '',
+    steps: snapshot.steps ?? [],
+    watch: snapshot.watch ?? [],
+    templates: snapshot.templates ?? [],
   };
-  const runWith = snapshot.run_with ?? RUN_WITH[stage.stage_code] ?? null;
+  const runWith = snapshot.run_with ?? null;
   const advisors = detail.people.filter((p) => p.role !== 'client');
   const isModule = stage.stage_type === 'module';
   const needsStart = isModule && !stage.tasks_created;

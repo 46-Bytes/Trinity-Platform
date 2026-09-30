@@ -142,6 +142,17 @@ def parse_tasks(ws):
     return tasks, ignored
 
 
+# Excel wording replaced by the mockup's: the 23 Sep meeting makes the HTML the
+# content source, and the mockup drops the named people. Applied before the key
+# lookup, which also tries the Excel wording, so template_keys never change.
+TASK_WORDING = {
+    "IF YOU NEED TO OUTSOURCE THE APPRAISAL - talk to Pete":
+        "IF YOU NEED TO OUTSOURCE THE APPRAISAL - clear it with the practice principal",
+    "Send the information to Marc for Appraisal Report generation":
+        "Send the information to the appraisal report team for report generation",
+}
+
+
 def build_task_templates(wb, existing):
     previous = {}
     for item in (existing or {}).get("items", []):
@@ -158,7 +169,10 @@ def build_task_templates(wb, existing):
         counters = Counter()
         for order, task in enumerate(tasks, start=1):
             short = "MUST" if task["section"] == "must_do" else "OPT"
-            key = previous.get((code, task["section"], norm(task["title"])))
+            excel_title = task["title"]
+            task["title"] = TASK_WORDING.get(excel_title, excel_title)
+            key = (previous.get((code, task["section"], norm(task["title"])))
+                   or previous.get((code, task["section"], norm(excel_title))))
             if key is None:
                 while True:
                     counters[short] += 1
@@ -406,7 +420,8 @@ def build(xlsx_path):
                     "spec, so the mockup's four are emitted by closeout_tasks() and seeded.",
             "tasks": CLOSEOUT_TASKS}),
         ("C2_named_people_in_tasks", {
-            "note": "Seeded verbatim from the Excel; the mockup rewords them without names.",
+            "note": "RESOLVED 30 Sep 2026: reworded to the mockup (TASK_WORDING); the meeting makes the "
+                    "HTML the content source. Any key listed here still names a person.",
             "template_keys": named_people}),
         ("C2_closeout_title", {
             "note": "Brief: 'Re-appraisal / Listing / Close-out'. Mockup: 'Re-appraisal, Listing & Close-out'.",

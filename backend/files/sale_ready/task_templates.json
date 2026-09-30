@@ -120,7 +120,7 @@
       "template_key": "APPRAISAL-MUST-06",
       "section": "must_do",
       "group_title": "Information Collection & Analysis",
-      "title": "IF YOU NEED TO OUTSOURCE THE APPRAISAL - talk to Pete",
+      "title": "IF YOU NEED TO OUTSOURCE THE APPRAISAL - clear it with the practice principal",
       "default_order": 6,
       "source_row": 16
     },
@@ -130,7 +130,7 @@
       "template_key": "APPRAISAL-MUST-07",
       "section": "must_do",
       "group_title": "Report Generation",
-      "title": "Send the information to Marc for Appraisal Report generation",
+      "title": "Send the information to the appraisal report team for report generation",
       "default_order": 7,
       "source_row": 18
     },

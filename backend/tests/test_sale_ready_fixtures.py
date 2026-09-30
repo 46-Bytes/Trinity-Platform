@@ -113,6 +113,15 @@ class TestTaskTemplates:
         counts = Counter(t["section"] for t in tasks if t["stage_code"] == stage)
         assert (counts["must_do"], counts["optional"]) == (must_do, optional)
 
+    def test_appraisal_wording_follows_the_mockup_with_keys_unchanged(self, tasks):
+        """The meeting makes the HTML the content source; the rewording keeps each template_key."""
+        by_key = {t["template_key"]: t["title"] for t in tasks}
+        assert by_key["APPRAISAL-MUST-06"] == (
+            "IF YOU NEED TO OUTSOURCE THE APPRAISAL - clear it with the practice principal")
+        assert by_key["APPRAISAL-MUST-07"] == (
+            "Send the information to the appraisal report team for report generation")
+        assert not [t for t in tasks if " Pete" in t["title"] or " Marc " in t["title"]]
+
 
 class TestDDTemplates:
 

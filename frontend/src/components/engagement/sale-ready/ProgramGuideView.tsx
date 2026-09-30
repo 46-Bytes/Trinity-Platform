@@ -1,10 +1,10 @@
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { PROGRAM_RULES, WORKFLOW } from './saleReadyGuide';
 import type { RoadmapStage, SaleReadyGuide, SaleReadyRoadmap } from './types';
 
 interface ProgramGuideViewProps {
   roadmap: SaleReadyRoadmap;
-  /** The engagement's frozen guide. Omitted on engagements that predate snapshots. */
+  /** The engagement's frozen guide; null while it loads. */
   guide?: SaleReadyGuide | null;
   /** Omitted in read-only mode. */
   onOpenStage?: (stageCode: string) => void;
@@ -14,9 +14,8 @@ type StepState = 'done' | 'now' | '';
 
 /** How the Sale Ready program runs, shown against this engagement, then the program rules. */
 export function ProgramGuideView({ roadmap, guide, onOpenStage }: ProgramGuideViewProps) {
-  // The constants are the fallback for engagements created before snapshots.
-  const workflow = guide?.program?.workflow?.length ? guide.program.workflow : WORKFLOW;
-  const rules = guide?.program?.rules?.length ? guide.program.rules : PROGRAM_RULES;
+  const workflow = guide?.program?.workflow ?? [];
+  const rules = guide?.program?.rules ?? [];
   const stages: RoadmapStage[] = [...roadmap.phases, ...roadmap.modules, ...roadmap.post_phases];
   const byCode = new Map(stages.map((s) => [s.stage_code, s]));
   const unpinned = roadmap.modules.filter((m) => !m.is_pinned_last);
@@ -29,6 +28,15 @@ export function ProgramGuideView({ roadmap, guide, onOpenStage }: ProgramGuideVi
     const status = byCode.get(code)?.status;
     return status === 'completed' ? 'done' : status === 'in_progress' ? 'now' : '';
   };
+
+  if (!guide) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-64 w-full rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">

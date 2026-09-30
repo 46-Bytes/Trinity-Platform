@@ -1,11 +1,20 @@
+import { useEffect } from 'react';
+import { AlertTriangle } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import type { RoadmapStage, SaleReadyGuide, SaleReadyRoadmap } from './types';
 
 interface ProgramGuideViewProps {
   roadmap: SaleReadyRoadmap;
-  /** The engagement's frozen guide; null while it loads. */
+  /** The engagement's frozen guide; null until it has loaded. */
   guide?: SaleReadyGuide | null;
+  isLoading?: boolean;
+  /** Why the guide could not be loaded, if it could not. */
+  error?: string | null;
+  /** Requests the guide again. */
+  onRetry: () => void;
   /** Omitted in read-only mode. */
   onOpenStage?: (stageCode: string) => void;
 }
@@ -13,7 +22,7 @@ interface ProgramGuideViewProps {
 type StepState = 'done' | 'now' | '';
 
 /** How the Sale Ready program runs, shown against this engagement, then the program rules. */
-export function ProgramGuideView({ roadmap, guide, onOpenStage }: ProgramGuideViewProps) {
+export function ProgramGuideView({ roadmap, guide, isLoading = false, error = null, onRetry, onOpenStage }: ProgramGuideViewProps) {
   const workflow = guide?.program?.workflow ?? [];
   const rules = guide?.program?.rules ?? [];
   const stages: RoadmapStage[] = [...roadmap.phases, ...roadmap.modules, ...roadmap.post_phases];
@@ -28,6 +37,26 @@ export function ProgramGuideView({ roadmap, guide, onOpenStage }: ProgramGuideVi
     const status = byCode.get(code)?.status;
     return status === 'completed' ? 'done' : status === 'in_progress' ? 'now' : '';
   };
+
+  // Nothing loaded, nothing loading and no error means no request was made: make one,
+  // so the tab can never sit on the skeleton with nothing in flight.
+  const idle = !guide && !isLoading && !error;
+  useEffect(() => {
+    if (idle) onRetry();
+  }, [idle, onRetry]);
+
+  if (!guide && error) {
+    return (
+      <div role="alert" className="card-trinity p-6 text-center sm:p-10">
+        <AlertTriangle className="mx-auto mb-3 h-8 w-8 text-destructive" aria-hidden />
+        <p className="mb-1 font-medium text-destructive">Could not load the program guide</p>
+        <p className="mb-4 text-sm text-muted-foreground">{error}</p>
+        <Button variant="outline" onClick={onRetry}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   if (!guide) {
     return (

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -87,6 +87,8 @@ export function SaleReadyTab({ engagementId, readOnly = false, onEngagementStatu
     salePlanner,
     closeout,
     guide,
+    isLoadingGuide,
+    guideError,
     isLoadingRoadmap,
     isLoadingChecklist,
     isReordering,
@@ -131,6 +133,10 @@ export function SaleReadyTab({ engagementId, readOnly = false, onEngagementStatu
     if (next === 'guide') dispatch(fetchSaleReadyGuide(engagementId));
     setTab(next as SubTab);
   };
+
+  const retryGuide = useCallback(() => {
+    dispatch(fetchSaleReadyGuide(engagementId));
+  }, [dispatch, engagementId]);
 
   const onUpdateDD = (item: DDItem, changes: DDItemUpdate) => {
     dispatch(updateDDItem({ engagementId, itemId: item.id, changes }))
@@ -324,7 +330,14 @@ export function SaleReadyTab({ engagementId, readOnly = false, onEngagementStatu
       </TabsContent>
       {!readOnly && (
         <TabsContent value="guide">
-          <ProgramGuideView roadmap={roadmap} guide={guide} onOpenStage={openStageDetail} />
+          <ProgramGuideView
+            roadmap={roadmap}
+            guide={guide}
+            isLoading={isLoadingGuide}
+            error={guideError}
+            onRetry={retryGuide}
+            onOpenStage={openStageDetail}
+          />
         </TabsContent>
       )}
     </Tabs>

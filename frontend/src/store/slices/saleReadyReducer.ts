@@ -24,6 +24,9 @@ interface SaleReadyState {
   closeout: Closeout | null;
   /** The engagement's frozen program guide; null until fetched. */
   guide: SaleReadyGuide | null;
+  isLoadingGuide: boolean;
+  /** Why the last guide request failed; kept apart from `error`, which the roadmap reads. */
+  guideError: string | null;
   isLoadingRoadmap: boolean;
   isLoadingChecklist: boolean;
   isLoadingStage: boolean;
@@ -40,6 +43,8 @@ const initialState: SaleReadyState = {
   salePlanner: null,
   closeout: null,
   guide: null,
+  isLoadingGuide: false,
+  guideError: null,
   isLoadingRoadmap: false,
   isLoadingChecklist: false,
   isLoadingStage: false,
@@ -286,9 +291,19 @@ const saleReadySlice = createSlice({
         state.salePlanner = action.payload;
       });
     }
-    builder.addCase(fetchSaleReadyGuide.fulfilled, (state, action) => {
-      state.guide = action.payload;
-    });
+    builder
+      .addCase(fetchSaleReadyGuide.pending, (state) => {
+        state.isLoadingGuide = true;
+        state.guideError = null;
+      })
+      .addCase(fetchSaleReadyGuide.fulfilled, (state, action) => {
+        state.isLoadingGuide = false;
+        state.guide = action.payload;
+      })
+      .addCase(fetchSaleReadyGuide.rejected, (state, action) => {
+        state.isLoadingGuide = false;
+        state.guideError = action.payload ?? 'Failed to load the program guide';
+      });
     for (const t of [fetchCloseout, updateCloseout]) {
       builder.addCase(t.fulfilled, (state, action) => {
         state.closeout = action.payload;

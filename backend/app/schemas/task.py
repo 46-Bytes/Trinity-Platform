@@ -2,7 +2,7 @@
 Pydantic schemas for Task model
 """
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, List
+from typing import Literal, Optional, List
 from datetime import datetime, date
 from uuid import UUID
 
@@ -29,6 +29,10 @@ class TaskCreate(TaskBase):
     created_by_user_id: UUID = Field(..., description="Who created this task")
     assigned_to_user_ids: Optional[List[UUID]] = Field(None, description="Array of user IDs assigned to this task (use single element array for single assignment)")
     diagnostic_id: Optional[UUID] = Field(None, description="Optional: If task is linked to a diagnostic")
+    # Sale Ready only: with module_reference set to a stage code, the task joins that stage.
+    section: Optional[Literal["client_specific"]] = Field(
+        None, description="'client_specific' adds the task to the Sale Ready stage in module_reference",
+    )
 
 
 # Schema for creating a task from diagnostic (auto-generated)
@@ -71,6 +75,7 @@ class TaskResponse(TaskBase):
     diagnostic_id: Optional[UUID] = None
     assigned_to_user_ids: Optional[List[UUID]] = None
     created_by_user_id: UUID
+    section: Optional[str] = Field(None, description="Sale Ready task group; NULL for ordinary tasks")
     completed_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime

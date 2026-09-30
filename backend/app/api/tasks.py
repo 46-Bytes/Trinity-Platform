@@ -28,7 +28,7 @@ from ..utils.auth import get_current_user, deny_buyers
 from ..services.role_check import check_engagement_access
 from ..services.engagement_status import TASK_HIDDEN_STATUSES
 from ..services.program_deliverable_service import get_program_deliverable_service
-from ..services.sale_ready_service import TASK_STATUSES as SALE_READY_TASK_STATUSES
+from ..services.sale_ready_service import TASK_STATUSES as SALE_READY_TASK_STATUSES, get_sale_ready_service
 from .note import check_note_visibility
 
 logger = logging.getLogger(__name__)
@@ -70,6 +70,20 @@ async def create_task(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to this engagement."
         )
+
+    # A task joining a Sale Ready stage is advisor work, like the inline add.
+    if task_data.section is not None:
+        if not check_engagement_access(engagement, current_user, require_advisor=True, db=db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only an advisor can add a task to a Sale Ready stage."
+            )
+        try:
+            get_sale_ready_service(db).check_client_task_target(
+                engagement, task_data.module_reference, task_data.status, current_user,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     
     # Verify assigned users exist if provided
     if task_data.assigned_to_user_ids:
@@ -112,6 +126,7 @@ async def create_task(
         priority=task_data.priority,
         priority_rank=task_data.priority_rank,
         module_reference=task_data.module_reference,
+        section=task_data.section,
         impact_level=task_data.impact_level,
         effort_level=task_data.effort_level,
         due_date=task_data.due_date,

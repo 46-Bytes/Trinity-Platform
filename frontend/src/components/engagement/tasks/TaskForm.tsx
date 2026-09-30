@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useAuth } from '@/context/AuthContext';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { fetchSaleReadyRoadmap } from '@/store/slices/saleReadyReducer';
 import type { Task, TaskCreatePayload, TaskUpdatePayload } from '@/store/slices/tasksReducer';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -21,7 +23,11 @@ const taskFormSchema = z.object({
   assignedToUserIds: z.array(z.string()).optional(),
   createdByUserId: z.string().optional(),
   dueDate: z.string().optional(),
+  stageCode: z.string().optional(),
 });
+
+// Select value for "not part of Sale Ready"; Radix Select cannot hold an empty string.
+const NO_STAGE = '__none__';
 
 type TaskFormValues = z.infer<typeof taskFormSchema>;
 
@@ -39,6 +45,7 @@ export function TaskForm({ task, engagementId, onSubmit, onCancel }: TaskFormPro
     clientId?: string; 
     primaryAdvisorId?: string; 
     secondaryAdvisorIds?: string[];
+    tool?: string;
   } | null>(null);
   const [isLoadingEngagement, setIsLoadingEngagement] = useState(false);
 
@@ -63,6 +70,7 @@ export function TaskForm({ task, engagementId, onSubmit, onCancel }: TaskFormPro
             clientId: data.client_id ? String(data.client_id) : undefined,
             primaryAdvisorId: data.primary_advisor_id ? String(data.primary_advisor_id) : undefined,
             secondaryAdvisorIds: secondaryIds,
+            tool: data.tool ?? undefined,
           });
         })
         .catch((err) => {
@@ -74,6 +82,22 @@ export function TaskForm({ task, engagementId, onSubmit, onCancel }: TaskFormPro
     }
   }, [engagementId, task?.engagementId]);
 
+  // Advisors creating a task on a Sale Ready engagement may add it to a stage.
+  const dispatch = useAppDispatch();
+  const roadmap = useAppSelector((s) => s.saleReady.roadmap);
+  const engagementIdForStages = engagementId || task?.engagementId;
+  const canPickStage = !isEditMode && engagement?.tool === 'sale_ready' && !!user && user.role !== 'client';
+  const stages =
+    canPickStage && roadmap && String(roadmap.engagement_id) === engagementIdForStages
+      ? [...roadmap.phases, ...roadmap.modules, ...roadmap.post_phases]
+      : [];
+
+  useEffect(() => {
+    if (canPickStage && engagementIdForStages && String(roadmap?.engagement_id) !== engagementIdForStages) {
+      dispatch(fetchSaleReadyRoadmap(engagementIdForStages));
+    }
+  }, [canPickStage, engagementIdForStages, roadmap?.engagement_id, dispatch]);
+
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
     defaultValues: {
@@ -84,6 +108,7 @@ export function TaskForm({ task, engagementId, onSubmit, onCancel }: TaskFormPro
       assignedToUserIds: task?.assignedToUserIds || [],
       createdByUserId: user?.id || '',
       dueDate: task?.dueDate || '',
+      stageCode: NO_STAGE,
     },
   });
 
@@ -210,7 +235,8 @@ export function TaskForm({ task, engagementId, onSubmit, onCancel }: TaskFormPro
     } else {
       // Create mode
       const engagementIdToUse = engagementId || task?.engagementId;
-      
+      const stageCode = canPickStage && values.stageCode && values.stageCode !== NO_STAGE ? values.stageCode : undefined;
+
       onSubmit({
         engagementId: engagementIdToUse || '',
         title: values.title,
@@ -220,6 +246,7 @@ export function TaskForm({ task, engagementId, onSubmit, onCancel }: TaskFormPro
         assignedToUserIds: values.assignedToUserIds && values.assignedToUserIds.length > 0 ? values.assignedToUserIds : undefined,
         createdByUserId: user?.id || '',
         dueDate: values.dueDate || undefined,
+        ...(stageCode ? { moduleReference: stageCode, section: 'client_specific' } : {}),
       } as TaskCreatePayload);
     }
   };
@@ -380,6 +407,37 @@ export function TaskForm({ task, engagementId, onSubmit, onCancel }: TaskFormPro
             }}
           />
         </div>
+
+        {stages.length > 0 && (
+          <FormField
+            control={form.control}
+            name="stageCode"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Sale Ready stage</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value={NO_STAGE}>Not part of a stage</SelectItem>
+                    {stages.map((s) => (
+                      <SelectItem key={s.stage_code} value={s.stage_code}>
+                        {s.display_code ? `${s.display_code} · ` : ''}{s.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Adds it to the stage as a client-specific task. It never gates completion.
+                </p>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         <div className="flex justify-end gap-2 pt-4">
           <Button type="button" variant="outline" onClick={onCancel}>

@@ -687,6 +687,21 @@ class SaleReadyService:
         ))
         self.db.commit()
 
+    def check_client_task_target(self, engagement: Engagement, stage_code: Optional[str],
+                                 status: str, actor: User) -> None:
+        """
+        Validate a client-specific task created through the ordinary Tasks flow.
+        The stage must be one of this program's stages; the status one Sale Ready reads.
+        """
+        if engagement.tool != PROGRAM_SALE_READY:
+            raise ValueError("Only a Sale Ready engagement has stages to add a task to")
+        if not stage_code or find_stage(self.db, stage_code) is None:
+            raise ValueError(f"{stage_code!r} is not a Sale Ready stage")
+        if status not in TASK_STATUSES:
+            raise ValueError(f"Invalid task status {status!r}")
+        # The engagement's stage rows must exist for the task to show on the stage.
+        self.ensure_initialized(engagement, actor)
+
     def update_task(self, engagement: Engagement, task_id: UUID, fields: Dict[str, Any]) -> str:
         """Returns the task's stage code so the caller can re-read that stage."""
         stage_codes = {s.stage_code for s in self._stages()}

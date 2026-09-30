@@ -611,3 +611,55 @@ def test_a_failed_initialization_does_not_fail_creation(
     assert api.as_user(advisor).get(f"{BASE}/{engagement_id}/roadmap").status_code == 200
     assert len(db_session.query(Task).filter(
         Task.engagement_id == engagement_id, Task.section.isnot(None)).all()) == phase_task_count
+
+
+# ----------------------------------------------------------------------
+# Client-specific tasks from the ordinary Tasks flow (C7)
+# ----------------------------------------------------------------------
+def _task_payload(engagement, user, **extra):
+    return {"engagement_id": str(engagement.id), "created_by_user_id": str(user.id),
+            "title": "Chase the landlord for the lease", **extra}
+
+
+def test_a_normal_flow_task_can_join_a_stage(api, db_session, engagement, advisor):
+    resp = api.as_user(advisor).post("/api/tasks", json=_task_payload(
+        engagement, advisor, module_reference="M2", section="client_specific"))
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["section"] == "client_specific"
+
+    detail = api.as_user(advisor).get(f"{BASE}/{engagement.id}/stages/M2").json()
+    added = [t for t in detail["tasks"] if t["title"] == "Chase the landlord for the lease"]
+    assert len(added) == 1 and added[0]["section"] == "client_specific" and added[0]["from_template"] is False
+
+
+def test_without_a_section_a_task_stays_ordinary(api, db_session, engagement, advisor):
+    resp = api.as_user(advisor).post("/api/tasks", json=_task_payload(engagement, advisor, module_reference="M2"))
+    assert resp.status_code == 201 and resp.json()["section"] is None
+    detail = api.as_user(advisor).get(f"{BASE}/{engagement.id}/stages/M2").json()
+    assert all(t["title"] != "Chase the landlord for the lease" for t in detail["tasks"])
+
+
+def test_an_owner_cannot_add_a_task_to_a_stage(api, engagement, owner):
+    resp = api.as_user(owner).post("/api/tasks", json=_task_payload(
+        engagement, owner, module_reference="M2", section="client_specific"))
+    assert resp.status_code == 403
+
+
+@pytest.mark.parametrize("extra, code", [
+    ({"module_reference": "M9", "section": "client_specific"}, 400),
+    ({"section": "client_specific"}, 400),
+    ({"module_reference": "M2", "section": "client_specific", "status": "done-ish"}, 400),
+    ({"module_reference": "M2", "section": "must_do"}, 422),
+])
+def test_invalid_stage_tasks_are_refused(api, engagement, advisor, extra, code):
+    assert api.as_user(advisor).post("/api/tasks", json=_task_payload(engagement, advisor, **extra)).status_code == code
+
+
+def test_a_stage_task_needs_a_sale_ready_engagement(api, db_session, advisor, owner):
+    other = Engagement(engagement_name="Value Builder job", primary_advisor_id=advisor.id,
+                       client_ids=[owner.id], tool="value_builder")
+    db_session.add(other)
+    db_session.flush()
+    resp = api.as_user(advisor).post("/api/tasks", json=_task_payload(
+        other, advisor, module_reference="M2", section="client_specific"))
+    assert resp.status_code == 400

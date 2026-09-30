@@ -39,6 +39,8 @@ export interface TaskCreatePayload {
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   priorityRank?: number;
   moduleReference?: string;
+  /** Sale Ready: with moduleReference set to a stage code, the task joins that stage. */
+  section?: 'client_specific';
   dueDate?: string;
 }
 
@@ -118,6 +120,7 @@ function mapFrontendTaskToBackend(task: TaskCreatePayload): any {
     priority: task.priority || 'medium',
     priority_rank: task.priorityRank || null,
     module_reference: task.moduleReference || null,
+    ...(task.section ? { section: task.section } : {}),
     due_date: task.dueDate || null,
   };
 }

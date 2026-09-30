@@ -1906,3 +1906,165 @@ class TestOwnerFiles:
         stranger = make_user(UserRole.CLIENT)
         resp = api.as_user(stranger).get(f"/api/sale-ready/engagements/{engagement.id}/data-room")
         assert resp.status_code == 403
+
+
+# ======================================================================
+# Folder tree provisioning (H2/H5)
+# ======================================================================
+def _mapped(db_session, engagement):
+    rows = db_session.query(EngagementDriveFolder).filter(
+        EngagementDriveFolder.engagement_id == engagement.id,
+    ).all()
+    return {
+        "root": sum(1 for r in rows if r.category_code is None),
+        "categories": sum(1 for r in rows if r.category_code and r.sub_item_code is None),
+        "sub_items": sum(1 for r in rows if r.sub_item_code),
+    }
+
+
+def _small_tree(db_session, engagement):
+    _dd(db_session, engagement, cat="3", sub="3.1", key="DD-1")
+    _dd(db_session, engagement, cat="3", sub="3.2", sub_name="Management Accounts", key="DD-2")
+    _dd(db_session, engagement, cat="9", cat_name="Property", sub="9.1", sub_name="Leases", key="DD-3")
+
+
+class TestProvisioning:
+    def _service(self, db_session):
+        from app.services.drive_folder_service import get_drive_folder_service
+        return get_drive_folder_service(db_session)
+
+    def test_the_full_tree_is_created_once(self, db_session, fake_drive, engagement):
+        from app.models.sale_ready import ProgramStage
+        from app.services.sale_ready_service import get_sale_ready_service
+
+        if db_session.query(ProgramStage).filter_by(program_type="sale_ready").count() != 15:
+            pytest.skip("Sale Ready templates are not seeded")
+        get_sale_ready_service(db_session).ensure_initialized(engagement)
+
+        created = self._service(db_session).provision_tree(engagement)
+
+        assert _mapped(db_session, engagement) == {"root": 1, "categories": 16, "sub_items": 73}
+        # Client folder + Data room + 16 categories + 73 sub-items.
+        assert len(fake_drive.folders) == 91
+        # The root counts once: its client-folder parent is not a mapped row.
+        assert created == 90
+        assert self._service(db_session).provision_tree(engagement) == 0
+        assert len(fake_drive.folders) == 91
+
+    def test_rerunning_creates_no_duplicates(self, db_session, fake_drive, engagement):
+        _small_tree(db_session, engagement)
+        service = self._service(db_session)
+        service.provision_tree(engagement)
+        before = dict(fake_drive.folders)
+        assert service.provision_tree(engagement) == 0
+        assert fake_drive.folders == before
+        assert _mapped(db_session, engagement) == {"root": 1, "categories": 2, "sub_items": 3}
+
+    def test_a_lost_category_row_is_adopted_not_duplicated(self, db_session, fake_drive, engagement):
+        """An interrupted pass loses its uncommitted rows; the next adopts the folders by name."""
+        _small_tree(db_session, engagement)
+        service = self._service(db_session)
+        service.provision_tree(engagement)
+        before = len(fake_drive.folders)
+        db_session.query(EngagementDriveFolder).filter(
+            EngagementDriveFolder.engagement_id == engagement.id,
+            EngagementDriveFolder.category_code == "3",
+        ).delete()
+        db_session.flush()
+
+        service.provision_tree(engagement)
+        assert len(fake_drive.folders) == before
+        assert _mapped(db_session, engagement) == {"root": 1, "categories": 2, "sub_items": 3}
+
+    def test_a_file_dropped_into_a_never_uploaded_folder_is_picked_up(
+        self, db_session, fake_drive, engagement, monkeypatch
+    ):
+        from app.services.drive_folder_service import get_integration
+
+        _small_tree(db_session, engagement)
+        self._service(db_session).provision_tree(engagement)
+        folder = db_session.query(EngagementDriveFolder).filter_by(
+            engagement_id=engagement.id, sub_item_code="9.1").one()
+        assert db_session.query(Media).filter(Media.engagement_id == engagement.id).count() == 0
+
+        get_integration(db_session).changes_page_token = "cursor"
+        db_session.flush()
+        change = TestSync()._change("dropped-1", "lease.pdf", folder.drive_folder_id)
+        monkeypatch.setattr(fake_drive, "list_changes", lambda token: ([change], None, "cursor-2"))
+        result = get_drive_sync_service(db_session).sync()
+
+        assert result.added == 1
+        media = db_session.query(Media).filter(Media.drive_file_id == "dropped-1").one()
+        assert (media.engagement_id, media.dd_sub_item_code, media.source) == (engagement.id, "9.1", "drive")
+
+    def test_pending_lists_incomplete_trees_only(self, db_session, fake_drive, engagement):
+        from app.services.drive_folder_service import pending_engagements
+
+        _small_tree(db_session, engagement)
+        assert engagement.id in {e.id for e in pending_engagements(db_session)}
+        self._service(db_session).provision_tree(engagement)
+        assert engagement.id not in {e.id for e in pending_engagements(db_session)}
+
+    def test_a_pass_provisions_at_most_the_batch(
+        self, db_session, fake_drive, engagement, advisor, monkeypatch
+    ):
+        from app.services import drive_folder_service
+
+        engagements = []
+        for i in range(7):
+            eng = Engagement(engagement_name=f"Batch {i}", business_name=f"Batch {i}",
+                             primary_advisor_id=advisor.id, tool="sale_ready", status="active")
+            db_session.add(eng)
+            db_session.flush()
+            _dd(db_session, eng, key=f"DD-B{i}")
+            engagements.append(eng)
+        monkeypatch.setattr(drive_folder_service, "pending_engagements", lambda db: engagements)
+
+        result = drive_folder_service.provision_pending(db_session, limit=5)
+
+        # Per engagement: data room root, one category, one sub-item.
+        assert result == {"provisioned": 5, "pending": 7, "folders_created": 5 * 3}
+        assert [_mapped(db_session, e)["sub_items"] for e in engagements] == [1, 1, 1, 1, 1, 0, 0]
+
+    def test_throttling_ends_the_pass_and_is_raised(
+        self, db_session, fake_drive, engagement, monkeypatch
+    ):
+        from app.services import drive_folder_service
+        from app.services.drive_client import DriveRateLimited
+
+        _small_tree(db_session, engagement)
+        monkeypatch.setattr(drive_folder_service, "pending_engagements", lambda db: [engagement])
+
+        def throttled(name, parent_id):
+            raise DriveRateLimited("slow down")
+        monkeypatch.setattr(fake_drive, "create_folder", throttled)
+
+        with pytest.raises(DriveRateLimited):
+            drive_folder_service.provision_pending(db_session)
+
+    def test_one_broken_engagement_does_not_stop_the_rest(
+        self, db_session, fake_drive, engagement, advisor, monkeypatch
+    ):
+        from app.services import drive_folder_service
+
+        other = Engagement(engagement_name="Other", business_name="Other",
+                           primary_advisor_id=advisor.id, tool="sale_ready", status="active")
+        db_session.add(other)
+        db_session.flush()
+        _dd(db_session, other, key="DD-O")
+        _small_tree(db_session, engagement)
+        monkeypatch.setattr(drive_folder_service, "pending_engagements",
+                            lambda db: [engagement, other])
+        real = drive_folder_service.DriveFolderService.provision_tree
+
+        def flaky(self, eng, client=None):
+            if eng.id == engagement.id:
+                raise ValueError("boom")
+            return real(self, eng, client=client)
+        monkeypatch.setattr(drive_folder_service.DriveFolderService, "provision_tree", flaky)
+        # The failure path rolls back; commit the setup so only the failed work is lost.
+        db_session.commit()
+
+        result = drive_folder_service.provision_pending(db_session)
+        assert result["provisioned"] == 1
+        assert _mapped(db_session, other)["sub_items"] == 1

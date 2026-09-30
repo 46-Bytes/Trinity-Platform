@@ -16,26 +16,33 @@ name, so two engagements with the same business name get two separate folders
 category and sub-item folders are looked up by name only inside that
 engagement's own data room, and a Drive id is never mapped to two engagements.
 
-Folders below the data room are created lazily. An engagement has 16 DD
-categories and around 130 sub-items; creating all of them up front would be
-~146 Drive calls before a single file exists, most of them for folders that
-will stay empty.
+The whole tree - 16 DD categories and 73 sub-items - is created up front by
+provision_tree, which the Drive scheduler runs a few engagements at a time.
+A folder has to be mapped before the sync can see a file dropped into it,
+so creating folders only on first upload left Drive-side drops invisible.
+The ensure_* helpers still create anything missing on demand.
 """
 import logging
 import re
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.drive import DriveIntegration, EngagementDriveFolder
 from app.models.engagement import Engagement
 from app.models.sale_ready import EngagementDDItem
 from app.services.drive_client import DriveClient, DriveUnavailable, decrypt_token, drive_enabled
+from app.services.program_registry import PROGRAM_SALE_READY
 
 logger = logging.getLogger(__name__)
 
 DATA_ROOM_FOLDER = "Data room"
+
+# Engagements provisioned per scheduler pass. Each costs ~90 Drive calls, so
+# a backlog is worked through over several passes rather than in one burst.
+PROVISION_BATCH = 5
 
 # Drive tolerates most characters, but a path separator or a control
 # character in a folder name is asking for trouble in every tool that later
@@ -212,16 +219,25 @@ class DriveFolderService:
         return row.drive_folder_id
 
     def ensure_category(self, engagement: Engagement, category_code: str, client=None) -> str:
+        return self._ensure_category(engagement, category_code, client)[0]
+
+    def _ensure_category(self, engagement: Engagement, category_code: str, client=None,
+                         parent_is_new: bool = False) -> Tuple[str, bool]:
+        """
+        (folder id, whether Drive created it just now). A folder adopted by
+        name may already hold sub-folders, so only a created one counts as empty.
+        """
         existing = self.folder_id_for(engagement.id, category_code, None)
         if existing:
-            return existing
+            return existing, False
         client = self._client(client)
         parent = self.ensure_data_room(engagement, client=client)
         name = safe_folder_name(
             self._category_label(engagement.id, category_code), f"Category {category_code}",
         )
-        folder = client.ensure_folder(name, parent)
-        return self._record(engagement.id, category_code, None, folder).drive_folder_id
+        found = None if parent_is_new else client.find_folder(name, parent)
+        folder = found or client.create_folder(name, parent)
+        return self._record(engagement.id, category_code, None, folder).drive_folder_id, found is None
 
     def ensure_sub_item(self, engagement: Engagement, category_code: str,
                         sub_item_code: str, client=None) -> str:
@@ -235,18 +251,66 @@ class DriveFolderService:
         never committed. The change feed only reports what happens after the
         cursor is taken, so without this pass those files would stay invisible.
         """
+        return self._ensure_sub_item(engagement, category_code, sub_item_code, client)[0]
+
+    def _ensure_sub_item(self, engagement: Engagement, category_code: str, sub_item_code: str,
+                         client=None, parent_is_new: bool = False) -> Tuple[str, bool]:
         existing = self.folder_id_for(engagement.id, category_code, sub_item_code)
         if existing:
-            return existing
+            return existing, False
         client = self._client(client)
         parent = self.ensure_category(engagement, category_code, client=client)
         name = safe_folder_name(
             self._sub_item_label(engagement.id, category_code, sub_item_code), sub_item_code,
         )
-        folder = client.ensure_folder(name, parent)
-        row = self._record(engagement.id, category_code, sub_item_code, folder)
-        self._index_existing(row)
-        return row.drive_folder_id
+        # A parent Drive created a moment ago is empty: no name search, no backfill.
+        found = None if parent_is_new else client.find_folder(name, parent)
+        row = self._record(engagement.id, category_code, sub_item_code,
+                           found or client.create_folder(name, parent))
+        if found:
+            self._index_existing(row)
+        return row.drive_folder_id, found is None
+
+    # -- whole tree -----------------------------------------------------
+    def expected_tree(self, engagement_id: UUID) -> Dict[str, List[str]]:
+        """The DD folders this engagement should have: {category_code: [sub_item_code, ...]}."""
+        rows = self.db.query(
+            EngagementDDItem.category_code, EngagementDDItem.sub_item_code,
+        ).filter(EngagementDDItem.engagement_id == engagement_id).distinct().all()
+        tree: Dict[str, List[str]] = {}
+        for cat, sub in sorted(rows, key=lambda r: (_code_key(r[0]), _code_key(r[1]))):
+            tree.setdefault(cat, []).append(sub)
+        return tree
+
+    def provision_tree(self, engagement: Engagement, client=None) -> int:
+        """
+        Create and map every DD folder the engagement is missing. Returns how many were created.
+
+        Idempotent: mapped folders are skipped, so a second run makes no Drive
+        calls for them. Commits after the root and after each category, so an
+        interruption keeps what exists; the root is never adopted by name, so
+        losing its row would mean a duplicate tree.
+        """
+        tree = self.expected_tree(engagement.id)
+        if not tree:
+            return 0
+        client = self._client(client)
+        root_is_new = self.folder_id_for(engagement.id) is None
+        self.ensure_data_room(engagement, client=client)
+        created = int(root_is_new)
+        self.db.commit()
+        for category_code, sub_items in tree.items():
+            _, category_is_new = self._ensure_category(
+                engagement, category_code, client, parent_is_new=root_is_new,
+            )
+            created += int(category_is_new)
+            for sub_item_code in sub_items:
+                _, sub_is_new = self._ensure_sub_item(
+                    engagement, category_code, sub_item_code, client, parent_is_new=category_is_new,
+                )
+                created += int(sub_is_new)
+            self.db.commit()
+        return created
 
     def _index_existing(self, row: EngagementDriveFolder) -> None:
         """
@@ -303,6 +367,75 @@ class DriveFolderService:
             parents[0],
             safe_folder_name(engagement.business_name or engagement.engagement_name, str(engagement.id)),
         )
+
+
+def _code_key(code: Optional[str]) -> Tuple:
+    """Sort '3.10' after '3.9': numeric parts compared as numbers."""
+    return tuple(int(p) if p.isdigit() else p for p in (code or "").split("."))
+
+
+def pending_engagements(db: Session) -> List[Engagement]:
+    """
+    Live Sale Ready engagements whose folder tree is incomplete, oldest first.
+
+    Incomplete means fewer mapped sub-item folders than distinct DD sub-items.
+    A mapped sub-item implies its category and the root, so that one count is
+    enough. Engagements with no DD items yet are not due.
+    """
+    expected = db.query(
+        EngagementDDItem.engagement_id.label("engagement_id"),
+        func.count(func.distinct(func.concat(
+            EngagementDDItem.category_code, "|", EngagementDDItem.sub_item_code,
+        ))).label("n"),
+    ).group_by(EngagementDDItem.engagement_id).subquery()
+    mapped = db.query(
+        EngagementDriveFolder.engagement_id.label("engagement_id"),
+        func.count(EngagementDriveFolder.id).label("n"),
+    ).filter(
+        EngagementDriveFolder.sub_item_code.isnot(None),
+    ).group_by(EngagementDriveFolder.engagement_id).subquery()
+    return (
+        db.query(Engagement)
+        .join(expected, expected.c.engagement_id == Engagement.id)
+        .outerjoin(mapped, mapped.c.engagement_id == Engagement.id)
+        .filter(
+            Engagement.tool == PROGRAM_SALE_READY,
+            Engagement.is_deleted == False,  # noqa: E712
+            func.coalesce(mapped.c.n, 0) < expected.c.n,
+        )
+        .order_by(Engagement.created_at.asc(), Engagement.id.asc())
+        .all()
+    )
+
+
+def provision_pending(db: Session, limit: int = PROVISION_BATCH) -> Optional[Dict[str, Any]]:
+    """
+    One scheduler pass's share of folder provisioning. None when nothing is due.
+
+    Drive failures (outage, throttling) end the pass's provisioning and are
+    raised for the scheduler to report; the next pass carries on where this
+    one stopped. Any other failure skips that engagement only.
+    """
+    pending = pending_engagements(db)
+    if not pending:
+        return None
+    client = get_drive_client(db)
+    service = get_drive_folder_service(db)
+    done = folders = 0
+    try:
+        for engagement in pending[:limit]:
+            try:
+                folders += service.provision_tree(engagement, client=client)
+                done += 1
+            except DriveUnavailable:
+                raise
+            except Exception:
+                db.rollback()
+                logger.exception("Could not provision Drive folders for engagement %s", engagement.id)
+    finally:
+        logger.info("Drive folders provisioned %d/%d pending engagement(s) this pass; %d folder(s) created",
+                    done, len(pending), folders)
+    return {"provisioned": done, "pending": len(pending), "folders_created": folders}
 
 
 def get_drive_folder_service(db: Session) -> DriveFolderService:

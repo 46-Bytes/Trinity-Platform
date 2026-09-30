@@ -433,5 +433,28 @@ def _fake_sync(monkeypatch):
 
     monkeypatch.setattr("app.services.drive_sync_service.get_drive_sync_service",
                         lambda db: _Service(db))
+    # The fake session cannot run queries; provisioning has its own tests.
+    monkeypatch.setattr("app.services.drive_folder_service.provision_pending", lambda db: None)
     monkeypatch.setattr("app.services.drive_folder_service.get_integration",
                         lambda db: object())
+
+
+class TestProvisioningInThePass:
+    def test_provisioning_failures_never_stop_the_sync(self, monkeypatch):
+        def throttled(db):
+            raise DriveRateLimited("slow down")
+        monkeypatch.setattr("app.services.drive_folder_service.provision_pending", throttled)
+        monkeypatch.setattr(drive_scheduler, "should_run", lambda: True)
+        monkeypatch.setattr(drive_scheduler, "SessionLocal", _FakeSessionFactory(lambda: {"added": 1}))
+
+        assert drive_scheduler.run_one_pass() == {
+            "added": 1, "provisioning": {"skipped": "rate limited"},
+        }
+
+    def test_provisioning_progress_is_reported_with_the_pass(self, monkeypatch):
+        progress = {"provisioned": 5, "pending": 12, "folders_created": 450}
+        monkeypatch.setattr("app.services.drive_folder_service.provision_pending", lambda db: progress)
+        monkeypatch.setattr(drive_scheduler, "should_run", lambda: True)
+        monkeypatch.setattr(drive_scheduler, "SessionLocal", _FakeSessionFactory(lambda: {"added": 0}))
+
+        assert drive_scheduler.run_one_pass() == {"added": 0, "provisioning": progress}

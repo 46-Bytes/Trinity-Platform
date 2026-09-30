@@ -118,7 +118,11 @@ def run_one_pass() -> Optional[dict]:
 
                 if get_integration(db) is None:
                     return None
-                return get_drive_sync_service(db).sync().as_dict()
+                provisioning = _provision(db)
+                result = get_drive_sync_service(db).sync().as_dict()
+                if provisioning:
+                    result["provisioning"] = provisioning
+                return result
             except DriveRateLimited as exc:
                 # Throttling says nothing about the connection's health, so
                 # nothing is recorded against it. The next tick tries again.
@@ -132,6 +136,29 @@ def run_one_pass() -> Optional[dict]:
                 return {"error": str(exc)}
             finally:
                 db.close()
+
+
+def _provision(db) -> Optional[dict]:
+    """
+    Create the next few engagements' folder trees, before the sync runs.
+
+    Never stops the sync: throttling and outages are logged and the next
+    pass resumes, and anything else is logged with its traceback.
+    """
+    from app.services.drive_folder_service import provision_pending
+
+    try:
+        return provision_pending(db)
+    except DriveRateLimited as exc:
+        logger.info("Drive folder provisioning throttled: %s", exc)
+        return {"skipped": "rate limited"}
+    except DriveUnavailable as exc:
+        logger.warning("Drive folder provisioning unavailable: %s", exc)
+        return {"error": str(exc)}
+    except Exception:
+        db.rollback()
+        logger.exception("Drive folder provisioning failed; the sync still runs")
+        return {"error": "provisioning failed"}
 
 
 async def _loop() -> None:

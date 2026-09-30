@@ -177,7 +177,15 @@ async def delete_file(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to delete this file"
         )
-    
+
+    # Data room files live in Drive and follow the data room's advisor-only
+    # delete, which also trashes them in Drive. This route would do neither.
+    if media.drive_file_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This file is in a Sale Ready data room. Delete it from the data room."
+        )
+
     try:
         success = file_service.delete_file(file_id, hard_delete=hard_delete)
         

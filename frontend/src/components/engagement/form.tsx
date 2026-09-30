@@ -106,7 +106,18 @@ const createSchema = (userRole?: string, isEditMode = false) => {
   }
 };
 
-type EngagementFormValues = z.infer<ReturnType<typeof createSchema>>;
+/**
+ * businessName and industryName exist only in edit mode.
+ *
+ * createSchema decides that at runtime from `isEditMode`, so the inferred
+ * union collapses to the create-mode shape and the two edit-only fields
+ * disappear from the type even though they are really there. Adding them
+ * back as optional describes what the form actually holds; the schema still
+ * requires them in edit mode, so validation is unchanged.
+ */
+type EditOnlyFormValues = Partial<z.infer<z.ZodObject<typeof baseEditOnlySchemaFields>>>;
+
+type EngagementFormValues = z.infer<ReturnType<typeof createSchema>> & EditOnlyFormValues;
 
 interface EngagementFormProps {
   onSubmit?: (values: EngagementFormValues) => void;

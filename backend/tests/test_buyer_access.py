@@ -17,13 +17,14 @@ from sqlalchemy import text
 from app.models.buyer import BuyerAccessLog, EngagementBuyer, EngagementReleasedFolder
 from app.models.sale_ready import EngagementDDItem
 from app.models.engagement import Engagement
+from app.models.media import Media
 from app.models.user import User, UserRole
 
 ENG = "/api/engagements"
 PORTAL = "/api/buyer"
 
 _NEEDS_MIGRATION = (
-    "Buyer tables are missing. Migrate first:\n"
+    "Buyer or data room schema is missing. Migrate first:\n"
     "    cd backend && alembic upgrade head"
 )
 
@@ -35,6 +36,13 @@ def buyer_schema(db_session):
             db_session.execute(text(f"SELECT 1 FROM {table} LIMIT 0"))
         except Exception:
             pytest.skip(_NEEDS_MIGRATION, allow_module_level=True)
+    # The buyer's folder contents come from media's data room columns, added
+    # by add_drive_data_room. Without them every read of a released folder
+    # errors, so skip rather than report a wall of unrelated failures.
+    try:
+        db_session.execute(text("SELECT drive_file_id, dd_sub_item_code FROM media LIMIT 0"))
+    except Exception:
+        pytest.skip(_NEEDS_MIGRATION, allow_module_level=True)
 
 
 def _with_valid_email(user, db_session):
@@ -213,6 +221,30 @@ class TestEngagementIsolation:
         user, _ = buyer
         _release(db_session, other_engagement, "3", "3.1")
         assert api.as_user(user).get(f"{PORTAL}/me/folders").json() == []
+
+    def test_a_soft_deleted_engagement_closes_every_portal_route(
+        self, api, db_session, make_user, buyer, engagement, other_engagement
+    ):
+        import uuid as _uuid
+        user, _ = buyer
+        other_user, _ = _buyer(db_session, make_user, other_engagement)
+        _release(db_session, engagement, "3", "3.1")
+        media = Media(user_id=engagement.primary_advisor_id, engagement_id=engagement.id,
+                      file_name="lease.pdf", drive_file_id=f"drive-{_uuid.uuid4()}",
+                      dd_category_code="3", dd_sub_item_code="3.1", source="trinity")
+        db_session.add(media)
+        db_session.flush()
+        routes = [f"{PORTAL}/me/engagement", f"{PORTAL}/me/folders",
+                  f"{PORTAL}/me/folders/3/3.1", f"{PORTAL}/me/documents/{media.id}/download"]
+        for path in routes[:3]:
+            assert api.as_user(user).get(path).status_code == 200, path
+
+        engagement.is_deleted = True
+        db_session.flush()
+        for path in routes:
+            assert api.as_user(user).get(path).status_code == 403, path
+        # A buyer on another, live engagement is unaffected.
+        assert api.as_user(other_user).get(f"{PORTAL}/me/engagement").status_code == 200
 
     def test_a_non_buyer_cannot_use_the_portal(self, api, advisor, owner):
         for user in (advisor, owner):
@@ -442,44 +474,54 @@ class TestAccessLog:
 # Documents are served by Trinity, never linked
 # ======================================================================
 class TestDocumentsAreServedNotLinked:
-    def test_download_refuses_explicitly_before_drive(self, api, db_session, buyer, engagement):
+    def test_an_unknown_document_is_a_404(self, api, db_session, buyer, engagement):
         """
-        503, not 404: the release check cannot be answered yet, and saying so is
-        what stops it being mistaken for a check that ran and found nothing.
+        404, not 403 or 503: a buyer learns nothing about what exists.
+
+        This replaces the pre-Drive guard, which asserted a 503 because the
+        release check could not be answered at all. It can be answered now,
+        and the answer for an id that is not theirs is "no such document".
         """
         import uuid as _uuid
         user, _ = buyer
         _release(db_session, engagement, "3", "3.1")
         resp = api.as_user(user).get(f"{PORTAL}/me/documents/{_uuid.uuid4()}/download")
-        assert resp.status_code == 503
-        assert "not connected" in resp.json()["detail"]
+        assert resp.status_code == 404
 
-    def test_the_release_check_raises_rather_than_returning_a_default(self, db_session):
+    def test_the_release_check_defaults_to_denied(self, db_session):
         """
-        The guard against this becoming an authorisation bypass later.
+        The guard against this becoming an authorisation bypass.
 
-        Neither stub may return a value: an empty list or a False reads as a
-        completed check, and whoever wires up Drive would have no reason to
-        look at it again.
+        Every unknown input must be refused rather than allowed: an id that
+        does not exist, and an engagement with nothing released. Both answer
+        False, and neither raises - a raise here would turn a routine miss
+        into a 500.
         """
-        from app.services.buyer_service import DataRoomNotConnected, get_buyer_service
+        from app.services.buyer_service import get_buyer_service
         import uuid as _uuid
         service = get_buyer_service(db_session)
-        with pytest.raises(DataRoomNotConnected):
-            service.media_is_released(_uuid.uuid4(), _uuid.uuid4())
-        with pytest.raises(DataRoomNotConnected):
-            service.documents_in_folder(_uuid.uuid4(), "3", "3.1")
+        assert service.media_is_released(_uuid.uuid4(), _uuid.uuid4()) is False
+        assert service.documents_in_folder(_uuid.uuid4(), "3", "3.1") == []
 
-    def test_a_real_media_row_is_still_refused(self, api, db_session, buyer, engagement, advisor):
-        """Even a document that genuinely belongs to the engagement is refused."""
+    def test_a_media_row_filed_in_no_folder_is_refused(
+        self, api, db_session, buyer, engagement, advisor
+    ):
+        """
+        A document on the engagement but in no DD folder is not releasable.
+
+        Release is a property of the folder, so a file with no folder can
+        never be released - and must not become reachable just because it
+        shares an engagement with the buyer.
+        """
         from app.models.media import Media
         user, _ = buyer
+        _release(db_session, engagement, "3", "3.1")
         media = Media(engagement_id=engagement.id, user_id=advisor.id, file_name="x.pdf",
                       file_path="/tmp/x.pdf", is_active=True)
         db_session.add(media)
         db_session.flush()
         resp = api.as_user(user).get(f"{PORTAL}/me/documents/{media.id}/download")
-        assert resp.status_code == 503
+        assert resp.status_code == 404
 
     def test_a_released_folder_returns_the_shape_with_no_contents(
         self, api, db_session, buyer, engagement

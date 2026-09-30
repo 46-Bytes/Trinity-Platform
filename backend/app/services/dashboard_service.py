@@ -281,7 +281,9 @@ def get_client_dashboard_stats(db: Session, client_user_id: UUID) -> ClientDashb
     ]
     tasks_query = db.query(Task).filter(
         Task.engagement_id.in_(task_engagement_ids),
-        Task.is_deleted == False
+        Task.is_deleted == False,
+        # Sale Ready tasks are advisor-only; the owner's view is roadmap, DD and files.
+        Task.section.is_(None),
     )
     
     total_tasks = tasks_query.count()

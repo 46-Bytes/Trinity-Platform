@@ -337,15 +337,14 @@ async def list_engagements(
             Diagnostic.is_deleted == False
         ).scalar() or 0
 
-        tasks_count = db.query(func.count(Task.id)).filter(
-            Task.engagement_id == engagement.id,
-            Task.is_deleted == False
-        ).scalar() or 0
+        # Clients never see Sale Ready tasks, so their counts leave them out too.
+        visible_tasks = [Task.engagement_id == engagement.id, Task.is_deleted == False]
+        if current_user.role == UserRole.CLIENT:
+            visible_tasks.append(Task.section.is_(None))
+        tasks_count = db.query(func.count(Task.id)).filter(*visible_tasks).scalar() or 0
 
         pending_tasks_count = db.query(func.count(Task.id)).filter(
-            Task.engagement_id == engagement.id,
-            Task.status == "pending",
-            Task.is_deleted == False
+            *visible_tasks, Task.status == "pending"
         ).scalar() or 0
 
         notes_count = db.query(func.count(Note.id)).filter(
@@ -368,7 +367,8 @@ async def list_engagements(
         engagement_document_ids = db.query(Media.id).filter(
             Media.engagement_id == engagement.id,
             Media.is_active == True,
-            Media.deleted_at.is_(None)
+            Media.deleted_at.is_(None),
+            Media.drive_file_id.is_(None),
         )
         documents_count = diagnostic_document_ids.union(engagement_document_ids).count()
         
@@ -777,6 +777,8 @@ def _live_engagement_files(engagement_id: UUID, db: Session) -> List[Media]:
             Media.engagement_id == engagement_id,
             Media.is_active == True,  # noqa: E712
             Media.deleted_at.is_(None),
+            # Sale Ready data room files are kept to the data room.
+            Media.drive_file_id.is_(None),
         )
         .order_by(Media.created_at.desc())
         .all()
@@ -877,6 +879,7 @@ async def download_engagement_file(
         Media.engagement_id == engagement_id,
         Media.is_active == True,  # noqa: E712
         Media.deleted_at.is_(None),
+        Media.drive_file_id.is_(None),  # data room files are served by the data room
     ).first()
 
     if not media:
@@ -918,6 +921,7 @@ async def delete_engagement_file(
         Media.engagement_id == engagement_id,
         Media.is_active == True,  # noqa: E712
         Media.deleted_at.is_(None),
+        Media.drive_file_id.is_(None),  # data room files are served by the data room
     ).first()
 
     if not media:

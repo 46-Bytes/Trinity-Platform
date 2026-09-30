@@ -32,6 +32,18 @@ type TableBlock = {
 
 type Block = TextBlock | ListBlock | TableBlock;
 
+/**
+ * Narrow a Block to the kind that carries `text`.
+ *
+ * `['h1', ...].includes(block.type)` reads naturally but narrows nothing:
+ * Array.includes returns a plain boolean, so TypeScript still sees the whole
+ * union afterwards. Comparing the discriminant is what narrows, so the render
+ * below spells the heading types out rather than calling includes.
+ */
+function isTextBlock(block: Block): block is TextBlock {
+  return block.type !== 'table' && block.type !== 'ul' && block.type !== 'ol';
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getAttrs(el: Element): string {
@@ -148,11 +160,11 @@ function blocksToHtml(blocks: Block[]): string {
   return blocks
     .map((block) => {
       if (block.type === 'table') return serializeTable(block);
-      if (block.type === 'ul' || block.type === 'ol') {
+      if (!isTextBlock(block)) {
         const items = block.items.map((item) => `${openTag('li', item.attrs)}${item.text}</li>`).join('');
         return `${openTag(block.type, block.attrs)}${items}</${block.type}>`;
       }
-      return `${openTag(block.type, block.attrs)}${block?.text}</${block.type}>`;
+      return `${openTag(block.type, block.attrs)}${block.text}</${block.type}>`;
     })
     .join('\n');
 }
@@ -407,7 +419,7 @@ export function BlockEditor({ html, onChange, label }: BlockEditorProps) {
         }
 
         // ── Heading ──
-        if (['h1', 'h2', 'h3', 'h4'].includes(block.type)) {
+        if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3' || block.type === 'h4') {
           return (
             <div key={block.id} className="space-y-1">
               <p className="text-xs text-muted-foreground uppercase tracking-wide">{block.type.toUpperCase()}</p>
@@ -422,6 +434,10 @@ export function BlockEditor({ html, onChange, label }: BlockEditorProps) {
         }
 
         // ── Paragraph / Blockquote ──
+        // Table, list and heading all returned above, so only text blocks
+        // reach here. Stated as a guard rather than assumed, because the
+        // earlier branches do not narrow the union on their own.
+        if (!isTextBlock(block)) return null;
         return (
           <div key={block.id} className="space-y-1">
             {block.type === 'blockquote' && (

@@ -4,7 +4,7 @@ Buyer access rules: the vocabulary and the decisions, as plain values.
 No database and no ORM, so each rule is unit tested directly, the same way
 sale_ready_rules is. Anything here that waits on a client answer says so.
 """
-from typing import FrozenSet
+from typing import Dict, FrozenSet, Optional
 
 # ----------------------------------------------------------------------
 # Vocabulary
@@ -28,6 +28,28 @@ ACCESS_ACTIONS: FrozenSet[str] = frozenset({ACTION_LIST, ACTION_VIEW, ACTION_DOW
 # per-category release would change the schema, so this is called out rather
 # than buried: confirm before the Drive work starts.
 RELEASE_BOUNDARY = "dd_sub_item"
+
+# Types a browser shows by itself, keyed by extension. The content type is set
+# here, never taken from the upload, so nothing that could run script (HTML,
+# SVG) is ever served inline. Word, Excel, RTF and ZIP are download only.
+INLINE_TYPES: Dict[str, str] = {
+    "pdf": "application/pdf",
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "gif": "image/gif",
+    "webp": "image/webp",
+    "txt": "text/plain; charset=utf-8",
+    "csv": "text/plain; charset=utf-8",
+}
+
+
+def inline_type(file_name: Optional[str]) -> Optional[str]:
+    """The content type to view this file with in the browser, or None if it is download only."""
+    name = file_name or ""
+    if "." not in name:
+        return None
+    return INLINE_TYPES.get(name.rsplit(".", 1)[-1].lower())
 
 
 def validate_status(value: str) -> str:

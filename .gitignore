@@ -1,0 +1,10 @@
+# Client-supplied Sale Ready source material. Kept on disk for reference but
+# out of git: they are commercial documents, and the two Office files plus the
+# mockup are ~400KB of binary that would sit in history permanently.
+docs/sale-ready/Client_XYZ - Program Management Sheet - Sale Ready Program (2).xlsx
+docs/sale-ready/trinity-sale-ready-mockup (1).html
+docs/sale-ready/Trinity_Sale_Ready_Build_Brief (1).docx
+docs/sale-ready/Meeting summary.txt
+
+# Working analysis written against those documents, kept out for the same reason.
+docs/sale-ready-gap-analysis.md

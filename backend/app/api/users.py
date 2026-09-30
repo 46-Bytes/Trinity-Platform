@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel
 
 from sqlalchemy import or_, desc
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pathlib import Path
 
 from ..database import get_db
@@ -26,10 +26,13 @@ from ..models.bba import BBA
 from ..models.strategy_workbook import StrategyWorkbook
 from ..models.strategic_business_plan import StrategicBusinessPlan
 from ..schemas.user import UserResponse, UserUpdate, UserDetailResponse, UserFileResponse, UserDiagnosticResponse, PaginatedUsersResponse
+from ..utils import content_disposition
 from ..utils.auth import get_current_user, deny_buyers
 from ..services.auth_service import AuthService
 from ..services.audit_service import AuditService
 from ..services.auth0_management import Auth0Management
+from ..services.data_room_service import get_data_room_service
+from ..services.drive_client import DriveUnavailable
 from ..config import settings
 
 import logging
@@ -443,7 +446,19 @@ async def download_user_file(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="File not found"
         )
-    
+
+    # A Sale Ready data room file has no local copy; its bytes come from Drive.
+    if media.drive_file_id:
+        try:
+            chunks = get_data_room_service(db).download_stream(media)
+        except DriveUnavailable as e:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
+        return StreamingResponse(
+            chunks,
+            media_type=media.file_type or "application/octet-stream",
+            headers={"Content-Disposition": content_disposition.attachment(media.file_name)},
+        )
+
     # Check if file exists on disk
     file_path = Path(media.file_path)
     if not file_path.exists():
@@ -474,7 +489,7 @@ async def download_user_file(
         filename=media.file_name,
         media_type=media_type,
         headers={
-            "Content-Disposition": f'attachment; filename="{media.file_name}"'
+            "Content-Disposition": content_disposition.attachment(media.file_name)
         }
     )
 
@@ -608,10 +623,12 @@ async def delete_user(
         (AdvisorClient.advisor_id == user_id) | (AdvisorClient.client_id == user_id)
     ).update({"is_deleted": True}, synchronize_session=False)
 
-    # Soft-delete Media records uploaded by this user
+    # Soft-delete Media records uploaded by this user. Sale Ready data room
+    # files belong to their engagement, not the uploader, so they stay.
     db.query(Media).filter(
         Media.user_id == user_id,
         Media.deleted_at.is_(None),
+        Media.drive_file_id.is_(None),
     ).update({"deleted_at": datetime.utcnow(), "is_active": False}, synchronize_session=False)
 
     user.is_deleted = True

@@ -74,10 +74,32 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     SMTP_FROM_EMAIL: str = ""
 
-    # Google Drive
+    # Google Drive - the Sale Ready data room.
+    # OAuth against Benchmark's central account, not a service account, so the
+    # refresh token is obtained once through the admin connect flow and stored
+    # (encrypted) in drive_integration. Nothing here is per-user: advisors,
+    # clients and buyers never touch Drive.
     GOOGLE_DRIVE_ENABLED: bool = False
+    GOOGLE_DRIVE_CLIENT_ID: Optional[str] = None
+    GOOGLE_DRIVE_CLIENT_SECRET: Optional[str] = None
+    GOOGLE_DRIVE_REDIRECT_URI: Optional[str] = None
+    # Drive id of Trinity/Clients. Everything is created beneath it. A value
+    # here seeds drive_integration.root_folder_id on connect.
+    GOOGLE_DRIVE_ROOT_FOLDER_ID: Optional[str] = None
+    # Fernet key encrypting the stored refresh token. Without it the token is
+    # stored as-is and the connect endpoint refuses, rather than writing a
+    # secret in plain text by accident.
+    GOOGLE_DRIVE_TOKEN_KEY: Optional[str] = None
+    # Legacy service-account settings, retained so existing .env files still
+    # parse. Unused by the OAuth flow.
     GOOGLE_DRIVE_CREDENTIALS_FILE: Optional[str] = None
     GOOGLE_DRIVE_FOLDER_ID: Optional[str] = None
+    # How often the Drive -> Trinity sync runs, in seconds.
+    GOOGLE_DRIVE_SYNC_INTERVAL_SECONDS: int = 300
+    # The in-process scheduler that drives it. A kill switch independent of
+    # GOOGLE_DRIVE_ENABLED, so the integration can stay on while the periodic
+    # pass is turned off - useful when driving it by hand from the admin API.
+    GOOGLE_DRIVE_SYNC_ENABLED: bool = True
 
     @field_validator("OPENAI_TEMPERATURE")
     @classmethod

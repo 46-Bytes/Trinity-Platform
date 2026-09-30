@@ -88,6 +88,7 @@ class BuyerDocument(BaseModel):
     file_size: Optional[int] = None
     file_type: Optional[str] = None
     created_at: Optional[datetime] = None
+    viewable: bool = Field(False, description="Can be opened in the browser, not only downloaded")
 
 
 class BuyerFolder(BaseModel):

@@ -316,6 +316,10 @@ class BuyerService:
             for r in rows
         }
 
+    def folder_names(self, engagement_id: UUID) -> Dict[tuple, Dict[str, Optional[str]]]:
+        """Public view of the folder name map, for the advisor data room."""
+        return self._folder_names(engagement_id)
+
     def buyer_folders(self, engagement: Engagement) -> List[Dict[str, Any]]:
         """
         The released folders as a buyer sees them: named, and without the
@@ -430,30 +434,38 @@ class BuyerService:
         """
         Documents in a released folder.
 
-        Not implemented: nothing files a Media row against a DD sub-item yet, so
-        there is no honest answer to give. Implementing this is the moment the
-        release rule becomes real, and every caller below has been written to
-        expect the exception until then.
+        The caller has already established that the folder is released; this
+        only lists what is filed there. Soft-deleted files fall out, so a file
+        trashed in Drive stops being visible to a buyer as soon as the sync
+        notices - the check is per request and nothing is cached.
         """
-        raise DataRoomNotConnected(
-            "The data room is not connected yet, so documents cannot be listed "
-            "or released."
-        )
+        return self.db.query(Media).filter(
+            Media.engagement_id == engagement_id,
+            Media.dd_category_code == category_code,
+            Media.dd_sub_item_code == sub_item_code,
+            Media.is_active == True,  # noqa: E712
+            Media.deleted_at.is_(None),
+        ).order_by(Media.created_at.asc()).all()
 
     def media_is_released(self, engagement_id: UUID, media_id: UUID) -> bool:
         """
         Whether this document sits in a folder released to buyers.
 
-        The real check, and the one a download must pass. It cannot be answered
-        until a document knows which folder it is in, so it raises rather than
-        guessing. Anyone wiring up Drive has to implement this deliberately -
-        there is no default that quietly returns True, and none that quietly
-        returns False and looks like a working check either.
+        The check a download must pass, and the reason a buyer cannot reach a
+        document by guessing its id. Default-deny at every step: a file on
+        another engagement, a file filed in no folder at all, and a file whose
+        folder has been withdrawn all return False rather than raising, so a
+        buyer learns nothing about what exists.
         """
-        raise DataRoomNotConnected(
-            "The data room is not connected yet, so document release cannot be "
-            "checked."
-        )
+        media = self.db.query(Media).filter(
+            Media.id == media_id,
+            Media.engagement_id == engagement_id,
+            Media.is_active == True,  # noqa: E712
+            Media.deleted_at.is_(None),
+        ).first()
+        if media is None or not media.dd_category_code or not media.dd_sub_item_code:
+            return False
+        return self.is_released(engagement_id, media.dd_category_code, media.dd_sub_item_code)
 
 
 def get_buyer_service(db: Session) -> BuyerService:

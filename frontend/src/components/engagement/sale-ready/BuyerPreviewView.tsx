@@ -1,7 +1,8 @@
-import { ArrowLeft, FolderOpen, Lock } from 'lucide-react';
+import { ArrowLeft, File as FileIcon, FolderOpen, Lock } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import type { ReleasedFolder } from '@/store/slices/buyerAdminReducer';
+import type { DataRoomFile } from '@/store/slices/dataRoomReducer';
 import type { DDItem } from './types';
 
 interface BuyerPreviewViewProps {
@@ -9,6 +10,8 @@ interface BuyerPreviewViewProps {
   releasedFolders: ReleasedFolder[];
   /** The engagement's DD items, which name the folders. The buyer API names them the same way. */
   ddItems: DDItem[];
+  /** Every data room file. Only those in released folders are shown. */
+  files: DataRoomFile[];
   /** Who the advisor is previewing as, when there is a buyer to name. */
   buyerName?: string | null;
   onBack: () => void;
@@ -33,6 +36,7 @@ const folderKey = (category: string, sub: string) => `${category}|${sub}`;
 export function BuyerPreviewView({
   releasedFolders,
   ddItems,
+  files,
   buyerName,
   onBack,
 }: BuyerPreviewViewProps) {
@@ -47,7 +51,15 @@ export function BuyerPreviewView({
       a.category_code.localeCompare(b.category_code, undefined, { numeric: true }) ||
       a.sub_item_code.localeCompare(b.sub_item_code, undefined, { numeric: true })
     )
-    .map((f) => ({ ...f, ...(names.get(folderKey(f.category_code, f.sub_item_code)) ?? {}) }));
+    .map((f) => ({
+      ...f,
+      ...(names.get(folderKey(f.category_code, f.sub_item_code)) ?? {}),
+      // Only files in this folder, and only because the folder is released -
+      // the same two conditions the buyer API applies.
+      documents: files.filter(
+        (d) => d.category_code === f.category_code && d.sub_item_code === f.sub_item_code
+      ),
+    }));
 
   return (
     <div className="space-y-5">
@@ -90,7 +102,7 @@ export function BuyerPreviewView({
             {folders.map((folder) => (
               <li
                 key={folderKey(folder.category_code, folder.sub_item_code)}
-                className="flex items-center gap-3 rounded-lg border border-border px-3.5 py-3 text-sm"
+                className="flex flex-wrap items-center gap-3 rounded-lg border border-border px-3.5 py-3 text-sm"
               >
                 <FolderOpen className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden />
                 <span className="font-mono text-xs text-muted-foreground">{folder.sub_item_code}</span>
@@ -104,15 +116,30 @@ export function BuyerPreviewView({
                     </span>
                   )}
                 </span>
-                <span className="flex-shrink-0 text-xs text-muted-foreground">Empty</span>
+                <span className="flex-shrink-0 text-xs text-muted-foreground">
+                  {folder.documents.length === 0
+                    ? 'Empty'
+                    : `${folder.documents.length} file${folder.documents.length === 1 ? '' : 's'}`}
+                </span>
+                {folder.documents.length > 0 && (
+                  <ul className="mt-2 w-full basis-full space-y-1 border-t border-border pt-2">
+                    {folder.documents.map((doc) => (
+                      <li key={doc.id} className="flex items-center gap-2 pl-7 text-xs">
+                        <FileIcon className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" aria-hidden />
+                        <span className="min-w-0 flex-1 truncate">{doc.file_name}</span>
+                        <span className="flex-shrink-0 text-muted-foreground">View · Download</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             ))}
           </ul>
         )}
 
         <p className="mt-4 text-xs text-muted-foreground">
-          Folders are released, but the document store is not connected yet, so every folder is
-          empty for a buyer too. Viewing and downloading arrive with the Google Drive integration.
+          A buyer opens these through Trinity. They never see a Drive link, and every open and
+          download is recorded against their account.
         </p>
       </section>
     </div>

@@ -658,7 +658,10 @@ export default function EngagementDetailPage() {
   // Files uploaded to the engagement itself. Shown in the same card as the
   // diagnostic attachments above - to an advisor they are all just documents on
   // this engagement - but they carry a real id, so they download and delete.
-  const engagementUploadedFiles = useMemo(() => {
+  // Annotated like uploadedFiles above: without it the inferred literal type
+  // omits the optional download fields, and handleDownload sees a union that
+  // has no diagnosticId, downloadUrl, downloadMethod or relativePath.
+  const engagementUploadedFiles: GeneratedFileProps[] = useMemo(() => {
     return engagementFiles.map((file) => {
       const extension = (file.file_extension || '').toLowerCase();
       let fileType: 'pdf' | 'docx' | 'xlsx' | 'pptx' | 'txt' = 'txt';

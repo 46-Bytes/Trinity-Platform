@@ -72,3 +72,9 @@ flower==2.0.1
 # Email (Resend). Pinned for the same reason as anthropic above - this was the
 # only other entry with no version specifier at all.
 resend==2.30.1
+
+# Google Drive - the Sale Ready data room store. OAuth against Benchmark's
+# central account; see app/services/drive_client.py.
+google-api-python-client==2.149.0
+google-auth==2.35.0
+google-auth-oauthlib==1.2.1

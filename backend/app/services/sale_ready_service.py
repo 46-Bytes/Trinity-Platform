@@ -20,6 +20,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -118,14 +119,18 @@ class SaleReadyService:
             raise SaleReadyNotFound(f"Stage {stage_code} not found")
         return stage
 
-    @staticmethod
-    def _template_cutoff(engagement: Engagement) -> Optional[datetime]:
+    def _template_cutoff(self, engagement: Engagement) -> Optional[datetime]:
         """
         The engagement gets the templates that existed before it was created.
 
         Anything an admin adds later is newer than this and is never copied onto
         an engagement already running. Editing or retiring a template does not
         touch an engagement either, because its tasks and DD items are copies.
+
+        An engagement created before Sale Ready was installed had no templates
+        to receive at creation. Its snapshot is taken when Sale Ready first
+        initializes it instead - the moment its guide snapshot is frozen too.
+        None means "not initialized yet": the current set is what it will get.
 
         Both sides of the comparison are stamped by the database
         (server_default=CURRENT_TIMESTAMP), so this is one clock, never Python's
@@ -134,7 +139,14 @@ class SaleReadyService:
         transaction as an engagement carries an identical value, and `<=` would
         let it through to an engagement that is already running.
         """
-        return engagement.created_at
+        installed_at = self.db.query(func.min(ProgramStage.created_at)).filter(
+            ProgramStage.program_type == PROGRAM_SALE_READY,
+        ).scalar()
+        if installed_at is None or engagement.created_at > installed_at:
+            return engagement.created_at
+        return self.db.query(func.min(EngagementStageState.created_at)).filter(
+            EngagementStageState.engagement_id == engagement.id,
+        ).scalar()
 
     def _task_templates(self, stage_code: Optional[str] = None,
                         created_before: Optional[datetime] = None) -> List[ProgramTaskTemplate]:
@@ -379,7 +391,8 @@ class SaleReadyService:
         for d in self._dd_items(engagement.id):
             dd_by_stage.setdefault(d.stage_code, []).append(d)
         must_templates: Dict[str, int] = {}
-        for t in self._task_templates():
+        # Only templates this engagement is entitled to, so the total matches what Start creates.
+        for t in self._task_templates(created_before=self._template_cutoff(engagement)):
             if t.section == rules.SECTION_MUST_DO:
                 must_templates[t.stage_code] = must_templates.get(t.stage_code, 0) + 1
 
@@ -581,9 +594,10 @@ class SaleReadyService:
             "updated_at": state.updated_at if state else None,
             "qa": qa._asdict(),
             "tasks": [self._task_dict(t, templates) for t in tasks],
+            # Same cutoff as Start, so the preview never promises tasks it won't create.
             "template_preview": [] if entry["summary"]["tasks_created"] else [
                 {"title": t.title, "section": t.section, "group_title": t.group_title}
-                for t in templates.values()
+                for t in self._task_templates(stage_code, self._template_cutoff(engagement))
             ],
             "dd_items": [self._dd_dict(d, stage_titles) for d in entry["dd"]],
             "flagged_for_review": flagged,

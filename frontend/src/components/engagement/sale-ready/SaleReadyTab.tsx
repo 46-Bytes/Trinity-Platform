@@ -210,6 +210,7 @@ export function SaleReadyTab({ engagementId, readOnly = false, onEngagementStatu
       if (!stage || stage.stage.stage_code !== openStage) return <LoadingState />;
       return (
         <StageDetailView
+          engagementId={engagementId}
           detail={stage}
           modulesTotal={roadmap.modules.length}
           isSaving={isSaving}

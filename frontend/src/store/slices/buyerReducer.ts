@@ -26,9 +26,26 @@ export interface BuyerFolder {
   sub_item: string | null;
 }
 
+/** A document a buyer may open. Carries no Drive id and no storage path. */
+export interface BuyerDocument {
+  id: string;
+  file_name: string;
+  file_size: number | null;
+  file_type: string | null;
+  created_at: string | null;
+  /** PDF, image or text: can be opened in the browser, not only downloaded. */
+  viewable: boolean;
+}
+
+export interface BuyerFolderContents extends BuyerFolder {
+  documents: BuyerDocument[];
+}
+
 interface BuyerState {
   engagement: BuyerEngagement | null;
   folders: BuyerFolder[];
+  /** Contents of the folders the buyer has opened, keyed 'category|sub_item'. */
+  contents: Record<string, BuyerDocument[]>;
   isLoading: boolean;
   error: string | null;
 }
@@ -36,6 +53,7 @@ interface BuyerState {
 const initialState: BuyerState = {
   engagement: null,
   folders: [],
+  contents: {},
   isLoading: false,
   error: null,
 };
@@ -78,6 +96,68 @@ export const fetchBuyerFolders = createAsyncThunk<BuyerFolder[], void, { rejectV
   }
 );
 
+export const fetchBuyerFolderContents = createAsyncThunk<
+  BuyerFolderContents,
+  { categoryCode: string; subItemCode: string },
+  { rejectValue: string }
+>('buyer/fetchFolderContents', async ({ categoryCode, subItemCode }, { rejectWithValue }) => {
+  try {
+    return await request<BuyerFolderContents>(
+      `/me/folders/${categoryCode}/${subItemCode}`,
+      'Failed to open the folder'
+    );
+  } catch (e) {
+    return rejectWithValue(e instanceof Error ? e.message : 'Failed to open the folder');
+  }
+});
+
+/**
+ * Download a released document through Trinity.
+ *
+ * The endpoint is authenticated, so a plain anchor cannot carry the token;
+ * the bytes are fetched and handed to the browser as a blob. Trinity streams
+ * them from Drive - the buyer never receives a Drive URL.
+ */
+export async function downloadBuyerDocument(mediaId: string, fileName: string): Promise<void> {
+  const token = localStorage.getItem('auth_token');
+  const response = await fetch(`${BASE}/me/documents/${mediaId}/download`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.detail || 'Failed to download the document');
+  }
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Fetch a released document for viewing in the page, as a blob.
+ *
+ * Same authenticated stream as a download, from the view endpoint, which only
+ * serves types a browser renders by itself. The caller owns the object URL and
+ * must revoke it. No Drive URL is involved at any point.
+ */
+export async function fetchBuyerDocumentForView(mediaId: string): Promise<Blob> {
+  const token = localStorage.getItem('auth_token');
+  const response = await fetch(`${BASE}/me/documents/${mediaId}/view`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.detail || 'Failed to open the document');
+  }
+  return response.blob();
+}
+
 const slice = createSlice({
   name: 'buyer',
   initialState,
@@ -88,6 +168,10 @@ const slice = createSlice({
     });
     builder.addCase(fetchBuyerFolders.fulfilled, (state, action) => {
       state.folders = action.payload;
+    });
+    builder.addCase(fetchBuyerFolderContents.fulfilled, (state, action) => {
+      const key = `${action.payload.category_code}|${action.payload.sub_item_code}`;
+      state.contents[key] = action.payload.documents;
     });
     builder.addMatcher(
       (a) => a.type.startsWith('buyer/') && a.type.endsWith('/pending'),

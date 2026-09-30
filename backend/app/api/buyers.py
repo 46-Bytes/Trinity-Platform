@@ -15,12 +15,11 @@ Documents are streamed through Trinity, as the brief requires. A buyer never
 receives a storage link, and every list, view and download is logged.
 """
 import logging
-import os
 from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -40,6 +39,8 @@ from app.schemas.buyer import (
     ReleasedFolderView,
 )
 from app.services import buyer_rules as rules
+from app.services.data_room_service import get_data_room_service
+from app.services.drive_client import DriveUnavailable
 from app.services.buyer_service import (
     BuyerConflict,
     BuyerNotFound,
@@ -47,6 +48,7 @@ from app.services.buyer_service import (
     get_buyer_service,
 )
 from app.services.role_check import check_engagement_access
+from app.utils import content_disposition
 from app.utils.auth import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -217,7 +219,12 @@ def require_buyer_engagement(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="This area is for buyer accounts")
     binding = get_buyer_service(db).live_binding_for_user(current_user.id)
-    if binding is None:
+    # A soft-deleted engagement ends buyer access, whatever the binding says.
+    live_engagement = binding is not None and db.query(Engagement.id).filter(
+        Engagement.id == binding.engagement_id,
+        Engagement.is_deleted == False,  # noqa: E712
+    ).first() is not None
+    if not live_engagement:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="Your access to this data room has ended")
     return binding
@@ -267,9 +274,9 @@ async def my_folder(
     """
     A released folder's contents.
 
-    Empty until the Drive work lands - no document is filed against a DD
-    sub-item yet. An unreleased folder is a 404, not an empty list, so its
-    existence is not disclosed.
+    An unreleased folder is a 404, not an empty list, so its existence is not
+    disclosed. The documents carry no Drive id and no Drive link - a buyer
+    gets an opaque Trinity id and nothing else.
     """
     service = get_buyer_service(db)
     if not service.is_released(binding.engagement_id, category_code, sub_item_code):
@@ -287,10 +294,47 @@ async def my_folder(
         **service.folder_name(binding.engagement_id, category_code, sub_item_code),
         "documents": [
             {"id": m.id, "file_name": m.file_name, "file_size": m.file_size,
-             "file_type": m.file_type, "created_at": m.created_at}
+             "file_type": m.file_type, "created_at": m.created_at,
+             "viewable": rules.inline_type(m.file_name) is not None}
             for m in documents
         ],
     }
+
+
+def _released_media(db: Session, binding: EngagementBuyer, media_id: UUID, user: User) -> Media:
+    """
+    The document, if it sits in a folder released to this buyer's engagement.
+
+    The release check runs before anything is looked up and is the only thing
+    standing between a buyer and a document they were not shown. It is checked
+    per request and never cached, so withdrawing a folder takes effect on the
+    next click.
+    """
+    service = get_buyer_service(db)
+    try:
+        released = service.media_is_released(binding.engagement_id, media_id)
+    except DataRoomNotConnected as e:
+        logger.info("Buyer %s attempted a download before the data room exists", user.id)
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
+    if not released:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+
+    media = db.query(Media).filter(
+        Media.id == media_id,
+        Media.engagement_id == binding.engagement_id,
+        Media.is_active == True,  # noqa: E712
+        Media.deleted_at.is_(None),
+    ).first()
+    if not media:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    return media
+
+
+def _drive_chunks(db: Session, media: Media):
+    try:
+        return get_data_room_service(db).download_stream(media)
+    except (DriveUnavailable, DataRoomNotConnected) as e:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
 
 
 @buyer_router.get("/me/documents/{media_id}/download")
@@ -303,30 +347,51 @@ async def download_document(
     """
     Stream a released document through Trinity.
 
-    Refused while the data room is unconnected. The release check is the only
-    thing standing between a buyer and a document they were not shown, and it
-    cannot be answered until a document knows which folder it is in - so this
-    refuses first and looks nothing up. Nothing here may be relaxed without
-    implementing BuyerService.media_is_released; the order below is the point.
+    The bytes are piped from Drive through this response. A buyer never
+    receives a Drive link, a Drive id or a storage path - only an opaque
+    Trinity media id they already had.
     """
-    service = get_buyer_service(db)
-    try:
-        released = service.media_is_released(binding.engagement_id, media_id)
-    except DataRoomNotConnected as e:
-        logger.info("Buyer %s attempted a download before the data room exists", current_user.id)
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
-    if not released:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    media = _released_media(db, binding, media_id, current_user)
 
-    media = db.query(Media).filter(
-        Media.id == media_id,
-        Media.engagement_id == binding.engagement_id,
-        Media.is_active == True,  # noqa: E712
-        Media.deleted_at.is_(None),
-    ).first()
-    if not media or not os.path.exists(media.file_path):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    # Logged before the stream starts: an open that fails part-way through
+    # still happened, and the record of what was reached has to survive it.
+    get_buyer_service(db).log(binding.engagement_id, current_user, rules.ACTION_DOWNLOAD,
+                              media_id=media.id)
+    return StreamingResponse(
+        _drive_chunks(db, media),
+        media_type=media.file_type or "application/octet-stream",
+        headers={"Content-Disposition": content_disposition.attachment(media.file_name)},
+    )
 
-    service.log(binding.engagement_id, current_user, rules.ACTION_DOWNLOAD, media_id=media.id)
-    return FileResponse(path=media.file_path, filename=media.file_name,
-                        media_type=media.file_type or "application/octet-stream")
+
+@buyer_router.get("/me/documents/{media_id}/view")
+async def view_document(
+    media_id: UUID,
+    db: Session = Depends(get_db),
+    binding: EngagementBuyer = Depends(require_buyer_engagement),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Show a released document in the browser, streamed through Trinity like a download.
+
+    Same release check as download. Only types a browser renders by itself
+    (rules.INLINE_TYPES) are served, with the content type fixed by extension;
+    anything else is 415 and stays download only.
+    """
+    media = _released_media(db, binding, media_id, current_user)
+    content_type = rules.inline_type(media.file_name)
+    if content_type is None:
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                            detail="This document cannot be viewed in the browser. Download it instead.")
+
+    get_buyer_service(db).log(binding.engagement_id, current_user, rules.ACTION_VIEW,
+                              media_id=media.id)
+    return StreamingResponse(
+        _drive_chunks(db, media),
+        media_type=content_type,
+        headers={
+            "Content-Disposition": content_disposition.inline(media.file_name),
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "no-store",
+        },
+    )

@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { DDHeaderRow, DDItemRow } from './DDItemRow';
+import { DocumentRegisterCard } from './DocumentRegisterCard';
 import { RUN_WITH, STAGE_GUIDES } from './saleReadyGuide';
 import { STATUS_CONFIG } from './saleReadyDisplay';
 import type { DDItem, DDItemUpdate, SaleReadyPerson, StageDetail, StageTask, StageTaskUpdate, StageUpdate } from './types';
@@ -27,6 +28,8 @@ interface StageDetailViewProps {
   onUpdateDD: (item: DDItem, changes: DDItemUpdate) => void;
   /** The Sale Planner or Close-out screen, for stages with their own. */
   variantPanel?: ReactNode;
+  /** Needed by the document register, which reads this stage's data room files. */
+  engagementId: string;
 }
 
 function Card({ children, className }: { children: ReactNode; className?: string }) {
@@ -377,7 +380,10 @@ function DDCard({ detail, onUpdateDD }: Pick<StageDetailViewProps, 'detail' | 'o
 
 // ---------------------------------------------------------------- page
 export function StageDetailView(props: StageDetailViewProps) {
-  const { detail, modulesTotal, isSaving, onBack, onStart, onComplete, onReopen, onUpdateStage, variantPanel } = props;
+  const {
+    detail, modulesTotal, isSaving, onBack, onStart, onComplete, onReopen, onUpdateStage,
+    variantPanel, engagementId,
+  } = props;
   const { stage, qa } = detail;
   const status = STATUS_CONFIG[stage.status];
   // The engagement's own frozen copy. The constants are the fallback for
@@ -519,6 +525,7 @@ export function StageDetailView(props: StageDetailViewProps) {
           <TasksCard {...props} />
           {variantPanel}
           <DDCard {...props} />
+          <DocumentRegisterCard engagementId={engagementId} stageCode={stage.stage_code} />
         </div>
 
         <div className="space-y-5 xl:sticky xl:top-5">

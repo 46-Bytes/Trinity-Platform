@@ -1,5 +1,6 @@
 import { Engagement } from '@/store/slices/engagementReducer';
-import { User } from '@/context/AuthContext';
+// User lives in types/auth; AuthContext imports it but does not re-export it.
+import { User } from '@/types/auth';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 

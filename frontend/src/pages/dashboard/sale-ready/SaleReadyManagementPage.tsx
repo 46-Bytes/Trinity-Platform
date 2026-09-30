@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DriveConnectionCard } from '@/components/sale-ready/DriveConnectionCard';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
@@ -1090,6 +1091,7 @@ export default function SaleReadyManagementPage() {
             <TabsTrigger value="guide">Program Guide</TabsTrigger>
             <TabsTrigger value="tasks">Task Templates</TabsTrigger>
             <TabsTrigger value="dd">DD Checklist</TabsTrigger>
+            <TabsTrigger value="drive">Data room</TabsTrigger>
           </TabsList>
           <TabsContent value="guide">
             <ProgramGuideSection key={sectionKey} draft={sectionProps.draft}
@@ -1101,6 +1103,9 @@ export default function SaleReadyManagementPage() {
           </TabsContent>
           <TabsContent value="dd">
             <DDChecklistSection key={sectionKey} {...sectionProps} />
+          </TabsContent>
+          <TabsContent value="drive">
+            <DriveConnectionCard />
           </TabsContent>
         </Tabs>
       )}

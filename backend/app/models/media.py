@@ -1,7 +1,7 @@
 """
 Media model for file uploads
 """
-from sqlalchemy import Column, String, Text, DateTime, Integer, Boolean, func, ForeignKey, Table
+from sqlalchemy import Column, String, Text, DateTime, Integer, Boolean, func, ForeignKey, Index, Table
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
@@ -39,10 +39,28 @@ class Media(Base):
     
     # File metadata
     file_name = Column(String(255), nullable=False, comment="Original filename")
-    file_path = Column(Text, nullable=False, comment="Storage path (local or S3)")
+    # NULL for a data room file: those live in Drive and Trinity keeps no copy.
+    file_path = Column(Text, nullable=True, comment="Local storage path; NULL when the bytes live in Drive")
     file_size = Column(Integer, nullable=True, comment="File size in bytes")
     file_type = Column(String(100), nullable=True, comment="MIME type")
     file_extension = Column(String(20), nullable=True, comment="File extension (pdf, jpg, etc.)")
+
+    # ---- Sale Ready data room (Google Drive) -------------------------------
+    # All NULL on every file that is not a data room document, which is every
+    # file outside Sale Ready. Drive is the store; these columns are the index.
+    # Indexed in __table_args__ rather than here: add_drive_data_room named the
+    # unique index uq_media_drive_file_id, and unique=True/index=True would have
+    # the model expect ix_media_drive_file_id instead.
+    drive_file_id = Column(String(255), nullable=True,
+                           comment="Drive file id; the locator when file_path is NULL")
+    drive_web_link = Column(Text, nullable=True,
+                            comment="Drive UI link. Returned to advisors and owners; never to a buyer.")
+    drive_modified_time = Column(DateTime, nullable=True,
+                                 comment="Drive's modifiedTime at last sync; decides sync conflicts")
+    dd_category_code = Column(String(10), nullable=True, comment="DD category this file is filed under, e.g. '3'")
+    dd_sub_item_code = Column(String(10), nullable=True, comment="DD sub-item, e.g. '3.1'; one data room folder")
+    source = Column(String(20), nullable=True,
+                    comment="'trinity' when uploaded here, 'drive' when found by the sync")
     
     # OpenAI integration (preserved for rollback)
     openai_file_id = Column(String(255), nullable=True, unique=True, index=True,
@@ -76,7 +94,17 @@ class Media(Base):
     user = relationship("User", back_populates="media")
     engagement = relationship("Engagement")
     diagnostics = relationship("Diagnostic", secondary=diagnostic_media, back_populates="media")
-    
+
+    __table_args__ = (
+        # Both created by add_drive_data_room and declared here under the names
+        # it used, so autogenerate does not propose dropping them. The unique
+        # one is what makes the Drive sync idempotent: a file moved or renamed
+        # in Drive matches on its id and updates, rather than duplicating.
+        Index('uq_media_drive_file_id', 'drive_file_id', unique=True),
+        Index('ix_media_engagement_dd_folder',
+              'engagement_id', 'dd_category_code', 'dd_sub_item_code'),
+    )
+
     def __repr__(self):
         file_id = self.llm_file_id or self.openai_file_id
         return f"<Media(id={self.id}, file_name='{self.file_name}', llm_file_id='{file_id}')>"

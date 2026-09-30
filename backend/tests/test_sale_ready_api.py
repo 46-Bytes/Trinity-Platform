@@ -413,3 +413,145 @@ def test_existing_sale_ready_engagement_initializes(db_session):
         assert len(_sr_tasks(db_session, existing)) > 0
     assert roadmap["modules"][-1]["stage_code"] == "M8"
     assert roadmap["progress"] == again["progress"]
+
+
+# ----------------------------------------------------------------------
+# Engagement created before Sale Ready was installed
+# ----------------------------------------------------------------------
+@pytest.fixture
+def pre_install_engagement(db_session, advisor, owner):
+    """An engagement older than every seeded template, like one created before Sale Ready shipped."""
+    from datetime import datetime
+
+    eng = Engagement(
+        engagement_name="Pre-install Sale Ready engagement",
+        primary_advisor_id=advisor.id,
+        client_ids=[owner.id],
+        tool="sale_ready",
+        created_at=datetime(2000, 1, 1),
+    )
+    db_session.add(eng)
+    db_session.flush()
+    return eng
+
+
+def test_pre_install_engagement_receives_the_templates(
+    api, db_session, pre_install_engagement, advisor, phase_task_count
+):
+    eng = pre_install_engagement
+    client = api.as_user(advisor)
+    assert client.get(f"{BASE}/{eng.id}/roadmap").status_code == 200
+
+    assert db_session.query(EngagementDDItem).filter_by(engagement_id=eng.id).count() == 210
+    assert len(_sr_tasks(db_session, eng)) == phase_task_count
+
+    detail = client.get(f"{BASE}/{eng.id}/stages/M1").json()
+    assert len(detail["template_preview"]) == M1_TASKS
+    detail = client.post(f"{BASE}/{eng.id}/stages/M1/start").json()
+    assert len(detail["tasks"]) == M1_TASKS
+
+
+def test_pre_install_engagement_is_frozen_at_first_initialization(
+    api, db_session, pre_install_engagement, advisor
+):
+    """A template an admin adds after the first open is for later engagements, not this one."""
+    eng = pre_install_engagement
+    client = api.as_user(advisor)
+    client.get(f"{BASE}/{eng.id}/roadmap")
+
+    db_session.add(ProgramTaskTemplate(
+        program_type="sale_ready", stage_code="M1", template_key="test-after-init",
+        section="must_do", title="Added after this engagement began", default_order=999,
+    ))
+    db_session.flush()
+
+    detail = client.get(f"{BASE}/{eng.id}/stages/M1").json()
+    assert len(detail["template_preview"]) == M1_TASKS
+    detail = client.post(f"{BASE}/{eng.id}/stages/M1/start").json()
+    assert "Added after this engagement began" not in {t["title"] for t in detail["tasks"]}
+
+
+def test_preview_matches_what_start_creates(api, db_session, engagement, advisor):
+    """Templates newer than the engagement appear neither in the preview nor in the created tasks."""
+    db_session.add(ProgramTaskTemplate(
+        program_type="sale_ready", stage_code="M1", template_key="test-newer-than-engagement",
+        section="must_do", title="Newer than the engagement", default_order=999,
+    ))
+    db_session.flush()
+    client = api.as_user(advisor)
+    preview = client.get(f"{BASE}/{engagement.id}/stages/M1").json()["template_preview"]
+    created = client.post(f"{BASE}/{engagement.id}/stages/M1/start").json()["tasks"]
+    assert len(preview) == len(created) == M1_TASKS
+
+
+# ----------------------------------------------------------------------
+# Owner and the generic Tasks API
+# ----------------------------------------------------------------------
+@pytest.fixture
+def ordinary_task(db_session, engagement, advisor, owner):
+    """A normal, non-Sale-Ready task assigned to the owner."""
+    task = Task(engagement_id=engagement.id, created_by_user_id=advisor.id,
+                title="Send the bank statements", assigned_to_user_ids=[owner.id])
+    db_session.add(task)
+    db_session.flush()
+    return task
+
+
+def test_owner_never_sees_sale_ready_tasks_in_the_generic_api(
+    api, db_session, engagement, advisor, owner, ordinary_task
+):
+    api.as_user(advisor).post(f"{BASE}/{engagement.id}/stages/M1/start")
+    sr_task = _sr_tasks(db_session, engagement, "M1")[0]
+    sr_task.assigned_to_user_ids = [owner.id]  # even one assigned to them
+    db_session.flush()
+
+    owner_client = api.as_user(owner)
+    for url in ("/api/tasks", f"/api/tasks?engagement_id={engagement.id}"):
+        ids = {t["id"] for t in owner_client.get(url).json()}
+        assert str(ordinary_task.id) in ids
+        assert not ids & {str(t.id) for t in _sr_tasks(db_session, engagement)}
+
+    assert owner_client.get(f"/api/tasks/{sr_task.id}").status_code == 404
+    assert owner_client.patch(f"/api/tasks/{sr_task.id}", json={"status": "completed"}).status_code == 404
+    assert owner_client.delete(f"/api/tasks/{sr_task.id}").status_code == 404
+    db_session.refresh(sr_task)
+    assert sr_task.status == "pending" and not sr_task.is_deleted
+
+    # The ordinary task is untouched by any of this.
+    assert owner_client.get(f"/api/tasks/{ordinary_task.id}").status_code == 200
+    assert owner_client.patch(f"/api/tasks/{ordinary_task.id}",
+                              json={"status": "completed"}).status_code == 200
+
+
+def test_advisor_still_sees_sale_ready_tasks(api, db_session, engagement, advisor):
+    api.as_user(advisor).post(f"{BASE}/{engagement.id}/stages/M1/start")
+    ids = {t["id"] for t in api.as_user(advisor).get(f"/api/tasks?engagement_id={engagement.id}").json()}
+    assert {str(t.id) for t in _sr_tasks(db_session, engagement, "M1")} <= ids
+
+
+def test_owner_dashboard_and_counts_leave_out_sale_ready_tasks(
+    api, db_session, engagement, advisor, owner, ordinary_task
+):
+    from app.services.dashboard_service import get_client_dashboard_stats
+
+    api.as_user(advisor).get(f"{BASE}/{engagement.id}/roadmap")  # creates the phase tasks
+    assert _sr_tasks(db_session, engagement)
+    stats = get_client_dashboard_stats(db_session, owner.id)
+    assert stats.total_tasks == 1
+    listed = api.as_user(owner).get("/api/engagements").json()
+    mine = next(e for e in listed if e["id"] == str(engagement.id))
+    assert mine["tasks_count"] == 1
+
+
+def test_generic_patch_keeps_sale_ready_state_rules(api, db_session, engagement, advisor):
+    detail = api.as_user(advisor).post(f"{BASE}/{engagement.id}/stages/M1/start").json()
+    task_id = detail["tasks"][0]["id"]
+    api.as_user(advisor).patch(f"{BASE}/{engagement.id}/tasks/{task_id}",
+                               json={"sale_ready_state": "blocked"})
+
+    generic = api.as_user(advisor)
+    assert generic.patch(f"/api/tasks/{task_id}", json={"status": "done-ish"}).status_code == 400
+    assert generic.patch(f"/api/tasks/{task_id}", json={"status": "completed"}).status_code == 200
+    task = db_session.query(Task).filter(Task.id == task_id).one()
+    db_session.refresh(task)
+    assert task.status == "completed" and task.sale_ready_state is None

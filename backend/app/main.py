@@ -26,6 +26,7 @@ from .api.program_deliverable import router as program_deliverable_router
 from .api.sale_ready import router as sale_ready_router
 from .api.sale_ready_admin import router as sale_ready_admin_router
 from .api.buyers import advisor_router as buyer_advisor_router, buyer_router
+from .api.drive_admin import router as drive_admin_router
 from .api.ai_field_privacy import router as ai_field_privacy_router
 from .api.roles_matrix import router as roles_matrix_router
 from .api.pd_scorecard import router as pd_scorecard_router
@@ -110,6 +111,7 @@ app.include_router(sale_ready_router)  # already has /api prefix
 app.include_router(sale_ready_admin_router)  # already has /api prefix
 app.include_router(buyer_advisor_router)  # already has /api prefix
 app.include_router(buyer_router)  # already has /api prefix
+app.include_router(drive_admin_router)  # already has /api prefix
 app.include_router(ai_field_privacy_router)
 app.include_router(roles_matrix_router)  # already has /api prefix
 app.include_router(pd_scorecard_router)  # already has /api prefix
@@ -143,7 +145,13 @@ async def startup_event():
     # Preserved for rollback:
     # OpenAIService.initialize_client()
     # logger.info("OpenAI client initialized")
-    
+
+    # The Drive data room's periodic sync. An asyncio task rather than a
+    # worker process: each pass runs in a thread and is guarded by a Postgres
+    # advisory lock, so several API instances can run this safely.
+    from .services import drive_scheduler
+    drive_scheduler.start()
+
     logger.info("✅ Application startup complete")
 
 
@@ -172,6 +180,10 @@ async def shutdown_event():
     """Handle application shutdown."""
     logger = logging.getLogger(__name__)
     logger.info("Application shutdown initiated")
+
+    from .services import drive_scheduler
+    await drive_scheduler.stop()
+
     logger.info("Application shutdown complete")
 
 

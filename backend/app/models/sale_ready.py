@@ -15,8 +15,8 @@ app/models (no CheckConstraints). Tasks themselves live in `tasks` (see Task).
 import uuid
 
 from sqlalchemy import (
-    Boolean, Column, Date, DateTime, ForeignKey, Index, Integer, String, Text,
-    UniqueConstraint, func, text,
+    Boolean, Column, Date, DateTime, ForeignKey, Index, Integer, Numeric, String,
+    Text, UniqueConstraint, func, text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
@@ -399,3 +399,62 @@ class EngagementSaleReadyGuide(Base):
 
     def __repr__(self):
         return f"<EngagementSaleReadyGuide {self.engagement_id}>"
+
+
+# ----------------------------------------------------------------------
+# Document register
+# ----------------------------------------------------------------------
+class EngagementDocumentRegisterEntry(Base):
+    """
+    The advisor's notes against one data room document.
+
+    The register itself is not this table: the brief says it is "generated
+    from the files in its folders", so the list of rows comes from the files
+    and this table only carries what an advisor types on top. Name, date and
+    link come from the file, which is why document_name, creation_date and
+    file_link are left unwritten - they are legacy columns from the migration
+    that created this table, kept so the schema is not churned.
+
+    One row per media_id. A file with no notes simply has no row.
+    """
+    __tablename__ = "engagement_document_register_entry"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
+
+    engagement_id = Column(
+        UUID(as_uuid=True), ForeignKey('engagements.id', ondelete='CASCADE'), nullable=False, index=True,
+    )
+    stage_code = Column(String(30), nullable=False, index=True,
+                        comment="The stage whose register this row appears on")
+
+    # Advisor-typed, per the brief.
+    document_id = Column(String(255), nullable=True, comment="The advisor's own reference, e.g. 'FIN-002'")
+    renewal_date = Column(Date, nullable=True)
+    renewal_cost = Column(Numeric(12, 2), nullable=True,
+                          comment="From the program sheet; absent from the mockup, pending client confirmation")
+    notes = Column(Text, nullable=True)
+
+    media_id = Column(
+        UUID(as_uuid=True), ForeignKey('media.id', ondelete='SET NULL'), nullable=True,
+        comment="The file these notes belong to",
+    )
+
+    # Legacy columns from add_sale_ready_program_tables. Name and date come
+    # from the file and there is no manual link field, so these stay NULL.
+    # document_name was NOT NULL there; add_drive_data_room relaxes it, which
+    # is safe because the table has never held a row.
+    document_name = Column(String(255), nullable=True)
+    creation_date = Column(Date, nullable=True)
+    file_link = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, nullable=False, server_default=func.current_timestamp())
+    updated_at = Column(DateTime, nullable=False, server_default=func.current_timestamp(),
+                        onupdate=func.current_timestamp())
+
+    __table_args__ = (
+        Index('ix_engagement_doc_register_eng_stage', 'engagement_id', 'stage_code'),
+        UniqueConstraint('media_id', name='uq_engagement_doc_register_media'),
+    )
+
+    def __repr__(self):
+        return f"<EngagementDocumentRegisterEntry {self.engagement_id} media={self.media_id}>"

@@ -28,6 +28,7 @@ from ..utils.auth import get_current_user, deny_buyers
 from ..services.role_check import check_engagement_access
 from ..services.engagement_status import TASK_HIDDEN_STATUSES
 from ..services.program_deliverable_service import get_program_deliverable_service
+from ..services.sale_ready_service import TASK_STATUSES as SALE_READY_TASK_STATUSES
 from .note import check_note_visibility
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,13 @@ router = APIRouter(prefix="/api/tasks", tags=["tasks"],
     # Buyers are external parties confined to their own portal.
     dependencies=[Depends(deny_buyers)],
 )
+
+
+def _hidden_from(task: Task, user: User) -> bool:
+    """Sale Ready tasks are advisor work; an owner never reaches them, even by id."""
+    return user.role == UserRole.CLIENT and task.section is not None
+
+
 @router.post("", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
 async def create_task(
     task_data: TaskCreate,
@@ -306,6 +314,9 @@ async def list_tasks(
                 detail="Invalid user role."
             )
     
+    if current_user.role == UserRole.CLIENT:
+        query = query.filter(Task.section.is_(None))
+
     # Filter by assigned user (check if user is in assigned_to_user_ids array)
     if assigned_to_user_id:
         query = query.filter(text("assigned_to_user_ids @> ARRAY[:user_id]::uuid[]").bindparams(user_id=assigned_to_user_id))
@@ -400,7 +411,7 @@ async def get_task(
     """
     task = db.query(Task).filter(Task.id == task_id, Task.is_deleted == False).first()
 
-    if not task:
+    if not task or _hidden_from(task, current_user):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Task not found."
@@ -438,7 +449,7 @@ async def update_task(
     """
     task = db.query(Task).filter(Task.id == task_id, Task.is_deleted == False).first()
 
-    if not task:
+    if not task or _hidden_from(task, current_user):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Task not found."
@@ -504,7 +515,18 @@ async def update_task(
     
     # Update fields
     update_data = task_data.model_dump(exclude_unset=True)
-    
+
+    # Sale Ready tasks keep Sale Ready's state rules on this route too.
+    if task.section is not None and "status" in update_data:
+        if update_data["status"] not in SALE_READY_TASK_STATUSES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid task status {update_data['status']!r}."
+            )
+        if update_data["status"] == "completed":
+            # Done and "not required"/"blocked" are alternatives, never both.
+            task.sale_ready_state = None
+
     # Handle status change to completed
     became_complete = update_data.get("status") == "completed" and task.status != "completed"
     if became_complete:
@@ -551,7 +573,7 @@ async def delete_task(
     """
     task = db.query(Task).filter(Task.id == task_id, Task.is_deleted == False).first()
 
-    if not task:
+    if not task or _hidden_from(task, current_user):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Task not found."

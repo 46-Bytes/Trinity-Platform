@@ -27,7 +27,9 @@ from .buyer import BuyerAccessLog, EngagementBuyer, EngagementReleasedFolder
 from .sale_ready import (
     ProgramStage, ProgramTaskTemplate, ProgramDDTemplate, EngagementStageState, EngagementDDItem,
     EngagementSalePlanner, EngagementProgramCloseout, ProgramGuideContent, EngagementSaleReadyGuide,
+    EngagementDocumentRegisterEntry,
 )
+from .drive import DriveIntegration, EngagementDriveFolder
 
 __all__ = [
     "User",
@@ -70,6 +72,9 @@ __all__ = [
     "EngagementBuyer",
     "EngagementReleasedFolder",
     "BuyerAccessLog",
+    "EngagementDocumentRegisterEntry",
+    "DriveIntegration",
+    "EngagementDriveFolder",
 ]
 
 

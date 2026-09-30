@@ -274,3 +274,98 @@ class SaleReadyGuideView(BaseModel):
     stages: Dict[str, Any] = Field(
         default_factory=dict, description="Stage code -> {purpose, steps, watch, templates, run_with}"
     )
+
+
+# ----------------------------------------------------------------------
+# Data room
+# ----------------------------------------------------------------------
+class DataRoomFile(BaseModel):
+    """
+    One file in a DD sub-item's folder, as an advisor or owner sees it.
+
+    Carries the Drive link but never the Drive id. Listing, downloading and
+    deleting all go through Trinity and the id below is Trinity's own; the
+    link is a convenience on top, for opening the file where it actually
+    lives. No buyer schema has an equivalent.
+    """
+    id: UUID
+    file_name: str
+    file_size: Optional[int] = None
+    file_type: Optional[str] = None
+    category_code: Optional[str] = None
+    sub_item_code: Optional[str] = None
+    uploaded_by_name: Optional[str] = None
+    source: Optional[str] = Field(None, description="'trinity' or 'drive'")
+    created_at: Optional[datetime] = None
+    drive_web_link: Optional[str] = Field(
+        None,
+        description="Opens this file in Drive. Advisor and owner only - the buyer "
+                    "document schema deliberately carries no equivalent.",
+    )
+
+
+class DataRoomFolder(BaseModel):
+    category_code: str
+    category: Optional[str] = None
+    sub_item_code: str
+    sub_item: Optional[str] = None
+    released_to_buyers: bool = False
+    file_count: int = 0
+    drive_web_link: Optional[str] = Field(
+        None,
+        description="Opens this folder in Drive. Advisor and owner only - the buyer "
+                    "schemas deliberately carry no equivalent.",
+    )
+
+
+class DataRoomStatus(BaseModel):
+    """Whether uploads are possible, so the UI can say why not."""
+    connected: bool
+    message: Optional[str] = None
+
+
+class DataRoomView(BaseModel):
+    status: DataRoomStatus
+    folders: List[DataRoomFolder] = Field(default_factory=list)
+    files: List[DataRoomFile] = Field(default_factory=list)
+    data_room_web_link: Optional[str] = Field(
+        None, description="The engagement's Data room folder in Drive. Advisor and owner only.")
+
+
+class FileRename(BaseModel):
+    file_name: str = Field(..., min_length=1, max_length=255)
+
+
+# ----------------------------------------------------------------------
+# Document register
+# ----------------------------------------------------------------------
+class RegisterEntry(BaseModel):
+    """
+    A row of a stage's document register.
+
+    Generated from the files in that stage's folders, per the brief: the
+    name and date come from the file and cannot be typed. Only document_id,
+    renewal_date, renewal_cost and notes are the advisor's.
+    """
+    media_id: UUID
+    file_name: str
+    sub_item_code: Optional[str] = None
+    sub_item: Optional[str] = None
+    added_at: Optional[datetime] = None
+    document_id: Optional[str] = None
+    renewal_date: Optional[date] = None
+    renewal_cost: Optional[float] = None
+    notes: Optional[str] = None
+    drive_web_link: Optional[str] = Field(
+        None,
+        description="Opens the file in Drive. Advisor only, on an advisor-only "
+                    "endpoint; the buyer document schema has no equivalent.",
+    )
+
+
+class RegisterEntryUpdate(BaseModel):
+    """Only the advisor-typed fields; everything else comes from the file."""
+    document_id: Optional[str] = Field(None, max_length=255)
+    renewal_date: Optional[date] = None
+    renewal_cost: Optional[float] = Field(None, ge=0)
+    notes: Optional[str] = None

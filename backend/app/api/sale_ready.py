@@ -5,7 +5,7 @@ Owners (clients) may read the roadmap and the DD checklist only; everything
 else, including stage detail, is advisor and admin only.
 """
 import logging
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.engagement import Engagement
 from app.models.media import Media
+from app.models.sale_ready import EngagementDDItem
 from app.models.user import User
 from app.schemas.sale_ready import (
     CloseoutUpdate,
@@ -92,7 +93,9 @@ async def get_roadmap(
     current_user: User = Depends(get_current_user),
 ):
     engagement = _engagement(engagement_id, db, current_user, require_advisor=False)
-    return get_sale_ready_service(db).get_roadmap(engagement, current_user)
+    # The Drive link is an advisor's; owners get the roadmap without it.
+    is_advisor = check_engagement_access(engagement, current_user, require_advisor=True, db=db)
+    return get_sale_ready_service(db).get_roadmap(engagement, current_user, include_drive_link=is_advisor)
 
 
 @router.put("/engagements/{engagement_id}/order", response_model=SaleReadyRoadmap)
@@ -105,7 +108,7 @@ async def update_module_order(
     engagement = _engagement(engagement_id, db, current_user, require_advisor=True)
     service = get_sale_ready_service(db)
     _run(lambda: service.set_module_order(engagement, body.module_order, current_user.id))
-    return service.get_roadmap(engagement, current_user)
+    return service.get_roadmap(engagement, current_user, include_drive_link=True)
 
 
 @router.post("/engagements/{engagement_id}/order/reset", response_model=SaleReadyRoadmap)
@@ -117,7 +120,7 @@ async def reset_module_order(
     engagement = _engagement(engagement_id, db, current_user, require_advisor=True)
     service = get_sale_ready_service(db)
     service.reset_module_order(engagement)
-    return service.get_roadmap(engagement, current_user)
+    return service.get_roadmap(engagement, current_user, include_drive_link=True)
 
 
 # ----------------------------------------------------------------------
@@ -347,7 +350,15 @@ async def reopen_program(
 # ----------------------------------------------------------------------
 # Data room
 # ----------------------------------------------------------------------
-def _file_view(media: Media, names: dict) -> dict:
+def _dd_labels(db: Session, files) -> dict:
+    """The document name of each linked DD item, for the Files list."""
+    ids = {f.dd_item_id for f in files if f.dd_item_id}
+    if not ids:
+        return {}
+    return {i.id: i.document_required for i in db.query(EngagementDDItem).filter(EngagementDDItem.id.in_(ids))}
+
+
+def _file_view(media: Media, names: dict, dd_labels: Optional[dict] = None) -> dict:
     """
     A file as an advisor or owner sees it. The Drive link, never the Drive id.
 
@@ -364,6 +375,8 @@ def _file_view(media: Media, names: dict) -> dict:
         "uploaded_by_name": names.get(media.user_id),
         "source": media.source,
         "created_at": media.created_at,
+        "dd_item_id": media.dd_item_id,
+        "dd_item_document": (dd_labels or {}).get(media.dd_item_id),
         "drive_web_link": media.drive_web_link,
     }
 
@@ -433,7 +446,7 @@ async def get_data_room(
             "The Google Drive data room is not connected yet, so uploads are unavailable.",
         },
         "folders": folders,
-        "files": [_file_view(f, names) for f in files],
+        "files": [_file_view(f, names, _dd_labels(db, files)) for f in files],
         "data_room_web_link": links.get((None, None)),
     }
 
@@ -470,6 +483,41 @@ async def upload_data_room_file(
     except DriveUnavailable as e:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
     return _file_view(media, _uploader_names(db, [media]))
+
+
+@router.post("/engagements/{engagement_id}/dd/{item_id}/files",
+             response_model=DataRoomFile, status_code=status.HTTP_201_CREATED)
+async def upload_dd_item_file(
+    engagement_id: UUID,
+    item_id: UUID,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Upload a document to one DD item. It goes into that item's sub-item folder
+    in Drive, is linked to the item, and moves only that item to In progress.
+    """
+    engagement = _engagement(engagement_id, db, current_user, require_advisor=True)
+    service = get_data_room_service(db)
+    item = service.get_dd_item(engagement.id, item_id)
+    if item is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DD item not found")
+    try:
+        media = service.upload(
+            engagement, item.category_code, item.sub_item_code,
+            file.file, file.filename or "document", file.content_type, current_user,
+            size=getattr(file, "size", None), dd_item=item,
+        )
+    except DataRoomError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except SharedDriveFolder as e:
+        logger.error("DD item upload refused for engagement %s: %s", engagement_id, e)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail="This engagement's Drive folder is shared with another engagement.")
+    except DriveUnavailable as e:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
+    return _file_view(media, _uploader_names(db, [media]), {item.id: item.document_required})
 
 
 @router.get("/engagements/{engagement_id}/data-room/files/{media_id}/download")

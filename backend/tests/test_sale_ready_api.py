@@ -663,3 +663,60 @@ def test_a_stage_task_needs_a_sale_ready_engagement(api, db_session, advisor, ow
     resp = api.as_user(advisor).post("/api/tasks", json=_task_payload(
         other, advisor, module_reference="M2", section="client_specific"))
     assert resp.status_code == 400
+
+
+# ----------------------------------------------------------------------
+# Roadmap and stage additions (item 10b)
+# ----------------------------------------------------------------------
+def _media(db_session, engagement, user, cat, sub, name="doc.pdf"):
+    from app.models.media import Media
+
+    row = Media(user_id=user.id, engagement_id=engagement.id, file_name=name, file_path=None,
+                dd_category_code=cat, dd_sub_item_code=sub, source="trinity")
+    db_session.add(row)
+    db_session.flush()
+    return row
+
+
+def test_supporting_advisors_show_to_everyone_the_drive_link_to_advisors_only(
+    api, db_session, engagement, advisor, owner, make_user
+):
+    from app.models.drive import EngagementDriveFolder
+
+    helper = make_user(UserRole.ADVISOR)
+    helper.name = "Pete S"
+    engagement.secondary_advisor_ids = [helper.id]
+    db_session.add(EngagementDriveFolder(engagement_id=engagement.id, drive_folder_id="root-x",
+                                         drive_web_link="https://drive/root-x"))
+    db_session.flush()
+
+    as_advisor = api.as_user(advisor).get(f"{BASE}/{engagement.id}/roadmap").json()
+    as_owner = api.as_user(owner).get(f"{BASE}/{engagement.id}/roadmap").json()
+
+    assert as_advisor["supporting_advisor_names"] == ["Pete S"] == as_owner["supporting_advisor_names"]
+    assert as_advisor["data_room_web_link"] == "https://drive/root-x"
+    assert as_owner["data_room_web_link"] is None
+
+
+def test_the_roadmap_counts_live_data_room_files(api, db_session, engagement, advisor):
+    from datetime import datetime
+
+    _media(db_session, engagement, advisor, "3", "3.1")
+    gone = _media(db_session, engagement, advisor, "3", "3.1", name="old.pdf")
+    gone.deleted_at, gone.is_active = datetime.utcnow(), False
+    db_session.flush()
+    roadmap = api.as_user(advisor).get(f"{BASE}/{engagement.id}/roadmap").json()
+    assert roadmap["data_room_file_count"] == 1
+
+
+def test_documents_registered_counts_files_in_the_stage_folders(api, db_session, engagement, advisor):
+    client = api.as_user(advisor)
+    client.get(f"{BASE}/{engagement.id}/roadmap")  # initialise
+    m1 = [d for d in client.get(f"{BASE}/{engagement.id}/dd").json()["items"] if d["stage_code"] == "M1"]
+    m1_folder = (m1[0]["category_code"], m1[0]["sub_item_code"])
+    _media(db_session, engagement, advisor, *m1_folder)
+    _media(db_session, engagement, advisor, *m1_folder, name="second.pdf")
+    _media(db_session, engagement, advisor, "99", "99.9", name="elsewhere.pdf")
+
+    detail = client.get(f"{BASE}/{engagement.id}/stages/M1").json()
+    assert detail["documents_registered"] == 2

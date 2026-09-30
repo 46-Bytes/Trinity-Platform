@@ -116,7 +116,7 @@ async def invite_buyer(
     return _run(lambda: service.invite(
         engagement, body.email, current_user,
         first_name=body.first_name, last_name=body.last_name,
-        nda_signed_date=body.nda_signed_date,
+        company=body.company, nda_signed_date=body.nda_signed_date,
     ))
 
 

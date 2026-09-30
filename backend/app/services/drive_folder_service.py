@@ -29,7 +29,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -39,7 +39,12 @@ from app.models.sale_ready import EngagementDDItem
 from app.services.drive_client import (
     DriveClient, DriveNotFound, DriveUnavailable, decrypt_token, drive_enabled,
 )
+from app.services.engagement_status import STATUS_ARCHIVED, STATUS_COMPLETED, STATUS_ENDED
 from app.services.program_registry import PROGRAM_SALE_READY
+
+# Engagements that are over get no new folders. Reopening sets them active again,
+# which puts them back in the queue. Paused engagements are still provisioned.
+_NOT_PROVISIONED_STATUSES = (STATUS_ENDED, STATUS_COMPLETED, STATUS_ARCHIVED)
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +66,15 @@ _UNSAFE = re.compile(r"[\\/\x00-\x1f]+")
 
 class SharedDriveFolder(ValueError):
     """A Drive folder is, or would become, mapped to more than one engagement."""
+
+
+class EngagementBusy(Exception):
+    """Another request is creating this engagement's folders; try again next pass."""
+
+
+# Class id for the per-engagement folder lock. Two-part advisory keys never collide
+# with the scheduler's single-number key, so the global pass lock is unaffected.
+ENGAGEMENT_FOLDER_LOCK_CLASS = 918_273_646
 
 
 def safe_folder_name(raw: Optional[str], fallback: str) -> str:
@@ -185,6 +199,20 @@ class DriveFolderService:
         return {(r.category_code, r.sub_item_code): r.drive_web_link for r in rows}
 
     # -- creation -------------------------------------------------------
+    def _lock_engagement(self, engagement_id: UUID, wait: bool = True) -> bool:
+        """
+        Serialise folder creation for one engagement across requests and workers.
+
+        Transaction-scoped: released on commit or rollback. Re-entrant on the same
+        connection. `wait=False` returns False instead of blocking when held.
+        """
+        fn = "pg_advisory_xact_lock" if wait else "pg_try_advisory_xact_lock"
+        got = self.db.execute(
+            text(f"SELECT {fn}(:cls, hashtext(:eid))"),
+            {"cls": ENGAGEMENT_FOLDER_LOCK_CLASS, "eid": str(engagement_id)},
+        ).scalar()
+        return True if wait else bool(got)
+
     def _record(self, engagement_id: UUID, category_code: Optional[str],
                 sub_item_code: Optional[str], folder: Dict) -> EngagementDriveFolder:
         # A folder belongs to one engagement. Never map another engagement's folder.
@@ -234,6 +262,11 @@ class DriveFolderService:
         existing = self.folder_id_for(engagement.id)
         if existing:
             return existing
+        # Another request may be creating it: wait, then use theirs if it now exists.
+        self._lock_engagement(engagement.id)
+        existing = self.folder_id_for(engagement.id)
+        if existing:
+            return existing
 
         integration = get_integration(self.db)
         root = (integration.root_folder_id if integration else None)
@@ -265,6 +298,10 @@ class DriveFolderService:
         existing = self.folder_id_for(engagement.id, category_code, None)
         if existing:
             return existing, False
+        self._lock_engagement(engagement.id)
+        existing = self.folder_id_for(engagement.id, category_code, None)
+        if existing:
+            return existing, False
         client = self._client(client)
         parent = self.ensure_data_room(engagement, client=client)
         name = safe_folder_name(
@@ -290,6 +327,10 @@ class DriveFolderService:
 
     def _ensure_sub_item(self, engagement: Engagement, category_code: str, sub_item_code: str,
                          client=None, parent_is_new: bool = False) -> Tuple[str, bool]:
+        existing = self.folder_id_for(engagement.id, category_code, sub_item_code)
+        if existing:
+            return existing, False
+        self._lock_engagement(engagement.id)
         existing = self.folder_id_for(engagement.id, category_code, sub_item_code)
         if existing:
             return existing, False
@@ -325,16 +366,24 @@ class DriveFolderService:
         calls for them. Commits after the root and after each category, so an
         interruption keeps what exists; the root is never adopted by name, so
         losing its row would mean a duplicate tree.
+
+        Raises EngagementBusy, without waiting, when an upload holds the
+        engagement's folder lock. A commit releases the lock, so it is taken
+        again before each category.
         """
         tree = self.expected_tree(engagement.id)
         if not tree:
             return 0
+        if not self._lock_engagement(engagement.id, wait=False):
+            raise EngagementBusy(str(engagement.id))
         client = self._client(client)
         root_is_new = self.folder_id_for(engagement.id) is None
         self.ensure_data_room(engagement, client=client)
         created = int(root_is_new)
         self.db.commit()
         for category_code, sub_items in tree.items():
+            if not self._lock_engagement(engagement.id, wait=False):
+                raise EngagementBusy(str(engagement.id))
             _, category_is_new = self._ensure_category(
                 engagement, category_code, client, parent_is_new=root_is_new,
             )
@@ -453,7 +502,8 @@ def pending_engagements(db: Session) -> List[Engagement]:
 
     Incomplete means fewer mapped sub-item folders than distinct DD sub-items.
     A mapped sub-item implies its category and the root, so that one count is
-    enough. Engagements with no DD items yet are not due.
+    enough. Engagements with no DD items yet, or ended, completed or archived,
+    are not due.
     """
     expected = db.query(
         EngagementDDItem.engagement_id.label("engagement_id"),
@@ -474,6 +524,7 @@ def pending_engagements(db: Session) -> List[Engagement]:
         .filter(
             Engagement.tool == PROGRAM_SALE_READY,
             Engagement.is_deleted == False,  # noqa: E712
+            Engagement.status.notin_(_NOT_PROVISIONED_STATUSES),
             func.coalesce(mapped.c.n, 0) < expected.c.n,
         )
         .order_by(Engagement.created_at.asc(), Engagement.id.asc())
@@ -503,12 +554,18 @@ def provision_pending(db: Session, limit: int = PROVISION_BATCH,
     eligible = [e for e in pending if not _is_backing_off(e.id, now)]
     done = folders = 0
     failed: List[str] = []
+    busy: List[str] = []
     try:
         for engagement in eligible[:limit]:
             try:
                 folders += service.provision_tree(engagement, client=client)
                 done += 1
                 _clear_provision_failure(engagement.id)
+            except EngagementBusy:
+                # An upload is creating its folders right now. Not a failure: no
+                # backoff; what was committed stays and the next pass finishes it.
+                db.rollback()
+                busy.append(str(engagement.id))
             except (DriveNotFound, SharedDriveFolder) as exc:
                 db.rollback()
                 count, retry_at = _record_provision_failure(engagement.id, now)
@@ -525,10 +582,10 @@ def provision_pending(db: Session, limit: int = PROVISION_BATCH,
                                  "next try after %s", engagement.id, count, retry_at.isoformat())
     finally:
         logger.info("Drive folders provisioned %d/%d pending engagement(s) this pass; %d failed, "
-                    "%d backing off; %d folder(s) created",
-                    done, len(pending), len(failed), len(pending) - len(eligible), folders)
+                    "%d busy, %d backing off; %d folder(s) created",
+                    done, len(pending), len(failed), len(busy), len(pending) - len(eligible), folders)
     return {"provisioned": done, "pending": len(pending), "folders_created": folders,
-            "failed": failed, "backing_off": len(pending) - len(eligible)}
+            "failed": failed, "busy": busy, "backing_off": len(pending) - len(eligible)}
 
 
 def get_drive_folder_service(db: Session) -> DriveFolderService:

@@ -61,7 +61,14 @@ class Media(Base):
     dd_sub_item_code = Column(String(10), nullable=True, comment="DD sub-item, e.g. '3.1'; one data room folder")
     source = Column(String(20), nullable=True,
                     comment="'trinity' when uploaded here, 'drive' when found by the sync")
-    
+    # Set only when uploaded from one DD item; NULL for Files-tab uploads and Drive-added files.
+    # Indexed in __table_args__ under the name add_sale_ready_gap_fixes used.
+    dd_item_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey('engagement_dd_item.id', ondelete='SET NULL', name='fk_media_dd_item_id'),
+        nullable=True, comment="DD item the file was uploaded from (Sale Ready)",
+    )
+
     # OpenAI integration (preserved for rollback)
     openai_file_id = Column(String(255), nullable=True, unique=True, index=True,
                            comment="OpenAI file ID for GPT analysis")
@@ -103,6 +110,7 @@ class Media(Base):
         Index('uq_media_drive_file_id', 'drive_file_id', unique=True),
         Index('ix_media_engagement_dd_folder',
               'engagement_id', 'dd_category_code', 'dd_sub_item_code'),
+        Index('ix_media_dd_item_id', 'dd_item_id'),
     )
 
     def __repr__(self):

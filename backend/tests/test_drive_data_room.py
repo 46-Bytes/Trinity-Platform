@@ -2036,7 +2036,7 @@ class TestProvisioning:
 
         # Per engagement: data room root, one category, one sub-item.
         assert result == {"provisioned": 5, "pending": 7, "folders_created": 5 * 3,
-                          "failed": [], "backing_off": 0}
+                          "failed": [], "busy": [], "backing_off": 0}
         assert [_mapped(db_session, e)["sub_items"] for e in engagements] == [1, 1, 1, 1, 1, 0, 0]
 
     def test_throttling_ends_the_pass_and_is_raised(
@@ -2340,3 +2340,297 @@ class TestDriveAccountPin:
         with pytest.raises(drive_folder_service.DriveAccountMismatch):
             drive_folder_service.provision_pending(db_session)
         assert fake_drive.folders == {}
+
+
+# ======================================================================
+# Uploading to one DD item (item 7)
+# ======================================================================
+class TestDDItemUpload:
+    def _url(self, engagement, item):
+        return f"/api/sale-ready/engagements/{engagement.id}/dd/{item.id}/files"
+
+    def _post(self, client, engagement, item, name="evidence.pdf"):
+        return client.post(self._url(engagement, item), files={"file": (name, b"bytes", "application/pdf")})
+
+    def test_it_links_the_file_and_moves_only_that_item(
+        self, api, db_session, fake_drive, engagement, advisor
+    ):
+        target = _dd(db_session, engagement, key="DD-1")
+        sibling = _dd(db_session, engagement, key="DD-2")  # same folder, 3/3.1
+
+        resp = self._post(api.as_user(advisor), engagement, target)
+
+        assert resp.status_code == 201, resp.text
+        body = resp.json()
+        assert body["dd_item_id"] == str(target.id) and body["sub_item_code"] == "3.1"
+        media = db_session.query(Media).filter(Media.id == body["id"]).one()
+        assert media.dd_item_id == target.id
+        # Stored in that item's sub-item folder in Drive.
+        folder = db_session.query(EngagementDriveFolder).filter_by(
+            engagement_id=engagement.id, category_code="3", sub_item_code="3.1").one()
+        assert fake_drive.files[media.drive_file_id]["parents"] == [folder.drive_folder_id]
+        db_session.refresh(target)
+        db_session.refresh(sibling)
+        assert target.status == sr_rules.DD_STATUS_IN_PROGRESS
+        assert sibling.status is None
+
+    @pytest.mark.parametrize("before, after", [
+        (None, "in_progress"), ("no", "in_progress"), ("yes", "yes"), ("not_applicable", "not_applicable"),
+    ])
+    def test_only_blank_or_no_moves_to_in_progress(
+        self, api, db_session, fake_drive, engagement, advisor, before, after
+    ):
+        item = _dd(db_session, engagement, status=before)
+        assert self._post(api.as_user(advisor), engagement, item).status_code == 201
+        db_session.refresh(item)
+        assert item.status == after
+
+    def test_another_engagements_item_is_not_found(
+        self, api, db_session, fake_drive, engagement, advisor
+    ):
+        other = Engagement(engagement_name="Other sale", business_name="Other",
+                           primary_advisor_id=advisor.id, tool="sale_ready", status="active")
+        db_session.add(other)
+        db_session.flush()
+        foreign = _dd(db_session, other, key="DD-X")
+
+        resp = self._post(api.as_user(advisor), engagement, foreign)
+        assert resp.status_code == 404
+        assert fake_drive.files == {}
+
+    def test_owners_and_buyers_cannot_upload(self, api, db_session, fake_drive, engagement, make_user):
+        from app.models.user import User
+
+        item = _dd(db_session, engagement)
+        owner = db_session.query(User).filter(User.id == engagement.client_ids[0]).one()
+        assert self._post(api.as_user(owner), engagement, item).status_code == 403
+        assert self._post(api.as_user(make_user(UserRole.BUYER)), engagement, item).status_code == 403
+        assert fake_drive.files == {}
+
+    def test_items_list_only_their_own_files_and_no_drive_fields(
+        self, api, db_session, fake_drive, engagement, advisor
+    ):
+        target = _dd(db_session, engagement, key="DD-1")
+        sibling = _dd(db_session, engagement, key="DD-2")
+        client = api.as_user(advisor)
+        linked = self._post(client, engagement, target, "linked.pdf").json()
+        _upload(db_session, engagement, advisor, name="folder-level.pdf")  # Files tab: no DD item
+
+        items = {i["id"]: i for i in client.get(
+            f"/api/sale-ready/engagements/{engagement.id}/dd").json()["items"]}
+        assert items[str(target.id)]["files"] == [
+            {"id": linked["id"], "file_name": "linked.pdf", "created_at": linked["created_at"]}]
+        assert items[str(sibling.id)]["files"] == []
+
+        # No Drive id or link anywhere in the DD payload, only Trinity ids.
+        dumped = json.dumps(items)
+        assert "drive_file_id" not in dumped and "drive_web_link" not in dumped
+        media = db_session.query(Media).filter(Media.id == linked["id"]).one()
+        assert media.drive_file_id not in dumped and media.drive_web_link not in dumped
+        assert all(set(f) == {"id", "file_name", "created_at"} for i in items.values() for f in i["files"])
+
+    def test_files_tab_uploads_keep_folder_behaviour(
+        self, db_session, fake_drive, engagement, advisor
+    ):
+        a = _dd(db_session, engagement, key="DD-1")
+        b = _dd(db_session, engagement, key="DD-2")
+        media = _upload(db_session, engagement, advisor)
+        assert media.dd_item_id is None
+        db_session.refresh(a)
+        db_session.refresh(b)
+        assert (a.status, b.status) == (sr_rules.DD_STATUS_IN_PROGRESS, sr_rules.DD_STATUS_IN_PROGRESS)
+
+    def test_the_files_list_names_the_linked_item(self, api, db_session, fake_drive, engagement, advisor):
+        item = _dd(db_session, engagement)
+        item.document_required = "Audited accounts FY24"
+        db_session.flush()
+        client = api.as_user(advisor)
+        self._post(client, engagement, item)
+        files = client.get(f"/api/sale-ready/engagements/{engagement.id}/data-room").json()["files"]
+        assert [(f["dd_item_id"], f["dd_item_document"]) for f in files] == [
+            (str(item.id), "Audited accounts FY24")]
+
+    def test_the_sync_clears_the_link_when_the_file_is_refiled(
+        self, api, db_session, fake_drive, engagement, advisor
+    ):
+        item = _dd(db_session, engagement, key="DD-1")
+        _dd(db_session, engagement, sub="3.2", sub_name="Management Accounts", key="DD-2")
+        body = self._post(api.as_user(advisor), engagement, item).json()
+        media = db_session.query(Media).filter(Media.id == body["id"]).one()
+        other_folder = EngagementDriveFolder(engagement_id=engagement.id, category_code="3",
+                                             sub_item_code="3.2", drive_folder_id="folder-3-2")
+        db_session.add(other_folder)
+        db_session.flush()
+
+        sync = get_drive_sync_service(db_session)
+        result = type("R", (), {"added": 0, "renamed": 0, "moved": 0, "deleted": 0, "skipped": 0})()
+        change = TestSync()._change(media.drive_file_id, "evidence.pdf", "folder-3-2",
+                                    modified="2030-01-01T00:00:00.000Z")
+        sync._apply(change, result)
+        db_session.flush()
+        db_session.refresh(media)
+        assert media.dd_sub_item_code == "3.2" and media.dd_item_id is None
+
+
+# ======================================================================
+# Ended engagements are not provisioned (provisioning fix)
+# ======================================================================
+def test_ended_engagements_are_skipped_until_reopened(db_session, fake_drive, engagement):
+    from app.services.drive_folder_service import pending_engagements
+
+    _small_tree(db_session, engagement)
+    for status, due in (("ended", False), ("completed", False), ("archived", False),
+                        ("paused", True), ("active", True)):
+        engagement.status = status
+        db_session.flush()
+        assert (engagement.id in {e.id for e in pending_engagements(db_session)}) is due, status
+
+
+# ======================================================================
+# Uploads and provisioning never race to create the same folder
+# ======================================================================
+@pytest.fixture
+def hold_engagement_lock():
+    """Hold an engagement's folder lock on a second, real database connection."""
+    from app.database import engine
+    from app.services.drive_folder_service import ENGAGEMENT_FOLDER_LOCK_CLASS
+
+    held = []
+
+    def hold(engagement_id):
+        conn = engine.connect()
+        tx = conn.begin()
+        conn.execute(text("SELECT pg_advisory_xact_lock(:c, hashtext(:e))"),
+                     {"c": ENGAGEMENT_FOLDER_LOCK_CLASS, "e": str(engagement_id)})
+        held.append((conn, tx))
+
+        def release():
+            if tx.is_active:
+                tx.rollback()
+        return release
+
+    yield hold
+    for conn, tx in held:
+        if tx.is_active:
+            tx.rollback()
+        conn.close()
+
+
+class TestEngagementFolderLock:
+    def _other_process_wins_while_we_wait(self, monkeypatch, db_session, engagement, rows):
+        """While the upload waits for the lock, another request maps these folders."""
+        from app.services import drive_folder_service as dfs
+
+        real = dfs.DriveFolderService._lock_engagement
+        state = {"won": False}
+
+        def lock(self, engagement_id, wait=True):
+            got = real(self, engagement_id, wait)
+            if wait and not state["won"]:
+                state["won"] = True
+                for cat, sub, folder_id in rows:
+                    db_session.add(EngagementDriveFolder(
+                        engagement_id=engagement.id, category_code=cat, sub_item_code=sub,
+                        drive_folder_id=folder_id))
+                db_session.flush()
+            return got
+        monkeypatch.setattr(dfs.DriveFolderService, "_lock_engagement", lock)
+
+    def test_an_upload_reuses_the_folder_another_request_created(
+        self, api, db_session, fake_drive, engagement, advisor, monkeypatch
+    ):
+        _dd(db_session, engagement)
+        self._other_process_wins_while_we_wait(monkeypatch, db_session, engagement, [
+            (None, None, "root-winner"), ("3", None, "cat-winner"), ("3", "3.1", "sub-winner"),
+        ])
+
+        resp = api.as_user(advisor).post(
+            f"/api/sale-ready/engagements/{engagement.id}/data-room/3/3.1/files",
+            files={"file": ("race.pdf", b"x", "application/pdf")},
+        )
+
+        assert resp.status_code == 201, resp.text
+        media = db_session.query(Media).filter(Media.id == resp.json()["id"]).one()
+        assert fake_drive.files[media.drive_file_id]["parents"] == ["sub-winner"]
+        assert fake_drive.folders == {}  # we created no folder of our own
+        assert _mapped(db_session, engagement) == {"root": 1, "categories": 1, "sub_items": 1}
+
+    def test_a_root_created_meanwhile_is_reused_not_duplicated(
+        self, db_session, fake_drive, engagement, advisor, monkeypatch
+    ):
+        _dd(db_session, engagement)
+        self._other_process_wins_while_we_wait(monkeypatch, db_session, engagement,
+                                               [(None, None, "root-winner")])
+
+        _upload(db_session, engagement, advisor)
+
+        # No second "{business}/Data room" pair under Trinity/Clients.
+        assert [f for f in fake_drive.folders.values() if f["parent"] == "root-clients"] == []
+        assert _mapped(db_session, engagement) == {"root": 1, "categories": 1, "sub_items": 1}
+
+    def test_provisioning_skips_a_busy_engagement_without_backing_off(
+        self, db_session, fake_drive, engagement, monkeypatch, hold_engagement_lock
+    ):
+        from app.services import drive_folder_service as dfs
+
+        _small_tree(db_session, engagement)
+        db_session.commit()  # the busy path rolls back to here
+        monkeypatch.setattr(dfs, "pending_engagements", lambda db: [engagement])
+        release = hold_engagement_lock(engagement.id)
+
+        busy = dfs.provision_pending(db_session, now=TestProvisioningQueue.T0)
+
+        assert busy["busy"] == [str(engagement.id)]
+        assert (busy["provisioned"], busy["failed"]) == (0, [])
+        assert not dfs._is_backing_off(engagement.id, TestProvisioningQueue.T0)
+        assert fake_drive.folders == {}
+
+        release()
+        done = dfs.provision_pending(db_session, now=TestProvisioningQueue.T0)
+        assert done["provisioned"] == 1 and done["busy"] == []
+        assert _mapped(db_session, engagement) == {"root": 1, "categories": 2, "sub_items": 3}
+
+    def test_an_upload_waits_for_the_lock_then_succeeds(
+        self, db_session, fake_drive, engagement, advisor, hold_engagement_lock
+    ):
+        import threading
+
+        _dd(db_session, engagement)
+        db_session.commit()
+        release = hold_engagement_lock(engagement.id)
+        outcome = {}
+
+        def upload():
+            try:
+                outcome["media"] = get_data_room_service(db_session).upload(
+                    engagement, "3", "3.1", BytesIO(b"late"), "late.pdf", "application/pdf", advisor,
+                )
+            except Exception as exc:  # surfaced below
+                outcome["error"] = exc
+
+        worker = threading.Thread(target=upload)
+        worker.start()
+        try:
+            worker.join(timeout=1.0)
+            assert worker.is_alive(), "the upload did not wait for the engagement lock"
+            assert fake_drive.folders == {} and fake_drive.files == {}
+        finally:
+            release()
+            worker.join(timeout=15)
+
+        assert not worker.is_alive() and "error" not in outcome, outcome.get("error")
+        assert outcome["media"].dd_sub_item_code == "3.1"
+        assert _mapped(db_session, engagement) == {"root": 1, "categories": 1, "sub_items": 1}
+        # One client folder, one data room, one category, one sub-item: no duplicates.
+        assert len(fake_drive.folders) == 4
+
+    def test_the_engagement_lock_does_not_touch_the_scheduler_lock(self, engagement, hold_engagement_lock):
+        from app.database import engine
+        from app.services import drive_scheduler
+
+        hold_engagement_lock(engagement.id)
+        with engine.connect() as c:
+            with c.begin():
+                got = c.execute(text("SELECT pg_try_advisory_xact_lock(:k)"),
+                                {"k": drive_scheduler.ADVISORY_LOCK_KEY}).scalar()
+        assert got is True

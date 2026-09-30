@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react';
-import { Flag, Upload } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Download, Flag, Upload } from 'lucide-react';
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { DD_STATUS_OPTIONS, GAP_OPTIONS } from './saleReadyGuide';
-import type { DDItem, DDItemUpdate, SaleReadyPerson } from './types';
+import type { DDFileActions, DDItem, DDItemUpdate, SaleReadyPerson } from './types';
 
 // Radix Select cannot hold an empty value, so "cleared" travels as this sentinel.
 const NONE = '__none__';
@@ -48,11 +48,18 @@ interface DDItemRowProps {
   showStage?: boolean;
   onOpenStage?: (stageCode: string) => void;
   onChange: (changes: DDItemUpdate) => void;
+  /** Upload (advisors) and download of the files linked to this item. */
+  fileActions?: DDFileActions;
 }
 
 /** One DD item: the same record in the master checklist and in its stage. */
-export function DDItemRow({ item, people, readOnly = false, showStage = false, onOpenStage, onChange }: DDItemRowProps) {
+export function DDItemRow({
+  item, people, readOnly = false, showStage = false, onOpenStage, onChange, fileActions,
+}: DDItemRowProps) {
   const [notes, setNotes] = useState(item.notes ?? '');
+  const fileInput = useRef<HTMLInputElement>(null);
+  const canUpload = !readOnly && !!fileActions?.onUpload;
+  const uploadBlocked = fileActions?.uploadDisabledReason || (fileActions?.isUploading ? 'Uploading…' : null);
   useEffect(() => setNotes(item.notes ?? ''), [item.notes]);
 
   const showNotes = (item.status && item.status !== 'yes') || !!item.notes;
@@ -80,6 +87,24 @@ export function DDItemRow({ item, people, readOnly = false, showStage = false, o
                 item.stage_title
               )}
             </p>
+          )}
+          {item.files.length > 0 && (
+            <ul className="mt-1.5 space-y-0.5">
+              {item.files.map((f) => (
+                <li key={f.id}>
+                  <button
+                    type="button"
+                    onClick={() => fileActions?.onDownload(f)}
+                    disabled={!fileActions}
+                    className="inline-flex max-w-full items-center gap-1.5 text-xs text-blue-700 hover:underline disabled:no-underline dark:text-blue-400"
+                    aria-label={`Download ${f.file_name}`}
+                  >
+                    <Download className="h-3 w-3 flex-shrink-0" aria-hidden />
+                    <span className="truncate">{f.file_name}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
         <p className="col-span-2 text-sm leading-snug text-muted-foreground md:col-span-1">{item.action_step}</p>
@@ -129,14 +154,43 @@ export function DDItemRow({ item, people, readOnly = false, showStage = false, o
         )}
 
         <div className="col-span-2 flex items-center gap-2 md:contents">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span tabIndex={0} className="grid h-9 w-9 cursor-not-allowed place-items-center rounded-lg border-[1.5px] border-border text-muted-foreground/40">
-                <Upload className="h-3.5 w-3.5" aria-hidden />
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>Uploads to the data room once Google Drive is connected</TooltipContent>
-          </Tooltip>
+          {canUpload ? (
+            uploadBlocked ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span tabIndex={0} className="grid h-9 w-9 cursor-not-allowed place-items-center rounded-lg border-[1.5px] border-border text-muted-foreground/40">
+                    <Upload className="h-3.5 w-3.5" aria-hidden />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{uploadBlocked}</TooltipContent>
+              </Tooltip>
+            ) : (
+              <>
+                <input
+                  ref={fileInput}
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => {
+                    const chosen = e.target.files?.[0];
+                    if (chosen) fileActions?.onUpload?.(item, chosen);
+                    e.target.value = '';
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInput.current?.click()}
+                  title="Upload a file to this item"
+                  aria-label={`Upload a file to ${item.document_required ?? 'this item'}`}
+                  className="grid h-9 w-9 place-items-center rounded-lg border-[1.5px] border-border text-muted-foreground hover:border-accent/60 hover:text-foreground"
+                >
+                  <Upload className="h-3.5 w-3.5" aria-hidden />
+                </button>
+              </>
+            )
+          ) : (
+            // Owners read the files; only advisors upload. Keeps the column aligned.
+            <span className="hidden h-9 w-9 md:block" aria-hidden />
+          )}
           <button
             type="button"
             disabled={readOnly}

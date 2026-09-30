@@ -13,6 +13,8 @@ class BuyerInvite(BaseModel):
     email: EmailStr
     first_name: Optional[str] = Field(None, max_length=100)
     last_name: Optional[str] = Field(None, max_length=100)
+    # The company the buyer acts for, on this engagement. Blank is stored as NULL.
+    company: Optional[str] = Field(None, max_length=255)
     # Recorded only; the NDA is handled outside Trinity and does not gate access.
     nda_signed_date: Optional[date] = None
 
@@ -27,6 +29,7 @@ class BuyerView(BaseModel):
     user_id: UUID
     email: Optional[str] = None
     name: Optional[str] = None
+    company: Optional[str] = None
     status: str = Field(..., description="'active' or 'revoked'; the stored value")
     display_status: str = Field(
         "active",

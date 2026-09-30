@@ -57,14 +57,17 @@ export function RoadmapView({
 
       <div className="rounded-xl border border-border bg-muted/40 px-4 py-3.5 text-sm leading-relaxed text-muted-foreground">
         <span className="font-semibold text-foreground">Sale Ready prepares the business for sale.</span> It finds,
-        verifies, documents and discloses what a buyer will ask for. Anything found that needs fixing is logged as a
-        gap and the advisor decides: fix in Sale Ready, disclose as is, or refer to Value Builder.
+        verifies, documents and discloses what a buyer will ask for. Improvements are welcome along the way, small or
+        large, as long as everyone stays clear that the focus is preparation to sell. Anything found that needs fixing
+        is logged as a gap and the advisor decides: fix in Sale Ready, disclose as is, or refer to Value Builder.
       </div>
 
       <SaleReadyProgressCard
         progress={roadmap.progress}
         gaps={roadmap.gaps}
         leadAdvisorName={roadmap.lead_advisor_name}
+        supportingAdvisorNames={roadmap.supporting_advisor_names}
+        dataRoomWebLink={roadmap.data_room_web_link}
       />
 
       <section className="card-trinity p-6">

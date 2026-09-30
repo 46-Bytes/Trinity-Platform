@@ -17,6 +17,8 @@ export interface EngagementBuyer {
   user_id: string;
   email: string | null;
   name: string | null;
+  /** The company the buyer acts for on this engagement. */
+  company: string | null;
   /** The stored value. Only ever 'active' or 'revoked'. */
   status: 'active' | 'revoked';
   /** Derived for display: an active buyer who has never looked reads as 'invited'. */
@@ -84,7 +86,14 @@ export const fetchEngagementBuyers = thunk<string, EngagementBuyer[]>(
   (engagementId) => request<EngagementBuyer[]>(`/${engagementId}/buyers`, 'Failed to load the buyers'));
 
 export const inviteBuyer = thunk<
-  { engagementId: string; email: string; nda_signed_date?: string | null },
+  {
+    engagementId: string;
+    email: string;
+    first_name?: string;
+    last_name?: string;
+    company?: string;
+    nda_signed_date?: string | null;
+  },
   EngagementBuyer
 >('inviteBuyer', 'Failed to invite the buyer', ({ engagementId, ...body }) =>
   request<EngagementBuyer>(`/${engagementId}/buyers`, 'Failed to invite the buyer', {

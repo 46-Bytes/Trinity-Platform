@@ -77,8 +77,29 @@ export interface SaleReadyRoadmap {
   progress: RoadmapProgress;
   gaps: GapSummary;
   lead_advisor_name: string | null;
+  supporting_advisor_names: string[];
+  /** Live data room files, for the Files tab badge. */
+  data_room_file_count: number;
+  /** The data room in Drive. Advisors only; null for owners. */
+  data_room_web_link: string | null;
   closeout: { is_closed: boolean; closed_at: string | null; referred_to_benchmark: boolean };
   sale_planner_issues: { addressed: number; total: number };
+}
+
+/** A file uploaded to one DD item. Trinity id only, downloaded through the data room. */
+export interface DDItemFile {
+  id: string;
+  file_name: string;
+  created_at: string | null;
+}
+
+/** Upload and download for DD rows. Upload is present for advisors only. */
+export interface DDFileActions {
+  onUpload?: (item: DDItem, file: File) => void;
+  /** Why uploads are unavailable (Drive not connected), or null. */
+  uploadDisabledReason?: string | null;
+  isUploading?: boolean;
+  onDownload: (file: DDItemFile) => void;
 }
 
 export interface DDItem {
@@ -101,6 +122,7 @@ export interface DDItem {
   notes: string | null;
   date_completed: string | null;
   status_changed_at: string | null;
+  files: DDItemFile[];
 }
 
 export interface DDStats {
@@ -160,6 +182,8 @@ export interface StageDetail {
   /** Tasks starting the stage would create; empty once they exist. */
   template_preview: { title: string; section: TaskSection; group_title: string | null }[];
   dd_items: DDItem[];
+  /** Files in this stage's DD folders: the rows of its document register. */
+  documents_registered: number;
   /** M8 only: DD items flagged for review across every stage. */
   flagged_for_review: DDItem[];
   ui_config: Record<string, unknown> | null;

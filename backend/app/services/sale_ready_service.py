@@ -24,7 +24,9 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.models.drive import EngagementDriveFolder
 from app.models.engagement import Engagement
+from app.models.media import Media
 from app.models.sale_ready import (
     EngagementDDItem,
     EngagementProgramCloseout,
@@ -194,6 +196,24 @@ class SaleReadyService:
         if stage_code:
             query = query.filter(EngagementDDItem.stage_code == stage_code)
         return query.order_by(EngagementDDItem.display_order.asc()).all()
+
+    def _data_room_files(self, engagement_id: UUID) -> List[Media]:
+        """Live data room files: indexed from Drive, not deleted."""
+        return self.db.query(Media).filter(
+            Media.engagement_id == engagement_id,
+            Media.dd_sub_item_code.isnot(None),
+            Media.is_active == True,  # noqa: E712
+            Media.deleted_at.is_(None),
+        ).order_by(Media.created_at.asc()).all()
+
+    def _files_by_dd_item(self, engagement_id: UUID) -> Dict[UUID, List[Dict[str, Any]]]:
+        """Files uploaded to each DD item. Trinity ids only; Drive fields never leave here."""
+        out: Dict[UUID, List[Dict[str, Any]]] = {}
+        for m in self._data_room_files(engagement_id):
+            if m.dd_item_id:
+                out.setdefault(m.dd_item_id, []).append(
+                    {"id": m.id, "file_name": m.file_name, "created_at": m.created_at})
+        return out
 
     def _creator_id(self, engagement: Engagement, actor: Optional[User]) -> Optional[UUID]:
         return engagement.primary_advisor_id or (actor.id if actor else None)
@@ -449,7 +469,9 @@ class SaleReadyService:
     # ------------------------------------------------------------------
     # Roadmap
     # ------------------------------------------------------------------
-    def get_roadmap(self, engagement: Engagement, actor: Optional[User] = None) -> Dict[str, Any]:
+    def get_roadmap(self, engagement: Engagement, actor: Optional[User] = None,
+                    include_drive_link: bool = False) -> Dict[str, Any]:
+        """`include_drive_link` is for advisors only; the router decides who that is."""
         self.ensure_initialized(engagement, actor)
         summaries, order_source = self._summaries(engagement)
         items = [s["summary"] for s in summaries.values()]
@@ -469,6 +491,23 @@ class SaleReadyService:
         if engagement.primary_advisor_id:
             user = self.db.query(User).filter(User.id == engagement.primary_advisor_id).first()
             lead = _display_name(user) if user else None
+        supporting_ids = [
+            uid for uid in (engagement.secondary_advisor_ids or []) if uid != engagement.primary_advisor_id
+        ]
+        supporting_users = {
+            u.id: u for u in self.db.query(User).filter(
+                User.id.in_(supporting_ids), User.is_deleted == False,  # noqa: E712
+            ).all()
+        } if supporting_ids else {}
+        supporting = [_display_name(supporting_users[i]) for i in supporting_ids if i in supporting_users]
+        data_room_link = None
+        if include_drive_link:
+            root = self.db.query(EngagementDriveFolder.drive_web_link).filter(
+                EngagementDriveFolder.engagement_id == engagement.id,
+                EngagementDriveFolder.category_code.is_(None),
+                EngagementDriveFolder.sub_item_code.is_(None),
+            ).first()
+            data_room_link = root[0] if root else None
 
         closeout = self.db.query(EngagementProgramCloseout).filter(
             EngagementProgramCloseout.engagement_id == engagement.id
@@ -488,6 +527,9 @@ class SaleReadyService:
             "progress": progress._asdict(),
             "gaps": gaps._asdict(),
             "lead_advisor_name": lead,
+            "supporting_advisor_names": supporting,
+            "data_room_file_count": len(self._data_room_files(engagement.id)),
+            "data_room_web_link": data_room_link,
             "closeout": {
                 "is_closed": bool(closeout and closeout.closed_at),
                 "closed_at": closeout.closed_at if closeout else None,
@@ -514,7 +556,8 @@ class SaleReadyService:
     # ------------------------------------------------------------------
     # Stage detail and actions
     # ------------------------------------------------------------------
-    def _dd_dict(self, item: EngagementDDItem, stage_titles: Dict[str, str]) -> Dict[str, Any]:
+    def _dd_dict(self, item: EngagementDDItem, stage_titles: Dict[str, str],
+                 files: Optional[Dict[UUID, List[Dict[str, Any]]]] = None) -> Dict[str, Any]:
         return {
             "id": item.id,
             "item_key": item.item_key,
@@ -534,6 +577,7 @@ class SaleReadyService:
             "notes": item.notes,
             "date_completed": item.date_completed,
             "status_changed_at": item.status_changed_at,
+            "files": (files or {}).get(item.id, []),
         }
 
     def _task_dict(self, task: Task, templates: Dict[UUID, ProgramTaskTemplate]) -> Dict[str, Any]:
@@ -577,12 +621,19 @@ class SaleReadyService:
             user = self.db.query(User).filter(User.id == state.completed_by_user_id).first()
             completed_by = _display_name(user) if user else None
 
+        files = self._files_by_dd_item(engagement.id)
         flagged = []
         if stage_code in pinned_last_modules(PROGRAM_SALE_READY):
             flagged = [
-                self._dd_dict(d, stage_titles)
+                self._dd_dict(d, stage_titles, files)
                 for d in self._dd_items(engagement.id) if d.flag_for_m8
             ]
+        # The register is generated from the files in this stage's DD folders.
+        stage_folders = {(d.category_code, d.sub_item_code) for d in entry["dd"]}
+        registered = sum(
+            1 for m in self._data_room_files(engagement.id)
+            if (m.dd_category_code, m.dd_sub_item_code) in stage_folders
+        )
 
         return {
             "stage": entry["summary"],
@@ -599,7 +650,8 @@ class SaleReadyService:
                 {"title": t.title, "section": t.section, "group_title": t.group_title}
                 for t in self._task_templates(stage_code, self._template_cutoff(engagement))
             ],
-            "dd_items": [self._dd_dict(d, stage_titles) for d in entry["dd"]],
+            "dd_items": [self._dd_dict(d, stage_titles, files) for d in entry["dd"]],
+            "documents_registered": registered,
             "flagged_for_review": flagged,
             "ui_config": stage.ui_config,
             # This engagement's frozen copy, not the current master.
@@ -761,7 +813,7 @@ class SaleReadyService:
 
         used = {d.stage_code for d in items}
         return {
-            "items": [self._dd_dict(d, titles) for d in items],
+            "items": [self._dd_dict(d, titles, self._files_by_dd_item(engagement.id)) for d in items],
             "stats": {
                 "total": len(items),
                 "yes": count(rules.DD_STATUS_YES),
@@ -805,7 +857,8 @@ class SaleReadyService:
             item.flag_for_m8 = bool(fields["flag_for_m8"])
         self.db.commit()
         self.db.refresh(item)
-        return self._dd_dict(item, {s.stage_code: s.title for s in self._stages()})
+        return self._dd_dict(item, {s.stage_code: s.title for s in self._stages()},
+                             self._files_by_dd_item(engagement.id))
 
 
 def get_sale_ready_service(db: Session) -> SaleReadyService:

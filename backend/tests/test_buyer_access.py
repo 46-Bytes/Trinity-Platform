@@ -833,3 +833,84 @@ class TestTheBuyerFolderPayload:
         _dd_item(db_session, engagement)
         assert api.as_user(user).get(f"{PORTAL}/me/folders").json() == []
         assert api.as_user(user).get(f"{PORTAL}/me/folders/3/3.1").status_code == 404
+
+
+# ======================================================================
+# Buyer company, stored per engagement (item 10a)
+# ======================================================================
+class TestBuyerCompany:
+    @pytest.fixture
+    def stub_invite(self, monkeypatch):
+        from app.models.user import User as UserModel
+        from app.services import buyer_service as svc
+
+        def fake_invite(db, email, role, first_name=None, last_name=None, business_name=None):
+            user = UserModel(email=email, role=role, first_name=first_name, last_name=last_name,
+                             business_name=business_name)
+            db.add(user)
+            db.flush()
+            return user
+
+        monkeypatch.setattr(svc.AuthService, "create_invited_user", staticmethod(fake_invite))
+
+    def _email(self):
+        import uuid as _uuid
+        return f"buyer-{_uuid.uuid4().hex[:10]}@example.com"
+
+    def test_the_invite_stores_and_returns_the_company(
+        self, api, db_session, advisor, engagement, stub_invite
+    ):
+        from app.models.user import User as UserModel
+
+        email = self._email()
+        resp = api.as_user(advisor).post(f"{ENG}/{engagement.id}/buyers", json={
+            "email": email, "first_name": "Sarah", "last_name": "Lim",
+            "company": "  Westgate Industrial Group  ",
+        })
+        assert resp.status_code == 201, resp.text
+        body = resp.json()
+        assert body["company"] == "Westgate Industrial Group"
+        assert body["name"] == "Sarah Lim" and body["email"] == email
+
+        listed = api.as_user(advisor).get(f"{ENG}/{engagement.id}/buyers").json()
+        assert [b["company"] for b in listed if b["email"] == email] == ["Westgate Industrial Group"]
+
+        db_session.expire_all()
+        user = db_session.query(UserModel).filter(UserModel.email == email).one()
+        binding = db_session.query(EngagementBuyer).filter(EngagementBuyer.user_id == user.id).one()
+        assert binding.company == "Westgate Industrial Group"
+        # Stored on the invitation, never on the user.
+        assert user.business_name is None
+
+    def test_a_blank_company_is_stored_as_null(self, api, advisor, engagement, stub_invite):
+        resp = api.as_user(advisor).post(f"{ENG}/{engagement.id}/buyers",
+                                         json={"email": self._email(), "company": "   "})
+        assert resp.status_code == 201 and resp.json()["company"] is None
+
+    def test_an_overlong_company_is_refused(self, api, advisor, engagement, stub_invite):
+        resp = api.as_user(advisor).post(f"{ENG}/{engagement.id}/buyers",
+                                         json={"email": self._email(), "company": "x" * 256})
+        assert resp.status_code == 422
+
+    def test_company_is_per_engagement(
+        self, api, db_session, advisor, engagement, other_engagement, stub_invite
+    ):
+        """Re-invited to another sale, the same account can act for another company."""
+        email = self._email()
+        client = api.as_user(advisor)
+        first = client.post(f"{ENG}/{engagement.id}/buyers", json={"email": email, "company": "First Co"})
+        assert first.status_code == 201
+        assert client.post(f"{ENG}/{engagement.id}/buyers/{first.json()['id']}/revoke").status_code == 200
+
+        # other_engagement belongs to another advisor, so admit ours as secondary.
+        other_engagement.secondary_advisor_ids = [advisor.id]
+        db_session.flush()
+        second = client.post(f"{ENG}/{other_engagement.id}/buyers", json={"email": email, "company": "Second Co"})
+        assert second.status_code == 201, second.text
+        assert second.json()["company"] == "Second Co"
+        restored = client.post(f"{ENG}/{engagement.id}/buyers/{first.json()['id']}/restore")
+        # Restore is refused while the account is live elsewhere, but the first company is untouched.
+        assert restored.status_code == 400
+        rows = {b.engagement_id: b.company for b in db_session.query(EngagementBuyer).filter(
+            EngagementBuyer.user_id == first.json()["user_id"])}
+        assert rows == {engagement.id: "First Co", other_engagement.id: "Second Co"}

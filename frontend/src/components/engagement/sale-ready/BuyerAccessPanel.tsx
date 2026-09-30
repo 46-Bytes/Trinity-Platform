@@ -70,6 +70,9 @@ export function BuyerAccessPanel({
   const dispatch = useAppDispatch();
   const { buyers, releasedFolders, isSaving, error } = useAppSelector((s) => s.buyerAdmin);
   const [email, setEmail] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [company, setCompany] = useState('');
   const [confirmRevoke, setConfirmRevoke] = useState<EngagementBuyer | null>(null);
 
   useEffect(() => {
@@ -80,10 +83,19 @@ export function BuyerAccessPanel({
 
   const invite = () => {
     if (!email.trim()) return;
-    dispatch(inviteBuyer({ engagementId, email: email.trim() }))
+    dispatch(inviteBuyer({
+      engagementId,
+      email: email.trim(),
+      first_name: firstName.trim() || undefined,
+      last_name: lastName.trim() || undefined,
+      company: company.trim() || undefined,
+    }))
       .unwrap()
       .then(() => {
         setEmail('');
+        setFirstName('');
+        setLastName('');
+        setCompany('');
         toast.success('Invitation sent. The buyer sets their password by email.');
       })
       .catch(fail);
@@ -141,6 +153,7 @@ export function BuyerAccessPanel({
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{buyer.name || buyer.email}</p>
+                    {buyer.company && <p className="truncate text-xs text-muted-foreground">{buyer.company}</p>}
                     {buyer.name && buyer.email && (
                       <p className="truncate text-xs text-muted-foreground">{buyer.email}</p>
                     )}
@@ -214,12 +227,38 @@ export function BuyerAccessPanel({
         )}
 
         {!readOnly && (
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1.3fr_auto]">
+            <Input
+              value={firstName}
+              disabled={isSaving}
+              placeholder="First name"
+              aria-label="Buyer first name"
+              onChange={(e) => setFirstName(e.target.value)}
+              className="text-sm"
+            />
+            <Input
+              value={lastName}
+              disabled={isSaving}
+              placeholder="Last name"
+              aria-label="Buyer last name"
+              onChange={(e) => setLastName(e.target.value)}
+              className="text-sm"
+            />
+            <Input
+              value={company}
+              disabled={isSaving}
+              maxLength={255}
+              placeholder="Company"
+              aria-label="Buyer company"
+              onChange={(e) => setCompany(e.target.value)}
+              className="text-sm"
+            />
             <Input
               type="email"
               value={email}
               disabled={isSaving}
-              placeholder="Invite a buyer by email"
+              placeholder="Email"
+              aria-label="Buyer email"
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && invite()}
               className="text-sm"

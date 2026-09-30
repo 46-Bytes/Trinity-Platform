@@ -333,6 +333,8 @@ class DriveSyncService:
         ):
             media.dd_category_code = folder.category_code
             media.dd_sub_item_code = folder.sub_item_code
+            # Re-filed elsewhere, so it no longer belongs to the DD item it was uploaded to.
+            media.dd_item_id = None
             self._promote(folder)
             result.moved += 1
 

@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { DDHeaderRow, DDItemRow } from './DDItemRow';
-import type { DDChecklist, DDItem, DDItemUpdate } from './types';
+import type { DDChecklist, DDFileActions, DDItem, DDItemUpdate } from './types';
 
 const ALL = '__all__';
 
@@ -25,10 +25,11 @@ interface DDChecklistViewProps {
   readOnly?: boolean;
   onOpenStage?: (stageCode: string) => void;
   onChange: (item: DDItem, changes: DDItemUpdate) => void;
+  fileActions?: DDFileActions;
 }
 
 /** The master DD checklist: every item, filterable, editing the same records as each stage. */
-export function DDChecklistView({ checklist, readOnly = false, onOpenStage, onChange }: DDChecklistViewProps) {
+export function DDChecklistView({ checklist, readOnly = false, onOpenStage, onChange, fileActions }: DDChecklistViewProps) {
   const [category, setCategory] = useState(ALL);
   const [stage, setStage] = useState(ALL);
   const [statusKey, setStatusKey] = useState('all');
@@ -173,6 +174,7 @@ export function DDChecklistView({ checklist, readOnly = false, onOpenStage, onCh
                 showStage
                 onOpenStage={onOpenStage}
                 onChange={(changes) => onChange(item, changes)}
+                fileActions={fileActions}
               />
             ))}
           </section>

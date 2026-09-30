@@ -36,7 +36,8 @@ import { ProgramGuideView } from './ProgramGuideView';
 import { RoadmapView } from './RoadmapView';
 import { SalePlannerPanel } from './SalePlannerPanel';
 import { StageDetailView } from './StageDetailView';
-import type { DDItem, DDItemUpdate } from './types';
+import { downloadDataRoomFile, fetchDataRoom, uploadDDItemFile } from '@/store/slices/dataRoomReducer';
+import type { DDFileActions, DDItem, DDItemUpdate } from './types';
 
 interface SaleReadyTabProps {
   engagementId: string;
@@ -95,6 +96,7 @@ export function SaleReadyTab({ engagementId, readOnly = false, onEngagementStatu
     isSaving,
     error,
   } = useAppSelector((state) => state.saleReady);
+  const dataRoom = useAppSelector((state) => state.dataRoom);
   const [tab, setTab] = useState<SubTab>('roadmap');
   const [openStage, setOpenStage] = useState<string | null>(null);
 
@@ -102,6 +104,8 @@ export function SaleReadyTab({ engagementId, readOnly = false, onEngagementStatu
     dispatch(clearSaleReady());
     dispatch(fetchSaleReadyRoadmap(engagementId));
     dispatch(fetchDDChecklist(engagementId));
+    // The Files badge and the DD upload buttons read the data room's files and status.
+    dispatch(fetchDataRoom(engagementId));
   }, [engagementId, dispatch]);
 
   const fail = (fallback: string) => (e: unknown) => toast.error(errorMessage(e, fallback));
@@ -163,6 +167,31 @@ export function SaleReadyTab({ engagementId, readOnly = false, onEngagementStatu
   }
 
   const ddDone = checklist ? `${checklist.stats.yes}/${checklist.stats.total}` : null;
+  const dataRoomLoaded = dataRoom.loadedFor === engagementId;
+  const fileCount = dataRoomLoaded ? dataRoom.files.length : roadmap.data_room_file_count;
+
+  const fileActions: DDFileActions = {
+    onDownload: (f) => downloadDataRoomFile(engagementId, f.id, f.file_name).catch(fail('Failed to download the file')),
+    ...(readOnly
+      ? {}
+      : {
+          isUploading: dataRoom.isUploading,
+          uploadDisabledReason:
+            dataRoomLoaded && dataRoom.status && !dataRoom.status.connected
+              ? dataRoom.status.message ?? 'Google Drive is not connected'
+              : null,
+          onUpload: (item: DDItem, file: File) =>
+            dispatch(uploadDDItemFile({ engagementId, itemId: item.id, file }))
+              .unwrap()
+              .then(() => {
+                toast.success(`${file.name} uploaded`);
+                // The item's status, file list and the stage's counts all changed.
+                dispatch(fetchDDChecklist(engagementId));
+                if (openStage) dispatch(fetchStageDetail({ engagementId, stageCode: openStage }));
+              })
+              .catch(fail('Failed to upload the file')),
+        }),
+  };
   const stageArg = openStage ? { engagementId, stageCode: openStage } : null;
 
   const variantPanel = () => {
@@ -250,6 +279,7 @@ export function SaleReadyTab({ engagementId, readOnly = false, onEngagementStatu
             dispatch(updateStageTask({ engagementId, taskId, changes })).unwrap().catch(fail('Failed to update the task'))
           }
           onUpdateDD={onUpdateDD}
+          fileActions={fileActions}
           variantPanel={variantPanel()}
         />
       );
@@ -304,6 +334,9 @@ export function SaleReadyTab({ engagementId, readOnly = false, onEngagementStatu
         </TabsTrigger>
         <TabsTrigger value="files" className={SUB_TAB}>
           Files
+          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+            {fileCount}
+          </span>
         </TabsTrigger>
         {!readOnly && (
           <TabsTrigger value="guide" className={SUB_TAB}>
@@ -320,6 +353,7 @@ export function SaleReadyTab({ engagementId, readOnly = false, onEngagementStatu
             readOnly={readOnly}
             onOpenStage={readOnly ? undefined : openStageDetail}
             onChange={onUpdateDD}
+            fileActions={fileActions}
           />
         ))}
       </TabsContent>

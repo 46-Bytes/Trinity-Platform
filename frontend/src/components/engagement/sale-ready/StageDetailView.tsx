@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { DDHeaderRow, DDItemRow } from './DDItemRow';
 import { DocumentRegisterCard } from './DocumentRegisterCard';
 import { STATUS_CONFIG } from './saleReadyDisplay';
-import type { DDItem, DDItemUpdate, SaleReadyPerson, StageDetail, StageTask, StageTaskUpdate, StageUpdate } from './types';
+import type { DDFileActions, DDItem, DDItemUpdate, SaleReadyPerson, StageDetail, StageTask, StageTaskUpdate, StageUpdate } from './types';
 
 const NONE = '__none__';
 
@@ -29,6 +29,8 @@ interface StageDetailViewProps {
   variantPanel?: ReactNode;
   /** Needed by the document register, which reads this stage's data room files. */
   engagementId: string;
+  /** Upload to and download from each DD item. */
+  fileActions?: DDFileActions;
 }
 
 function Card({ children, className }: { children: ReactNode; className?: string }) {
@@ -331,7 +333,7 @@ function TasksCard({
 }
 
 // ---------------------------------------------------------------- DD
-function DDCard({ detail, onUpdateDD }: Pick<StageDetailViewProps, 'detail' | 'onUpdateDD'>) {
+function DDCard({ detail, onUpdateDD, fileActions }: Pick<StageDetailViewProps, 'detail' | 'onUpdateDD' | 'fileActions'>) {
   const items = detail.dd_items;
   const flagged = detail.flagged_for_review;
   if (items.length === 0 && flagged.length === 0) return null;
@@ -368,7 +370,13 @@ function DDCard({ detail, onUpdateDD }: Pick<StageDetailViewProps, 'detail' | 'o
               </span>
             </h3>
             {group.map((item) => (
-              <DDItemRow key={item.id} item={item} people={detail.people} onChange={(c) => onUpdateDD(item, c)} />
+              <DDItemRow
+                key={item.id}
+                item={item}
+                people={detail.people}
+                onChange={(c) => onUpdateDD(item, c)}
+                fileActions={fileActions}
+              />
             ))}
           </div>
         );
@@ -556,9 +564,13 @@ export function StageDetailView(props: StageDetailViewProps) {
                       {ddYes} / {detail.dd_items.length}
                     </dd>
                   </div>
-                  <div className="flex justify-between py-2">
+                  <div className="flex justify-between border-b border-border/60 py-2">
                     <dt className="text-muted-foreground">DD items with no status</dt>
                     <dd className={cn('font-semibold', ddBlank > 0 && 'text-warning')}>{ddBlank}</dd>
+                  </div>
+                  <div className="flex justify-between py-2">
+                    <dt className="text-muted-foreground">Documents registered</dt>
+                    <dd className="font-semibold">{detail.documents_registered}</dd>
                   </div>
                 </>
               )}

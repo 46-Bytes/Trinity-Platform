@@ -136,6 +136,7 @@ class BuyerService:
             "user_id": row.user_id,
             "email": user.email if user else None,
             "name": _display_name(user),
+            "company": row.company,
             "status": row.status,
             # Presentation only. `status` stays the stored two-state value, so
             # the partial unique index and every access rule are untouched: a
@@ -176,7 +177,8 @@ class BuyerService:
     # ------------------------------------------------------------------
     def invite(self, engagement: Engagement, email: str, inviter: User,
                first_name: Optional[str] = None, last_name: Optional[str] = None,
-               nda_signed_date: Optional[date] = None) -> Dict[str, Any]:
+               nda_signed_date: Optional[date] = None,
+               company: Optional[str] = None) -> Dict[str, Any]:
         """
         Invite a buyer to this engagement.
 
@@ -233,6 +235,7 @@ class BuyerService:
             status=rules.BUYER_STATUS_ACTIVE,
             invited_by_user_id=inviter.id,
             nda_signed_date=nda_signed_date,
+            company=(company or "").strip() or None,
         )
         self.db.add(row)
         self.db.commit()

@@ -21,6 +21,9 @@ export interface DataRoomFile {
   uploaded_by_name: string | null;
   source: 'trinity' | 'drive' | null;
   created_at: string | null;
+  /** The DD item it was uploaded to; null for Files-tab uploads and files added in Drive. */
+  dd_item_id: string | null;
+  dd_item_document: string | null;
   /** Advisor and owner only. Null until the file exists in Drive. */
   drive_web_link: string | null;
 }
@@ -66,9 +69,12 @@ interface DataRoomState {
   isLoading: boolean;
   isUploading: boolean;
   error: string | null;
+  /** The engagement the loaded state belongs to. */
+  loadedFor: string | null;
 }
 
 const initialState: DataRoomState = {
+  loadedFor: null,
   status: null,
   folders: [],
   files: [],
@@ -137,6 +143,18 @@ export const uploadDataRoomFile = thunk<
     'Failed to upload the file',
     { method: 'POST', body: form }
   );
+});
+
+export const uploadDDItemFile = thunk<
+  { engagementId: string; itemId: string; file: File },
+  DataRoomFile
+>('uploadDDItem', 'Failed to upload the file', ({ engagementId, itemId, file }) => {
+  const form = new FormData();
+  form.append('file', file);
+  return request<DataRoomFile>(`/${engagementId}/dd/${itemId}/files`, 'Failed to upload the file', {
+    method: 'POST',
+    body: form,
+  });
 });
 
 export const renameDataRoomFile = thunk<
@@ -226,18 +244,22 @@ const slice = createSlice({
   },
   extraReducers: (builder) => {
     builder.addCase(fetchDataRoom.fulfilled, (state, action) => {
+      state.loadedFor = action.meta.arg;
       state.status = action.payload.status;
       state.folders = action.payload.folders;
       state.files = action.payload.files;
       state.dataRoomWebLink = action.payload.data_room_web_link;
     });
-    builder.addCase(uploadDataRoomFile.fulfilled, (state, action) => {
-      state.files = [...state.files, action.payload];
-      const key = `${action.payload.category_code}|${action.payload.sub_item_code}`;
-      state.folders = state.folders.map((f) =>
-        `${f.category_code}|${f.sub_item_code}` === key ? { ...f, file_count: f.file_count + 1 } : f
-      );
-    });
+    for (const upload of [uploadDataRoomFile, uploadDDItemFile]) {
+      builder.addCase(upload.fulfilled, (state, action) => {
+        if (state.loadedFor !== action.meta.arg.engagementId) return;
+        state.files = [...state.files, action.payload];
+        const key = `${action.payload.category_code}|${action.payload.sub_item_code}`;
+        state.folders = state.folders.map((f) =>
+          `${f.category_code}|${f.sub_item_code}` === key ? { ...f, file_count: f.file_count + 1 } : f
+        );
+      });
+    }
     builder.addCase(renameDataRoomFile.fulfilled, (state, action) => {
       state.files = state.files.map((f) => (f.id === action.payload.id ? action.payload : f));
     });

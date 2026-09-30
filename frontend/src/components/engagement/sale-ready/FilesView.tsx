@@ -26,6 +26,7 @@ import {
 } from '@/store/slices/dataRoomReducer';
 import { BuyerAccessPanel } from './BuyerAccessPanel';
 import { BuyerPreviewView } from './BuyerPreviewView';
+import { formatShortDate } from './saleReadyDisplay';
 import type { DDItem } from './types';
 
 interface FilesViewProps {
@@ -227,7 +228,11 @@ export function FilesView({ items, engagementId, readOnly = false }: FilesViewPr
         releasedFolders={releasedFolders}
         ddItems={items}
         files={files}
-        buyerName={liveBuyers[0]?.name ?? liveBuyers[0]?.email ?? null}
+        buyerName={
+          liveBuyers[0]
+            ? [liveBuyers[0].name ?? liveBuyers[0].email, liveBuyers[0].company].filter(Boolean).join(', ')
+            : null
+        }
         onBack={() => setPreview(false)}
       />
     );
@@ -406,6 +411,10 @@ export function FilesView({ items, engagementId, readOnly = false }: FilesViewPr
                         ]
                           .filter(Boolean)
                           .join(' · ')}
+                      </span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        Added {formatShortDate(file.created_at) ?? '—'} · Linked DD item:{' '}
+                        {file.dd_item_document ?? 'folder only'}
                       </span>
                     </span>
                     {file.drive_web_link && (

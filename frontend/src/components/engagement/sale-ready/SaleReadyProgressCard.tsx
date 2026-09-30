@@ -4,13 +4,18 @@ interface SaleReadyProgressCardProps {
   progress: RoadmapProgress;
   gaps: GapSummary;
   leadAdvisorName?: string | null;
+  supportingAdvisorNames?: string[];
+  /** Advisors only; the server sends null to owners. */
+  dataRoomWebLink?: string | null;
 }
 
 /**
  * Program progress, as in the mockup: phases, modules, must-do tasks and DD
  * items, a gaps line when any DD item is marked No, and a bar over must-do tasks.
  */
-export function SaleReadyProgressCard({ progress, gaps, leadAdvisorName }: SaleReadyProgressCardProps) {
+export function SaleReadyProgressCard({
+  progress, gaps, leadAdvisorName, supportingAdvisorNames = [], dataRoomWebLink,
+}: SaleReadyProgressCardProps) {
   const stats = [
     { label: 'Phases complete', value: `${progress.phases_completed} / ${progress.phases_total}` },
     { label: 'Modules complete', value: `${progress.modules_completed} / ${progress.modules_total}` },
@@ -22,7 +27,29 @@ export function SaleReadyProgressCard({ progress, gaps, leadAdvisorName }: SaleR
     <div className="card-trinity p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-heading text-lg font-semibold">Program progress</h2>
-        {leadAdvisorName && <p className="text-xs text-muted-foreground">Lead advisor {leadAdvisorName}</p>}
+        {(leadAdvisorName || supportingAdvisorNames.length > 0 || dataRoomWebLink) && (
+          <p className="text-xs text-muted-foreground">
+            {[
+              leadAdvisorName ? `Lead advisor ${leadAdvisorName}` : null,
+              supportingAdvisorNames.length ? `Supporting ${supportingAdvisorNames.join(', ')}` : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+            {dataRoomWebLink && (
+              <>
+                {(leadAdvisorName || supportingAdvisorNames.length > 0) && ' · '}
+                <a
+                  href={dataRoomWebLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-700 hover:underline dark:text-blue-400"
+                >
+                  Client folder ↗
+                </a>
+              </>
+            )}
+          </p>
+        )}
       </div>
 
       <div className="mb-5 grid grid-cols-2 gap-6 lg:grid-cols-4">

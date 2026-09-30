@@ -169,9 +169,16 @@ class DataRoomService:
                 f"{file_name} is larger than the {MAX_FILE_SIZE // (1024 * 1024)}MB limit."
             )
 
+    def get_dd_item(self, engagement_id: UUID, item_id: UUID) -> Optional[EngagementDDItem]:
+        """One of this engagement's DD items, or None. Never another engagement's."""
+        return self.db.query(EngagementDDItem).filter(
+            EngagementDDItem.id == item_id, EngagementDDItem.engagement_id == engagement_id,
+        ).first()
+
     def upload(self, engagement: Engagement, category_code: str, sub_item_code: str,
                stream: BinaryIO, file_name: str, content_type: Optional[str],
-               user: User, size: Optional[int] = None) -> Media:
+               user: User, size: Optional[int] = None,
+               dd_item: Optional[EngagementDDItem] = None) -> Media:
         """
         Put a file in a DD sub-item's folder.
 
@@ -206,10 +213,15 @@ class DataRoomService:
             drive_modified_time=_parse_drive_time(uploaded.get("modifiedTime")),
             dd_category_code=category_code,
             dd_sub_item_code=sub_item_code,
+            dd_item_id=dd_item.id if dd_item else None,
             source=SOURCE_TRINITY,
         )
         self.db.add(media)
-        self.promote_dd_items(engagement.id, category_code, sub_item_code, user)
+        if dd_item is not None:
+            # Uploaded to one DD item: only that item moves, not its folder siblings.
+            self.promote_dd_item(dd_item, user)
+        else:
+            self.promote_dd_items(engagement.id, category_code, sub_item_code, user)
         self.db.commit()
         self.db.refresh(media)
         logger.info("Data room upload %s -> engagement %s %s/%s",
@@ -254,6 +266,16 @@ class DataRoomService:
                     item.status_changed_by_user_id = user.id
                 changed += 1
         return changed
+
+    def promote_dd_item(self, item: EngagementDDItem, user: Optional[User]) -> bool:
+        """Move one DD item to In progress, from no status or No only. Yes and N/A are kept."""
+        if item.status not in _PROMOTABLE:
+            return False
+        item.status = rules.DD_STATUS_IN_PROGRESS
+        item.status_changed_at = datetime.utcnow()
+        if user is not None:
+            item.status_changed_by_user_id = user.id
+        return True
 
     # ------------------------------------------------------------------
     # Rename and delete

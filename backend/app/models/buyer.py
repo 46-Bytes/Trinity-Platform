@@ -61,6 +61,8 @@ class EngagementBuyer(Base):
     # Recorded only. The NDA is handled outside Trinity and does not gate access.
     nda_signed_date = Column(Date, nullable=True,
                              comment="When the NDA was signed outside Trinity; record only")
+    # Per invitation, not on the user: one buyer account may later act for another company.
+    company = Column(String(255), nullable=True)
 
     is_deleted = Column(Boolean, nullable=False, server_default='false')
     created_at = Column(DateTime, nullable=False, server_default=func.current_timestamp())

@@ -79,6 +79,11 @@ class SaleReadyRoadmap(BaseModel):
     progress: RoadmapProgress
     gaps: GapSummary
     lead_advisor_name: Optional[str] = None
+    supporting_advisor_names: List[str] = Field(default_factory=list)
+    data_room_file_count: int = Field(0, description="Live files in the data room, for the Files tab badge")
+    data_room_web_link: Optional[str] = Field(
+        None, description="Opens the engagement's data room in Drive. Advisors only; NULL for owners.",
+    )
     closeout: RoadmapCloseout
     sale_planner_issues: RoadmapIssues
 
@@ -86,6 +91,13 @@ class SaleReadyRoadmap(BaseModel):
 # ----------------------------------------------------------------------
 # DD items
 # ----------------------------------------------------------------------
+class DDItemFile(BaseModel):
+    """A file linked to one DD item. Downloaded through the data room endpoint."""
+    id: UUID
+    file_name: str
+    created_at: Optional[datetime] = None
+
+
 class DDItem(BaseModel):
     id: UUID
     item_key: str
@@ -105,6 +117,9 @@ class DDItem(BaseModel):
     notes: Optional[str] = None
     date_completed: Optional[date] = None
     status_changed_at: Optional[datetime] = None
+    files: List[DDItemFile] = Field(
+        default_factory=list, description="Files uploaded to this DD item. Trinity ids only, no Drive fields.",
+    )
 
 
 class DDStats(BaseModel):
@@ -183,6 +198,7 @@ class StageDetail(BaseModel):
     tasks: List[StageTask]
     template_preview: List[TemplatePreviewTask]
     dd_items: List[DDItem]
+    documents_registered: int = Field(0, description="Files in this stage's DD folders, i.e. register rows")
     flagged_for_review: List[DDItem] = Field(
         default_factory=list, description="M8 only: DD items flagged for review, across every stage"
     )
@@ -297,6 +313,8 @@ class DataRoomFile(BaseModel):
     uploaded_by_name: Optional[str] = None
     source: Optional[str] = Field(None, description="'trinity' or 'drive'")
     created_at: Optional[datetime] = None
+    dd_item_id: Optional[UUID] = Field(None, description="The DD item it was uploaded to, if any")
+    dd_item_document: Optional[str] = Field(None, description="That DD item's document name")
     drive_web_link: Optional[str] = Field(
         None,
         description="Opens this file in Drive. Advisor and owner only - the buyer "

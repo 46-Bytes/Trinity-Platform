@@ -49,6 +49,7 @@ from ..services.engagement_status import (
 )
 from ..services.program_registry import PROGRAM_SALE_READY
 from ..services.sale_ready_planner_service import get_sale_ready_planner_service
+from ..services.sale_ready_service import get_sale_ready_service
 from ..services.file_service import get_file_service
 from ..services.bba_service import get_bba_service
 from ..services.strategy_workbook_service import get_strategy_workbook_service
@@ -64,6 +65,20 @@ router = APIRouter(prefix="/api/engagements", tags=["engagements"],
 )
 # Matches the cap on the other multi-file upload endpoints.
 MAX_ENGAGEMENT_FILES_PER_UPLOAD = 20
+
+
+def _initialize_sale_ready(engagement: Engagement, user: User, db: Session) -> None:
+    """
+    Create the Sale Ready stages, DD items and phase tasks with the engagement.
+    Database only - the Drive scheduler creates the folders. A failure is logged
+    and the first Sale Ready read initializes lazily instead.
+    """
+    try:
+        get_sale_ready_service(db).ensure_initialized(engagement, user)
+    except Exception:
+        db.rollback()
+        logger.exception("Sale Ready initialization failed for engagement %s; it will run on first read",
+                         engagement.id)
 
 
 @router.post("", response_model=EngagementResponse, status_code=status.HTTP_201_CREATED)
@@ -230,7 +245,10 @@ async def create_engagement(
         except Exception as e:
             # Log error but don't fail engagement creation
             print(f"Warning: Failed to create tool for engagement: {str(e)}")
-    
+
+    if engagement.tool == PROGRAM_SALE_READY:
+        _initialize_sale_ready(engagement, current_user, db)
+
     # Create response using Pydantic model_validate (handles SQLAlchemy models properly)
     response = EngagementResponse.model_validate(engagement)
     # Add client_name and advisor_name (not in model, but needed for response)

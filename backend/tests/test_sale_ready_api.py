@@ -555,3 +555,59 @@ def test_generic_patch_keeps_sale_ready_state_rules(api, db_session, engagement,
     task = db_session.query(Task).filter(Task.id == task_id).one()
     db_session.refresh(task)
     assert task.status == "completed" and task.sale_ready_state is None
+
+
+# ----------------------------------------------------------------------
+# Initialization at engagement creation (C2)
+# ----------------------------------------------------------------------
+def _create_payload(advisor, owner):
+    return {
+        "engagement_name": "Created through the API", "tool": "sale_ready",
+        "client_id": str(owner.id), "primary_advisor_id": str(advisor.id),
+        "create_diagnostic": False,
+    }
+
+
+def test_phase_tasks_exist_as_soon_as_the_engagement_is_created(
+    api, db_session, advisor, owner, make_user, phase_task_count, monkeypatch
+):
+    from app.services.drive_client import DriveUnavailable
+
+    def no_drive(db):
+        raise DriveUnavailable("Drive must not be called while creating an engagement")
+    monkeypatch.setattr("app.services.drive_folder_service.get_drive_client", no_drive)
+
+    resp = api.as_user(make_user(UserRole.ADMIN)).post("/api/engagements", json=_create_payload(advisor, owner))
+    assert resp.status_code == 201, resp.text
+    engagement_id = resp.json()["id"]
+
+    # No Sale Ready read in between.
+    tasks = db_session.query(Task).filter(
+        Task.engagement_id == engagement_id, Task.section.isnot(None)).all()
+    assert len(tasks) == phase_task_count
+    assert db_session.query(EngagementStageState).filter_by(engagement_id=engagement_id).count() == 15
+    assert db_session.query(EngagementDDItem).filter_by(engagement_id=engagement_id).count() == 210
+
+
+def test_a_failed_initialization_does_not_fail_creation(
+    api, db_session, advisor, owner, make_user, phase_task_count, monkeypatch
+):
+    from app.services.sale_ready_service import SaleReadyService
+
+    real = SaleReadyService.ensure_initialized
+
+    def broken(self, engagement, actor=None):
+        raise RuntimeError("boom")
+    monkeypatch.setattr(SaleReadyService, "ensure_initialized", broken)
+
+    resp = api.as_user(make_user(UserRole.ADMIN)).post("/api/engagements", json=_create_payload(advisor, owner))
+    assert resp.status_code == 201, resp.text
+    engagement_id = resp.json()["id"]
+    assert db_session.query(Engagement).filter_by(id=engagement_id).count() == 1
+    assert db_session.query(EngagementStageState).filter_by(engagement_id=engagement_id).count() == 0
+
+    # The lazy path recovers on the first Sale Ready read.
+    monkeypatch.setattr(SaleReadyService, "ensure_initialized", real)
+    assert api.as_user(advisor).get(f"{BASE}/{engagement_id}/roadmap").status_code == 200
+    assert len(db_session.query(Task).filter(
+        Task.engagement_id == engagement_id, Task.section.isnot(None)).all()) == phase_task_count

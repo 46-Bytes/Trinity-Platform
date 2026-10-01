@@ -132,19 +132,6 @@ export const fetchDataRoom = thunk<string, DataRoomPayload>(
   (engagementId) => request<DataRoomPayload>(`/${engagementId}/data-room`, 'Failed to load the data room')
 );
 
-export const uploadDataRoomFile = thunk<
-  { engagementId: string; categoryCode: string; subItemCode: string; file: File },
-  DataRoomFile
->('upload', 'Failed to upload the file', ({ engagementId, categoryCode, subItemCode, file }) => {
-  const form = new FormData();
-  form.append('file', file);
-  return request<DataRoomFile>(
-    `/${engagementId}/data-room/${categoryCode}/${subItemCode}/files`,
-    'Failed to upload the file',
-    { method: 'POST', body: form }
-  );
-});
-
 export const uploadDDItemFile = thunk<
   { engagementId: string; itemId: string; file: File },
   DataRoomFile
@@ -250,16 +237,14 @@ const slice = createSlice({
       state.files = action.payload.files;
       state.dataRoomWebLink = action.payload.data_room_web_link;
     });
-    for (const upload of [uploadDataRoomFile, uploadDDItemFile]) {
-      builder.addCase(upload.fulfilled, (state, action) => {
-        if (state.loadedFor !== action.meta.arg.engagementId) return;
-        state.files = [...state.files, action.payload];
-        const key = `${action.payload.category_code}|${action.payload.sub_item_code}`;
-        state.folders = state.folders.map((f) =>
-          `${f.category_code}|${f.sub_item_code}` === key ? { ...f, file_count: f.file_count + 1 } : f
-        );
-      });
-    }
+    builder.addCase(uploadDDItemFile.fulfilled, (state, action) => {
+      if (state.loadedFor !== action.meta.arg.engagementId) return;
+      state.files = [...state.files, action.payload];
+      const key = `${action.payload.category_code}|${action.payload.sub_item_code}`;
+      state.folders = state.folders.map((f) =>
+        `${f.category_code}|${f.sub_item_code}` === key ? { ...f, file_count: f.file_count + 1 } : f
+      );
+    });
     builder.addCase(renameDataRoomFile.fulfilled, (state, action) => {
       state.files = state.files.map((f) => (f.id === action.payload.id ? action.payload : f));
     });

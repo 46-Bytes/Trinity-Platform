@@ -12,7 +12,7 @@ production, staging and on a developer's machine.
 
 Four events are handled, which is what two-way sync means here:
 
-  added    a file appears in a mapped folder      -> index it, promote its DD items
+  added    a file appears in a mapped folder      -> index it (no DD status changes)
   renamed  file.name differs                      -> follow it
   moved    file.parents differs                   -> refile, or drop out of the room
   deleted  removed or trashed                     -> soft delete, never hard
@@ -306,8 +306,8 @@ class DriveSyncService:
             dd_sub_item_code=folder.sub_item_code,
             source=SOURCE_DRIVE,
         )
+        # Not linked to a DD item, so no item's status changes.
         self.db.add(media)
-        self._promote(folder)
 
     def _update(self, media: Media, payload: Dict[str, Any],
                 folder: EngagementDriveFolder, result: SyncResult) -> None:
@@ -335,7 +335,6 @@ class DriveSyncService:
             media.dd_sub_item_code = folder.sub_item_code
             # Re-filed elsewhere, so it no longer belongs to the DD item it was uploaded to.
             media.dd_item_id = None
-            self._promote(folder)
             result.moved += 1
 
         # Undeleted in Drive: restore rather than leave a ghost.
@@ -350,14 +349,6 @@ class DriveSyncService:
     def _soft_delete(self, media: Media) -> None:
         media.deleted_at = datetime.utcnow()
         media.is_active = False
-
-    def _promote(self, folder: EngagementDriveFolder) -> None:
-        """A file arriving moves its DD items on, whichever side put it there."""
-        from app.services.data_room_service import get_data_room_service
-
-        get_data_room_service(self.db).promote_dd_items(
-            folder.engagement_id, folder.category_code, folder.sub_item_code, None,
-        )
 
     def _attribution_user_id(self, folder: EngagementDriveFolder):
         from app.models.engagement import Engagement

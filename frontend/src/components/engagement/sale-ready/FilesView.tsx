@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
@@ -22,8 +23,9 @@ import {
   deleteDataRoomFile,
   downloadDataRoomFile,
   fetchDataRoom,
-  uploadDataRoomFile,
+  uploadDDItemFile,
 } from '@/store/slices/dataRoomReducer';
+import { fetchDDChecklist } from '@/store/slices/saleReadyReducer';
 import { BuyerAccessPanel } from './BuyerAccessPanel';
 import { BuyerPreviewView } from './BuyerPreviewView';
 import { formatShortDate } from './saleReadyDisplay';
@@ -82,6 +84,8 @@ export function FilesView({ items, engagementId, readOnly = false }: FilesViewPr
   const [showBuyers, setShowBuyers] = useState(false);
   const [preview, setPreview] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<DataRoomFile | null>(null);
+  // The DD item a Files-tab upload is attached to. Falls back to the folder's first item.
+  const [uploadItemId, setUploadItemId] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   // Seeded with the mount fetch below, so returning to the tab straight away
   // does not immediately re-fetch what was just loaded.
@@ -175,6 +179,7 @@ export function FilesView({ items, engagementId, readOnly = false }: FilesViewPr
   const activeCategory = openCategory ?? categories[0]?.code ?? null;
   const category = categories.find((c) => c.code === activeCategory);
   const folder = category?.subs.find((s) => s.code === selected) ?? category?.subs[0];
+  const uploadItem = folder?.items.find((i) => i.id === uploadItemId) ?? folder?.items[0] ?? null;
 
   const folderFiles = useMemo(
     () => (folder
@@ -196,16 +201,18 @@ export function FilesView({ items, engagementId, readOnly = false }: FilesViewPr
       .catch(fail);
   };
 
+  // Every chosen file is attached to the selected DD item; only that item moves to In progress.
   const upload = (chosen: FileList | null) => {
-    if (!chosen?.length || !folder) return;
+    if (!chosen?.length || !uploadItem) return;
     Promise.all(
       [...chosen].map((file) =>
-        dispatch(uploadDataRoomFile({
-          engagementId, categoryCode: folder.categoryCode, subItemCode: folder.code, file,
-        })).unwrap()
+        dispatch(uploadDDItemFile({ engagementId, itemId: uploadItem.id, file })).unwrap()
       )
     )
-      .then(() => toast.success(chosen.length === 1 ? 'File uploaded' : `${chosen.length} files uploaded`))
+      .then(() => {
+        toast.success(chosen.length === 1 ? 'File uploaded' : `${chosen.length} files uploaded`);
+        dispatch(fetchDDChecklist(engagementId));
+      })
       .catch(fail);
     if (fileInput.current) fileInput.current.value = '';
   };
@@ -287,9 +294,25 @@ export function FilesView({ items, engagementId, readOnly = false }: FilesViewPr
                 className="hidden"
                 onChange={(e) => upload(e.target.files)}
               />
+              <Select
+                value={uploadItem?.id ?? ''}
+                onValueChange={setUploadItemId}
+                disabled={!folder || isUploading}
+              >
+                <SelectTrigger aria-label="Upload to DD item" className="h-9 w-full text-xs sm:w-56">
+                  <SelectValue placeholder="Choose a DD item" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(folder?.items ?? []).map((i) => (
+                    <SelectItem key={i.id} value={i.id}>
+                      {i.document_required ?? i.item_key}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button
                 size="sm"
-                disabled={!driveReady || isUploading || !folder}
+                disabled={!driveReady || isUploading || !uploadItem}
                 onClick={() => fileInput.current?.click()}
               >
                 <Upload className="mr-1.5 h-3.5 w-3.5" />

@@ -254,14 +254,15 @@ class TestUpload:
         media = _upload(db_session, engagement, advisor)
         assert (media.dd_category_code, media.dd_sub_item_code) == ("3", "3.1")
 
-    def test_upload_moves_the_dd_item_to_in_progress(
+    def test_a_folder_level_upload_changes_no_status(
         self, db_session, fake_drive, engagement, advisor
     ):
+        """A file not linked to a DD item names no item, so no item moves (F7)."""
         item = _dd(db_session, engagement)
         assert item.status is None
         _upload(db_session, engagement, advisor)
         db_session.refresh(item)
-        assert item.status == sr_rules.DD_STATUS_IN_PROGRESS
+        assert item.status is None
 
     def test_upload_does_not_reopen_an_answered_item(
         self, db_session, fake_drive, engagement, advisor
@@ -272,11 +273,12 @@ class TestUpload:
         db_session.refresh(item)
         assert item.status == sr_rules.DD_STATUS_YES
 
-    def test_a_no_is_promoted(self, db_session, fake_drive, engagement, advisor):
+    def test_a_folder_level_upload_leaves_a_no_alone(self, db_session, fake_drive, engagement, advisor):
+        """A gap stays a gap until a file is uploaded to that item itself."""
         item = _dd(db_session, engagement, status=sr_rules.DD_STATUS_NO)
         _upload(db_session, engagement, advisor)
         db_session.refresh(item)
-        assert item.status == sr_rules.DD_STATUS_IN_PROGRESS
+        assert item.status == sr_rules.DD_STATUS_NO
 
     def test_an_unknown_folder_is_refused(self, db_session, fake_drive, engagement, advisor):
         _dd(db_session, engagement)
@@ -445,9 +447,10 @@ class TestSync:
         assert found.dd_sub_item_code == "3.1"
         assert found.file_path is None
 
-    def test_a_file_added_in_drive_also_promotes_the_dd_item(
+    def test_a_file_added_in_drive_changes_no_status(
         self, db_session, fake_drive, engagement, advisor
     ):
+        """It is indexed and shown, but names no DD item, so no item moves (F7)."""
         item = _dd(db_session, engagement, sub="3.2", sub_name="Management Accounts", key="DD-2")
         folder = EngagementDriveFolder(engagement_id=engagement.id, category_code="3",
                                        sub_item_code="3.2", drive_folder_id="folder-3-2")
@@ -458,7 +461,9 @@ class TestSync:
         sync._apply(self._change("drive-y", "mgmt.pdf", "folder-3-2"), result)
         db_session.flush()
         db_session.refresh(item)
-        assert item.status == sr_rules.DD_STATUS_IN_PROGRESS
+        assert item.status is None
+        found = db_session.query(Media).filter(Media.drive_file_id == "drive-y").one()
+        assert found.dd_sub_item_code == "3.2" and found.dd_item_id is None
 
     def test_a_rename_in_drive_is_followed(self, db_session, fake_drive, engagement, advisor):
         folder = self._folder_row(db_session, engagement, fake_drive, advisor)
@@ -892,9 +897,10 @@ class TestBackfill:
         assert db_session.query(Media).filter(Media.file_name == "added_while_off.pdf").first()
         assert get_integration(db_session).changes_page_token == "token-1"
 
-    def test_backfill_promotes_the_dd_item_too(
+    def test_backfill_changes_no_status(
         self, db_session, fake_drive, engagement, advisor
     ):
+        """Files found in a newly mapped folder are indexed without moving any item (F7)."""
         from app.services.drive_folder_service import get_drive_folder_service
 
         item = _dd(db_session, engagement)
@@ -904,7 +910,8 @@ class TestBackfill:
         get_drive_folder_service(db_session).ensure_sub_item(engagement, "3", "3.1")
         db_session.flush()
         db_session.refresh(item)
-        assert item.status == sr_rules.DD_STATUS_IN_PROGRESS
+        assert item.status is None
+        assert db_session.query(Media).filter(Media.engagement_id == engagement.id).count() >= 1
 
 
 # ======================================================================
@@ -2429,16 +2436,92 @@ class TestDDItemUpload:
         assert media.drive_file_id not in dumped and media.drive_web_link not in dumped
         assert all(set(f) == {"id", "file_name", "created_at"} for i in items.values() for f in i["files"])
 
-    def test_files_tab_uploads_keep_folder_behaviour(
+    def test_a_folder_level_file_changes_no_dd_status(
         self, db_session, fake_drive, engagement, advisor
     ):
         a = _dd(db_session, engagement, key="DD-1")
-        b = _dd(db_session, engagement, key="DD-2")
+        b = _dd(db_session, engagement, key="DD-2", status=sr_rules.DD_STATUS_NO)
         media = _upload(db_session, engagement, advisor)
         assert media.dd_item_id is None
         db_session.refresh(a)
         db_session.refresh(b)
-        assert (a.status, b.status) == (sr_rules.DD_STATUS_IN_PROGRESS, sr_rules.DD_STATUS_IN_PROGRESS)
+        assert (a.status, b.status) == (None, sr_rules.DD_STATUS_NO)
+
+    def test_several_files_to_one_item_link_to_it_and_move_only_it(
+        self, api, db_session, fake_drive, engagement, advisor
+    ):
+        """The Files-tab flow: every chosen file goes to the selected item."""
+        target = _dd(db_session, engagement, key="DD-1")
+        blank = _dd(db_session, engagement, key="DD-2")
+        gap = _dd(db_session, engagement, key="DD-3", status=sr_rules.DD_STATUS_NO)
+        client = api.as_user(advisor)
+
+        ids = [self._post(client, engagement, target, name).json()["id"] for name in ("a.pdf", "b.pdf")]
+
+        linked = db_session.query(Media).filter(Media.id.in_(ids)).all()
+        assert len(linked) == 2 and {m.dd_item_id for m in linked} == {target.id}
+        for row in (target, blank, gap):
+            db_session.refresh(row)
+        assert (target.status, blank.status, gap.status) == (
+            sr_rules.DD_STATUS_IN_PROGRESS, None, sr_rules.DD_STATUS_NO)
+
+    def test_refiling_in_drive_changes_no_status_in_either_folder(
+        self, db_session, fake_drive, engagement, advisor
+    ):
+        origin = _dd(db_session, engagement, key="DD-1")
+        dest_blank = _dd(db_session, engagement, sub="3.2", sub_name="Management Accounts", key="DD-2")
+        dest_gap = _dd(db_session, engagement, sub="3.2", sub_name="Management Accounts", key="DD-3",
+                       status=sr_rules.DD_STATUS_NO)
+        media = _upload(db_session, engagement, advisor)
+        db_session.add(EngagementDriveFolder(engagement_id=engagement.id, category_code="3",
+                                             sub_item_code="3.2", drive_folder_id="folder-3-2"))
+        db_session.flush()
+
+        sync = get_drive_sync_service(db_session)
+        result = type("R", (), {"added": 0, "renamed": 0, "moved": 0, "deleted": 0, "skipped": 0})()
+        sync._apply(TestSync()._change(media.drive_file_id, "statements.pdf", "folder-3-2",
+                                       modified="2030-01-01T00:00:00.000Z"), result)
+        db_session.flush()
+
+        db_session.refresh(media)
+        assert media.dd_sub_item_code == "3.2" and media.dd_item_id is None
+        for row in (origin, dest_blank, dest_gap):
+            db_session.refresh(row)
+        assert (origin.status, dest_blank.status, dest_gap.status) == (None, None, sr_rules.DD_STATUS_NO)
+
+    def test_folder_level_files_cannot_satisfy_the_completion_gate(
+        self, db_session, fake_drive, engagement, advisor
+    ):
+        """
+        A file in every sub-folder of a stage gives none of its DD items a
+        status, so "every DD item has a status" still blocks completion.
+        """
+        from app.models.sale_ready import ProgramStage
+        from app.models.task import Task
+        from app.services.sale_ready_service import get_sale_ready_service
+
+        if db_session.query(ProgramStage).filter_by(program_type="sale_ready").count() != 15:
+            pytest.skip("Sale Ready templates are not seeded")
+        service = get_sale_ready_service(db_session)
+        service.ensure_initialized(engagement)
+        service.start_stage(engagement, "M1", advisor)
+        for task in db_session.query(Task).filter(
+            Task.engagement_id == engagement.id, Task.module_reference == "M1", Task.section == "must_do",
+        ):
+            task.status = "completed"
+        db_session.flush()
+
+        m1 = db_session.query(EngagementDDItem).filter_by(engagement_id=engagement.id, stage_code="M1").all()
+        for cat, sub in sorted({(i.category_code, i.sub_item_code) for i in m1}):
+            _upload(db_session, engagement, advisor, name=f"{sub}.pdf", cat=cat, sub=sub)
+
+        with pytest.raises(ValueError, match="DD item"):
+            service.complete_stage(engagement, "M1", advisor)
+
+        # Once the advisor has given each item a status, the gate opens.
+        for item in m1:
+            service.update_dd_item(engagement, item.id, {"status": "not_applicable"}, advisor)
+        service.complete_stage(engagement, "M1", advisor)
 
     def test_the_files_list_names_the_linked_item(self, api, db_session, fake_drive, engagement, advisor):
         item = _dd(db_session, engagement)

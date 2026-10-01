@@ -14,8 +14,9 @@ persisted by accident.
 
 Two rules from the brief are enforced here rather than left to callers:
 
-  - uploading a file to a DD item moves that item to In progress, unless it
-    is already answered. An advisor still has to check it and mark it Yes;
+  - uploading a file to a DD item moves that item, and only that item, to
+    In progress unless it is already answered. An advisor still has to check
+    it and mark it Yes. A file not linked to an item changes no status;
   - a delete is a soft delete on both sides - trashed in Drive, deleted_at
     in Trinity - because buyer_access_log rows point at these documents and
     a hard delete would destroy the record of what a buyer was shown.
@@ -219,9 +220,8 @@ class DataRoomService:
         self.db.add(media)
         if dd_item is not None:
             # Uploaded to one DD item: only that item moves, not its folder siblings.
+            # A folder-level file names no item, so it changes no status.
             self.promote_dd_item(dd_item, user)
-        else:
-            self.promote_dd_items(engagement.id, category_code, sub_item_code, user)
         self.db.commit()
         self.db.refresh(media)
         logger.info("Data room upload %s -> engagement %s %s/%s",
@@ -242,31 +242,6 @@ class DataRoomService:
     # ------------------------------------------------------------------
     # DD status
     # ------------------------------------------------------------------
-    def promote_dd_items(self, engagement_id: UUID, category_code: str, sub_item_code: str,
-                         user: Optional[User]) -> int:
-        """
-        Move this folder's DD items to In progress, per the brief.
-
-        Only from "no status" or "No". A Yes or Not applicable was decided by
-        an advisor and a file arriving does not reopen it. Applies however the
-        file arrived - uploaded here or dropped straight into Drive - because
-        the brief describes the item, not the channel.
-        """
-        items = self.db.query(EngagementDDItem).filter(
-            EngagementDDItem.engagement_id == engagement_id,
-            EngagementDDItem.category_code == category_code,
-            EngagementDDItem.sub_item_code == sub_item_code,
-        ).all()
-        changed = 0
-        for item in items:
-            if item.status in _PROMOTABLE:
-                item.status = rules.DD_STATUS_IN_PROGRESS
-                item.status_changed_at = datetime.utcnow()
-                if user is not None:
-                    item.status_changed_by_user_id = user.id
-                changed += 1
-        return changed
-
     def promote_dd_item(self, item: EngagementDDItem, user: Optional[User]) -> bool:
         """Move one DD item to In progress, from no status or No only. Yes and N/A are kept."""
         if item.status not in _PROMOTABLE:

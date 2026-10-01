@@ -70,11 +70,10 @@ function formatSize(bytes: number | null): string {
  * behind the "Buyer access" button, collapsed until asked for. Owners can see
  * this tab, so both are gated on readOnly.
  *
- * Drive links, as in the mockup: "Open folder in Drive" in the header and an
- * arrow on each file. Both go to an advisor or an owner. Trinity remains the
- * working interface - listing, uploading and downloading all happen here -
- * and no buyer ever receives a Drive link: their schemas have no field for
- * one and their router cannot reach the endpoints that carry it.
+ * Drive links ("Open folder in Drive" and an arrow per file) are for advisors
+ * only. Owners upload and download through Trinity and never see Drive; the
+ * server sends them no links. No buyer ever receives a Drive link: their
+ * schemas have no field for one and their router cannot reach these endpoints.
  */
 export function FilesView({ items, engagementId, readOnly = false }: FilesViewProps) {
   const dispatch = useAppDispatch();
@@ -263,17 +262,19 @@ export function FilesView({ items, engagementId, readOnly = false }: FilesViewPr
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" asChild={!!openInDriveHref} disabled={!openInDriveHref}>
-            {openInDriveHref ? (
-              <a href={openInDriveHref} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Open folder in Drive
-              </a>
-            ) : (
-              <span>
-                <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Open folder in Drive
-              </span>
-            )}
-          </Button>
+          {!readOnly && (
+            <Button variant="outline" size="sm" asChild={!!openInDriveHref} disabled={!openInDriveHref}>
+              {openInDriveHref ? (
+                <a href={openInDriveHref} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Open folder in Drive
+                </a>
+              ) : (
+                <span>
+                  <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Open folder in Drive
+                </span>
+              )}
+            </Button>
+          )}
           {!readOnly && (
             <Button
               variant="outline"
@@ -285,8 +286,8 @@ export function FilesView({ items, engagementId, readOnly = false }: FilesViewPr
               Buyer access{liveBuyers.length ? ` (${liveBuyers.length})` : ''}
             </Button>
           )}
-          {!readOnly && (
-            <>
+          {/* Advisors and owners (sellers) both upload, each file to one DD item. */}
+          <>
               <input
                 ref={fileInput}
                 type="file"
@@ -318,8 +319,7 @@ export function FilesView({ items, engagementId, readOnly = false }: FilesViewPr
                 <Upload className="mr-1.5 h-3.5 w-3.5" />
                 {isUploading ? 'Uploading…' : 'Upload'}
               </Button>
-            </>
-          )}
+          </>
         </div>
       </div>
 
@@ -440,7 +440,7 @@ export function FilesView({ items, engagementId, readOnly = false }: FilesViewPr
                         {file.dd_item_document ?? 'folder only'}
                       </span>
                     </span>
-                    {file.drive_web_link && (
+                    {!readOnly && file.drive_web_link && (
                       <a
                         href={file.drive_web_link}
                         target="_blank"

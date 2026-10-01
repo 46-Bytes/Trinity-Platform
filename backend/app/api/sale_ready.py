@@ -358,9 +358,11 @@ def _dd_labels(db: Session, files) -> dict:
     return {i.id: i.document_required for i in db.query(EngagementDDItem).filter(EngagementDDItem.id.in_(ids))}
 
 
-def _file_view(media: Media, names: dict, dd_labels: Optional[dict] = None) -> dict:
+def _file_view(media: Media, names: dict, dd_labels: Optional[dict] = None,
+               include_drive_link: bool = True) -> dict:
     """
-    A file as an advisor or owner sees it. The Drive link, never the Drive id.
+    A file as an advisor or owner sees it. Never the Drive id; the Drive link
+    for advisors only (owners reach files through Trinity).
 
     Every caller is on this router, so deny_buyers already rules a buyer out;
     the buyer's own document schema has no field for a link either way.
@@ -377,7 +379,7 @@ def _file_view(media: Media, names: dict, dd_labels: Optional[dict] = None) -> d
         "created_at": media.created_at,
         "dd_item_id": media.dd_item_id,
         "dd_item_document": (dd_labels or {}).get(media.dd_item_id),
-        "drive_web_link": media.drive_web_link,
+        "drive_web_link": media.drive_web_link if include_drive_link else None,
     }
 
 
@@ -398,14 +400,14 @@ async def get_data_room(
     Every DD folder, whether it is released to buyers, and what is filed in it.
 
     Readable by the owner as well as advisors, because the brief gives them
-    Files. Both receive the Drive links for the folders, so they can open one
-    in Drive when they want to; Trinity stays the primary interface and
-    neither role authenticates into Drive to use Trinity.
+    Files. Only advisors receive Drive links; owners never get direct Drive
+    access and download through Trinity instead.
 
     Buyers cannot reach this endpoint at all - deny_buyers on the router, and
     check_engagement_access below - and their own schemas carry no link.
     """
     engagement = _engagement(engagement_id, db, current_user, require_advisor=False)
+    is_advisor = check_engagement_access(engagement, current_user, require_advisor=True, db=db)
     data_room = get_data_room_service(db)
     buyers = get_buyer_service(db)
     drive_folders = get_drive_folder_service(db)
@@ -424,7 +426,7 @@ async def get_data_room(
     }
     # Only folders Trinity has actually created in Drive have a link; the rest
     # are created on first upload, so their link is simply not there yet.
-    links = drive_folders.mapped_web_links(engagement.id)
+    links = drive_folders.mapped_web_links(engagement.id) if is_advisor else {}
     folders = [
         {
             "category_code": key[0],
@@ -446,7 +448,7 @@ async def get_data_room(
             "The Google Drive data room is not connected yet, so uploads are unavailable.",
         },
         "folders": folders,
-        "files": [_file_view(f, names, _dd_labels(db, files)) for f in files],
+        "files": [_file_view(f, names, _dd_labels(db, files), include_drive_link=is_advisor) for f in files],
         "data_room_web_link": links.get((None, None)),
     }
 
@@ -497,8 +499,12 @@ async def upload_dd_item_file(
     """
     Upload a document to one DD item. It goes into that item's sub-item folder
     in Drive, is linked to the item, and moves only that item to In progress.
+
+    Open to the engagement's advisors and to its owner: sellers upload their
+    own documents (23 Sep meeting). Buyers never reach this router.
     """
-    engagement = _engagement(engagement_id, db, current_user, require_advisor=True)
+    engagement = _engagement(engagement_id, db, current_user, require_advisor=False)
+    is_advisor = check_engagement_access(engagement, current_user, require_advisor=True, db=db)
     service = get_data_room_service(db)
     item = service.get_dd_item(engagement.id, item_id)
     if item is None:
@@ -517,7 +523,8 @@ async def upload_dd_item_file(
                             detail="This engagement's Drive folder is shared with another engagement.")
     except DriveUnavailable as e:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
-    return _file_view(media, _uploader_names(db, [media]), {item.id: item.document_required})
+    return _file_view(media, _uploader_names(db, [media]), {item.id: item.document_required},
+                      include_drive_link=is_advisor)
 
 
 @router.get("/engagements/{engagement_id}/data-room/files/{media_id}/download")

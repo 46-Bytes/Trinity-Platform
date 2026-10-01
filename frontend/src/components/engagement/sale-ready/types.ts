@@ -93,7 +93,7 @@ export interface DDItemFile {
   created_at: string | null;
 }
 
-/** Upload and download for DD rows. Upload is present for advisors only. */
+/** Upload and download for DD rows. Advisors and owners both upload. */
 export interface DDFileActions {
   onUpload?: (item: DDItem, file: File) => void;
   /** Why uploads are unavailable (Drive not connected), or null. */

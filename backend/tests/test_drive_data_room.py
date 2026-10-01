@@ -723,27 +723,32 @@ class TestDriveLinks:
         assert row["drive_web_link"] == media.drive_web_link
         assert row["drive_web_link"].startswith("https://")
 
-    def test_the_data_room_gives_the_owner_the_same_link(
+    def test_the_owner_gets_no_drive_links(
         self, api, db_session, fake_drive, engagement, advisor
     ):
         """
-        The owner opens files in Drive too, not only folders.
-
-        Their own documents: the brief gives them Files, and the mockup shows
-        the same arrow. Read-only is enforced elsewhere - this is a link.
+        Clients never get direct Drive access: no file, folder
+        or data room link reaches the owner. They download through Trinity.
         """
         _dd(db_session, engagement)
         media = _upload(db_session, engagement, advisor)
         owner = self._owner(db_session, engagement)
+        base = f"/api/sale-ready/engagements/{engagement.id}/data-room"
 
-        resp = api.as_user(owner).get(
-            f"/api/sale-ready/engagements/{engagement.id}/data-room")
+        resp = api.as_user(owner).get(base)
         assert resp.status_code == 200, resp.text
         body = resp.json()
-        row = next(f for f in body["files"] if f["id"] == str(media.id))
-        assert row["drive_web_link"] == media.drive_web_link
-        # And the folder link the owner already had, unchanged.
-        assert body["data_room_web_link"]
+        assert body["data_room_web_link"] is None
+        assert all(f["drive_web_link"] is None for f in body["files"])
+        assert all(f["drive_web_link"] is None for f in body["folders"])
+        assert media.drive_web_link not in resp.text and "https://drive" not in resp.text
+        assert [f["id"] for f in body["files"]] == [str(media.id)]
+        assert api.as_user(owner).get(f"{base}/files/{media.id}/download").status_code == 200
+
+        # The advisor still gets them.
+        advisor_body = api.as_user(advisor).get(base).json()
+        assert advisor_body["data_room_web_link"]
+        assert next(f for f in advisor_body["files"] if f["id"] == str(media.id))["drive_web_link"]
 
     def test_a_file_not_yet_in_drive_simply_has_no_link(
         self, api, db_session, fake_drive, engagement, advisor
@@ -2405,13 +2410,37 @@ class TestDDItemUpload:
         assert resp.status_code == 404
         assert fake_drive.files == {}
 
-    def test_owners_and_buyers_cannot_upload(self, api, db_session, fake_drive, engagement, make_user):
+    def test_the_owner_can_upload_to_a_dd_item(self, api, db_session, fake_drive, engagement):
+        """Sellers upload their own documents (23 Sep meeting), under the same F7 rule."""
         from app.models.user import User
 
-        item = _dd(db_session, engagement)
+        target = _dd(db_session, engagement, key="DD-1")
+        sibling = _dd(db_session, engagement, key="DD-2", status=sr_rules.DD_STATUS_NO)
         owner = db_session.query(User).filter(User.id == engagement.client_ids[0]).one()
-        assert self._post(api.as_user(owner), engagement, item).status_code == 403
+
+        resp = self._post(api.as_user(owner), engagement, target, "seller-doc.pdf")
+
+        assert resp.status_code == 201, resp.text
+        body = resp.json()
+        assert body["dd_item_id"] == str(target.id)
+        assert body["drive_web_link"] is None  # never a Drive link for the owner
+        media = db_session.query(Media).filter(Media.id == body["id"]).one()
+        assert media.user_id == owner.id and media.dd_item_id == target.id
+        db_session.refresh(target)
+        db_session.refresh(sibling)
+        assert (target.status, sibling.status) == (sr_rules.DD_STATUS_IN_PROGRESS, sr_rules.DD_STATUS_NO)
+
+    def test_buyers_cannot_upload(self, api, db_session, fake_drive, engagement, make_user):
+        item = _dd(db_session, engagement)
         assert self._post(api.as_user(make_user(UserRole.BUYER)), engagement, item).status_code == 403
+        assert fake_drive.files == {}
+
+    def test_an_owner_of_another_engagement_cannot_upload(
+        self, api, db_session, fake_drive, engagement, make_user
+    ):
+        item = _dd(db_session, engagement)
+        stranger = make_user(UserRole.CLIENT)
+        assert self._post(api.as_user(stranger), engagement, item).status_code == 403
         assert fake_drive.files == {}
 
     def test_items_list_only_their_own_files_and_no_drive_fields(

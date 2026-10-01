@@ -48,7 +48,7 @@ interface DDItemRowProps {
   showStage?: boolean;
   onOpenStage?: (stageCode: string) => void;
   onChange: (changes: DDItemUpdate) => void;
-  /** Upload (advisors) and download of the files linked to this item. */
+  /** Upload (advisors and owners) and download of the files linked to this item. */
   fileActions?: DDFileActions;
 }
 
@@ -58,7 +58,8 @@ export function DDItemRow({
 }: DDItemRowProps) {
   const [notes, setNotes] = useState(item.notes ?? '');
   const fileInput = useRef<HTMLInputElement>(null);
-  const canUpload = !readOnly && !!fileActions?.onUpload;
+  // Owners upload too (status stays read-only for them); the caller decides via onUpload.
+  const canUpload = !!fileActions?.onUpload;
   const uploadBlocked = fileActions?.uploadDisabledReason || (fileActions?.isUploading ? 'Uploading…' : null);
   useEffect(() => setNotes(item.notes ?? ''), [item.notes]);
 
@@ -188,7 +189,7 @@ export function DDItemRow({
               </>
             )
           ) : (
-            // Owners read the files; only advisors upload. Keeps the column aligned.
+            // No upload action supplied. Keeps the column aligned.
             <span className="hidden h-9 w-9 md:block" aria-hidden />
           )}
           <button

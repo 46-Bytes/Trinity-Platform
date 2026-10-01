@@ -170,27 +170,24 @@ export function SaleReadyTab({ engagementId, readOnly = false, onEngagementStatu
   const dataRoomLoaded = dataRoom.loadedFor === engagementId;
   const fileCount = dataRoomLoaded ? dataRoom.files.length : roadmap.data_room_file_count;
 
+  // Advisors and owners (sellers) both upload to a DD item; owners cannot change statuses.
   const fileActions: DDFileActions = {
     onDownload: (f) => downloadDataRoomFile(engagementId, f.id, f.file_name).catch(fail('Failed to download the file')),
-    ...(readOnly
-      ? {}
-      : {
-          isUploading: dataRoom.isUploading,
-          uploadDisabledReason:
-            dataRoomLoaded && dataRoom.status && !dataRoom.status.connected
-              ? dataRoom.status.message ?? 'Google Drive is not connected'
-              : null,
-          onUpload: (item: DDItem, file: File) =>
-            dispatch(uploadDDItemFile({ engagementId, itemId: item.id, file }))
-              .unwrap()
-              .then(() => {
-                toast.success(`${file.name} uploaded`);
-                // The item's status, file list and the stage's counts all changed.
-                dispatch(fetchDDChecklist(engagementId));
-                if (openStage) dispatch(fetchStageDetail({ engagementId, stageCode: openStage }));
-              })
-              .catch(fail('Failed to upload the file')),
-        }),
+    isUploading: dataRoom.isUploading,
+    uploadDisabledReason:
+      dataRoomLoaded && dataRoom.status && !dataRoom.status.connected
+        ? dataRoom.status.message ?? 'Google Drive is not connected'
+        : null,
+    onUpload: (item: DDItem, file: File) =>
+      dispatch(uploadDDItemFile({ engagementId, itemId: item.id, file }))
+        .unwrap()
+        .then(() => {
+          toast.success(`${file.name} uploaded`);
+          // The item's status, file list and the stage's counts all changed.
+          dispatch(fetchDDChecklist(engagementId));
+          if (openStage) dispatch(fetchStageDetail({ engagementId, stageCode: openStage }));
+        })
+        .catch(fail('Failed to upload the file')),
   };
   const stageArg = openStage ? { engagementId, stageCode: openStage } : null;
 
